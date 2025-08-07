@@ -374,6 +374,21 @@ const SecurityInsightsTab = ({
     );
   };
 
+  // NEW: Render document number cell
+  const renderDocumentNoCell = (record) => {
+    // If has document_no, show it directly (non-manual entry)
+    if (record.document_no && record.document_no.trim()) {
+      return (
+        <Text style={[styles.tableCell, styles.assignedDocumentText]}>
+          {record.document_no}
+        </Text>
+      );
+    }
+    
+    // Otherwise, show assignment functionality (manual entry)
+    return renderDocumentAssignmentCell(record);
+  };
+
   // Render operational data cell
   const renderOperationalCell = (record, field) => {
     const value = record[field];
@@ -529,8 +544,7 @@ const SecurityInsightsTab = ({
               <Text style={[styles.tableHeaderCell, styles.colMovement]}>Movement</Text>
               <Text style={[styles.tableHeaderCell, styles.colDate]}>Date</Text>
               <Text style={[styles.tableHeaderCell, styles.colTime]}>Time</Text>
-              
-              {/* NEW: Document Assignment Column */}
+              <Text style={[styles.tableHeaderCell, styles.colDocumentType]}>Document Type</Text>
               <Text style={[styles.tableHeaderCell, styles.colDocumentNo]}>Document No</Text>
               
               {/* Operational Data Columns */}
@@ -577,10 +591,15 @@ const SecurityInsightsTab = ({
                       {formatDateToDDMMYYYY(new Date(movement.date))}
                     </Text>
                     <Text style={[styles.tableCell, styles.colTime]}>{movement.time}</Text>
-                    
-                    {/* NEW: Document Assignment Cell */}
+
+                    {/* NEW: Document Type Cell */}
+                    <Text style={[styles.tableCell, styles.colDocumentType]}>
+                      {movement.document_type || '--'}
+                    </Text>
+
+                    {/* UPDATED: Document No Cell */}
                     <View style={[styles.tableCell, styles.colDocumentNo]}>
-                      {renderDocumentAssignmentCell(movement)}
+                      {renderDocumentNoCell(movement)}
                     </View>
                     
                     {/* Operational Data Cells */}

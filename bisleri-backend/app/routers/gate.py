@@ -269,9 +269,10 @@ def create_enhanced_batch_gate_entry(
             # No documents - create single insights entry for empty vehicle
             insight_record = InsightsData(
                 gate_entry_no=gate_entry_no,
-                document_type="Empty Vehicle",
-                sub_document_type="No Documents",
-                vehicle_no=vehicle_no,
+                document_type=document.document_type or "",
+                sub_document_type=document.sub_document_type or "",
+                document_no=document.document_no,  # NEW FIELD
+                vehicle_no=document.vehicle_no or vehicle_no,           
                 warehouse_name=getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}"),
                 date=now.date(),
                 time=now.time(),

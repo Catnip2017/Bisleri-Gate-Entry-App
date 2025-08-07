@@ -72,6 +72,8 @@ def get_enhanced_filtered_movements(
                 "id": movement.id,
                 "gate_entry_no": movement.gate_entry_no,
                 "document_type": movement.document_type,
+                "sub_document_type": movement.sub_document_type,
+                "document_no": movement.document_no,  # NEW FIELD
                 "vehicle_no": movement.vehicle_no,
                 "date": movement.date.isoformat() if movement.date else None,
                 "time": movement.time.isoformat() if movement.time else None,

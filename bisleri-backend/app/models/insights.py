@@ -8,6 +8,7 @@ class InsightsData(Base):
     gate_entry_no = Column(String(50))
     document_type = Column(String(50))
     sub_document_type = Column(String(50))
+    document_no = Column(String(100))
     vehicle_no = Column(String(50))
     warehouse_name = Column(String(100))
     date = Column(DateTime)

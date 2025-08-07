@@ -232,7 +232,8 @@ const styles = StyleSheet.create({
   // ✅ Column Widths including new document assignment columns
   colGateEntry: { width: 150 },
   colVehicle: { width: 120 },
-  colDocType: { width: 100 },
+  colDocumentType: { width: 140 },  
+  colDocumentNo: { width: 160 }, 
   colDate: { width: 100 },
   colTime: { width: 80 },
   colMovement: { width: 90 },
