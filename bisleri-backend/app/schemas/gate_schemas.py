@@ -28,8 +28,8 @@ class InsightsFilter(BaseModel):
 # Enhanced schemas for operational data capture
 class EnhancedGateEntryCreate(BaseModel):
     gate_type: str = "Gate-In"
-    vehicle_no: str  # Mandatory
-    document_nos: List[str] = []  # For batch entry
+    vehicle_no: str  
+    document_nos: List[str] = []  
     remarks: Optional[str] = None
     
     # NEW: Optional operational data that can be captured during gate entry
