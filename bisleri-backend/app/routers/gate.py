@@ -152,8 +152,18 @@ def create_enhanced_batch_gate_entry(
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
         ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-        
-        if last_entry:
+
+        # ✅ NEW: Handle first-time vehicle (no history)
+        if not last_entry:
+            # First-time vehicle - only Gate-In allowed
+            if entry.gate_type == "Gate-Out":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
+                )
+            # Gate-In is allowed for first-time vehicles - no validation needed
+        else:
+            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
             if last_entry.movement_type == entry.gate_type:
                 if entry.gate_type == "Gate-In":
                     raise HTTPException(
@@ -165,7 +175,7 @@ def create_enhanced_batch_gate_entry(
                         status_code=400,
                         detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
-        
+                
         # Generate gate entry number
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         
@@ -357,8 +367,18 @@ def create_batch_gate_entry(
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
         ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-        
-        if last_entry:
+
+        # ✅ NEW: Handle first-time vehicle (no history)
+        if not last_entry:
+            # First-time vehicle - only Gate-In allowed
+            if entry.gate_type == "Gate-Out":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
+                )
+            # Gate-In is allowed for first-time vehicles - no validation needed
+        else:
+            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
             if last_entry.movement_type == entry.gate_type:
                 if entry.gate_type == "Gate-In":
                     raise HTTPException(
@@ -496,18 +516,28 @@ def create_enhanced_manual_gate_entry(
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
         ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-        
-        if last_entry:
+
+        # ✅ NEW: Handle first-time vehicle (no history)
+        if not last_entry:
+            # First-time vehicle - only Gate-In allowed
+            if entry.gate_type == "Gate-Out":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
+                )
+            # Gate-In is allowed for first-time vehicles - no validation needed
+        else:
+            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
             if last_entry.movement_type == entry.gate_type:
                 if entry.gate_type == "Gate-In":
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-In. Must do Gate-Out first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-In on {last_entry.date}. Must do Gate-Out first."
                     )
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-Out. Must do Gate-In first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
         
         # Generate gate entry number
@@ -605,18 +635,28 @@ def create_manual_gate_entry(
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
         ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-        
-        if last_entry:
+
+        # ✅ NEW: Handle first-time vehicle (no history)
+        if not last_entry:
+            # First-time vehicle - only Gate-In allowed
+            if entry.gate_type == "Gate-Out":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
+                )
+            # Gate-In is allowed for first-time vehicles - no validation needed
+        else:
+            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
             if last_entry.movement_type == entry.gate_type:
                 if entry.gate_type == "Gate-In":
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-In. Must do Gate-Out first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-In on {last_entry.date}. Must do Gate-Out first."
                     )
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-Out. Must do Gate-In first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
         
         # RAW SQL: Generate gate entry number using fresh database data
@@ -700,18 +740,28 @@ def create_multi_document_manual_entry(
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
         ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-        
-        if last_entry:
+
+        # ✅ NEW: Handle first-time vehicle (no history)
+        if not last_entry:
+            # First-time vehicle - only Gate-In allowed
+            if entry.gate_type == "Gate-Out":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
+                )
+            # Gate-In is allowed for first-time vehicles - no validation needed
+        else:
+            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
             if last_entry.movement_type == entry.gate_type:
                 if entry.gate_type == "Gate-In":
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-In. Must do Gate-Out first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-In on {last_entry.date}. Must do Gate-Out first."
                     )
                 else:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-Out. Must do Gate-In first."
+                        detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
         
         # Generate gate entry number (same for all entries)

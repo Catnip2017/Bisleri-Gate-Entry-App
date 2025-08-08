@@ -17,7 +17,7 @@
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.6",
     "axios": "^1.10.0",
-    "expo": "^53.0.18",
+    "expo": "^53.0.20",
     "expo-blur": "~14.1.5",
     "expo-checkbox": "~4.1.4",
     "expo-constants": "^17.1.7",
@@ -51,6 +51,5 @@
     "eslint-config-expo": "~9.2.0",
     "typescript": "~5.8.3"
   },
-
   "private": true
 }
