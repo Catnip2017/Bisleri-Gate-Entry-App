@@ -1,4 +1,4 @@
-// app/security/styles/ManualEntryFormStyles.js - ENHANCED WITH MULTI-DOCUMENT SUPPORT
+// app/security/styles/ManualEntryFormStyles.js - ENHANCED WITH EMPTY VEHICLE STYLING
 import { StyleSheet } from 'react-native';
 
 const styles = StyleSheet.create({
@@ -447,6 +447,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
 
+  // ✅ NEW: Empty vehicle button styling
+  emptyVehicleButton: {
+    backgroundColor: '#ff8c00',  // Orange color for empty vehicles
+    borderWidth: 2,
+    borderColor: '#ff6347',
+    elevation: 4,
+    shadowColor: '#ff8c00',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+
   enhancedButtonText: {
     fontSize: 15,
     fontWeight: 'bold',
@@ -473,6 +485,57 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 4,
+  },
+
+  // ✅ NEW: Empty vehicle specific styling
+  emptyVehicleContainer: {
+    backgroundColor: '#fff8e1',  // Light amber background
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#ffcc02',
+    borderLeftWidth: 4,
+    borderLeftColor: '#ff8c00',
+  },
+
+  emptyVehicleTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#e65100',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+
+  emptyVehicleDescription: {
+    fontSize: 13,
+    color: '#bf360c',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  // ✅ NEW: Conditional styling based on document count
+  conditionalHintText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginTop: 6,
+    lineHeight: 18,
+    padding: 8,
+    borderRadius: 4,
+  },
+
+  emptyVehicleHint: {
+    backgroundColor: '#fff8e1',
+    color: '#e65100',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ff8c00',
+  },
+
+  manualEntryHint: {
+    backgroundColor: '#e3f2fd',
+    color: '#1565c0',
+    borderLeftWidth: 3,
+    borderLeftColor: '#007bff',
   },
 });
 

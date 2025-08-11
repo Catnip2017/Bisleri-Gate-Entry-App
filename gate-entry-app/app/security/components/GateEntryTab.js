@@ -598,7 +598,8 @@ const GateEntryTab = ({
             styles.manualButton,
             (isSubmitting || isSearching) && styles.buttonDisabled
           ]} 
-          onPress={() => router.push('/security/manual-entry')}
+          onPress={() => router.push(`/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}`)}
+
           disabled={isSubmitting || isSearching}
         >
           <Text style={styles.buttonText}>Manual Entry</Text>

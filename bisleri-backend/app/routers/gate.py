@@ -721,123 +721,6 @@ def create_manual_gate_entry(
             detail=f"Database error: {str(e)}"
         )
 
-# NEW: Multi-document manual entry endpoint
-@router.post("/multi-document-manual-entry")
-def create_multi_document_manual_entry(
-    entry: MultiDocumentManualEntryCreate,
-    db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
-):
-    """Create multiple manual gate entries with same gate entry number"""
-    
-    try:
-        if not entry.vehicle_no.strip():
-            raise HTTPException(status_code=400, detail="Vehicle number is required")
-        
-        vehicle_no = entry.vehicle_no.strip().upper()
-        
-        # Check GATE IN/OUT SEQUENCE VALIDATION
-        last_entry = db.query(InsightsData).filter(
-            InsightsData.vehicle_no == vehicle_no
-        ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
-
-        # ✅ NEW: Handle first-time vehicle (no history)
-        if not last_entry:
-            # First-time vehicle - only Gate-In allowed
-            if entry.gate_type == "Gate-Out":
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"First entry for vehicle {vehicle_no} must be Gate-In. Cannot do Gate-Out without prior Gate-In."
-                )
-            # Gate-In is allowed for first-time vehicles - no validation needed
-        else:
-            # ✅ EXISTING: Vehicle has history - apply alternating sequence validation
-            if last_entry.movement_type == entry.gate_type:
-                if entry.gate_type == "Gate-In":
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-In on {last_entry.date}. Must do Gate-Out first."
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
-                    )
-        
-        # Generate gate entry number (same for all entries)
-        gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
-        
-        if not gate_entry_no:
-            user_details = fetch_user_details(current_user.username)
-            if user_details and user_details.get('warehouse_code'):
-                from app.utils.helpers import generate_gate_entry_number
-                gate_entry_no = generate_gate_entry_number(user_details['warehouse_code'])
-            
-            if not gate_entry_no:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to generate gate entry number. Please check user warehouse assignment."
-                )
-        
-        now = datetime.now()
-        warehouse_name = getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}")
-        
-        # CREATE multiple insights_data entries
-        created_entries = []
-        for i in range(entry.no_of_documents):
-            insight_record = InsightsData(
-                gate_entry_no=gate_entry_no,
-                document_type="Manual Entry - Pending Assignment",  # Clear status
-                sub_document_type="Manual Entry",
-                vehicle_no=vehicle_no,
-                warehouse_name=warehouse_name,
-                date=now.date(),
-                time=now.time(),
-                movement_type=entry.gate_type,
-                remarks=entry.remarks or f"Manual {entry.gate_type} for {vehicle_no} - Document {i+1} of {entry.no_of_documents}",
-                warehouse_code=current_user.warehouse_code,
-                site_code=current_user.site_code,
-                security_name=f"{current_user.first_name} {current_user.last_name}",
-                security_username=current_user.username,
-                document_date=now,  # Gate entry date, not document date
-                edit_count=0,
-                # Mark as unassigned
-                driver_name=None,
-                km_reading=None,
-                loader_names=None
-            )
-            
-            db.add(insight_record)
-            created_entries.append({
-                "sequence": i + 1,
-                "gate_entry_no": gate_entry_no,
-                "vehicle_no": vehicle_no,
-                "status": "pending_assignment"
-            })
-        
-        db.commit()
-        
-        return {
-            "message": f"Successfully created {entry.no_of_documents} manual entries",
-            "gate_entry_no": gate_entry_no,
-            "vehicle_no": vehicle_no,
-            "entries_created": entry.no_of_documents,
-            "movement_type": entry.gate_type,
-            "date": now.isoformat(),
-            "created_entries": created_entries,
-            "next_step": "Assign documents from insights tab when available"
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        print(f"Multi-document manual entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
-
 # NEW: Get unassigned documents for vehicle
 @router.get("/unassigned-documents/{vehicle_no}")
 def get_unassigned_documents_for_vehicle(
@@ -1196,3 +1079,159 @@ def get_operational_data_summary(
     except Exception as e:
         print(f"Error getting operational summary: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Summary error: {str(e)}")
+
+# Updated Multi-Document Manual Entry Endpoint - gate.py
+# ✅ UPDATED: Multi-document manual entry endpoint with Empty Vehicle Support
+
+@router.post("/multi-document-manual-entry")
+def create_multi_document_manual_entry(
+    entry: MultiDocumentManualEntryCreate,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user)
+):
+    """Create multiple manual gate entries with same gate entry number OR single empty vehicle entry"""
+    
+    try:
+        if not entry.vehicle_no.strip():
+            raise HTTPException(status_code=400, detail="Vehicle number is required")
+        
+        vehicle_no = entry.vehicle_no.strip().upper()
+        
+        # Check GATE IN/OUT SEQUENCE VALIDATION
+        last_entry = db.query(InsightsData).filter(
+            InsightsData.vehicle_no == vehicle_no
+        ).order_by(InsightsData.date.desc(), InsightsData.time.desc()).first()
+        
+        if last_entry:
+            if last_entry.movement_type == entry.gate_type:
+                if entry.gate_type == "Gate-In":
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Vehicle {vehicle_no} already has Gate-In. Must do Gate-Out first."
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Vehicle {vehicle_no} already has Gate-Out. Must do Gate-In first."
+                    )
+        
+        # Generate gate entry number (same for all entries)
+        gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
+        
+        if not gate_entry_no:
+            user_details = fetch_user_details(current_user.username)
+            if user_details and user_details.get('warehouse_code'):
+                from app.utils.helpers import generate_gate_entry_number
+                gate_entry_no = generate_gate_entry_number(user_details['warehouse_code'])
+            
+            if not gate_entry_no:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to generate gate entry number. Please check user warehouse assignment."
+                )
+        
+        now = datetime.now()
+        warehouse_name = getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}")
+        
+        # ✅ NEW: Handle Empty Vehicle Scenario (no_of_documents = 0)
+        if entry.no_of_documents == 0:
+            # Create SINGLE entry with "EMPTY VEHICLE" document type
+            insight_record = InsightsData(
+                gate_entry_no=gate_entry_no,
+                document_type="EMPTY VEHICLE",  # ✅ NEW: Special document type for empty vehicles
+                sub_document_type="Empty Vehicle",
+                vehicle_no=vehicle_no,
+                warehouse_name=warehouse_name,
+                date=now.date(),
+                time=now.time(),
+                movement_type=entry.gate_type,
+                remarks=entry.remarks or f"Empty vehicle {entry.gate_type} for {vehicle_no}",
+                warehouse_code=current_user.warehouse_code,
+                site_code=current_user.site_code,
+                security_name=f"{current_user.first_name} {current_user.last_name}",
+                security_username=current_user.username,
+                document_date=now,  # Use gate entry date
+                edit_count=0,
+                # Empty vehicles don't need document assignment
+                driver_name=None,
+                km_reading=None,
+                loader_names=None
+            )
+            
+            db.add(insight_record)
+            created_entries = [{
+                "sequence": 1,
+                "gate_entry_no": gate_entry_no,
+                "vehicle_no": vehicle_no,
+                "document_type": "EMPTY VEHICLE",
+                "status": "complete"  # Empty vehicle entries are complete by default
+            }]
+            
+            entries_created = 1
+            next_step = "Empty vehicle recorded - no further action needed"
+            entry_type = "empty_vehicle"
+            
+        else:
+            # ✅ EXISTING: CREATE multiple insights_data entries for manual documents
+            created_entries = []
+            for i in range(entry.no_of_documents):
+                insight_record = InsightsData(
+                    gate_entry_no=gate_entry_no,
+                    document_type="Manual Entry - Pending Assignment",  # Clear status for manual entries
+                    sub_document_type="Manual Entry",
+                    vehicle_no=vehicle_no,
+                    warehouse_name=warehouse_name,
+                    date=now.date(),
+                    time=now.time(),
+                    movement_type=entry.gate_type,
+                    remarks=entry.remarks or f"Manual {entry.gate_type} for {vehicle_no} - Document {i+1} of {entry.no_of_documents}",
+                    warehouse_code=current_user.warehouse_code,
+                    site_code=current_user.site_code,
+                    security_name=f"{current_user.first_name} {current_user.last_name}",
+                    security_username=current_user.username,
+                    document_date=now,  # Gate entry date, not document date
+                    edit_count=0,
+                    # Mark as unassigned - these need document assignment
+                    driver_name=None,
+                    km_reading=None,
+                    loader_names=None
+                )
+                
+                db.add(insight_record)
+                created_entries.append({
+                    "sequence": i + 1,
+                    "gate_entry_no": gate_entry_no,
+                    "vehicle_no": vehicle_no,
+                    "document_type": "Manual Entry - Pending Assignment",
+                    "status": "pending_assignment"
+                })
+            
+            entries_created = entry.no_of_documents
+            next_step = "Assign documents from insights tab when available"
+            entry_type = "manual"
+        
+        db.commit()
+        
+        # ✅ UPDATED: Enhanced response with empty vehicle support
+        return {
+            "message": f"Successfully created {entries_created} {entry_type.replace('_', ' ')} entr{'y' if entries_created == 1 else 'ies'}",
+            "gate_entry_no": gate_entry_no,
+            "vehicle_no": vehicle_no,
+            "entries_created": entries_created,
+            "movement_type": entry.gate_type,
+            "date": now.isoformat(),
+            "created_entries": created_entries,
+            "next_step": next_step,
+            "entry_type": entry_type,  # ✅ NEW: "empty_vehicle" or "manual"
+            "is_empty_vehicle": entry.no_of_documents == 0  # ✅ NEW: Flag for frontend
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Multi-document manual entry error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database error: {str(e)}"
+        )

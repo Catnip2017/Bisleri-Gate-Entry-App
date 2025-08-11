@@ -144,14 +144,16 @@ export const gateAPI = {
     if (!multiEntryData.vehicle_no?.trim()) {
       throw new Error('Vehicle number is required');
     }
-    
-    if (!multiEntryData.no_of_documents || multiEntryData.no_of_documents < 1) {
-      throw new Error('Number of documents must be at least 1');
+
+    // Allow 0, reject only if less than 0
+    if (multiEntryData.no_of_documents < 0) {
+      throw new Error('Number of documents must be at least 0');
     }
-    
+
     const response = await api.post('/multi-document-manual-entry', multiEntryData);
     return response.data;
   },
+
 
   // ✅ NEW: Get unassigned documents for vehicle
   getUnassignedDocuments: async (vehicleNo, hoursBack = 1) => {
