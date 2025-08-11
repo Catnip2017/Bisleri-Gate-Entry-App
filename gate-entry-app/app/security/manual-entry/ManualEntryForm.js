@@ -1,4 +1,4 @@
-// app/security/manual-entry/ManualEntryForm.js - ENHANCED WITH MULTI-DOCUMENT SUPPORT
+// app/security/manual-entry/ManualEntryForm.js - ENHANCED WITH EMPTY VEHICLE SUPPORT
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -22,11 +22,11 @@ const ManualEntryForm = ({ userData }) => {
   const preFilledVehicleNo = searchParams.vehicle || '';
   const preFilledGateType = searchParams.gateType || 'Gate-In';
   
-  // ✅ UPDATED: Form state with new no_of_documents field (simplified form)
+  // ✅ UPDATED: Form state with new no_of_documents field (default 0 for empty vehicle)
   const [formData, setFormData] = useState({
     vehicleNo: preFilledVehicleNo.toUpperCase(),
     gateType: preFilledGateType,
-    noOfDocuments: 1,  // NEW: Default to 1 document
+    noOfDocuments: 0,  // ✅ CHANGED: Default to 0 for empty vehicle scenario
     remarks: '',
   });
 
@@ -48,31 +48,39 @@ const ManualEntryForm = ({ userData }) => {
     }));
   };
 
-  // ✅ UPDATED: Validation - only vehicle number and no_of_documents required
+  // ✅ UPDATED: Validation - allow 0-20 range for empty vehicle support
   const validateForm = () => {
     if (!formData.vehicleNo?.trim()) {
       Alert.alert('Validation Error', 'Vehicle number is required');
       return false;
     }
     
-    if (!formData.noOfDocuments || formData.noOfDocuments < 1 || formData.noOfDocuments > 20) {
-      Alert.alert('Validation Error', 'Number of documents must be between 1 and 20');
+    if (formData.noOfDocuments < 0 || formData.noOfDocuments > 20) {
+      Alert.alert('Validation Error', 'Number of documents must be between 0 and 20');
       return false;
     }
     
     return true;
   };
 
+  // ✅ UPDATED: Enhanced confirmation dialog for empty vehicle scenario
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    // ✅ NEW: Enhanced confirmation dialog for multi-document entry
+    const isEmptyVehicle = formData.noOfDocuments === 0;
+    const entryType = isEmptyVehicle ? 'Empty Vehicle' : 'Multi-Document';
+    const entriesText = isEmptyVehicle ? '1 empty vehicle entry' : `${formData.noOfDocuments} manual entries`;
+
     Alert.alert(
-      'Confirm Multi-Document Entry',
-      `Create ${formData.noOfDocuments} manual entries for vehicle ${formData.vehicleNo}?\n\n• All entries will have the same Gate Entry Number\n• Documents will be "Pending Assignment"\n• You can assign actual documents later from the Insights tab`,
+      `Confirm ${entryType} Entry`,
+      `Create ${entriesText} for vehicle ${formData.vehicleNo}?\n\n${
+        isEmptyVehicle 
+          ? '• This will create 1 "EMPTY VEHICLE" entry\n• No documents need to be assigned later'
+          : `• All ${formData.noOfDocuments} entries will have the same Gate Entry Number\n• Documents will be "Pending Assignment"\n• You can assign actual documents later from the Insights tab`
+      }`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Create Entries', onPress: performSubmit }
+        { text: 'Create Entry', onPress: performSubmit }
       ]
     );
   };
@@ -81,7 +89,7 @@ const ManualEntryForm = ({ userData }) => {
     setIsSubmitting(true);
     
     try {
-      // ✅ NEW: Multi-document entry API call
+      // ✅ UPDATED: Multi-document entry API call with empty vehicle support
       const multiEntryData = {
         gate_type: formData.gateType,
         vehicle_no: formData.vehicleNo,
@@ -91,9 +99,15 @@ const ManualEntryForm = ({ userData }) => {
 
       const response = await gateAPI.createMultiDocumentManualEntry(multiEntryData);
       
+      const isEmptyVehicle = formData.noOfDocuments === 0;
+      
       Alert.alert(
         'Success', 
-        `${response.entries_created} manual entries created successfully!\n\nGate Entry No: ${response.gate_entry_no}\nVehicle: ${response.vehicle_no}\n\nNext: Assign documents from Insights tab when available.`,
+        `${response.entries_created} ${isEmptyVehicle ? 'empty vehicle' : 'manual'} entr${response.entries_created === 1 ? 'y' : 'ies'} created successfully!\n\nGate Entry No: ${response.gate_entry_no}\nVehicle: ${response.vehicle_no}\n\n${
+          isEmptyVehicle 
+            ? 'Empty vehicle recorded - no further action needed.'
+            : 'Next: Assign documents from Insights tab when available.'
+        }`,
         [
           {
             text: 'Go to Insights',
@@ -108,7 +122,7 @@ const ManualEntryForm = ({ userData }) => {
               setFormData({
                 vehicleNo: '',
                 gateType: 'Gate-In',
-                noOfDocuments: 1,
+                noOfDocuments: 0,  // ✅ Reset to 0 for next entry
                 remarks: '',
               });
             }
@@ -138,7 +152,7 @@ const ManualEntryForm = ({ userData }) => {
             setFormData({
               vehicleNo: preFilledVehicleNo.toUpperCase(),
               gateType: preFilledGateType,
-              noOfDocuments: 1,
+              noOfDocuments: 0,  // ✅ Reset to 0
               remarks: '',
             });
           }
@@ -151,7 +165,7 @@ const ManualEntryForm = ({ userData }) => {
     <View style={styles.container}>
       {/* Card Container */}
       <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Multi-Document Manual Entry</Text>
+        <Text style={styles.sectionTitle}>Manual Entry - Support Empty Vehicles</Text>
         
         {/* ✅ Vehicle Number - Pre-filled and Fixed */}
         <View style={styles.row}>
@@ -184,36 +198,46 @@ const ManualEntryForm = ({ userData }) => {
           </View>
         </View>
 
-        {/* ✅ NEW: Number of Documents Field - Key Enhancement */}
+        {/* ✅ UPDATED: Number of Documents Field - Enhanced for empty vehicle support */}
         <View style={styles.row}>
           <View style={styles.fieldFull}>
-            <Text style={styles.label}>Number of Documents * (How many documents are with this vehicle?)</Text>
+            <Text style={styles.label}>Number of Documents * (0 for empty vehicle, 1+ for vehicles with documents)</Text>
             <TextInput 
               style={[styles.input, styles.highlightInput]} 
               value={formData.noOfDocuments.toString()}
               onChangeText={(text) => {
-                const num = parseInt(text.replace(/[^0-9]/g, '')) || 1;
-                updateField('noOfDocuments', Math.min(Math.max(num, 1), 20));
+                // ✅ UPDATED: Allow empty string (backspace support) and 0-20 range
+                if (text === '') {
+                  updateField('noOfDocuments', 0);
+                } else {
+                  const num = parseInt(text.replace(/[^0-9]/g, '')) || 0;
+                  updateField('noOfDocuments', Math.min(Math.max(num, 0), 20));
+                }
               }}
-              placeholder="Enter number of documents (1-20)"
+              placeholder="Enter 0 for empty vehicle, 1-20 for manual entries"
               keyboardType="numeric"
               maxLength={2}
               editable={!isSubmitting}
+              selectTextOnFocus={true}  // ✅ NEW: Select text when focused for easy editing
             />
             <Text style={styles.hintText}>
-              💡 This will create {formData.noOfDocuments} manual entries with the same Gate Entry Number. You can assign actual documents later from the Insights tab.
+              {formData.noOfDocuments === 0 
+                ? '🚛 Empty Vehicle: This will create 1 "EMPTY VEHICLE" entry to record the vehicle passage.'
+                : `📋 Manual Entries: This will create ${formData.noOfDocuments} manual entries with the same Gate Entry Number. You can assign actual documents later from the Insights tab.`
+              }
             </Text>
           </View>
         </View>
 
-        {/* ✅ Document Count Visual Indicator */}
-        {formData.noOfDocuments > 1 && (
-          <View style={styles.documentCountContainer}>
-            <Text style={styles.documentCountText}>
-              📋 Creating {formData.noOfDocuments} identical manual entries for vehicle {formData.vehicleNo}
-            </Text>
-          </View>
-        )}
+        {/* ✅ UPDATED: Dynamic visual indicator based on entry type */}
+        <View style={styles.documentCountContainer}>
+          <Text style={styles.documentCountText}>
+            {formData.noOfDocuments === 0 
+              ? `🚛 Recording empty vehicle ${formData.vehicleNo} passage`
+              : `📋 Creating ${formData.noOfDocuments} identical manual entries for vehicle ${formData.vehicleNo}`
+            }
+          </Text>
+        </View>
 
         {/* ✅ Remarks - Optional */}
         <View style={styles.row}>
@@ -223,7 +247,11 @@ const ManualEntryForm = ({ userData }) => {
               style={[styles.input, styles.multilineInput]} 
               value={formData.remarks}
               onChangeText={(text) => updateField('remarks', text)}
-              placeholder="Enter any remarks about this vehicle entry"
+              placeholder={
+                formData.noOfDocuments === 0 
+                  ? "Enter any remarks about this empty vehicle"
+                  : "Enter any remarks about this vehicle entry"
+              }
               multiline
               numberOfLines={3}
               maxLength={200}
@@ -235,33 +263,54 @@ const ManualEntryForm = ({ userData }) => {
           </View>
         </View>
 
-        {/* ✅ NEW: Information Box - Explains the process */}
+        {/* ✅ UPDATED: Dynamic information box based on entry type */}
         <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>ℹ️ How Multi-Document Entry Works:</Text>
-          <Text style={styles.infoText}>
-            1. This creates {formData.noOfDocuments} identical manual entries
+          <Text style={styles.infoTitle}>
+            {formData.noOfDocuments === 0 ? 'ℹ️ Empty Vehicle Entry:' : 'ℹ️ How Multi-Document Entry Works:'}
           </Text>
-          <Text style={styles.infoText}>
-            2. All entries get the same Gate Entry Number
-          </Text>
-          <Text style={styles.infoText}>
-            3. Documents will be "Pending Assignment"
-          </Text>
-          <Text style={styles.infoText}>
-            4. Go to Insights tab to assign actual documents when they sync
-          </Text>
-          <Text style={styles.infoText}>
-            5. Each entry can then have operational data added separately
-          </Text>
+          {formData.noOfDocuments === 0 ? (
+            <>
+              <Text style={styles.infoText}>
+                1. Creates 1 entry with document type "EMPTY VEHICLE"
+              </Text>
+              <Text style={styles.infoText}>
+                2. Records vehicle passage for audit purposes
+              </Text>
+              <Text style={styles.infoText}>
+                3. No document assignment needed
+              </Text>
+              <Text style={styles.infoText}>
+                4. Entry is complete and ready for reporting
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.infoText}>
+                1. This creates {formData.noOfDocuments} identical manual entries
+              </Text>
+              <Text style={styles.infoText}>
+                2. All entries get the same Gate Entry Number
+              </Text>
+              <Text style={styles.infoText}>
+                3. Documents will be "Pending Assignment"
+              </Text>
+              <Text style={styles.infoText}>
+                4. Go to Insights tab to assign actual documents when they sync
+              </Text>
+              <Text style={styles.infoText}>
+                5. Each entry can then have operational data added separately
+              </Text>
+            </>
+          )}
         </View>
 
-        {/* ✅ Action Buttons */}
+        {/* ✅ UPDATED: Dynamic action button */}
         <View style={styles.buttonRow}>
           <TouchableOpacity 
             style={[
               styles.button, 
               styles.submitButton, 
-              styles.enhancedSubmitButton,
+              formData.noOfDocuments === 0 ? styles.emptyVehicleButton : styles.enhancedSubmitButton,
               isSubmitting && styles.buttonDisabled
             ]} 
             onPress={handleSubmit}
@@ -271,7 +320,10 @@ const ManualEntryForm = ({ userData }) => {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={[styles.buttonText, styles.enhancedButtonText]}>
-                Create {formData.noOfDocuments} {formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}
+                {formData.noOfDocuments === 0 
+                  ? '🚛 Record Empty Vehicle'
+                  : `📋 Create ${formData.noOfDocuments} ${formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}`
+                }
               </Text>
             )}
           </TouchableOpacity>
@@ -285,12 +337,15 @@ const ManualEntryForm = ({ userData }) => {
           </TouchableOpacity>
         </View>
 
-        {/* ✅ Loading State Display */}
+        {/* ✅ UPDATED: Dynamic loading state display */}
         {isSubmitting && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#007bff" />
             <Text style={styles.loadingText}>
-              Creating {formData.noOfDocuments} manual entries...
+              {formData.noOfDocuments === 0 
+                ? 'Recording empty vehicle entry...'
+                : `Creating ${formData.noOfDocuments} manual entries...`
+              }
             </Text>
           </View>
         )}

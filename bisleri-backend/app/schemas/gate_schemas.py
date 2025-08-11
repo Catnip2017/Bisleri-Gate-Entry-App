@@ -1,4 +1,4 @@
-# app/schemas/gate_schemas.py - COMPLETE WITH MULTI-DOCUMENT SUPPORT
+# app/schemas/gate_schemas.py - UPDATED WITH EMPTY VEHICLE SUPPORT
 from pydantic import BaseModel, validator
 from datetime import datetime
 from typing import Optional, List
@@ -28,8 +28,8 @@ class InsightsFilter(BaseModel):
 # Enhanced schemas for operational data capture
 class EnhancedGateEntryCreate(BaseModel):
     gate_type: str = "Gate-In"
-    vehicle_no: str  
-    document_nos: List[str] = []  
+    vehicle_no: str  # Mandatory
+    document_nos: List[str] = []  # For batch entry
     remarks: Optional[str] = None
     
     # NEW: Optional operational data that can be captured during gate entry
@@ -82,18 +82,18 @@ class BatchGateEntryCreate(BaseModel):
     document_nos: List[str]
     remarks: Optional[str] = None
 
-# NEW: Schema for Multi-Document Manual Entry
+# ✅ UPDATED: Schema for Multi-Document Manual Entry with Empty Vehicle Support
 class MultiDocumentManualEntryCreate(BaseModel):
     gate_type: str = "Gate-In"
     vehicle_no: str  # Mandatory
-    no_of_documents: int = 1  # NEW: Number of manual entries to create
+    no_of_documents: int = 0  # ✅ CHANGED: Default to 0 for empty vehicle
     remarks: Optional[str] = None
     
-    # Validation for no_of_documents
+    # ✅ UPDATED: Validation for no_of_documents - now allows 0 for empty vehicles
     @validator('no_of_documents')
     def validate_no_of_documents(cls, v):
-        if v < 1 or v > 20:  # Reasonable limits
-            raise ValueError('Number of documents must be between 1 and 20')
+        if v < 0 or v > 20:  # ✅ CHANGED: Allow 0 for empty vehicle scenario
+            raise ValueError('Number of documents must be between 0 and 20')
         return v
     
     @validator('vehicle_no')
@@ -280,7 +280,7 @@ class UnassignedDocumentsResponse(BaseModel):
     available_count: int
     documents: List[dict]
 
-# NEW: Multi-entry response schema
+# ✅ UPDATED: Multi-entry response schema with empty vehicle support
 class MultiDocumentManualEntryResponse(BaseModel):
     message: str
     gate_entry_no: str
@@ -290,3 +290,4 @@ class MultiDocumentManualEntryResponse(BaseModel):
     date: str
     created_entries: List[dict]
     next_step: str
+    entry_type: str = "manual"  # ✅ NEW: "empty_vehicle" or "manual"
