@@ -1,0 +1,69 @@
+# ------------------------
+# Node / React / Expo
+# ------------------------
+node_modules/
+build/
+dist/
+web-build/
+.expo/
+expo-env.d.ts
+ 
+# Expo Native / Mobile
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+ 
+# Metro cache
+.metro-health-check*
+ 
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+ 
+# macOS
+.DS_Store
+*.pem
+ 
+# Local environment files
+.env
+.env*.local
+ 
+# TypeScript build info
+*.tsbuildinfo
+ 
+# Example placeholder
+app-example
+ 
+# ------------------------
+# Python / FastAPI backend
+# ------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+ 
+# Alembic migrations cache
+Bisleri/bisleri-backend/migrations/__pycache__/
+Bisleri/bisleri-backend/app/**/__pycache__/
+ 
+# ------------------------
+# IDE / Editor files
+# ------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+ 
+ 
