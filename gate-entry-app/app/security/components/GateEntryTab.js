@@ -71,7 +71,7 @@ const GateEntryTab = ({
         return;
       }
       
-      // ✅ STEP 3: Search for documents (8-hour filter)
+      // ✅ STEP 3: Search for documents (18-hour filter)
       try {
         const results = await gateAPI.searchRecentDocuments(vehicleNo);
         setSearchResults(results);
@@ -409,7 +409,9 @@ const GateEntryTab = ({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.cardContainer}>
+    <ScrollView 
+    style={styles.container}
+    contentContainerStyle={styles.cardContainer}>
       <Text style={styles.sectionTitle}>Vehicle Entry Details</Text>
 
       {/* Row 1 - Gate Type and Auto Fields */}

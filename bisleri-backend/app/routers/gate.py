@@ -28,6 +28,7 @@ def search_recent_documents(
     current_user: UsersMaster = Depends(get_current_user)
 ):
     """Search documents within last 48 hours for a vehicle"""
+
     
     if not vehicle_no.strip():
         raise HTTPException(status_code=400, detail="Vehicle number cannot be empty")
@@ -39,6 +40,7 @@ def search_recent_documents(
             SELECT * FROM document_data
             WHERE vehicle_no = :vehicle_no
             AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
+
             ORDER BY document_date DESC
         """)
         
@@ -49,6 +51,7 @@ def search_recent_documents(
             raise HTTPException(
                 status_code=404, 
                 detail=f"No recent documents found for vehicle: {vehicle_no} (within last 48 hours)"
+
             )
         
         document_list = []
@@ -726,6 +729,7 @@ def create_manual_gate_entry(
 def get_unassigned_documents_for_vehicle(
     vehicle_no: str,
     hours_back: int = 8,  # Default 8 hour, can be made configurable
+
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):

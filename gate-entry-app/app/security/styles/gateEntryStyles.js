@@ -1,10 +1,22 @@
 // app/security/styles/gateEntryStyles.js - FIXED CLEAN TABLE STYLES
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const screenWidth = Dimensions.get('window').width;
 const isTablet = screenWidth >= 750 && screenWidth <= 850;
 
+
+
+
 const styles = StyleSheet.create({
+  container: {
+  flex: 1,
+  ...Platform.select({
+    web: { minHeight: '100vh' }, // Fill the viewport on web
+    default: { minHeight: '100%' }
+  }),
+  backgroundColor: '#E0F7FA',
+},
+
   cardContainer: {
     backgroundColor: '#E0F7FA',
     padding: 16,
@@ -17,6 +29,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
+     flexGrow: 1, // This ensures content grows to fill space
   },
 
   // Custom dynamic fields (responsive to Redmi Pad 2 or tablet screen)

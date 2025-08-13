@@ -1,4 +1,4 @@
-// app/landing/LandingScreen.js
+// app/landing/LandingScreen.js - Updated with cross-platform storage and universal navigation
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -9,9 +9,10 @@ import {
   SafeAreaView,
   Alert,
   ActivityIndicator,
+  Platform
 } from "react-native";
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from "../../utils/storage";
 import styles from "./LandingScreenStyles";
 import { getCurrentUser, isAdmin, isSecurityGuard } from "../../utils/jwtUtils";
 import { authAPI } from "../../services/api";
@@ -30,7 +31,6 @@ export default function LandingScreen() {
     try {
       const userData = await getCurrentUser();
       if (!userData) {
-        // No valid token, redirect to login
         router.replace('/LoginScreen');
         return;
       }
@@ -46,27 +46,24 @@ export default function LandingScreen() {
   const handleAdminCardPress = async () => {
     try {
       const userIsAdmin = await isAdmin();
-      
       if (userIsAdmin) {
-        // ✅ User is admin - navigate to admin panel
-        Alert.alert(
-          "Admin Access", 
-          "Navigating to Administrator Panel...",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // TODO: Navigate to admin screens
-                console.log("Navigate to admin panel");
-                // router.push('/admin'); // Will implement later
-              }
-            }
-          ]
-        );
+        if (Platform.OS === 'web') {
+          // Navigate directly on web
+          router.push('/admin');
+        } else {
+          // Use alert on native
+          Alert.alert(
+            "Admin Access",
+            "Navigating to Administrator Panel...",
+            [
+              { text: "OK", onPress: () => router.push('/admin') },
+              { text: "Cancel", style: "cancel" }
+            ]
+          );
+        }
       } else {
-        // ❌ User is not admin - show no access message
         Alert.alert(
-          "Access Denied", 
+          "Access Denied",
           "You don't have administrator privileges.",
           [{ text: "OK" }]
         );
@@ -79,33 +76,32 @@ export default function LandingScreen() {
 
   const handleSecurityCardPress = async () => {
     try {
-      const user = await getCurrentUser();
-      console.log('Current user data:', user); // Debug log
-      console.log('User role:', user?.role); // Debug log
-      
+      const current = await getCurrentUser();
+      console.log('Current user data:', current);
+      console.log('User role:', current?.role);
+
       const userIsSecurity = await isSecurityGuard();
-      console.log('Is security guard check result:', userIsSecurity); // Debug log
-      
+      console.log('Is security guard check result:', userIsSecurity);
+
       if (userIsSecurity) {
-        // ✅ User is security guard - navigate to security functions
-        Alert.alert(
-          "Security Access", 
-          "Navigating to Security Guard Panel...",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Navigate to security dashboard
-                router.push('/security/');
-              }
-            }
-          ]
-        );
+        if (Platform.OS === 'web') {
+          // On web, navigate immediately
+          router.push('/security');
+        } else {
+          // On native, confirm before navigating
+          Alert.alert(
+            "Security Access",
+            "Navigating to Security Guard Panel...",
+            [
+              { text: "OK", onPress: () => router.push('/security') },
+              { text: "Cancel", style: "cancel" }
+            ]
+          );
+        }
       } else {
-        // ❌ User is not security guard - show no access message
         Alert.alert(
-          "Access Denied", 
-          `You don't have security guard privileges. Your role: ${user?.role}`,
+          "Access Denied",
+          `You don't have security guard privileges. Your role: ${current?.role}`,
           [{ text: "OK" }]
         );
       }
@@ -115,39 +111,32 @@ export default function LandingScreen() {
     }
   };
 
-  const handleLogout = () => {
+ const handleLogout = () => {
+  if (Platform.OS === 'web') {
+    performLogout();
+  } else {
     Alert.alert(
       "Logout Confirmation",
       "Are you sure you want to logout?",
       [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Logout",
-          style: "destructive",
-          onPress: performLogout
-        }
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: performLogout }
       ]
     );
-  };
+  }
+}
 
   const performLogout = async () => {
     try {
-      // Call backend logout (optional)
       await authAPI.logout();
     } catch (error) {
       console.error('Logout API error:', error);
-      // Continue with logout even if API fails
     } finally {
-      // Clear token and redirect to login
-      await SecureStore.deleteItemAsync('access_token');
+      await storage.removeItem('access_token');
       router.replace('/LoginScreen');
     }
   };
 
-  // Show loading while getting user data
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -159,18 +148,16 @@ export default function LandingScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header with Logo */}
+      {/* Header */}
       <View style={styles.header}>
         <Image
           source={require("../../assets/images/bisleri-logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
-        
-        {/* Welcome Message */}
         {user && (
           <View style={styles.welcomeContainer}>
-            <Text style={styles.welcomeText}>Welcome, {user.fullName}</Text>
+            <Text style={styles.welcomeText}>Welcome, {user.fullName || `${user.firstName} ${user.lastName}`}</Text>
             <Text style={styles.roleText}>Role: {user.role}</Text>
           </View>
         )}
@@ -181,8 +168,8 @@ export default function LandingScreen() {
         <Text style={styles.heading}>Bisleri Gate Entry Management System</Text>
 
         <View style={styles.cardContainer}>
-          {/* Administrator Card */}
-          <TouchableOpacity 
+          {/* Admin */}
+          <TouchableOpacity
             style={[styles.card, styles.adminCard]}
             onPress={handleAdminCardPress}
             activeOpacity={0.7}
@@ -197,8 +184,8 @@ export default function LandingScreen() {
             <Text style={styles.cardText}>Administrator</Text>
           </TouchableOpacity>
 
-          {/* Security Guard Card */}
-          <TouchableOpacity 
+          {/* Security */}
+          <TouchableOpacity
             style={[styles.card, styles.guardCard]}
             onPress={handleSecurityCardPress}
             activeOpacity={0.7}
@@ -214,7 +201,7 @@ export default function LandingScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Logout Button */}
+        {/* Logout */}
         <Pressable
           style={({ pressed }) => [
             styles.logout,
