@@ -1,4 +1,4 @@
-// app/security/components/SecurityInsightsTab.js - ENHANCED WITH DOCUMENT ASSIGNMENT
+// app/security/components/SecurityInsightsTab.js - ENHANCED WITH DOCUMENT ASSIGNMENT AND PAGINATION
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -36,6 +36,10 @@ const SecurityInsightsTab = ({
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [editStatistics, setEditStatistics] = useState(null);
+
+  // NEW: Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
   // NEW: Document assignment states
   const [documentAssignmentModal, setDocumentAssignmentModal] = useState(false);
@@ -111,6 +115,7 @@ const SecurityInsightsTab = ({
       // Sort by edit priority (Yellow -> Green -> Black)
       const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
       setMovements(sortedMovements);
+      setCurrentPage(1); // Reset to first page when data loads
       
     } catch (error) {
       console.error('Error loading movements:', error);
@@ -141,6 +146,22 @@ const SecurityInsightsTab = ({
     loadMovements();
     loadEditStatistics();
   };
+
+  // NEW: Pagination calculations
+  const totalItems = movements.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentMovements = movements.slice(startIndex, endIndex);
+  const startItem = totalItems > 0 ? startIndex + 1 : 0;
+  const endItem = Math.min(endIndex, totalItems);
+
+  // NEW: Pagination handlers
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToPreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const goToLastPage = () => setCurrentPage(totalPages);
+  const goToPage = (page) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
   // NEW: Open document assignment modal
   const openDocumentAssignment = async (record) => {
@@ -267,7 +288,13 @@ const SecurityInsightsTab = ({
 
   // Handle successful edit
   const handleEditSuccess = (response) => {
-    loadMovements();
+    setMovements(prevMovements => 
+      prevMovements.map(movement => 
+        movement.gate_entry_no === response.gate_entry_no 
+          ? { ...movement, ...response.updated_data }
+          : movement
+      )
+    );    
     loadEditStatistics();
     console.log('Edit successful:', response);
   };
@@ -408,7 +435,7 @@ const SecurityInsightsTab = ({
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Card Container */}
       <View style={styles.card}>
         
@@ -533,8 +560,18 @@ const SecurityInsightsTab = ({
         {/* Section Title */}
         <Text style={styles.sectionTitle}>Gate Movements & Document Assignment</Text>
 
-        {/* ENHANCED: Table with Document Assignment Columns */}
-        <ScrollView horizontal style={styles.tableScrollContainer}>
+        {/* NEW: Pagination Info */}
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            {startItem} to {endItem} of {totalItems}
+          </Text>
+          <Text style={styles.paginationText}>
+            Page {currentPage} of {totalPages}
+          </Text>
+        </View>
+
+        {/* ENHANCED: Table with Document Assignment Columns and Pagination */}
+        <ScrollView horizontal style={styles.tableScrollContainer} showsHorizontalScrollIndicator={true}>
           <View style={styles.tableContainer}>
             
             {/* Table Header - UPDATED with assignment columns */}
@@ -562,93 +599,145 @@ const SecurityInsightsTab = ({
               <Text style={[styles.tableHeaderCell, styles.colAssignmentActions]}>Document Action</Text>
             </View>
 
-            {/* Table Rows */}
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007bff" />
-                <Text style={styles.loadingText}>Loading movements...</Text>
-              </View>
-            ) : movements.length === 0 ? (
-              <View style={styles.noDataContainer}>
-                <Text style={styles.noDataText}>No movements found for the selected filters</Text>
-              </View>
-            ) : (
-              movements.map((movement, index) => {
-                const buttonConfig = editStatusUtils.getButtonConfig(movement);
-                const needsAssignment = documentAssignmentUtils.needsDocumentAssignment(movement);
-                
-                return (
-                  <View key={movement.id || index} style={[
-                    styles.tableRow,
-                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                    buttonConfig.priority === 'high' && styles.highPriorityRow,
-                    needsAssignment && styles.pendingAssignmentRow // NEW: Highlight pending assignments
-                  ]}>
-                    <Text style={[styles.tableCell, styles.colGateEntry]}>{movement.gate_entry_no}</Text>
-                    <Text style={[styles.tableCell, styles.colVehicle]}>{movement.vehicle_no || '--'}</Text>
-                    <Text style={[styles.tableCell, styles.colMovement]}>{movement.movement_type}</Text>
-                    <Text style={[styles.tableCell, styles.colDate]}>
-                      {formatDateToDDMMYYYY(new Date(movement.date))}
-                    </Text>
-                    <Text style={[styles.tableCell, styles.colTime]}>{movement.time}</Text>
-
-                    {/* NEW: Document Type Cell */}
-                    <Text style={[styles.tableCell, styles.colDocumentType]}>
-                      {movement.document_type || '--'}
-                    </Text>
-
-                    {/* UPDATED: Document No Cell */}
-                    <View style={[styles.tableCell, styles.colDocumentNo]}>
-                      {renderDocumentNoCell(movement)}
-                    </View>
-                    
-                    {/* Operational Data Cells */}
-                    <View style={[styles.tableCell, styles.colDriverName]}>
-                      {renderOperationalCell(movement, 'driver_name')}
-                    </View>
-                    <View style={[styles.tableCell, styles.colKMReading]}>
-                      {renderOperationalCell(movement, 'km_reading')}
-                    </View>
-                    <View style={[styles.tableCell, styles.colLoaderNames]}>
-                      {renderOperationalCell(movement, 'loader_names')}
-                    </View>
-                    
-                    <Text style={[styles.tableCell, styles.colWarehouse]}>{movement.warehouse_name}</Text>
-                    <Text style={[styles.tableCell, styles.colSecurity]}>{movement.security_name}</Text>
-                    
-                    {/* Edit count */}
-                    <Text style={[
-                      styles.tableCell, 
-                      styles.colEditCount,
-                      movement.edit_count > 0 ? { color: '#28a745', fontWeight: 'bold' } : { color: '#6c757d' }
+            {/* Table Rows - Using currentMovements for pagination */}
+            <ScrollView style={styles.tableDataContainer} showsVerticalScrollIndicator={true}>
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#007bff" />
+                  <Text style={styles.loadingText}>Loading movements...</Text>
+                </View>
+              ) : currentMovements.length === 0 ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>No movements found for the selected filters</Text>
+                </View>
+              ) : (
+                currentMovements.map((movement, index) => {
+                  const buttonConfig = editStatusUtils.getButtonConfig(movement);
+                  const needsAssignment = documentAssignmentUtils.needsDocumentAssignment(movement);
+                  const actualIndex = startIndex + index;
+                  
+                  return (
+                    <View key={movement.id || actualIndex} style={[
+                      styles.tableRow,
+                      actualIndex % 2 === 0 ? styles.evenRow : styles.oddRow,
+                      buttonConfig.priority === 'high' && styles.highPriorityRow,
+                      needsAssignment && styles.pendingAssignmentRow
                     ]}>
-                      {movement.edit_count || 0}
-                    </Text>
-                    
-                    {/* Time remaining */}
-                    <Text style={[
-                      styles.tableCell, 
-                      styles.colTimeRemaining,
-                      buttonConfig.priority === 'high' ? { color: '#dc3545', fontWeight: 'bold' } :
-                      buttonConfig.priority === 'medium' ? { color: '#ffc107', fontWeight: 'bold' } :
-                      { color: '#6c757d' }
-                    ]}>
-                      {movement.time_remaining || 'Expired'}
-                    </Text>
-                    
-                    {/* Operational Edit Button */}
-                    <View style={[styles.tableCell, styles.colOperationalActions]}>
-                      {renderEditButton(movement)}
+                      <Text style={[styles.tableCell, styles.colGateEntry]}>{movement.gate_entry_no}</Text>
+                      <Text style={[styles.tableCell, styles.colVehicle]}>{movement.vehicle_no || '--'}</Text>
+                      <Text style={[styles.tableCell, styles.colMovement]}>{movement.movement_type}</Text>
+                      <Text style={[styles.tableCell, styles.colDate]}>
+                        {formatDateToDDMMYYYY(new Date(movement.date))}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.colTime]}>{movement.time}</Text>
+
+                      {/* NEW: Document Type Cell */}
+                      <Text style={[styles.tableCell, styles.colDocumentType]}>
+                        {movement.document_type || '--'}
+                      </Text>
+
+                      {/* UPDATED: Document No Cell */}
+                      <View style={[styles.tableCell, styles.colDocumentNo]}>
+                        {renderDocumentNoCell(movement)}
+                      </View>
+                      
+                      {/* Operational Data Cells */}
+                      <View style={[styles.tableCell, styles.colDriverName]}>
+                        {renderOperationalCell(movement, 'driver_name')}
+                      </View>
+                      <View style={[styles.tableCell, styles.colKMReading]}>
+                        {renderOperationalCell(movement, 'km_reading')}
+                      </View>
+                      <View style={[styles.tableCell, styles.colLoaderNames]}>
+                        {renderOperationalCell(movement, 'loader_names')}
+                      </View>
+                      
+                      <Text style={[styles.tableCell, styles.colWarehouse]}>{movement.warehouse_name}</Text>
+                      <Text style={[styles.tableCell, styles.colSecurity]}>{movement.security_name}</Text>
+                      
+                      {/* Edit count */}
+                      <Text style={[
+                        styles.tableCell, 
+                        styles.colEditCount,
+                        movement.edit_count > 0 ? { color: '#28a745', fontWeight: 'bold' } : { color: '#6c757d' }
+                      ]}>
+                        {movement.edit_count || 0}
+                      </Text>
+                      
+                      {/* Time remaining */}
+                      <Text style={[
+                        styles.tableCell, 
+                        styles.colTimeRemaining,
+                        buttonConfig.priority === 'high' ? { color: '#dc3545', fontWeight: 'bold' } :
+                        buttonConfig.priority === 'medium' ? { color: '#ffc107', fontWeight: 'bold' } :
+                        { color: '#6c757d' }
+                      ]}>
+                        {movement.time_remaining || 'Expired'}
+                      </Text>
+                      
+                      {/* Operational Edit Button */}
+                      <View style={[styles.tableCell, styles.colOperationalActions]}>
+                        {renderEditButton(movement)}
+                      </View>
+                      
+                      {/* NEW: Document Assignment Action Button */}
+                      {renderAssignmentActionButton(movement)}
                     </View>
-                    
-                    {/* NEW: Document Assignment Action Button */}
-                    {renderAssignmentActionButton(movement)}
-                  </View>
-                );
-              })
-            )}
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </ScrollView>
+
+        {/* NEW: Pagination Controls */}
+        <View style={styles.paginationControls}>
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+            onPress={goToFirstPage}
+            disabled={currentPage === 1}
+          >
+            <Text style={styles.paginationButtonText}>⏮️</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+            onPress={goToPreviousPage}
+            disabled={currentPage === 1}
+          >
+            <Text style={styles.paginationButtonText}>⬅️</Text>
+          </TouchableOpacity>
+
+          <View style={styles.pageInputContainer}>
+            <TextInput
+              style={styles.pageInput}
+              value={currentPage.toString()}
+              onChangeText={(text) => {
+                const page = parseInt(text) || 1;
+                goToPage(page);
+              }}
+              keyboardType="numeric"
+              maxLength={3}
+            />
+            <Text style={styles.pageInputLabel}>of {totalPages}</Text>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+            onPress={goToNextPage}
+            disabled={currentPage === totalPages}
+          >
+            <Text style={styles.paginationButtonText}>➡️</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+            onPress={goToLastPage}
+            disabled={currentPage === totalPages}
+          >
+            <Text style={styles.paginationButtonText}>⏭️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Operational Edit Modal */}
@@ -770,7 +859,7 @@ const SecurityInsightsTab = ({
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 };
 

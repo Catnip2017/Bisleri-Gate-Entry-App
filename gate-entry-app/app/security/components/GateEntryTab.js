@@ -71,7 +71,7 @@ const GateEntryTab = ({
         return;
       }
       
-      // ✅ STEP 3: Search for documents (48-hour filter)
+      // ✅ STEP 3: Search for documents (8-hour filter)
       try {
         const results = await gateAPI.searchRecentDocuments(vehicleNo);
         setSearchResults(results);
