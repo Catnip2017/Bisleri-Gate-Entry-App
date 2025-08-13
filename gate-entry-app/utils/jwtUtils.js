@@ -1,5 +1,5 @@
-// utils/jwtUtils.js
-import * as SecureStore from 'expo-secure-store';
+// utils/jwtUtils.js - Updated with cross-platform storage
+import { storage } from './storage';
 
 /**
  * Decode JWT token payload (without verification - for display purposes only)
@@ -36,7 +36,7 @@ export const decodeJWT = (token) => {
  */
 export const getCurrentUser = async () => {
   try {
-    const token = await SecureStore.getItemAsync('access_token');
+    const token = await storage.getItem('access_token');
     if (!token) return null;
     
     const payload = decodeJWT(token);
@@ -46,7 +46,7 @@ export const getCurrentUser = async () => {
     const currentTime = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < currentTime) {
       // Token expired, remove it
-      await SecureStore.deleteItemAsync('access_token');
+      await storage.removeItem('access_token');
       return null;
     }
     

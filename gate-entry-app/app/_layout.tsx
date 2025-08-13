@@ -20,11 +20,30 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        {/* Login Screen */}
+        {/* Authentication Flow */}
+        <Stack.Screen name="index" />
         <Stack.Screen name="LoginScreen" />
         
         {/* Landing Screen */}
         <Stack.Screen name="landing/index" />
+        
+        {/* ✅ FIXED: Security Routes - This was missing! */}
+        <Stack.Screen 
+          name="security/index" 
+          options={{
+            title: 'Security Dashboard',
+            headerShown: false,
+          }}
+        />
+        
+        {/* ✅ FIXED: Security Manual Entry Route */}
+        <Stack.Screen 
+          name="security/manual-entry/index" 
+          options={{
+            title: 'Manual Entry',
+            headerShown: false,
+          }}
+        />
         
         {/* Tabs (for future use) */}
         <Stack.Screen name="(tabs)" />

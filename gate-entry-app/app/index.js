@@ -1,8 +1,8 @@
-// app/index.tsx
+// app/index.js - Updated with cross-platform storage
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../utils/storage';
 
 export default function IndexScreen() {
   const router = useRouter();
@@ -16,12 +16,21 @@ export default function IndexScreen() {
       // Small delay to prevent flash
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const token = await SecureStore.getItemAsync('access_token');
+      // Check if storage is available
+      if (!storage.isAvailable()) {
+        console.warn('Storage not available, redirecting to login');
+        router.replace('/LoginScreen');
+        return;
+      }
+      
+      const token = await storage.getItem('access_token');
       
       if (token) {
+        console.log('Token found, redirecting to landing page');
         // User has token, go to landing screen
         router.replace('/landing/');
       } else {
+        console.log('No token found, redirecting to login');
         // No token, go to login screen
         router.replace('/LoginScreen');
       }
