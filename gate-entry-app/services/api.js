@@ -10,6 +10,9 @@ const getApiUrl = () => {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
         return 'http://192.168.1.56:8000'; 
+
+        return 'http://192.168.51.108:8000';
+
       } else {
         return 'http://10.0.2.2:8000';
       }
@@ -886,10 +889,9 @@ export const gateHelpers = {
   }
 };
 
-// ✅ Admin APIs (unchanged)
 export const adminAPI = {
   registerUser: async (userData) => {
-    const response = await api.post('/register-user', userData);
+    const response = await api.post('/register', userData);
     return response.data;
   },
 
@@ -900,6 +902,28 @@ export const adminAPI = {
 
   listUsers: async () => {
     const response = await api.get('/list-users');
+    return response.data;
+  },
+
+  getAdminDashboardStats: async () => {
+    const response = await api.get('/admin-dashboard-stats');
+    return response.data;
+  },
+
+  getWarehouses: async () => {
+    const response = await api.get('/warehouses');
+    return response.data;
+  },
+
+  // ✅ ADD THIS MISSING FUNCTION:
+  getAdminInsights: async (filters) => {
+    const response = await api.post('/vehicle-movements', {
+      from_date: filters.fromDate,
+      to_date: filters.toDate,
+      site_code: filters.siteCode || null,
+      warehouse_code: filters.warehouseCode || null,
+      movement_type: null
+    });
     return response.data;
   },
 };

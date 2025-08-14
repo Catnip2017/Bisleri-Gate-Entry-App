@@ -7,6 +7,26 @@ from app.routers import auth, documents, gate, insights, ping, admin, sync
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting up FastAPI application...")
+    try:
+        # Log that data sync service is available
+        logger.info("Data sync service initialized and ready")
+        logger.info("Application startup complete")
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down FastAPI application...")
+    try:
+        logger.info("Application shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {str(e)}")
+
 app = FastAPI(
     title="Bisleri Backend API",
     description="Backend API for Bisleri with automated data synchronization", 
@@ -42,3 +62,19 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+    # Check data sync service status
+    try:
+        sync_status = scheduler.get_sync_status()
+        return {
+            "status": "healthy",
+            "data_sync_service": "available",
+            "sync_status": sync_status
+        }
+    except Exception as e:
+        return {
+            "status": "healthy", 
+            "data_sync_service": "error",
+            "error": str(e)
+        }
+

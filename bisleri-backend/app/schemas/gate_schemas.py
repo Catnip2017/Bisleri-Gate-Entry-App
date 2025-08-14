@@ -236,7 +236,7 @@ class KMReadingContext(BaseModel):
     reading_type: str  # 'km_in' or 'km_out'
     
     class Config:
-        schema_extra = {
+     json_schema_extra = {
             "example": {
                 "gate_entry_no": "ATDVG2025123456",
                 "movement_type": "Gate-Out",

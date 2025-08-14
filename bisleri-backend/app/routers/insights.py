@@ -12,6 +12,71 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 router = APIRouter(tags=["Insights"])
+class GateEntryEdit(BaseModel):
+    gate_entry_no: str
+    vehicle_no: Optional[str] = None
+    document_no: Optional[str] = None
+    remarks: Optional[str] = None
+
+@router.post("/vehicle-movements")
+def get_vehicle_movements( 
+    filter: InsightsFilter,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user)
+):
+    """Get vehicle movement records with filters"""
+    try:
+        # Build base query
+        query = db.query(InsightsData).filter(
+            InsightsData.date >= filter.from_date,
+            InsightsData.date <= filter.to_date + timedelta(days=1)  # Include end date
+        )
+
+        # Apply filters
+        if filter.site_code:
+            query = query.filter(InsightsData.site_code == filter.site_code)
+        if filter.warehouse_code:
+            query = query.filter(InsightsData.warehouse_code == filter.warehouse_code)
+        if filter.movement_type:
+            query = query.filter(InsightsData.movement_type == filter.movement_type)
+
+        # Apply security guard filter if user is not admin
+        if current_user.role != "Admin":
+            query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
+
+        # Get movements ordered by most recent first
+        movements = query.order_by(InsightsData.date.desc(), InsightsData.time.desc()).all()
+
+        # Convert to dict format for frontend
+        movement_list = []
+        for movement in movements:
+            movement_dict = {
+                "id": movement.id,
+                "gate_entry_no": movement.gate_entry_no,
+                "document_type": movement.document_type,
+                "sub_document_type": movement.sub_document_type,
+                "vehicle_no": movement.vehicle_no,
+                "warehouse_name": movement.warehouse_name,
+                "date": movement.date.isoformat() if movement.date else None,
+                "time": movement.time.isoformat() if movement.time else None,
+                "movement_type": movement.movement_type,
+                "remarks": movement.remarks,
+                "warehouse_code": movement.warehouse_code,
+                "site_code": movement.site_code,
+                "security_name": movement.security_name,
+                "security_username": movement.security_username
+            }
+            movement_list.append(movement_dict)
+
+        return {
+            "count": len(movement_list),
+            "results": movement_list
+        }
+        
+    except Exception as e:
+        print(f"Error in get_vehicle_movements: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
 
 @router.post("/filtered-movements")
 def get_enhanced_filtered_movements(

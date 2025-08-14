@@ -96,11 +96,8 @@ export const isAdmin = async () => {
  * Check if user is security guard
  * @returns {Promise<boolean>} - True if user is security guard  
  */
-export const isSecurityGuard = async () => {
+export async function isSecurityGuard() {
   const user = await getCurrentUser();
-  if (!user || !user.role) return false;
-  
-  const role = user.role;
-  // Check for exact match with your database role
-  return role === 'SecurityGuard';
-};
+  if (!user?.role) return false;
+  return user.role.toLowerCase() === "security" || user.role.toLowerCase() === "security_guard";
+}

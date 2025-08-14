@@ -87,3 +87,36 @@ def list_users(
             detail="Only admins can list users"
         )
     return db.query(UsersMaster).all()
+
+
+router = APIRouter()
+
+@router.get("/admin-dashboard-stats")
+def get_dashboard_stats():
+    return {
+        "total_movements": 50,
+        "unique_vehicles": 20,
+        "gate_in": 30,
+        "gate_out": 20,
+    }
+
+@router.get("/warehouses")
+def get_warehouses(db: Session = Depends(get_db)):
+    """Get all warehouses from location_master table"""
+    try:
+        warehouses = db.query(LocationMaster).all()
+        
+        if not warehouses:
+            raise HTTPException(status_code=404, detail="No warehouses found")
+        
+        return [
+            {
+                "warehouse_code": warehouse.warehouse_code,
+                "warehouse_name": warehouse.warehouse_name,
+                "site_code": warehouse.site_code,
+                "warehouse_id": warehouse.warehouse_id or warehouse.warehouse_code
+            }
+            for warehouse in warehouses
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching warehouses: {str(e)}")

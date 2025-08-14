@@ -61,6 +61,23 @@ export default function LandingScreen() {
             ]
           );
         }
+
+        // ✅ User is admin - navigate to admin panel
+        Alert.alert(
+          "Admin Access", 
+          "Navigating to Administrator Panel...",
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                // TODO: Navigate to admin screens
+                console.log("Navigate to admin panel");
+                router.push('/admin'); // Will implement later
+              }
+            }
+          ]
+        );
+
       } else {
         Alert.alert(
           "Access Denied",
