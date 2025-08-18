@@ -25,7 +25,7 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "app"
-  ],
+, "utils/customModal.js", "utils/platformColors.js"  ],
   "exclude": [
     "node_modules"
   ],

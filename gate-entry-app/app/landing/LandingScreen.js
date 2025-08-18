@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Pressable,
   SafeAreaView,
-  Alert,
   ActivityIndicator,
   Platform
 } from "react-native";
@@ -16,6 +15,7 @@ import { storage } from "../../utils/storage";
 import styles from "./LandingScreenStyles";
 import { getCurrentUser, isAdmin, isSecurityGuard } from "../../utils/jwtUtils";
 import { authAPI } from "../../services/api";
+import { showAlert } from '../../utils/customModal';
 
 
 export default function LandingScreen() {
@@ -53,7 +53,7 @@ export default function LandingScreen() {
           router.push('/admin');
         } else {
           // Use alert on native
-          Alert.alert(
+          showAlert(
             "Admin Access",
             "Navigating to Administrator Panel...",
             [
@@ -63,7 +63,7 @@ export default function LandingScreen() {
           );
         }
       } else {
-        Alert.alert(
+        showAlert(
           "Access Denied",
           "You don't have administrator privileges.",
           [{ text: "OK" }]
@@ -71,7 +71,7 @@ export default function LandingScreen() {
       }
     } catch (error) {
       console.error('Error checking admin access:', error);
-      Alert.alert("Error", "Unable to verify access permissions.");
+      showAlert("Error", "Unable to verify access permissions.");
     }
   };
 
@@ -90,7 +90,7 @@ export default function LandingScreen() {
           router.push('/security');
         } else {
           // On native, confirm before navigating
-          Alert.alert(
+          showAlert(
             "Security Access",
             "Navigating to Security Guard Panel...",
             [
@@ -100,7 +100,7 @@ export default function LandingScreen() {
           );
         }
       } else {
-        Alert.alert(
+        showAlert(
           "Access Denied",
           `You don't have security guard privileges. Your role: ${current?.role}`,
           [{ text: "OK" }]
@@ -108,7 +108,7 @@ export default function LandingScreen() {
       }
     } catch (error) {
       console.error('Error checking security access:', error);
-      Alert.alert("Error", "Unable to verify access permissions.");
+      showAlert("Error", "Unable to verify access permissions.");
     }
   };
 
@@ -116,7 +116,7 @@ export default function LandingScreen() {
   if (Platform.OS === 'web') {
     performLogout();
   } else {
-    Alert.alert(
+    showAlert(
       "Logout Confirmation",
       "Are you sure you want to logout?",
       [

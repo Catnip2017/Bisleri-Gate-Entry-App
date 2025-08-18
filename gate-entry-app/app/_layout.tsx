@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import * as SecureStore from 'expo-secure-store';
+import { CustomAlertProvider } from '../utils/customModal';
+
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,40 +20,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Authentication Flow */}
-        <Stack.Screen name="index" />
-        <Stack.Screen name="LoginScreen" />
-        
-        {/* Landing Screen */}
-        <Stack.Screen name="landing/index" />
-        
-        {/* ✅ FIXED: Security Routes - This was missing! */}
-        <Stack.Screen 
-          name="security/index" 
-          options={{
-            title: 'Security Dashboard',
-            headerShown: false,
-          }}
-        />
-        
-        {/* ✅ FIXED: Security Manual Entry Route */}
-        <Stack.Screen 
-          name="security/manual-entry/index" 
-          options={{
-            title: 'Manual Entry',
-            headerShown: false,
-          }}
-        />
-        
-        {/* Tabs (for future use) */}
-        <Stack.Screen name="(tabs)" />
-        
-        {/* 404 Screen */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <CustomAlertProvider>  {/* ADD THIS WRAPPER */}
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="LoginScreen" />
+          <Stack.Screen name="landing/index" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </CustomAlertProvider>  
   );
 }

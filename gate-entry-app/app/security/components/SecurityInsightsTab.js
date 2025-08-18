@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   FlatList,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
 } from '../../../services/api';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import OperationalEditModal from './OperationalEditModal';
+import { showAlert } from '../../../utils/customModal';
 
 const SecurityInsightsTab = ({ 
   insightsData, 
@@ -115,7 +115,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error loading movements:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load movements: ${errorMessage}`);
+      showAlert('Error', `Failed to load movements: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -161,7 +161,7 @@ const SecurityInsightsTab = ({
       setAvailableDocuments(response.documents || []);
       
       if (response.available_count === 0) {
-        Alert.alert(
+        showAlert(
           'No Documents Found', 
           `No unassigned documents found for vehicle ${vehicleNo} in the last 1 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
         );
@@ -169,7 +169,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load documents: ${errorMessage}`);
+      showAlert('Error', `Failed to load documents: ${errorMessage}`);
     } finally {
       setLoadingDocuments(false);
     }
@@ -178,11 +178,11 @@ const SecurityInsightsTab = ({
   // NEW: Handle document assignment
   const handleDocumentAssignment = async () => {
     if (!selectedDocument || !assigningRecord) {
-      Alert.alert('Error', 'Please select a document first');
+      showAlert('Error', 'Please select a document first');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Confirm Assignment',
       `Assign document ${selectedDocument.document_no} to this manual entry?`,
       [
@@ -203,7 +203,7 @@ const SecurityInsightsTab = ({
 
       const response = await gateAPI.assignDocumentToManualEntry(assignmentData);
       
-      Alert.alert(
+      showAlert(
         'Success',
         `Document ${selectedDocument.document_no} assigned successfully!\n\nGate Entry: ${response.gate_entry_no}\nEdit Count: ${response.updated_insights.edit_count}`,
         [
@@ -220,7 +220,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error assigning document:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Assignment Failed', errorMessage);
+      showAlert('Assignment Failed', errorMessage);
     } finally {
       setAssigningDocument(false);
     }

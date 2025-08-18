@@ -1,5 +1,6 @@
 // app/LoginScreen_Styles.js - Fixed deprecated style properties
 import { StyleSheet, Dimensions, Platform } from 'react-native';
+import { BACKGROUND_PRIMARY } from '../utils/platformColors';
 
 const { width, height } = Dimensions.get('window');
 
@@ -7,7 +8,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     // minHeight: '100%',
-    backgroundColor: '#E0F7FA',
+    backgroundColor: BACKGROUND_PRIMARY,  // ← CHANGED
     paddingTop: height * 0.1,
     paddingHorizontal: width * 0.05,
   },
