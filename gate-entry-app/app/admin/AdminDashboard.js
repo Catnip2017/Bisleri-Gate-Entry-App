@@ -44,7 +44,7 @@ const AdminDashboard = () => {
 
       setUser(userData);
 
-      // ✅ Role-based tabs
+      // âœ… Role-based tabs
       if (userData.role === 'admin') {
         setAvailableTabs(['Admin Insights']);
       } else if (userData.role === 'itadmin') {
@@ -90,7 +90,7 @@ const AdminDashboard = () => {
     router.push('/landing/');
   };
 
-  // ✅ Role-protected render function
+  // âœ… Role-protected render function
   const renderActiveScreen = () => {
     const userRole = user?.role?.toLowerCase();
 
@@ -126,7 +126,7 @@ const AdminDashboard = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setIsSidebarVisible(!isSidebarVisible)}>
-          <Text style={styles.menuButton}>☰</Text>
+          <Text style={styles.menuButton}>â˜°</Text>
         </TouchableOpacity>
 
         <Image

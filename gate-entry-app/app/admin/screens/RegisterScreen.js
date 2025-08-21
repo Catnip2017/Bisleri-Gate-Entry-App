@@ -151,14 +151,14 @@ const handleRegister = async () => {
 
   setLoading(true);
   try {
-    // ✅ FIXED: Always include all required fields
+    // âœ… FIXED: Always include all required fields
     const userData = {
       username: formData.username.trim(),
       password: formData.password,
       first_name: formData.firstName.trim(),
       last_name: formData.lastName.trim(),
       role: formData.role,
-      // ✅ ALWAYS send these fields - backend expects them
+      // âœ… ALWAYS send these fields - backend expects them
       warehouse_code: formData.role === "itadmin" ? "" : formData.warehouseCode,
       site_code: formData.role === "itadmin" ? "" : formData.siteCode,
     };
@@ -169,7 +169,7 @@ const handleRegister = async () => {
     console.log('Role:', formData.role);
 
     const response = await adminAPI.registerUser(userData);
-    console.log("✅ Registration successful!", response);
+    console.log("âœ… Registration successful!", response);
 
     const successMsg = response.message || "User registered successfully!";
 

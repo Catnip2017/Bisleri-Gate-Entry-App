@@ -50,14 +50,14 @@ export default function LandingScreen() {
     } else if (user.role === "itadmin") {
       router.push("/admin"); // itadmin -> full admin section
     } else {
-      Alert.alert("Access Denied", "You don't have admin privileges.");
+      Alert.alert("Access Denied", "You don't have Security Admin privileges.");
     }
   };
 
   const handleSecurityCardPress = () => {
     if (!user) return;
 
-    if (user.role === "security" || user.role === "itadmin") {
+    if (user.role === "Security Guard" || user.role === "IT Admin") {
       router.push("/security"); // security + itadmin
     } else {
       Alert.alert("Access Denied", "You don't have security privileges.");
@@ -120,7 +120,7 @@ export default function LandingScreen() {
 
         <View style={styles.cardContainer}>
           {/* Admin / ITAdmin */}
-          {(user?.role === "admin" || user?.role === "itadmin") && (
+          {(user?.role === "Security Admin" || user?.role === "IT Admin") && (
             <TouchableOpacity
               style={[styles.card, styles.adminCard]}
               onPress={handleAdminCardPress}
@@ -133,13 +133,13 @@ export default function LandingScreen() {
                 />
               </View>
               <Text style={styles.cardText}>
-                {user.role === "admin" ? "Admin Insights" : "Administrator"}
+                {user.role === "Security Admin" ? "Admin Insights" : "Administrator"}
               </Text>
             </TouchableOpacity>
           )}
 
           {/* Security / ITAdmin */}
-          {(user?.role === "security" || user?.role === "itadmin") && (
+          {(user?.role === "Security Guard" || user?.role === "IT Admin") && (
             <TouchableOpacity
               style={[styles.card, styles.guardCard]}
               onPress={handleSecurityCardPress}

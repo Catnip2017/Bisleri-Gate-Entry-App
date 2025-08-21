@@ -179,7 +179,7 @@ const ResetPasswordScreen = () => {
         {userFound && (
           <View style={styles.userFoundInfo}>
             <Text style={styles.userFoundText}>
-              ✓ User Found: {userFound.username} ({userFound.first_name} {userFound.last_name})
+              âœ“ User Found: {userFound.username} ({userFound.first_name} {userFound.last_name})
             </Text>
           </View>
         )}
@@ -188,9 +188,9 @@ const ResetPasswordScreen = () => {
         {userFound && (
           <>
             <View style={styles.passwordRequirements}>
-              <Text style={styles.requirementText}>• Password must be at least 6 characters</Text>
-              <Text style={styles.requirementText}>• Use a combination of letters and numbers</Text>
-              <Text style={styles.requirementText}>• Avoid using common passwords</Text>
+              <Text style={styles.requirementText}>â€¢ Password must be at least 6 characters</Text>
+              <Text style={styles.requirementText}>â€¢ Use a combination of letters and numbers</Text>
+              <Text style={styles.requirementText}>â€¢ Avoid using common passwords</Text>
             </View>
 
             <Text style={styles.label}>New Password</Text>

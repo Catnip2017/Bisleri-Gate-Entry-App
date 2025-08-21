@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // 🔽 Dropdown Styles for Warehouse Autocomplete
+  // ðŸ”½ Dropdown Styles for Warehouse Autocomplete
   searchContainer: {
     position: 'relative',
     marginBottom: 15,

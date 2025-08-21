@@ -94,7 +94,7 @@ const ModifyUserScreen = () => {
 
     setLoading(true);
     try {
-      // 🔴 ONLY send roles — warehouse is ignored completely
+      // ðŸ”´ ONLY send roles â€” warehouse is ignored completely
       await adminAPI.modifyUser(userFound.username, {
         roles: roles,
       });
