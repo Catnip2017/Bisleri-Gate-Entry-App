@@ -112,32 +112,51 @@ export default function LandingScreen() {
     }
   };
 
- const handleLogout = () => {
-  if (Platform.OS === 'web') {
-    performLogout();
-  } else {
-    showAlert(
-      "Logout Confirmation",
-      "Are you sure you want to logout?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: performLogout }
-      ]
-    );
-  }
-}
+ // CHANGE handleLogout:
+const handleLogout = () => {
+  showAlert( // CHANGED
+    "Logout Confirmation",
+    "Are you sure you want to logout?",
+    [
+      {
+        text: "Cancel",
+        style: "cancel"
+      },
+      {
+        text: "Logout",
+        style: "destructive",
+        onPress: performLogout
+      }
+    ]
+  );
+};
 
-  const performLogout = async () => {
+
+
+const performLogout = async () => {
+  try {
+    // Call backend logout (optional)
+    await authAPI.logout();
+  } catch (error) {
+    console.error('Logout API error:', error);
+  } finally {
+    // ✅ ENHANCED: Clear all stored data
     try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout API error:', error);
-    } finally {
-      await storage.removeItem('access_token');
+      await SecureStore.deleteItemAsync('access_token');
+      
+      // ✅ ADDED: Clear any cached user data
+      setUser(null);
+      
+      // ✅ ADDED: Force immediate redirect
+      router.replace('/LoginScreen');
+      
+    } catch (clearError) {
+      console.error('Error clearing data:', clearError);
+      // Force redirect anyway
       router.replace('/LoginScreen');
     }
-  };
-
+  }
+};
   if (isLoading) {
     return (
       <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>

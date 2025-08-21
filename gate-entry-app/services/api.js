@@ -17,9 +17,9 @@ const getApiUrl = () => {
       return 'http://192.168.51.151:8000'; 
     }
     // Web platform
-    return 'http://192.168.1.10:8000'; // Updated to your local IP
+    return 'http://192.168.1.56:8000'; // Updated to your local IP
   }
-  return 'https://your-production-api.com';
+  return 'http://123.63.20.237:8081';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -170,7 +170,7 @@ export const gateAPI = {
   },
 
   // ✅ NEW: Get unassigned documents for vehicle
-  getUnassignedDocuments: async (vehicleNo, hoursBack = 1) => {
+  getUnassignedDocuments: async (vehicleNo, hoursBack = 8) => {
     if (!vehicleNo?.trim()) {
       throw new Error('Vehicle number is required');
     }

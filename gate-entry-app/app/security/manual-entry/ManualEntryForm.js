@@ -111,7 +111,7 @@ const ManualEntryForm = ({ userData }) => {
         }`,
         [
           {
-            text: 'Go to Insights',
+            text: 'Go Back',
             onPress: () => {
               router.push('/security/?tab=insights');
             }

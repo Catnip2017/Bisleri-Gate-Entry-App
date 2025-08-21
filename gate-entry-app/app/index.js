@@ -1,4 +1,4 @@
-// app/index.js - Updated with cross-platform storage
+// app/index.js - FIXED
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -13,35 +13,36 @@ export default function IndexScreen() {
 
   const checkAuthStatus = async () => {
     try {
-      // Small delay to prevent flash
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Check if storage is available
-      if (!storage.isAvailable()) {
-        console.warn('Storage not available, redirecting to login');
-        router.replace('/LoginScreen');
-        return;
-      }
-      
-      const token = await storage.getItem('access_token');
+      const token = await storage.getItem('access_token'); // CHANGED
       
       if (token) {
-        console.log('Token found, redirecting to landing page');
-        // User has token, go to landing screen
-        router.replace('/landing/');
+        try {
+          const { getCurrentUser } = await import('../utils/jwtUtils');
+          const userData = await getCurrentUser();
+          
+          if (userData && userData.username) {
+            router.replace('/landing/');
+          } else {
+            await storage.removeItem('access_token'); // CHANGED
+            router.replace('/LoginScreen');
+          }
+        } catch (tokenValidationError) {
+          console.error('Token validation failed:', tokenValidationError);
+          await storage.removeItem('access_token'); // CHANGED
+          router.replace('/LoginScreen');
+        }
       } else {
-        console.log('No token found, redirecting to login');
-        // No token, go to login screen
         router.replace('/LoginScreen');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // On error, go to login
+      await storage.removeItem('access_token'); // CHANGED
       router.replace('/LoginScreen');
     }
   };
 
-  // Show loading screen while checking auth
   return (
     <View style={{ 
       flex: 1, 

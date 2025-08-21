@@ -7,10 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Modal,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { insightsAPI, handleAPIError } from '../../../services/api';
+import { showAlert } from '../../../utils/customModal';
 
 const OperationalEditModal = ({ 
   visible, 
@@ -56,17 +56,17 @@ const OperationalEditModal = ({
     
     // Basic validation
     if (!formData.driver_name.trim()) {
-      Alert.alert('Error', 'Driver name is required');
+      showAlert('Error', 'Driver name is required');
       return;
     }
     
     if (!formData.km_reading.trim()) {
-      Alert.alert('Error', 'KM reading is required');
+      showAlert('Error', 'KM reading is required');
       return;
     }
     
     if (!formData.loader_names.trim()) {
-      Alert.alert('Error', 'Loader names are required');
+      showAlert('Error', 'Loader names are required');
       return;
     }
 
@@ -85,7 +85,7 @@ const OperationalEditModal = ({
 
       const response = await insightsAPI.updateOperationalData(updateData);
       
-      Alert.alert(
+      showAlert(
         'Success', 
         'Operational data updated successfully!',
         [
@@ -102,7 +102,7 @@ const OperationalEditModal = ({
     } catch (error) {
       console.error('Error updating operational data:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Update Failed', errorMessage);
+      showAlert('Update Failed', errorMessage);
     } finally {
       setIsSubmitting(false);
     }

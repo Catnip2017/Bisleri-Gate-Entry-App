@@ -340,7 +340,7 @@ const GateEntryTab = ({
             🚛 Empty Vehicle Detected
           </Text>
           <Text style={styles.noResultsSubtext}>
-            No documents found for this vehicle within the last 18 hours.
+            No documents found for this vehicle within the last 48 hours.
             This appears to be an empty vehicle.
           </Text>
           <TouchableOpacity 
