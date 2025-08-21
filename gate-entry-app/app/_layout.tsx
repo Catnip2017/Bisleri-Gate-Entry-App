@@ -1,4 +1,4 @@
-// app/_layout.tsx
+// app/_layout.tsx - FIXED: Complete with Security Routes
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import * as SecureStore from 'expo-secure-store';
+import { CustomAlertProvider } from '../utils/customModal';
+
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,21 +20,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        {/* Login Screen */}
-        <Stack.Screen name="LoginScreen" />
-        
-        {/* Landing Screen */}
-        <Stack.Screen name="landing/index" />
-        
-        {/* Tabs (for future use) */}
-        <Stack.Screen name="(tabs)" />
-        
-        {/* 404 Screen */}
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <CustomAlertProvider>  {/* ADD THIS WRAPPER */}
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="LoginScreen" />
+          <Stack.Screen name="landing/index" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </ThemeProvider>
+    </CustomAlertProvider>  
   );
 }

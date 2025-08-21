@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
   FlatList,
 } from 'react-native';
@@ -24,6 +23,7 @@ import {
 } from '../../../services/api';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import OperationalEditModal from './OperationalEditModal';
+import { showAlert } from '../../../utils/customModal';
 
 const SecurityInsightsTab = ({ 
   insightsData, 
@@ -115,7 +115,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error loading movements:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load movements: ${errorMessage}`);
+      showAlert('Error', `Failed to load movements: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -157,19 +157,19 @@ const SecurityInsightsTab = ({
   const loadAvailableDocuments = async (vehicleNo) => {
     setLoadingDocuments(true);
     try {
-      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 1); // 1 hour window
+      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 8); // 8 hour window
       setAvailableDocuments(response.documents || []);
       
       if (response.available_count === 0) {
-        Alert.alert(
+        showAlert(
           'No Documents Found', 
-          `No unassigned documents found for vehicle ${vehicleNo} in the last 1 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
+          `No unassigned documents found for vehicle ${vehicleNo} in the last 8 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
         );
       }
     } catch (error) {
       console.error('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load documents: ${errorMessage}`);
+      showAlert('Error', `Failed to load documents: ${errorMessage}`);
     } finally {
       setLoadingDocuments(false);
     }
@@ -178,11 +178,11 @@ const SecurityInsightsTab = ({
   // NEW: Handle document assignment
   const handleDocumentAssignment = async () => {
     if (!selectedDocument || !assigningRecord) {
-      Alert.alert('Error', 'Please select a document first');
+      showAlert('Error', 'Please select a document first');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Confirm Assignment',
       `Assign document ${selectedDocument.document_no} to this manual entry?`,
       [
@@ -203,7 +203,7 @@ const SecurityInsightsTab = ({
 
       const response = await gateAPI.assignDocumentToManualEntry(assignmentData);
       
-      Alert.alert(
+      showAlert(
         'Success',
         `Document ${selectedDocument.document_no} assigned successfully!\n\nGate Entry: ${response.gate_entry_no}\nEdit Count: ${response.updated_insights.edit_count}`,
         [
@@ -220,7 +220,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error assigning document:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Assignment Failed', errorMessage);
+      showAlert('Assignment Failed', errorMessage);
     } finally {
       setAssigningDocument(false);
     }
@@ -689,7 +689,7 @@ const SecurityInsightsTab = ({
             
             {/* Document Selection */}
             <Text style={styles.assignmentSectionTitle}>
-              Available Documents (Last 1 Hour):
+              Available Documents (Last 8 Hour):
             </Text>
             
             {loadingDocuments ? (
@@ -700,7 +700,7 @@ const SecurityInsightsTab = ({
             ) : availableDocuments.length === 0 ? (
               <View style={styles.noDocumentsContainer}>
                 <Text style={styles.noDocumentsText}>
-                  No unassigned documents found for this vehicle in the last hour.
+                  No unassigned documents found for this vehicle in the last 8 hours.
                 </Text>
                 <TouchableOpacity 
                   style={styles.refreshButton}

@@ -1,5 +1,6 @@
 // app/security/styles/ManualEntryFormStyles.js - ENHANCED WITH EMPTY VEHICLE STYLING
 import { StyleSheet } from 'react-native';
+import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
 
 const styles = StyleSheet.create({
   container: {
@@ -10,7 +11,7 @@ const styles = StyleSheet.create({
 
   // Card wrapper
   card: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: BACKGROUND_PRIMARY, // CHANGED FROM '#E0F7FA'
     borderRadius: 10,
     padding: 16,
     marginHorizontal: 12,

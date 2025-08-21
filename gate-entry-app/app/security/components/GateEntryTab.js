@@ -1,11 +1,11 @@
 // app/security/components/GateEntryTab.js - FIXED CLEAN SCROLLABLE TABLE
 import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import Checkbox from 'expo-checkbox';
 import styles from '../styles/gateEntryStyles';
 import { useRouter } from 'expo-router';
 import { gateAPI, handleAPIError, validationAPI, gateHelpers } from '../../../services/api';
-
+import { showAlert } from '../../../utils/customModal';
 const GateEntryTab = ({ 
   gateEntryData, 
   onDataChange, 
@@ -43,7 +43,7 @@ const GateEntryTab = ({
     const vehicleNo = gateEntryData.vehicleNo?.trim();
     
     if (!vehicleNo) {
-      Alert.alert('Error', 'Please enter vehicle number');
+      showAlert('Error', 'Please enter vehicle number');
       return;
     }
 
@@ -66,7 +66,7 @@ const GateEntryTab = ({
       const sequenceError = validationAPI.getGateSequenceError(status, selectedGateType);
       
       if (sequenceError) {
-        Alert.alert('Gate Sequence Error', sequenceError);
+        showAlert('Error', 'Please enter vehicle number');
         setIsSearching(false);
         return;
       }
@@ -89,10 +89,10 @@ const GateEntryTab = ({
       console.error('Vehicle search error:', error);
       
       if (error.response?.status === 400 && error.response.data.detail.includes('already has Gate')) {
-        Alert.alert('Gate Sequence Error', error.response.data.detail);
+        showAlert('Gate Sequence Error', error.response.data.detail);
       } else {
         const errorMessage = handleAPIError(error);
-        Alert.alert('Search Error', errorMessage);
+        showAlert('Search Error', errorMessage);
       }
     } finally {
       setIsSearching(false);
@@ -108,18 +108,18 @@ const GateEntryTab = ({
     }
     
     if (!vehicleNo) {
-      Alert.alert('Error', 'Please enter vehicle number');
+      showAlert('Error', 'Please enter vehicle number');
       return;
     }
 
     if (!searchResults) {
-      Alert.alert('Error', 'Please search for documents first');
+      showAlert('Error', 'Please search for documents first');
       return;
     }
 
     // ✅ Handle empty vehicle scenario
     if (gateHelpers.isEmptyVehicle(searchResults)) {
-      Alert.alert(
+      showAlert(
         'Empty Vehicle Detected',
         'This vehicle has no documents. Would you like to create a manual entry?',
         [
@@ -136,12 +136,12 @@ const GateEntryTab = ({
     }
 
     if (selectedDocuments.length === 0) {
-      Alert.alert('Error', 'Please select at least one document');
+      showAlert('Error', 'Please select at least one document');
       return;
     }
 
     // ✅ ONLY CONFIRMATION POP-UP (with OK validation)
-    Alert.alert(
+    showAlert(
       'Confirm Submission',
       `Submit ${gateEntryData.gateType} for ${selectedDocuments.length} document(s)?`,
       [
@@ -173,7 +173,7 @@ const GateEntryTab = ({
       const successMessage = gateHelpers.formatSuccessMessage(result, false);
       
       // ✅ SUCCESS MESSAGE - NO OK BUTTON (auto-dismiss after 2 seconds)
-      Alert.alert('Success', successMessage);
+      showAlert('Success', successMessage);
       
       // ✅ DIRECT SILENT CLEAR (bypass any other functions)
       // Clear all states silently without calling any other functions
@@ -201,10 +201,10 @@ const GateEntryTab = ({
       console.error('Batch gate entry submission failed:', error);
       
       if (error.response?.status === 400 && error.response.data.detail.includes('already has Gate')) {
-        Alert.alert('Gate Sequence Error', error.response.data.detail);
+        showAlert('Gate Sequence Error', error.response.data.detail);
       } else {
         const errorMessage = handleAPIError(error);
-        Alert.alert('Submission Error', errorMessage);
+        showAlert('Submission Error', errorMessage);
       }
     } finally {
       setIsSubmitting(false);
@@ -213,7 +213,7 @@ const GateEntryTab = ({
 
   // ✅ MANUAL CLEAR BUTTON: Only pop-up that needs confirmation
   const handleClearButtonPress = () => {
-    Alert.alert(
+    showAlert(
       'Clear All',
       'Are you sure you want to clear all fields?',
       [
@@ -340,7 +340,7 @@ const GateEntryTab = ({
             🚛 Empty Vehicle Detected
           </Text>
           <Text style={styles.noResultsSubtext}>
-            No documents found for this vehicle within the last 18 hours.
+            No documents found for this vehicle within the last 48 hours.
             This appears to be an empty vehicle.
           </Text>
           <TouchableOpacity 
@@ -409,7 +409,9 @@ const GateEntryTab = ({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.cardContainer}>
+    <ScrollView 
+    style={styles.container}
+    contentContainerStyle={styles.cardContainer}>
       <Text style={styles.sectionTitle}>Vehicle Entry Details</Text>
 
       {/* Row 1 - Gate Type and Auto Fields */}
