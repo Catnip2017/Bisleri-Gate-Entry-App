@@ -1,4 +1,4 @@
-// app/LoginScreen.js
+// app/LoginScreen.js - Updated with cross-platform storage
 import React, { useState } from 'react';
 import {
   View,
@@ -6,13 +6,15 @@ import {
   TextInput,
   Image,
   Pressable,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import styles from './LoginScreen_Styles';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
-import { authAPI } from '../services/api'; // Fixed path
+import { storage } from '../utils/storage';
+import { authAPI } from '../services/api';
+import { showAlert } from '../utils/customModal'; // CORRECTED PATH
+
+
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -22,7 +24,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
-      Alert.alert("Error", "Please enter both username and password");
+      showAlert("Error", "Please enter both username and password");
       return;
     }
 
@@ -40,9 +42,11 @@ export default function LoginScreen() {
         throw new Error("No access token received");
       }
 
-      // Store the token securely
-      await SecureStore.setItemAsync("access_token", access_token);
+      // Store the token securely using cross-platform storage
+      await storage.setItem("access_token", access_token);
 
+      console.log('Login successful, redirecting to landing page...');
+      
       // Direct redirect to landing page without popup
       router.replace('/landing/');
       
@@ -74,7 +78,7 @@ export default function LoginScreen() {
         errorMessage = error.message;
       }
       
-      Alert.alert("Login Failed", errorMessage);
+      showAlert("Login Failed", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +89,7 @@ export default function LoginScreen() {
       <Image
         source={require('../assets/images/bisleri-logo.png')}
         style={styles.topLogo}
+        resizeMode="contain"
       />
 
       <View style={styles.loginBox}>
@@ -102,6 +107,8 @@ export default function LoginScreen() {
             onChangeText={setUsername}
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="off"           // ✅ ADDED
+            textContentType="none"       // ✅ ADDED (iOS)
             editable={!isLoading}
           />
         </View>
@@ -115,6 +122,8 @@ export default function LoginScreen() {
             secureTextEntry
             value={password}
             onChangeText={setPassword}
+            autoComplete="new-password"  // ✅ ADDED
+            textContentType="newPassword" // ✅ ADDED (iOS)
             editable={!isLoading}
           />
         </View>
@@ -131,7 +140,8 @@ export default function LoginScreen() {
             paddingVertical: 14,
             borderRadius: 6,
             marginTop: 30,
-            boxShadow: '0px 2px 4px rgba(0,0,0,0.3)',
+            // Fixed: Use boxShadow instead of shadow* properties
+            ...(styles.buttonShadow),
             opacity: isLoading ? 0.7 : 1,
           })}
         >

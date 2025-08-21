@@ -27,7 +27,7 @@ def search_recent_documents(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
-    """Search documents within last 18 hours for a vehicle"""
+    """Search documents within last 48 hours for a vehicle"""
     
     if not vehicle_no.strip():
         raise HTTPException(status_code=400, detail="Vehicle number cannot be empty")
@@ -38,7 +38,7 @@ def search_recent_documents(
         query = text("""
             SELECT * FROM document_data
             WHERE vehicle_no = :vehicle_no
-            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '18 hours'
+            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
             ORDER BY document_date DESC
         """)
         
@@ -48,7 +48,7 @@ def search_recent_documents(
         if not documents:
             raise HTTPException(
                 status_code=404, 
-                detail=f"No recent documents found for vehicle: {vehicle_no} (within last 18 hours)"
+                detail=f"No recent documents found for vehicle: {vehicle_no} (within last 48 hours)"
             )
         
         document_list = []
@@ -725,7 +725,7 @@ def create_manual_gate_entry(
 @router.get("/unassigned-documents/{vehicle_no}")
 def get_unassigned_documents_for_vehicle(
     vehicle_no: str,
-    hours_back: int = 1,  # Default 1 hour, can be made configurable
+    hours_back: int = 8,  # Default 8 hour, can be made configurable
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):

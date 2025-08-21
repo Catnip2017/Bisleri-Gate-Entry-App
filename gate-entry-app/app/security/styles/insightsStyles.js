@@ -1,5 +1,7 @@
 // app/security/styles/insightsStyles.js - COMPLETE WITH 3-COLOR EDIT SYSTEM + DOCUMENT ASSIGNMENT
 import { StyleSheet } from 'react-native';
+import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
+
 
 const styles = StyleSheet.create({
   container: {
@@ -10,7 +12,7 @@ const styles = StyleSheet.create({
 
   // Card wrapper
   card: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: BACKGROUND_PRIMARY,
     borderRadius: 10,
     padding: 16,
     marginHorizontal: 12,

@@ -1,10 +1,13 @@
 // app/landing/LandingScreenStyles.js
 import { StyleSheet, Platform } from "react-native";
+import { BACKGROUND_PRIMARY } from '../../utils/platformColors';
+
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#E0F7FA",
+    backgroundColor: BACKGROUND_PRIMARY,  // ← CHANGED
+
   },
   header: {
     padding: 20,

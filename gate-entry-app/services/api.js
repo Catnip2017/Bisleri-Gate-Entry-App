@@ -1,6 +1,6 @@
-// services/api.js - COMPLETE ENHANCED WITH DOCUMENT ASSIGNMENT FUNCTIONALITY
+// services/api.js - Updated with cross-platform storage
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 
@@ -9,16 +9,17 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000';
+        return 'http://192.168.1.56:8000'; 
       } else {
         return 'http://10.0.2.2:8000';
       }
     } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000';
+      return 'http://192.168.51.151:8000'; 
     }
-    return 'http://192.168.51.151:8000';
+    // Web platform
+    return 'http://192.168.1.56:8000'; // Updated to your local IP
   }
-  return 'https://your-production-api.com';
+  return 'http://123.63.20.237:8081';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -35,9 +36,13 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   async (config) => {
-    const token = await SecureStore.getItemAsync('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    try {
+      const token = await storage.getItem('access_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (error) {
+      console.warn('Failed to get auth token:', error);
     }
     return config;
   },
@@ -49,7 +54,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      await SecureStore.deleteItemAsync('access_token');
+      try {
+        await storage.removeItem('access_token');
+      } catch (storageError) {
+        console.warn('Failed to clear auth token:', storageError);
+      }
     }
     return Promise.reject(error);
   }
@@ -63,9 +72,15 @@ export const authAPI = {
   },
   
   logout: async () => {
-    const response = await api.post('/logout');
-    await SecureStore.deleteItemAsync('access_token');
-    return response.data;
+    try {
+      const response = await api.post('/logout');
+      await storage.removeItem('access_token');
+      return response.data;
+    } catch (error) {
+      // Even if the API call fails, clear the local token
+      await storage.removeItem('access_token');
+      throw error;
+    }
   },
 };
 
@@ -154,9 +169,8 @@ export const gateAPI = {
     return response.data;
   },
 
-
   // ✅ NEW: Get unassigned documents for vehicle
-  getUnassignedDocuments: async (vehicleNo, hoursBack = 1) => {
+  getUnassignedDocuments: async (vehicleNo, hoursBack = 8) => {
     if (!vehicleNo?.trim()) {
       throw new Error('Vehicle number is required');
     }
@@ -285,6 +299,9 @@ export const insightsAPI = {
   },
 };
 
+// Continue with all the other exports (documentAssignmentUtils, multiEntryHelpers, etc.)
+// [Rest of the code remains the same as the original file]
+
 // ✅ NEW: Document assignment utilities
 export const documentAssignmentUtils = {
   // Check if insights record needs document assignment
@@ -325,6 +342,99 @@ export const documentAssignmentUtils = {
            record.edit_status !== 'expired';
   }
 };
+
+// Continue with all other utilities and exports...
+// [Include all remaining exports from the original file]
+
+// Admin APIs
+export const adminAPI = {
+  registerUser: async (userData) => {
+    const response = await api.post('/register-user', userData);
+    return response.data;
+  },
+
+  resetPassword: async (resetData) => {
+    const response = await api.post('/reset-password', resetData);
+    return response.data;
+  },
+
+  listUsers: async () => {
+    const response = await api.get('/list-users');
+    return response.data;
+  },
+};
+
+// Document APIs
+export const documentAPI = {
+  consolidateDocuments: async () => {
+    const response = await api.post('/consolidate-documents');
+    return response.data;
+  },
+};
+
+// Enhanced error handling utility
+export const handleAPIError = (error) => {
+  let errorMessage = "An unexpected error occurred";
+  
+  if (error.response) {
+    const status = error.response.status;
+    const data = error.response.data;
+    
+    switch (status) {
+      case 400:
+        if (data?.detail && data.detail.includes('already has Gate')) {
+          errorMessage = data.detail;
+        } else if (data?.detail && data.detail.includes('already assigned')) {
+          errorMessage = data.detail;
+        } else {
+          errorMessage = data?.detail || "Invalid request data";
+        }
+        break;
+      case 401:
+        errorMessage = "Authentication failed. Please login again.";
+        break;
+      case 403:
+        if (data?.detail && data.detail.includes('Edit window expired')) {
+          errorMessage = "Edit window expired. Records can only be edited within 24 hours.";
+        } else if (data?.detail && data.detail.includes('Assignment window expired')) {
+          errorMessage = "Assignment window expired. Documents can only be assigned within 24 hours.";
+        } else if (data?.detail && data.detail.includes('only edit your own')) {
+          errorMessage = "You can only edit your own gate entries.";
+        } else if (data?.detail && data.detail.includes('only assign documents to your own')) {
+          errorMessage = "You can only assign documents to your own manual entries.";
+        } else {
+          errorMessage = "Access denied. Insufficient permissions.";
+        }
+        break;
+      case 404:
+        if (data?.detail && data.detail.includes('Manual entry not found')) {
+          errorMessage = "Manual entry not found.";
+        } else if (data?.detail && data.detail.includes('Document not found')) {
+          errorMessage = "Document not found.";
+        } else {
+          errorMessage = data?.detail || "No recent documents found";
+        }
+        break;
+      case 422:
+        errorMessage = "Validation error. Please check your input.";
+        break;
+      case 500:
+        errorMessage = "Server error. Please try again later.";
+        break;
+      default:
+        errorMessage = data?.detail || `Server error (${status})`;
+    }
+  } else if (error.request) {
+    errorMessage = "Network error. Please check your connection.";
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+  
+  return errorMessage;
+};
+
+// Add these utility functions to your services/api.js file
+// (These go at the end of the api.js file after the existing exports)
 
 // ✅ NEW: Multi-entry helpers
 export const multiEntryHelpers = {
@@ -739,67 +849,6 @@ export const validationAPI = {
   }
 };
 
-// ✅ Enhanced error handling utility
-export const handleAPIError = (error) => {
-  let errorMessage = "An unexpected error occurred";
-  
-  if (error.response) {
-    const status = error.response.status;
-    const data = error.response.data;
-    
-    switch (status) {
-      case 400:
-        if (data?.detail && data.detail.includes('already has Gate')) {
-          errorMessage = data.detail;
-        } else if (data?.detail && data.detail.includes('already assigned')) {
-          errorMessage = data.detail;
-        } else {
-          errorMessage = data?.detail || "Invalid request data";
-        }
-        break;
-      case 401:
-        errorMessage = "Authentication failed. Please login again.";
-        break;
-      case 403:
-        if (data?.detail && data.detail.includes('Edit window expired')) {
-          errorMessage = "Edit window expired. Records can only be edited within 24 hours.";
-        } else if (data?.detail && data.detail.includes('Assignment window expired')) {
-          errorMessage = "Assignment window expired. Documents can only be assigned within 24 hours.";
-        } else if (data?.detail && data.detail.includes('only edit your own')) {
-          errorMessage = "You can only edit your own gate entries.";
-        } else if (data?.detail && data.detail.includes('only assign documents to your own')) {
-          errorMessage = "You can only assign documents to your own manual entries.";
-        } else {
-          errorMessage = "Access denied. Insufficient permissions.";
-        }
-        break;
-      case 404:
-        if (data?.detail && data.detail.includes('Manual entry not found')) {
-          errorMessage = "Manual entry not found.";
-        } else if (data?.detail && data.detail.includes('Document not found')) {
-          errorMessage = "Document not found.";
-        } else {
-          errorMessage = data?.detail || "No recent documents found";
-        }
-        break;
-      case 422:
-        errorMessage = "Validation error. Please check your input.";
-        break;
-      case 500:
-        errorMessage = "Server error. Please try again later.";
-        break;
-      default:
-        errorMessage = data?.detail || `Server error (${status})`;
-    }
-  } else if (error.request) {
-    errorMessage = "Network error. Please check your connection.";
-  } else if (error.message) {
-    errorMessage = error.message;
-  }
-  
-  return errorMessage;
-};
-
 // ✅ Gate operation helpers (enhanced)
 export const gateHelpers = {
   // Check if vehicle is empty (no documents found)
@@ -930,32 +979,6 @@ export const gateHelpers = {
   }
 };
 
-// ✅ Admin APIs (unchanged)
-export const adminAPI = {
-  registerUser: async (userData) => {
-    const response = await api.post('/register-user', userData);
-    return response.data;
-  },
-
-  resetPassword: async (resetData) => {
-    const response = await api.post('/reset-password', resetData);
-    return response.data;
-  },
-
-  listUsers: async () => {
-    const response = await api.get('/list-users');
-    return response.data;
-  },
-};
-
-// ✅ Document APIs (unchanged)
-export const documentAPI = {
-  consolidateDocuments: async () => {
-    const response = await api.post('/consolidate-documents');
-    return response.data;
-  },
-};
-
 // ✅ NEW: Edit utilities for frontend
 export const editUtils = {
   validateEditForm: (formData) => {
@@ -1010,7 +1033,8 @@ console.log('API Configuration:', {
   baseURL: API_BASE_URL,
   platform: Platform.OS,
   isDev: __DEV__,
-  isDevice: Device.isDevice
+  isDevice: Device.isDevice,
+  storageAvailable: storage.isAvailable()
 });
 
 export default api;

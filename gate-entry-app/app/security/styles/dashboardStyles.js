@@ -1,5 +1,7 @@
 // app/security/styles/dashboardStyles.js
 import { StyleSheet } from 'react-native';
+import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
+
 
 const styles = StyleSheet.create({
   // Main container

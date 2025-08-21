@@ -1,8 +1,8 @@
-// app/index.tsx
+// app/index.js - FIXED
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../utils/storage';
 
 export default function IndexScreen() {
   const router = useRouter();
@@ -13,26 +13,36 @@ export default function IndexScreen() {
 
   const checkAuthStatus = async () => {
     try {
-      // Small delay to prevent flash
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const token = await SecureStore.getItemAsync('access_token');
+      const token = await storage.getItem('access_token'); // CHANGED
       
       if (token) {
-        // User has token, go to landing screen
-        router.replace('/landing/');
+        try {
+          const { getCurrentUser } = await import('../utils/jwtUtils');
+          const userData = await getCurrentUser();
+          
+          if (userData && userData.username) {
+            router.replace('/landing/');
+          } else {
+            await storage.removeItem('access_token'); // CHANGED
+            router.replace('/LoginScreen');
+          }
+        } catch (tokenValidationError) {
+          console.error('Token validation failed:', tokenValidationError);
+          await storage.removeItem('access_token'); // CHANGED
+          router.replace('/LoginScreen');
+        }
       } else {
-        // No token, go to login screen
         router.replace('/LoginScreen');
       }
     } catch (error) {
       console.error('Error checking auth status:', error);
-      // On error, go to login
+      await storage.removeItem('access_token'); // CHANGED
       router.replace('/LoginScreen');
     }
   };
 
-  // Show loading screen while checking auth
   return (
     <View style={{ 
       flex: 1, 

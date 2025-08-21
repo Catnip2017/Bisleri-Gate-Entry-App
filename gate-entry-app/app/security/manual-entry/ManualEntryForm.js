@@ -6,12 +6,13 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { gateAPI, handleAPIError } from '../../../services/api';
 import styles from './ManualEntryFormStyles';
+import { showAlert } from '../../../utils/customModal';
+
 
 const ManualEntryForm = ({ userData }) => {
   const router = useRouter();
@@ -51,12 +52,12 @@ const ManualEntryForm = ({ userData }) => {
   // ✅ UPDATED: Validation - allow 0-20 range for empty vehicle support
   const validateForm = () => {
     if (!formData.vehicleNo?.trim()) {
-      Alert.alert('Validation Error', 'Vehicle number is required');
+      showAlert('Validation Error', 'Vehicle number is required');
       return false;
     }
     
     if (formData.noOfDocuments < 0 || formData.noOfDocuments > 20) {
-      Alert.alert('Validation Error', 'Number of documents must be between 0 and 20');
+      showAlert('Validation Error', 'Number of documents must be between 0 and 20');
       return false;
     }
     
@@ -71,7 +72,7 @@ const ManualEntryForm = ({ userData }) => {
     const entryType = isEmptyVehicle ? 'Empty Vehicle' : 'Multi-Document';
     const entriesText = isEmptyVehicle ? '1 empty vehicle entry' : `${formData.noOfDocuments} manual entries`;
 
-    Alert.alert(
+    showAlert(
       `Confirm ${entryType} Entry`,
       `Create ${entriesText} for vehicle ${formData.vehicleNo}?\n\n${
         isEmptyVehicle 
@@ -101,7 +102,7 @@ const ManualEntryForm = ({ userData }) => {
       
       const isEmptyVehicle = formData.noOfDocuments === 0;
       
-      Alert.alert(
+      showAlert(
         'Success', 
         `${response.entries_created} ${isEmptyVehicle ? 'empty vehicle' : 'manual'} entr${response.entries_created === 1 ? 'y' : 'ies'} created successfully!\n\nGate Entry No: ${response.gate_entry_no}\nVehicle: ${response.vehicle_no}\n\n${
           isEmptyVehicle 
@@ -110,7 +111,7 @@ const ManualEntryForm = ({ userData }) => {
         }`,
         [
           {
-            text: 'Go to Insights',
+            text: 'Go Back',
             onPress: () => {
               router.push('/security/?tab=insights');
             }
@@ -133,14 +134,14 @@ const ManualEntryForm = ({ userData }) => {
       console.error('Multi-document manual entry failed:', error);
       
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', errorMessage);
+      showAlert('Error', errorMessage);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleClear = () => {
-    Alert.alert(
+    showAlert(
       'Clear Form',
       'Are you sure you want to clear all fields?',
       [
