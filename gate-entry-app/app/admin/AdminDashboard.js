@@ -1,3 +1,4 @@
+// AdminDashboard.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -19,7 +20,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import ModifyUserScreen from './screens/ModifyUserScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 
-// Import styles
+// Import styles (separated)
 import styles from './AdminDashboardStyles';
 
 const AdminDashboard = () => {
@@ -27,6 +28,7 @@ const AdminDashboard = () => {
   const [user, setUser] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('Admin Insights');
+  const [availableTabs, setAvailableTabs] = useState(['Admin Insights']);
 
   useEffect(() => {
     loadUserData();
@@ -39,7 +41,23 @@ const AdminDashboard = () => {
         router.replace('/LoginScreen');
         return;
       }
+
       setUser(userData);
+
+      // ✅ Role-based tabs
+      if (userData.role === 'admin') {
+        setAvailableTabs(['Admin Insights']);
+      } else if (userData.role === 'itadmin') {
+        setAvailableTabs([
+          'Admin Insights',
+          'Register Users',
+          'Modify Users',
+          'Reset Password'
+        ]);
+      } else {
+        Alert.alert('Access Denied', 'You do not have access to this page.');
+        router.replace('/landing/');
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
       router.replace('/LoginScreen');
@@ -72,16 +90,32 @@ const AdminDashboard = () => {
     router.push('/landing/');
   };
 
+  // ✅ Role-protected render function
   const renderActiveScreen = () => {
+    const userRole = user?.role?.toLowerCase();
+
     switch (activeTab) {
       case 'Admin Insights':
         return <AdminInsightsScreen />;
+
       case 'Register Users':
-        return <RegisterScreen />;
+        if (userRole === 'itadmin') return <RegisterScreen />;
+        Alert.alert("Access Denied", "Only IT Admin can register users.");
+        setActiveTab('Admin Insights');
+        return null;
+
       case 'Modify Users':
-        return <ModifyUserScreen />;
+        if (userRole === 'itadmin') return <ModifyUserScreen />;
+        Alert.alert("Access Denied", "Only IT Admin can modify users.");
+        setActiveTab('Admin Insights');
+        return null;
+
       case 'Reset Password':
-        return <ResetPasswordScreen />;
+        if (userRole === 'itadmin') return <ResetPasswordScreen />;
+        Alert.alert("Access Denied", "Only IT Admin can modify users.");
+        setActiveTab('Admin Insights');
+        return null;
+
       default:
         return <AdminInsightsScreen />;
     }
@@ -116,14 +150,20 @@ const AdminDashboard = () => {
         {/* Sidebar */}
         {isSidebarVisible && (
           <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>Admin Info</Text>
+            <Text style={styles.sidebarTitle}>User Info</Text>
             {user && (
               <>
                 <Text style={styles.sidebarItem}>Username: {user.username}</Text>
-                <Text style={styles.sidebarItem}>Name: {user.fullName}</Text>
+                <Text style={styles.sidebarItem}>
+                  Name: {user.firstName} {user.lastName}
+                </Text>
                 <Text style={styles.sidebarItem}>Role: {user.role}</Text>
-                <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
-                <Text style={styles.sidebarItem}>Site Code: {user.siteCode}</Text>
+                {user.warehouse_code && (
+                  <Text style={styles.sidebarItem}>WH Code: {user.warehouse_code}</Text>
+                )}
+                {user.site_code && (
+                  <Text style={styles.sidebarItem}>Site Code: {user.site_code}</Text>
+                )}
               </>
             )}
           </View>
@@ -131,9 +171,9 @@ const AdminDashboard = () => {
 
         {/* Main Content */}
         <View style={styles.mainContent}>
-          {/* Tab Navigation */}
+          {/* Tabs */}
           <View style={styles.tabContainer}>
-            {['Admin Insights', 'Register Users', 'Modify Users', 'Reset Password'].map((tab) => (
+            {availableTabs.map((tab) => (
               <TouchableOpacity
                 key={tab}
                 style={[
@@ -152,7 +192,7 @@ const AdminDashboard = () => {
             ))}
           </View>
 
-          {/* Screen Content */}
+          {/* Content */}
           <ScrollView style={styles.screenContainer}>
             {renderActiveScreen()}
           </ScrollView>

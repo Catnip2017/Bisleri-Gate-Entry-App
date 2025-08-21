@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { adminAPI } from '../../../services/api';
@@ -18,11 +18,10 @@ const ModifyUserScreen = () => {
   const [searching, setSearching] = useState(false);
   const [userFound, setUserFound] = useState(null);
   const [warehouses, setWarehouses] = useState([]);
-  const [formData, setFormData] = useState({
-    warehouseCode: '',
-    warehouseName: '',
-    siteCode: ''
-  });
+  const [roles, setRoles] = useState([]); // Only manage roles
+  const [newRole, setNewRole] = useState('');
+
+  const availableRoles = ['admin', 'security', 'itadmin'];
 
   useEffect(() => {
     loadWarehouses();
@@ -48,13 +47,16 @@ const ModifyUserScreen = () => {
     try {
       const userData = await adminAPI.getUserDetails(searchUsername.trim());
       setUserFound(userData);
-      
-      // Pre-fill form with current user data
-      setFormData({
-        warehouseCode: userData.warehouse_code || '',
-        warehouseName: userData.warehouse_name || '',
-        siteCode: userData.site_code || ''
-      });
+
+      // Extract roles safely
+      const userRoles = Array.isArray(userData.roles)
+        ? userData.roles
+        : typeof userData.role === 'string'
+        ? [userData.role]
+        : [];
+
+      setRoles(userRoles);
+      setNewRole('');
 
       Alert.alert('Success', `User "${userData.username}" found successfully!`);
     } catch (error) {
@@ -62,25 +64,21 @@ const ModifyUserScreen = () => {
       const errorMessage = error.response?.data?.detail || 'User not found';
       Alert.alert('Error', errorMessage);
       setUserFound(null);
-      setFormData({
-        warehouseCode: '',
-        warehouseName: '',
-        siteCode: ''
-      });
+      setRoles([]);
+      setNewRole('');
     } finally {
       setSearching(false);
     }
   };
 
-  const handleWarehouseChange = (warehouseCode) => {
-    const selectedWarehouse = warehouses.find(wh => wh.warehouse_code === warehouseCode);
-    if (selectedWarehouse) {
-      setFormData({
-        warehouseCode: selectedWarehouse.warehouse_code,
-        warehouseName: selectedWarehouse.warehouse_name,
-        siteCode: selectedWarehouse.site_code
-      });
+  const addRole = () => {
+    if (!newRole) return;
+    if (roles.includes(newRole)) {
+      Alert.alert('Info', `Role "${newRole}" is already assigned.`);
+      return;
     }
+    setRoles([...roles, newRole]);
+    setNewRole('');
   };
 
   const handleModifyUser = async () => {
@@ -89,17 +87,16 @@ const ModifyUserScreen = () => {
       return;
     }
 
-    if (!formData.warehouseCode) {
-      Alert.alert('Error', 'Please select a warehouse');
+    if (roles.length === 0) {
+      Alert.alert('Error', 'Please assign at least one role');
       return;
     }
 
     setLoading(true);
     try {
+      // 🔴 ONLY send roles — warehouse is ignored completely
       await adminAPI.modifyUser(userFound.username, {
-        warehouse_code: formData.warehouseCode,
-        warehouse_name: formData.warehouseName,
-        site_code: formData.siteCode
+        roles: roles,
       });
 
       Alert.alert(
@@ -109,16 +106,12 @@ const ModifyUserScreen = () => {
           {
             text: 'OK',
             onPress: () => {
-              // Reset form
               setSearchUsername('');
               setUserFound(null);
-              setFormData({
-                warehouseCode: '',
-                warehouseName: '',
-                siteCode: ''
-              });
-            }
-          }
+              setRoles([]);
+              setNewRole('');
+            },
+          },
         ]
       );
     } catch (error) {
@@ -133,13 +126,13 @@ const ModifyUserScreen = () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Modify User Details</Text>
+        <Text style={styles.title}>Modify User Roles</Text>
 
-        {/* Search Section */}
-        <Text style={styles.label}>Search User</Text>
+        {/* Search User */}
+        <Text style={styles.label}>Search Username</Text>
         <TextInput
           style={styles.input}
-          placeholder="Enter username to search"
+          placeholder="Enter username"
           value={searchUsername}
           onChangeText={setSearchUsername}
           autoCapitalize="none"
@@ -157,72 +150,71 @@ const ModifyUserScreen = () => {
           )}
         </TouchableOpacity>
 
-        {/* User Found Info */}
+        {/* User Info */}
         {userFound && (
           <View style={styles.userInfo}>
             <Text style={styles.userInfoTitle}>User Found:</Text>
             <Text style={styles.userInfoText}>Username: {userFound.username}</Text>
-            <Text style={styles.userInfoText}>Name: {userFound.first_name} {userFound.last_name}</Text>
-            <Text style={styles.userInfoText}>Role: {userFound.role}</Text>
-            <Text style={styles.userInfoText}>Current Warehouse: {userFound.warehouse_code}</Text>
-            <Text style={styles.userInfoText}>Current Site: {userFound.site_code}</Text>
+            <Text style={styles.userInfoText}>
+              Name: {userFound.first_name} {userFound.last_name}
+            </Text>
+            <Text style={styles.userInfoText}>
+              Current Roles: {roles.length > 0 ? roles.join(', ') : 'None'}
+            </Text>
           </View>
         )}
 
-        {/* Modification Form */}
+        {/* Role Management */}
         {userFound && (
           <>
-            <Text style={styles.label}>New Warehouse</Text>
+            <Text style={styles.label}>Current Roles</Text>
+            {roles.length > 0 ? (
+              <View style={styles.roleList}>
+                {roles.map((role) => (
+                  <View key={role} style={styles.rolePill}>
+                    <Text style={styles.roleText}>{role}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.noRoleText}>No roles assigned</Text>
+            )}
+
+            {/* Add Role */}
+            <Text style={styles.label}>Add Role</Text>
             <View style={styles.pickerContainer}>
               <Picker
-                selectedValue={formData.warehouseCode}
-                onValueChange={handleWarehouseChange}
+                selectedValue={newRole}
+                onValueChange={setNewRole}
                 style={styles.picker}
               >
-                <Picker.Item label="Select Warehouse..." value="" />
-                {warehouses.map((warehouse) => (
-                  <Picker.Item
-                    key={warehouse.warehouse_code}
-                    label={`${warehouse.warehouse_code} - ${warehouse.warehouse_name}`}
-                    value={warehouse.warehouse_code}
-                  />
-                ))}
+                <Picker.Item label="Select Role to Add..." value="" />
+                {availableRoles
+                  .filter((role) => !roles.includes(role))
+                  .map((role) => (
+                    <Picker.Item key={role} label={role} value={role} />
+                  ))}
               </Picker>
             </View>
 
-            <Text style={styles.label}>Warehouse Code</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={formData.warehouseCode}
-              editable={false}
-            />
-
-            <Text style={styles.label}>Warehouse Name</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={formData.warehouseName}
-              editable={false}
-            />
-
-            <Text style={styles.label}>Site Code</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={formData.siteCode}
-              editable={false}
-            />
-
             <TouchableOpacity
-              style={[
-                styles.modifyButton,
-                loading && styles.modifyButtonDisabled
-              ]}
+              style={[styles.addButton, !newRole && styles.addButtonDisabled]}
+              onPress={addRole}
+              disabled={!newRole}
+            >
+              <Text style={styles.addButtonText}>Add Role</Text>
+            </TouchableOpacity>
+
+            {/* Modify Button */}
+            <TouchableOpacity
+              style={[styles.modifyButton, loading && styles.modifyButtonDisabled]}
               onPress={handleModifyUser}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.modifyText}>Update User</Text>
+                <Text style={styles.modifyText}>Update Roles Only</Text>
               )}
             </TouchableOpacity>
           </>

@@ -46,7 +46,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",   // 🔥 changed from space-between → center
     width: "100%",
     maxWidth: 400,
     marginBottom: 40,
@@ -59,6 +59,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 16,
+    marginHorizontal: 8, // 🔥 space between two cards
+
 
     ...Platform.select({
       web: {

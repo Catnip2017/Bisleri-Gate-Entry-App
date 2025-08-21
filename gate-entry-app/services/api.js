@@ -9,7 +9,7 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; 
+        return 'http://192.168.51.87:8000'; 
 
         return 'http://192.168.51.108:8000';
 
@@ -905,6 +905,17 @@ export const adminAPI = {
     return response.data;
   },
 
+  getUserDetails: async (username) => {
+    const response = await api.get(`/user/${username}`);
+    return response.data;
+  },
+
+modifyUser: async (username, data) => {
+  const response = await api.patch(`/user/${username}/add-role`, data);
+  return response.data;
+},
+
+
   getAdminDashboardStats: async () => {
     const response = await api.get('/admin-dashboard-stats');
     return response.data;
@@ -915,7 +926,6 @@ export const adminAPI = {
     return response.data;
   },
 
-  // ✅ ADD THIS MISSING FUNCTION:
   getAdminInsights: async (filters) => {
     const response = await api.post('/vehicle-movements', {
       from_date: filters.fromDate,

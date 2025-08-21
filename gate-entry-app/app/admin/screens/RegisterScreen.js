@@ -106,84 +106,121 @@ const RegisterScreen = () => {
   };
 
   const validateForm = () => {
-    const errors = {};
+  const errors = {};
 
-    const usernameError = validateUsername(formData.username);
-    if (usernameError) errors.username = usernameError;
+  const usernameError = validateUsername(formData.username);
+  if (usernameError) errors.username = usernameError;
 
-    const firstNameError = validateName(formData.firstName, 'First name');
-    if (firstNameError) errors.firstName = firstNameError;
+  const firstNameError = validateName(formData.firstName, 'First name');
+  if (firstNameError) errors.firstName = firstNameError;
 
-    const lastNameError = validateName(formData.lastName, 'Last name');
-    if (lastNameError) errors.lastName = lastNameError;
+  const lastNameError = validateName(formData.lastName, 'Last name');
+  if (lastNameError) errors.lastName = lastNameError;
 
-    const passwordError = validatePassword(formData.password);
-    if (passwordError) errors.password = passwordError;
+  const passwordError = validatePassword(formData.password);
+  if (passwordError) errors.password = passwordError;
 
-    const passwordMatchError = validatePasswordMatch(
-      formData.password,
-      formData.confirmPassword
-    );
-    if (passwordMatchError) errors.confirmPassword = passwordMatchError;
+  const passwordMatchError = validatePasswordMatch(
+    formData.password,
+    formData.confirmPassword
+  );
+  if (passwordMatchError) errors.confirmPassword = passwordMatchError;
 
-    if (!formData.warehouseCode || !formData.warehouseName || !formData.siteCode) {
-      errors.warehouse = 'Please enter a valid Warehouse Code';
-    }
+  // Only Security & Admin require warehouse (NOT itadmin)
+  if (
+    (formData.role === 'security' || formData.role === 'admin') &&
+    (!formData.warehouseCode ||
+      !formData.warehouseName ||
+      !formData.siteCode)
+  ) {
+    errors.warehouse = 'Please enter a valid Warehouse Code';
+  }
 
-    const errorKeys = Object.keys(errors);
-    if (errorKeys.length > 0) {
-      Alert.alert('Validation Error', errors[errorKeys[0]]);
-      return false;
-    }
+  const errorKeys = Object.keys(errors);
+  if (errorKeys.length > 0) {
+    Alert.alert('Validation Error', errors[errorKeys[0]]);
+    return false;
+  }
 
-    return true;
-  };
+  return true;
+};
+// In your RegisterScreen.js - Fix the handleRegister function
 
-  const handleRegister = async () => {
-    if (!validateForm()) return;
+const handleRegister = async () => {
+  if (!validateForm()) return;
 
-    setLoading(true);
-    try {
-      const userData = {
-        username: formData.username.trim(),
-        password: formData.password,
-        first_name: formData.firstName.trim(),
-        last_name: formData.lastName.trim(),
-        role: formData.role,
-        warehouse_code: formData.warehouseCode,
-        site_code: formData.siteCode,
-      };
+  setLoading(true);
+  try {
+    // ✅ FIXED: Always include all required fields
+    const userData = {
+      username: formData.username.trim(),
+      password: formData.password,
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
+      role: formData.role,
+      // ✅ ALWAYS send these fields - backend expects them
+      warehouse_code: formData.role === "itadmin" ? "" : formData.warehouseCode,
+      site_code: formData.role === "itadmin" ? "" : formData.siteCode,
+    };
 
-      await adminAPI.registerUser(userData);
+    // Simple debugging
+    console.log('=== REGISTRATION ATTEMPT ===');
+    console.log('User Data:', JSON.stringify(userData, null, 2));
+    console.log('Role:', formData.role);
 
-      Alert.alert('Success', 'User registered successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setFormData({
-              username: '',
-              password: '',
-              confirmPassword: '',
-              firstName: '',
-              lastName: '',
-              role: 'security',
-              warehouseCode: '',
-              warehouseName: '',
-              siteCode: '',
-            });
-            setSearchText('');
-          },
+    const response = await adminAPI.registerUser(userData);
+    console.log("✅ Registration successful!", response);
+
+    const successMsg = response.message || "User registered successfully!";
+
+    Alert.alert("Success", successMsg, [
+      {
+        text: "OK",
+        onPress: () => {
+          setFormData({
+            username: "",
+            password: "",
+            confirmPassword: "",
+            firstName: "",
+            lastName: "",
+            role: "security",
+            warehouseCode: "",
+            warehouseName: "",
+            siteCode: "",
+          });
+          setSearchText("");
         },
-      ]);
-    } catch (error) {
-      console.error('Registration error:', error);
-      const errorMessage =
-        error.response?.data?.detail || 'Registration failed';
-      Alert.alert('Error', errorMessage);
-    } finally {
-      setLoading(false);
+      },
+    ]);
+
+  } catch (error) {
+    console.log('=== REGISTRATION ERROR ===');
+    console.error('Error details:', error.message);
+    
+    if (error.response) {
+      console.error('Status:', error.response.status);
+      console.error('Error data:', JSON.stringify(error.response.data, null, 2));
+      console.error('Request URL:', error.response.config?.url);
     }
-  };
+    
+    let errorMessage = 'Registration failed';
+    
+    if (error.response?.status === 422) {
+      errorMessage = 'Validation error: ' + (error.response?.data?.detail || 'Invalid data format');
+    } else if (error.response?.status === 403) {
+      errorMessage = 'Access denied: Only IT Admins can register users';
+    } else if (error.response?.status === 401) {
+      errorMessage = 'Authentication required: Please login as IT Admin first';
+    } else if (error.response?.data?.detail) {
+      errorMessage = error.response.data.detail;
+    }
+    
+    Alert.alert('Registration Error', errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -225,56 +262,82 @@ const RegisterScreen = () => {
               Admin
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.roleButton,
+              formData.role === 'itadmin' && styles.roleButtonActive,
+            ]}
+            onPress={() => handleInputChange('role', 'itadmin')}
+          >
+            <Text
+              style={[
+                styles.roleButtonText,
+                formData.role === 'itadmin' && styles.roleButtonTextActive,
+              ]}
+            >
+              IT Admin
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Warehouse Code Input with Dropdown */}
-        <Text style={styles.label}>Warehouse Code</Text>
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type warehouse code or name..."
-            value={searchText}
-            onChangeText={handleWarehouseCodeChange}
-            onFocus={() => {
-              if (searchText && filteredWarehouses.length > 0) {
-                setShowDropdown(true);
-              }
-            }}
-            autoCapitalize="characters"
-          />
+        {/* Show Warehouse fields only for Security & Admin */}
+        {(formData.role === 'security' || formData.role === 'admin') && (
+          <>
+            <Text style={styles.label}>Warehouse Code</Text>
+            <View style={styles.searchContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="Type warehouse code or name..."
+                value={searchText}
+                onChangeText={handleWarehouseCodeChange}
+                onFocus={() => {
+                  if (searchText && filteredWarehouses.length > 0) {
+                    setShowDropdown(true);
+                  }
+                }}
+                autoCapitalize="characters"
+              />
 
-          {showDropdown && (
-            <View style={styles.dropdown}>
-              <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled={true}>
-                {filteredWarehouses.map((warehouse) => (
-                  <TouchableOpacity
-                    key={warehouse.warehouse_code}
-                    style={styles.dropdownItem}
-                    onPress={() => selectWarehouse(warehouse)}
+              {showDropdown && (
+                <View style={styles.dropdown}>
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled={true}
                   >
-                    <Text style={styles.dropdownItemCode}>{warehouse.warehouse_code}</Text>
-                    <Text style={styles.dropdownItemName}>{warehouse.warehouse_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                    {filteredWarehouses.map((warehouse) => (
+                      <TouchableOpacity
+                        key={warehouse.warehouse_code}
+                        style={styles.dropdownItem}
+                        onPress={() => selectWarehouse(warehouse)}
+                      >
+                        <Text style={styles.dropdownItemCode}>
+                          {warehouse.warehouse_code}
+                        </Text>
+                        <Text style={styles.dropdownItemName}>
+                          {warehouse.warehouse_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
             </View>
-          )}
-        </View>
 
-        {/* Auto-filled Name & Site Code */}
-        <Text style={styles.label}>Warehouse Name</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={formData.warehouseName}
-          editable={false}
-        />
+            <Text style={styles.label}>Warehouse Name</Text>
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={formData.warehouseName}
+              editable={false}
+            />
 
-        <Text style={styles.label}>Site Code</Text>
-        <TextInput
-          style={[styles.input, styles.inputDisabled]}
-          value={formData.siteCode}
-          editable={false}
-        />
+            <Text style={styles.label}>Site Code</Text>
+            <TextInput
+              style={[styles.input, styles.inputDisabled]}
+              value={formData.siteCode}
+              editable={false}
+            />
+          </>
+        )}
 
         {/* User Info */}
         <View style={styles.row}>
@@ -327,7 +390,9 @@ const RegisterScreen = () => {
           placeholder="Confirm Password"
           secureTextEntry
           value={formData.confirmPassword}
-          onChangeText={(value) => handleInputChange('confirmPassword', value)}
+          onChangeText={(value) =>
+            handleInputChange('confirmPassword', value)
+          }
         />
 
         <TouchableOpacity

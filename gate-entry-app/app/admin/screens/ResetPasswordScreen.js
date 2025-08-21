@@ -29,12 +29,16 @@ const ResetPasswordScreen = () => {
     setSearching(true);
     try {
       const userData = await adminAPI.getUserDetails(searchUsername.trim());
-      setUserFound(userData);
-      Alert.alert('Success', `User "${userData.username}" found successfully!`);
+      if (userData) {
+        setUserFound(userData);
+        Alert.alert('Success', `User "${userData.username}" found successfully!`);
+      } else {
+        setUserFound(null);
+        Alert.alert('Error', 'User not found');
+      }
     } catch (error) {
       console.error('Error searching user:', error);
-      const errorMessage = error.response?.data?.detail || 'User not found';
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error', 'User not found');
       setUserFound(null);
     } finally {
       setSearching(false);

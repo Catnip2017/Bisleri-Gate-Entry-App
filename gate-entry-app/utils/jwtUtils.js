@@ -52,7 +52,7 @@ export const getCurrentUser = async () => {
     
     return {
       username: payload.sub,
-      role: payload.role,
+      role: payload.role ? payload.role.toLowerCase() : null,  // always lowercase
       firstName: payload.first_name,
       lastName: payload.last_name,
       warehouseCode: payload.warehouse_code,
