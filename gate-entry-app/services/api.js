@@ -1037,4 +1037,235 @@ console.log('API Configuration:', {
   storageAvailable: storage.isAvailable()
 });
 
+// Add to services/api.js - RM API functionality
+
+// ✅ NEW: Raw Materials APIs
+export const rmAPI = {
+  // Create raw materials entry
+  createRMEntry: async (entryData) => {
+    if (!entryData.vehicle_no?.trim()) {
+      throw new Error('Vehicle number is required');
+    }
+    
+    if (!entryData.document_no?.trim()) {
+      throw new Error('Document number is required');
+    }
+    
+    if (!entryData.name_of_party?.trim()) {
+      throw new Error('Name of Party is required');
+    }
+    
+    if (!entryData.description_of_material?.trim()) {
+      throw new Error('Description of Material is required');
+    }
+    
+    if (!entryData.quantity?.trim()) {
+      throw new Error('Quantity is required');
+    }
+    
+    const response = await api.post('/rm/create-entry', entryData);
+    return response.data;
+  },
+
+  // Get filtered RM entries
+  getFilteredRMEntries: async (filters) => {
+    const filterData = {
+      from_date: filters.from_date,
+      to_date: filters.to_date,
+      vehicle_no: filters.vehicle_no || null,
+      movement_type: filters.movement_type || null
+    };
+    
+    const response = await api.post('/rm/filtered-entries', filterData);
+    return response.data;
+  },
+
+  // Update RM entry (24-hour edit window)
+  updateRMEntry: async (editData) => {
+    if (!editData.gate_entry_no) {
+      throw new Error('Gate entry number is required');
+    }
+
+    const response = await api.put('/rm/update-entry', editData);
+    return response.data;
+  },
+
+  // Get RM statistics
+  getRMStatistics: async () => {
+    const response = await api.get('/rm/statistics');
+    return response.data;
+  }
+};
+
+// ✅ Enhanced error handling for RM APIs
+const handleRMAPIError = (error) => {
+  let errorMessage = "An unexpected error occurred";
+  
+  if (error.response) {
+    const status = error.response.status;
+    const data = error.response.data;
+    
+    switch (status) {
+      case 400:
+        if (data?.detail && data.detail.includes('Invalid vehicle number')) {
+          errorMessage = "Invalid vehicle number format";
+        } else {
+          errorMessage = data?.detail || "Invalid request data";
+        }
+        break;
+      case 403:
+        if (data?.detail && data.detail.includes('Edit window expired')) {
+          errorMessage = "Edit window expired. Records can only be edited within 24 hours.";
+        } else if (data?.detail && data.detail.includes('only edit your own')) {
+          errorMessage = "You can only edit your own entries.";
+        } else {
+          errorMessage = "Access denied. Insufficient permissions.";
+        }
+        break;
+      case 404:
+        errorMessage = data?.detail || "Raw materials entry not found";
+        break;
+      case 422:
+        errorMessage = "Validation error. Please check your input.";
+        break;
+      case 500:
+        errorMessage = "Server error. Please try again later.";
+        break;
+      default:
+        errorMessage = data?.detail || `Server error (${status})`;
+    }
+  } else if (error.request) {
+    errorMessage = "Network error. Please check your connection.";
+  } else if (error.message) {
+    errorMessage = error.message;
+  }
+  
+  return errorMessage;
+};
+
+// ✅ RM-specific validation utilities
+export const rmValidation = {
+  validateVehicleNumber: (vehicleNo) => {
+    if (!vehicleNo) return { isValid: false, error: 'Vehicle number is required' };
+    
+    const cleaned = vehicleNo.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    if (cleaned.length < 8 || cleaned.length > 10) {
+      return { isValid: false, error: 'Vehicle number must be 8-10 characters' };
+    }
+    
+    const pattern = /^[A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{4}$/;
+    if (!pattern.test(cleaned)) {
+      return { isValid: false, error: 'Invalid vehicle number format' };
+    }
+    
+    return { isValid: true, value: cleaned };
+  },
+
+  validateRequiredField: (value, fieldName) => {
+    if (!value || !value.trim()) {
+      return { isValid: false, error: `${fieldName} is required` };
+    }
+    
+    if (value.trim().length < 1) {
+      return { isValid: false, error: `${fieldName} cannot be empty` };
+    }
+    
+    return { isValid: true, value: value.trim() };
+  },
+
+  validateRMForm: (formData) => {
+    const errors = {};
+
+    // Vehicle number validation
+    const vehicleValidation = rmValidation.validateVehicleNumber(formData.vehicle_no);
+    if (!vehicleValidation.isValid) {
+      errors.vehicle_no = vehicleValidation.error;
+    }
+
+    // Required fields validation
+    const requiredFields = [
+      { field: 'document_no', name: 'Document Number' },
+      { field: 'name_of_party', name: 'Name of Party' },
+      { field: 'description_of_material', name: 'Description of Material' },
+      { field: 'quantity', name: 'Quantity' }
+    ];
+
+    requiredFields.forEach(({ field, name }) => {
+      const validation = rmValidation.validateRequiredField(formData[field], name);
+      if (!validation.isValid) {
+        errors[field] = validation.error;
+      }
+    });
+
+    return {
+      isValid: Object.keys(errors).length === 0,
+      errors
+    };
+  }
+};
+
+// ✅ RM helpers
+export const rmHelpers = {
+  // Format RM entry for display
+  formatRMEntry: (entry) => {
+    return {
+      ...entry,
+      formatted_date: new Date(entry.date_time).toLocaleDateString(),
+      formatted_time: new Date(entry.date_time).toLocaleTimeString(),
+      formatted_datetime: new Date(entry.date_time).toLocaleString(),
+      can_edit_display: entry.can_edit ? 'Yes' : 'No',
+      time_remaining_display: entry.time_remaining || 'Expired'
+    };
+  },
+
+  // Get RM entry status
+  getRMEntryStatus: (entry) => {
+    if (!entry.can_edit) {
+      return { status: 'expired', color: '#6c757d', label: '⚫ Expired' };
+    }
+    
+    return { status: 'editable', color: '#ffc107', label: `⏰ Editable (${entry.time_remaining || 'Unknown'})` };
+  },
+
+  // Format success message
+  formatRMSuccessMessage: (result) => {
+    return `Raw Materials ${result.gate_type} completed successfully!\nGate Entry No: ${result.gate_entry_no}\nVehicle: ${result.vehicle_no}\nDateTime: ${new Date(result.date_time).toLocaleString()}`;
+  },
+
+  // Check if RM entry can be edited
+  canEditRMEntry: (entry, currentUser) => {
+    if (!entry || !currentUser) return false;
+
+    // Check 24-hour window
+    const entryDateTime = new Date(entry.date_time);
+    const now = new Date();
+    const timeDiff = now - entryDateTime;
+    const twentyFourHoursInMs = 24 * 60 * 60 * 1000;
+
+    if (timeDiff > twentyFourHoursInMs) return false;
+
+    // Check permissions (creator or admin)
+    return currentUser.role === 'Admin' || entry.security_username === currentUser.username;
+  },
+
+  // Get time remaining for edit
+  getRMTimeRemaining: (entryDateTime) => {
+    try {
+      const entryTime = new Date(entryDateTime);
+      const now = new Date();
+      const timeDiff = 24 * 60 * 60 * 1000 - (now - entryTime); // 24 hours in ms
+      
+      if (timeDiff <= 0) return null;
+      
+      const hours = Math.floor(timeDiff / (60 * 60 * 1000));
+      const minutes = Math.floor((timeDiff % (60 * 60 * 1000)) / (60 * 1000));
+      
+      return `${hours}h ${minutes}m`;
+    } catch (error) {
+      return null;
+    }
+  }
+};
+
 export default api;

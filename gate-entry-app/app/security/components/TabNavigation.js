@@ -1,4 +1,4 @@
-// app/security/components/TabNavigation.js
+// app/security/components/TabNavigation.js - UPDATED with 4 tabs
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import styles from '../styles/dashboardStyles';
@@ -11,7 +11,7 @@ const TabNavigation = ({ activeTab, onTabChange }) => {
         style={activeTab === 'gateentry' ? styles.activeButton : styles.inactiveButton}
         onPress={() => onTabChange('gateentry')}
       >
-        <Text style={styles.buttonText}>Gate Entry</Text>
+        <Text style={styles.buttonText}>FG Gate Entry</Text>
       </TouchableOpacity>
 
       {/* Security Insights Tab */}
@@ -19,7 +19,23 @@ const TabNavigation = ({ activeTab, onTabChange }) => {
         style={activeTab === 'insights' ? styles.activeButton : styles.inactiveButton}
         onPress={() => onTabChange('insights')}
       >
-        <Text style={styles.buttonText}>Security Insights</Text>
+        <Text style={styles.buttonText}>FG Insights</Text>
+      </TouchableOpacity>
+
+      {/* RM Entry Tab */}
+      <TouchableOpacity 
+        style={activeTab === 'rmentry' ? styles.activeButton : styles.inactiveButton}
+        onPress={() => onTabChange('rmentry')}
+      >
+        <Text style={styles.buttonText}>RM Gate Entry</Text>
+      </TouchableOpacity>
+
+      {/* RM Insights Tab */}
+      <TouchableOpacity 
+        style={activeTab === 'rminsights' ? styles.activeButton : styles.inactiveButton}
+        onPress={() => onTabChange('rminsights')}
+      >
+        <Text style={styles.buttonText}>RM Insights</Text>
       </TouchableOpacity>
     </View>
   );

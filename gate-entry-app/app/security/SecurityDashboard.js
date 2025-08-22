@@ -1,6 +1,6 @@
-// app/security/SecurityDashboard.js
+// app/security/SecurityDashboard.js - UPDATED with 4 tabs for RM functionality
 import React, { useState, useEffect } from 'react';
-import { View, SafeAreaView, ScrollView, Alert } from 'react-native';
+import { View, SafeAreaView, ScrollView } from 'react-native';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { gateAPI } from '../../services/api';
 import Header from './components/Header';
@@ -8,17 +8,19 @@ import Sidebar from './components/Sidebar';
 import TabNavigation from './components/TabNavigation';
 import GateEntryTab from './components/GateEntryTab';
 import SecurityInsightsTab from './components/SecurityInsightsTab';
+import RMEntryTab from './components/RMEntryTab';
+import RMInsightsTab from './components/RMInsightsTab';
 import styles from './styles/dashboardStyles';
 
 const SecurityDashboard = () => {
-  // Tab management
+  // Tab management - UPDATED with 4 tabs
   const [activeTab, setActiveTab] = useState('gateentry');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   
   // User data
   const [userData, setUserData] = useState(null);
   
-  // Gate Entry form state
+  // Gate Entry form state (existing)
   const [gateEntryData, setGateEntryData] = useState({
     gateType: 'Gate-In',
     gateEntryNo: '',
@@ -33,7 +35,7 @@ const SecurityDashboard = () => {
     checkedItems: [false]
   });
 
-  // Security Insights filters state
+  // Security Insights filters state (existing)
   const [insightsData, setInsightsData] = useState({
     fromDate: '2025/06/16',
     toDate: '2025/06/23',
@@ -75,7 +77,7 @@ const SecurityDashboard = () => {
     setActiveTab(tab);
   };
 
-  // Gate Entry handlers
+  // Gate Entry handlers (existing)
   const handleGateEntrySubmit = async () => {
     try {
       if (!gateEntryData.vehicleNo.trim()) {
@@ -175,7 +177,7 @@ const SecurityDashboard = () => {
         {/* Main Content */}
         <View style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.container}>
-            {/* Tab Navigation */}
+            {/* Tab Navigation - UPDATED with 4 tabs */}
             <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
 
             {/* Tab Content */}
@@ -197,6 +199,18 @@ const SecurityDashboard = () => {
                   insightsData={insightsData}
                   onDataChange={setInsightsData}
                 />
+              </View>
+
+              {/* RM Entry Tab - NEW */}
+              <View style={activeTab === 'rmentry' ? styles.visibleTab : styles.hiddenTab}>
+                <RMEntryTab
+                  userData={userData}
+                />
+              </View>
+
+              {/* RM Insights Tab - NEW */}
+              <View style={activeTab === 'rminsights' ? styles.visibleTab : styles.hiddenTab}>
+                <RMInsightsTab />
               </View>
             </View>
           </ScrollView>
