@@ -2,14 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync
+from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Bisleri Backend API",
-    description="Backend API for Bisleri with automated data synchronization", 
+    description="Backend API for Bisleri with automated data synchronization and raw materials tracking", 
     version="1.0.0"
 )
 
@@ -20,7 +20,8 @@ app.add_middleware(
         "http://localhost:8081",
         "http://127.0.0.1:8081", 
         "http://192.168.1.10:8081",
-        "http://123.63.20.237:8081"
+        "http://123.63.20.237:8081",
+        "http://192.168.1.56:8081"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -35,10 +36,11 @@ app.include_router(insights.router)
 app.include_router(ping.router)
 app.include_router(admin.router)
 app.include_router(sync.router)
+app.include_router(raw_materials.router)  # NEW: Raw Materials router
 
 @app.get("/")
 async def root():
-    return {"message": "Bisleri Backend API is running"}
+    return {"message": "Bisleri Backend API is running with Raw Materials support"}
 
 @app.get("/health")
 async def health_check():

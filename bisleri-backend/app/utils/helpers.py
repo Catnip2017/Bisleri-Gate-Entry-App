@@ -1,4 +1,4 @@
-# app/utils/helpers.py - RAW SQL IMPLEMENTATION
+# app/utils/helpers.py - UPDATED with dual table check for gate entry numbers
 import string
 import random
 from datetime import datetime
@@ -42,8 +42,30 @@ def fetch_user_details(username):
         cursor.close()
         conn.close()
 
+def check_gate_entry_exists(gate_entry_no):
+    """Check if gate entry number exists in either insights_data or raw_materials_data"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        # Check insights_data table
+        cursor.execute("""
+            SELECT 1 FROM insights_data WHERE gate_entry_no = %s
+            UNION
+            SELECT 1 FROM raw_materials_data WHERE gate_entry_no = %s
+            LIMIT 1
+        """, (gate_entry_no, gate_entry_no))
+        result = cursor.fetchone()
+        return result is not None 
+    
+    except Exception as e:
+        print(f"Error checking gate entry existence: {str(e)}")
+        return True  # Assume exists to be safe
+    finally:
+        cursor.close()
+        conn.close()
+
 def generate_gate_entry_number(warehouse_code):
-    """Generate gate entry number with warehouse validation"""
+    """Generate gate entry number with warehouse validation and dual table check"""
     conn = get_connection()
     cursor = conn.cursor()
     try:
@@ -57,13 +79,21 @@ def generate_gate_entry_number(warehouse_code):
             print(f"Warehouse code {warehouse_code} not found in location_master")
             return None
             
-        # Generate gate entry number
         warehouse_id = result[0]
         year = datetime.now().strftime("%Y")
-        random_digits = ''.join(random.choices(string.digits, k=6))
         
-        gate_entry_no = f"{warehouse_id}{year}{random_digits}"
-        return gate_entry_no
+        # Generate unique gate entry number by checking both tables
+        max_attempts = 100  # Prevent infinite loop
+        for attempt in range(max_attempts):
+            random_digits = ''.join(random.choices(string.digits, k=6))
+            gate_entry_no = f"{warehouse_id}{year}{random_digits}"
+            
+            # Check if this number exists in either table
+            if not check_gate_entry_exists(gate_entry_no):
+                return gate_entry_no
+        
+        print(f"Failed to generate unique gate entry number after {max_attempts} attempts")
+        return None
         
     except Exception as e:
         print(f"Error generating gate entry number: {str(e)}")
@@ -75,9 +105,7 @@ def generate_gate_entry_number(warehouse_code):
 def generate_gate_entry_no_for_user(username):
     """
     Complete function to generate gate entry number for a user
-    1. Fetch user details from database
-    2. Validate warehouse code
-    3. Generate gate entry number
+    Now checks both insights_data and raw_materials_data for uniqueness
     """
     try:
         # Step 1: Get fresh user details
@@ -91,7 +119,7 @@ def generate_gate_entry_no_for_user(username):
             print(f"User {username} has no warehouse_code assigned")
             return None
             
-        # Step 2: Generate gate entry number with validation
+        # Step 2: Generate gate entry number with dual table check
         gate_entry_no = generate_gate_entry_number(warehouse_code)
         if not gate_entry_no:
             print(f"Failed to generate gate entry number for warehouse {warehouse_code}")
@@ -194,4 +222,3 @@ if __name__ == "__main__":
         for i in range(3):
             gate_no = generate_gate_entry_number(warehouse_code)
             print(f"  Generated: {gate_no}")
-    

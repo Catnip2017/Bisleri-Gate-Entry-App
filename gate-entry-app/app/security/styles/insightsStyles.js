@@ -182,7 +182,10 @@ const styles = StyleSheet.create({
 
   // Enhanced Table Styles
   tableScrollContainer: {
-    maxHeight: 500,
+    height: 520,        // Fixed height for container
+    maxHeight: 520,     // Mobile fallback
+    borderWidth: 1,     // Visual boundary
+    borderColor: '#dee2e6',
   },
 
   tableContainer: {
@@ -1323,6 +1326,101 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
+  // NEW: Pagination styles
+  paginationInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+
+  paginationText: {
+    fontSize: 14,
+    color: '#495057',
+    fontWeight: '600',
+  },
+
+  paginationControls: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#dee2e6',
+    gap: 12,
+  },
+
+  paginationButton: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+
+  paginationButtonDisabled: {
+    backgroundColor: '#6c757d',
+    opacity: 0.5,
+  },
+
+  paginationButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
+  pageInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    gap: 8,
+  },
+
+  pageInput: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 14,
+    textAlign: 'center',
+    minWidth: 50,
+    maxWidth: 60,
+  },
+
+  pageInputLabel: {
+    fontSize: 14,
+    color: '#495057',
+    fontWeight: '500',
+  },
+
+  // Enhanced table data container for better scrolling
+  tableDataContainer: {
+    height: 500,        // Fixed height instead of maxHeight
+    maxHeight: 500,     // Backup for mobile
+    backgroundColor: '#ffffff',
+    overflow: 'scroll', // Explicit for web
+  },
+
 });
 
 export default styles;
