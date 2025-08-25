@@ -655,6 +655,78 @@ const styles = StyleSheet.create({
   tableCheckbox: {
     transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
   },
+
+  // Add these styles to app/security/styles/gateEntryStyles.js - NEW Entry Type Toggle Styles
+
+// ✅ NEW: Entry Type Toggle Styles
+
+  entryTypeContainer: {
+    marginBottom: 20,
+    backgroundColor: '#f8f9fa',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#007bff',
+  },
+
+  entryTypeLabel: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+    textAlign: 'center',
+  },
+
+  entryTypeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+  },
+
+  entryTypeButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#dee2e6',
+    backgroundColor: '#ffffff',
+    minWidth: 120,
+    alignItems: 'center',
+  },
+
+  entryTypeButtonActive: {
+    borderColor: '#007bff',
+    backgroundColor: '#007bff',
+  },
+
+  entryTypeButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#6c757d',
+  },
+
+  entryTypeButtonTextActive: {
+    color: '#ffffff',
+  },
+
+  // ✅ RESPONSIVE: Mobile styles for entry type toggle
+  '@media (max-width: 768px)': {
+    entryTypeRow: {
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 12,
+    },
+
+    entryTypeButton: {
+      width: '80%',
+      minWidth: 0,
+    },
+  },
+
+
+// Export the new styles to be merged with existing gateEntryStyles
+
 });
 
 export default styles;
+

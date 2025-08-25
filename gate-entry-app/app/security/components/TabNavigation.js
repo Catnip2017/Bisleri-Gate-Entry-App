@@ -1,4 +1,4 @@
-// app/security/components/TabNavigation.js - UPDATED with 4 tabs
+// app/security/components/TabNavigation.js - UPDATED with 3 tabs (FG Entry, FG Insights, RM Insights)
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import styles from '../styles/dashboardStyles';
@@ -6,28 +6,20 @@ import styles from '../styles/dashboardStyles';
 const TabNavigation = ({ activeTab, onTabChange }) => {
   return (
     <View style={styles.buttonRow}>
-      {/* Gate Entry Tab */}
+      {/* FG Entry Tab */}
       <TouchableOpacity 
-        style={activeTab === 'gateentry' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('gateentry')}
+        style={activeTab === 'fgentry' ? styles.activeButton : styles.inactiveButton}
+        onPress={() => onTabChange('fgentry')}
       >
-        <Text style={styles.buttonText}>FG Gate Entry</Text>
+        <Text style={styles.buttonText}>Gate Entry</Text>
       </TouchableOpacity>
 
-      {/* Security Insights Tab */}
+      {/* FG Insights Tab */}
       <TouchableOpacity 
-        style={activeTab === 'insights' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('insights')}
+        style={activeTab === 'fginsights' ? styles.activeButton : styles.inactiveButton}
+        onPress={() => onTabChange('fginsights')}
       >
         <Text style={styles.buttonText}>FG Insights</Text>
-      </TouchableOpacity>
-
-      {/* RM Entry Tab */}
-      <TouchableOpacity 
-        style={activeTab === 'rmentry' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('rmentry')}
-      >
-        <Text style={styles.buttonText}>RM Gate Entry</Text>
       </TouchableOpacity>
 
       {/* RM Insights Tab */}

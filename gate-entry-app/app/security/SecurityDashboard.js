@@ -1,4 +1,4 @@
-// app/security/SecurityDashboard.js - UPDATED with 4 tabs for RM functionality
+// app/security/SecurityDashboard.js - UPDATED with 3 tabs and FG/RM toggle logic
 import React, { useState, useEffect } from 'react';
 import { View, SafeAreaView, ScrollView } from 'react-native';
 import { getCurrentUser } from '../../utils/jwtUtils';
@@ -8,13 +8,12 @@ import Sidebar from './components/Sidebar';
 import TabNavigation from './components/TabNavigation';
 import GateEntryTab from './components/GateEntryTab';
 import SecurityInsightsTab from './components/SecurityInsightsTab';
-import RMEntryTab from './components/RMEntryTab';
 import RMInsightsTab from './components/RMInsightsTab';
 import styles from './styles/dashboardStyles';
 
 const SecurityDashboard = () => {
-  // Tab management - UPDATED with 4 tabs
-  const [activeTab, setActiveTab] = useState('gateentry');
+  // Tab management - UPDATED with 3 tabs
+  const [activeTab, setActiveTab] = useState('fgentry');
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   
   // User data
@@ -177,38 +176,32 @@ const SecurityDashboard = () => {
         {/* Main Content */}
         <View style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={styles.container}>
-            {/* Tab Navigation - UPDATED with 4 tabs */}
+            {/* Tab Navigation - UPDATED with 3 tabs */}
             <TabNavigation activeTab={activeTab} onTabChange={handleTabChange} />
 
             {/* Tab Content */}
             <View style={styles.tabContent}>
-              {/* Gate Entry Tab */}
-              <View style={activeTab === 'gateentry' ? styles.visibleTab : styles.hiddenTab}>
+              {/* FG Entry Tab (with FG/RM toggle inside) */}
+              <View style={activeTab === 'fgentry' ? styles.visibleTab : styles.hiddenTab}>
                 <GateEntryTab
                   gateEntryData={gateEntryData}
                   onDataChange={setGateEntryData}
                   onSubmit={handleGateEntrySubmit}
                   onAddManualEntry={handleAddManualEntry}
                   onClearAll={handleClearAll}
+                  userData={userData}
                 />
               </View>
 
-              {/* Security Insights Tab */}
-              <View style={activeTab === 'insights' ? styles.visibleTab : styles.hiddenTab}>
+              {/* FG Insights Tab */}
+              <View style={activeTab === 'fginsights' ? styles.visibleTab : styles.hiddenTab}>
                 <SecurityInsightsTab
                   insightsData={insightsData}
                   onDataChange={setInsightsData}
                 />
               </View>
 
-              {/* RM Entry Tab - NEW */}
-              <View style={activeTab === 'rmentry' ? styles.visibleTab : styles.hiddenTab}>
-                <RMEntryTab
-                  userData={userData}
-                />
-              </View>
-
-              {/* RM Insights Tab - NEW */}
+              {/* RM Insights Tab */}
               <View style={activeTab === 'rminsights' ? styles.visibleTab : styles.hiddenTab}>
                 <RMInsightsTab />
               </View>

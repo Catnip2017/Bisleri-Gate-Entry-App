@@ -1,4 +1,4 @@
-// app/security/styles/dashboardStyles.js - UPDATED for 4 tabs
+// app/security/styles/dashboardStyles.js - UPDATED for 3 tabs
 import { StyleSheet } from 'react-native';
 import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
 
@@ -56,40 +56,41 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  // ✅ UPDATED: Button row for 4 tabs
+  // ✅ UPDATED: Button row for 3 tabs
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginVertical: 10,
-    flexWrap: 'wrap', // Allow wrapping on smaller screens
   },
 
-  // ✅ UPDATED: Active button styles for 4 tabs
+  // ✅ UPDATED: Active button styles for 3 tabs
   activeButton: {
     backgroundColor: '#00bfff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginHorizontal: 2,
-    minWidth: 80,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+    marginHorizontal: 1,
+    minWidth: 100,
     alignItems: 'center',
   },
 
-  // ✅ UPDATED: Inactive button styles for 4 tabs
+  // ✅ UPDATED: Inactive button styles for 3 tabs  
   inactiveButton: {
     backgroundColor: '#ccf5ff',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    marginHorizontal: 2,
-    minWidth: 80,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    marginHorizontal: 1,
+    minWidth: 100,
     alignItems: 'center',
   },
 
   buttonText: {
     color: '#000',
     fontWeight: 'bold',
-    fontSize: 12, // Slightly smaller for 4 tabs
+    fontSize: 14,
     textAlign: 'center',
   },
 
@@ -129,45 +130,44 @@ const styles = StyleSheet.create({
     display: 'none',
   },
 
-  // ✅ RESPONSIVE: Mobile styles for 4 tabs
+  // ✅ RESPONSIVE: Mobile styles for 3 tabs
   '@media (max-width: 768px)': {
     buttonRow: {
       flexDirection: 'row',
-      flexWrap: 'wrap',
       justifyContent: 'space-around',
     },
 
     activeButton: {
-      minWidth: 70,
-      paddingHorizontal: 8,
-      marginVertical: 4,
+      minWidth: 80,
+      paddingHorizontal: 12,
+      borderRadius: 6,
     },
 
     inactiveButton: {
-      minWidth: 70,
-      paddingHorizontal: 8,
-      marginVertical: 4,
+      minWidth: 80,
+      paddingHorizontal: 12,
+      borderRadius: 6,
     },
 
     buttonText: {
-      fontSize: 11,
+      fontSize: 12,
     },
   },
 
-  // ✅ RESPONSIVE: Tablet styles for 4 tabs
+  // ✅ RESPONSIVE: Tablet styles for 3 tabs
   '@media (min-width: 769px) and (max-width: 1024px)': {
     activeButton: {
-      minWidth: 90,
-      paddingHorizontal: 14,
+      minWidth: 120,
+      paddingHorizontal: 20,
     },
 
     inactiveButton: {
-      minWidth: 90,
-      paddingHorizontal: 14,
+      minWidth: 120,
+      paddingHorizontal: 20,
     },
 
     buttonText: {
-      fontSize: 13,
+      fontSize: 15,
     },
   },
 });

@@ -1,4 +1,4 @@
-// app/security/components/GateEntryTab.js - FIXED CLEAN SCROLLABLE TABLE
+// app/security/components/GateEntryTab.js - UPDATED with FG/RM toggle and conditional forms
 import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import Checkbox from 'expo-checkbox';
@@ -6,22 +6,171 @@ import styles from '../styles/gateEntryStyles';
 import { useRouter } from 'expo-router';
 import { gateAPI, handleAPIError, validationAPI, gateHelpers } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
+
 const GateEntryTab = ({ 
   gateEntryData, 
   onDataChange, 
   onSubmit, 
   onAddManualEntry, 
-  onClearAll 
+  onClearAll,
+  userData 
 }) => {
   const router = useRouter();
   
-  // ✅ State management
+  // ✅ NEW: Entry type toggle (FG or RM)
+  const [entryType, setEntryType] = useState('FG'); // 'FG' or 'RM'
+  
+  // ✅ State management for FG Entry (existing)
   const [isSearching, setIsSearching] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchResults, setSearchResults] = useState(null);
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [vehicleStatus, setVehicleStatus] = useState(null);
 
+  // ✅ NEW: State management for RM Entry
+  const [rmFormData, setRMFormData] = useState({
+    gateType: 'Gate-In',
+    vehicleNo: '',
+    documentNo: '',
+    nameOfParty: '',
+    descriptionOfMaterial: '',
+    quantity: ''
+  });
+
+  // ✅ NEW: RM form handlers
+  const updateRMField = (field, value) => {
+    setRMFormData({
+      ...rmFormData,
+      [field]: value
+    });
+  };
+
+  const validateRMForm = () => {
+    if (!rmFormData.vehicleNo.trim()) {
+      showAlert('Error', 'Vehicle number is required');
+      return false;
+    }
+    
+    if (rmFormData.vehicleNo.trim().length < 8) {
+      showAlert('Error', 'Vehicle number must be at least 8 characters');
+      return false;
+    }
+    
+    if (!rmFormData.documentNo.trim()) {
+      showAlert('Error', 'Document number is required');
+      return false;
+    }
+    
+    if (!rmFormData.nameOfParty.trim()) {
+      showAlert('Error', 'Name of Party is required');
+      return false;
+    }
+    
+    if (!rmFormData.descriptionOfMaterial.trim()) {
+      showAlert('Error', 'Description of Material is required');
+      return false;
+    }
+    
+    if (!rmFormData.quantity.trim()) {
+      showAlert('Error', 'Quantity is required');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleRMSubmit = async () => {
+    if (!validateRMForm()) return;
+
+    showAlert(
+      'Confirm Submission',
+      `Create ${rmFormData.gateType} entry for vehicle ${rmFormData.vehicleNo}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Submit', onPress: performRMSubmit }
+      ]
+    );
+  };
+
+  const performRMSubmit = async () => {
+    setIsSubmitting(true);
+    
+    try {
+      const { rmAPI } = await import('../../../services/api');
+      
+      const entryData = {
+        gate_type: rmFormData.gateType,
+        vehicle_no: rmFormData.vehicleNo.trim(),
+        document_no: rmFormData.documentNo.trim(),
+        name_of_party: rmFormData.nameOfParty.trim(),
+        description_of_material: rmFormData.descriptionOfMaterial.trim(),
+        quantity: rmFormData.quantity.trim()
+      };
+
+      const response = await rmAPI.createRMEntry(entryData);
+      
+      showAlert(
+        'Success', 
+        `Raw Materials ${rmFormData.gateType} created successfully!\n\nGate Entry No: ${response.gate_entry_no}\nVehicle: ${response.vehicle_no}\nDateTime: ${new Date(response.date_time).toLocaleString()}`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Clear RM form after successful submission
+              setRMFormData({
+                gateType: 'Gate-In',
+                vehicleNo: '',
+                documentNo: '',
+                nameOfParty: '',
+                descriptionOfMaterial: '',
+                quantity: ''
+              });
+            }
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('RM entry submission failed:', error);
+      
+      let errorMessage = 'Failed to create raw materials entry';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      showAlert('Error', errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRMClear = () => {
+    showAlert(
+      'Clear All',
+      'Are you sure you want to clear all fields?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            setRMFormData({
+              gateType: 'Gate-In',
+              vehicleNo: '',
+              documentNo: '',
+              nameOfParty: '',
+              descriptionOfMaterial: '',
+              quantity: ''
+            });
+          }
+        }
+      ]
+    );
+  };
+
+  // ✅ EXISTING: FG Entry handlers (keeping existing logic)
   const updateField = (field, value) => {
     onDataChange({
       ...gateEntryData,
@@ -29,7 +178,6 @@ const GateEntryTab = ({
     });
   };
 
-  // ✅ Handle document selection via checkboxes
   const handleDocumentSelection = (documentNo, isSelected) => {
     if (isSelected) {
       setSelectedDocuments(prev => [...prev, documentNo]);
@@ -38,7 +186,6 @@ const GateEntryTab = ({
     }
   };
 
-  // ✅ Enhanced vehicle search with complete validation
   const handleVehicleSearch = async () => {
     const vehicleNo = gateEntryData.vehicleNo?.trim();
     
@@ -57,28 +204,24 @@ const GateEntryTab = ({
     setVehicleStatus(null);
 
     try {
-      // ✅ STEP 1: Check vehicle gate status first
       const status = await gateAPI.getVehicleStatus(vehicleNo);
       setVehicleStatus(status);
       
-      // ✅ STEP 2: Validate gate type sequence
       const selectedGateType = gateEntryData.gateType;
       const sequenceError = validationAPI.getGateSequenceError(status, selectedGateType);
       
       if (sequenceError) {
-        showAlert('Error', 'Please enter vehicle number');
+        showAlert('Error', sequenceError);
         setIsSearching(false);
         return;
       }
       
-      // ✅ STEP 3: Search for documents (18-hour filter)
       try {
         const results = await gateAPI.searchRecentDocuments(vehicleNo);
         setSearchResults(results);
         
       } catch (searchError) {
         if (searchError.response?.status === 404) {
-          // ✅ No documents found - empty vehicle scenario
           setSearchResults({ count: 0, documents: [] });
         } else {
           throw searchError;
@@ -99,12 +242,11 @@ const GateEntryTab = ({
     }
   };
 
-  // ✅ SIMPLIFIED: Submit with only 1 confirmation pop-up
   const handleEnhancedSubmit = async () => {
     const vehicleNo = gateEntryData.vehicleNo?.trim();
     
     if (isSubmitting) {
-      return; // Silent prevention
+      return;
     }
     
     if (!vehicleNo) {
@@ -117,7 +259,6 @@ const GateEntryTab = ({
       return;
     }
 
-    // ✅ Handle empty vehicle scenario
     if (gateHelpers.isEmptyVehicle(searchResults)) {
       showAlert(
         'Empty Vehicle Detected',
@@ -140,7 +281,6 @@ const GateEntryTab = ({
       return;
     }
 
-    // ✅ ONLY CONFIRMATION POP-UP (with OK validation)
     showAlert(
       'Confirm Submission',
       `Submit ${gateEntryData.gateType} for ${selectedDocuments.length} document(s)?`,
@@ -156,7 +296,6 @@ const GateEntryTab = ({
     );
   };
 
-  // ✅ SIMPLIFIED: Actual submission with auto-success message
   const performSubmission = async () => {
     setIsSubmitting(true);
     
@@ -172,18 +311,14 @@ const GateEntryTab = ({
       
       const successMessage = gateHelpers.formatSuccessMessage(result, false);
       
-      // ✅ SUCCESS MESSAGE - NO OK BUTTON (auto-dismiss after 2 seconds)
       showAlert('Success', successMessage);
       
-      // ✅ DIRECT SILENT CLEAR (bypass any other functions)
-      // Clear all states silently without calling any other functions
       setSearchResults(null);
       setSelectedDocuments([]);
       setVehicleStatus(null);
       
-      // Clear form data directly
       onDataChange({
-        gateType: 'Gate-In', // Keep default gate type
+        gateType: 'Gate-In',
         vehicleNo: '',
         transporterName: '',
         driverName: '',
@@ -194,8 +329,6 @@ const GateEntryTab = ({
         gateEntryNo: '',
         dateTime: ''
       });
-      
-      console.log('Auto-cleared all data silently after successful submission');
       
     } catch (error) {
       console.error('Batch gate entry submission failed:', error);
@@ -211,43 +344,43 @@ const GateEntryTab = ({
     }
   };
 
-  // ✅ MANUAL CLEAR BUTTON: Only pop-up that needs confirmation
   const handleClearButtonPress = () => {
-    showAlert(
-      'Clear All',
-      'Are you sure you want to clear all fields?',
-      [
-        { text: 'CANCEL', style: 'cancel' },
-        {
-          text: 'CLEAR',
-          style: 'destructive',
-          onPress: () => {
-            // Direct silent clear (same as auto-clear)
-            setSearchResults(null);
-            setSelectedDocuments([]);
-            setVehicleStatus(null);
-            
-            onDataChange({
-              gateType: 'Gate-In',
-              vehicleNo: '',
-              transporterName: '',
-              driverName: '',
-              kmIn: '',
-              kmOut: '',
-              loaderNames: '',
-              remarks: '',
-              gateEntryNo: '',
-              dateTime: ''
-            });
-            
-            console.log('Manual clear completed');
+    if (entryType === 'RM') {
+      handleRMClear();
+    } else {
+      showAlert(
+        'Clear All',
+        'Are you sure you want to clear all fields?',
+        [
+          { text: 'CANCEL', style: 'cancel' },
+          {
+            text: 'CLEAR',
+            style: 'destructive',
+            onPress: () => {
+              setSearchResults(null);
+              setSelectedDocuments([]);
+              setVehicleStatus(null);
+              
+              onDataChange({
+                gateType: 'Gate-In',
+                vehicleNo: '',
+                transporterName: '',
+                driverName: '',
+                kmIn: '',
+                kmOut: '',
+                loaderNames: '',
+                remarks: '',
+                gateEntryNo: '',
+                dateTime: ''
+              });
+            }
           }
-        }
-      ]
-    );
+        ]
+      );
+    }
   };
 
-  // ✅ FIXED: Clean table column configuration with proper widths
+  // ✅ EXISTING: Table rendering logic (keeping existing implementation)
   const tableColumns = useMemo(() => [
     { key: 'gate_entry_no', title: 'Gate Entry No.', width: 130 },
     { key: 'select', title: 'Select', width: 70 },
@@ -265,12 +398,10 @@ const GateEntryTab = ({
     { key: 'total_quantity', title: 'Total Qty.', width: 80 }
   ], []);
 
-  // ✅ Calculate total table width
   const totalTableWidth = useMemo(() => {
     return tableColumns.reduce((sum, col) => sum + col.width, 0);
   }, [tableColumns]);
 
-  // ✅ FIXED: Clean render cell function
   const renderCell = (column, doc) => {
     const cellStyle = [styles.tableCell, { width: column.width }];
     
@@ -329,7 +460,6 @@ const GateEntryTab = ({
     }
   };
 
-  // ✅ FIXED: Clean document table with proper structure and unique keys
   const renderDocumentTable = () => {
     if (!searchResults) return null;
 
@@ -361,7 +491,6 @@ const GateEntryTab = ({
           style={styles.tableScrollView}
         >
           <View style={[styles.tableWrapper, { width: totalTableWidth }]}>
-            {/* ✅ FIXED: Clean table header with unique keys */}
             <View style={styles.tableHeaderRow}>
               {tableColumns.map((column) => (
                 <View 
@@ -373,7 +502,6 @@ const GateEntryTab = ({
               ))}
             </View>
 
-            {/* ✅ FIXED: Clean data rows with unique keys */}
             <ScrollView 
               style={styles.tableDataContainer}
               showsVerticalScrollIndicator={true}
@@ -398,7 +526,6 @@ const GateEntryTab = ({
           </View>
         </ScrollView>
         
-        {/* Scroll hint */}
         <View style={styles.scrollHintContainer}>
           <Text style={styles.scrollHintText}>
             💡 Scroll horizontally and vertically to see all data
@@ -410,222 +537,369 @@ const GateEntryTab = ({
 
   return (
     <ScrollView 
-    style={styles.container}
-    contentContainerStyle={styles.cardContainer}>
-      <Text style={styles.sectionTitle}>Vehicle Entry Details</Text>
-
-      {/* Row 1 - Gate Type and Auto Fields */}
-      <View style={styles.row}>
-        <View style={styles.field33}>
-          <Text style={styles.label}>Gate Type:</Text>
-          <View style={styles.radioRow}>
-            {['Gate-In', 'Gate-Out'].map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={styles.radioButton}
-                onPress={() => updateField('gateType', type)}
-                disabled={isSubmitting || isSearching}
-              >
-                <View style={styles.radioCircle}>
-                  {gateEntryData.gateType === type && <View style={styles.selectedDot} />}
-                </View>
-                <Text>{type}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.field33}>
-          <Text style={styles.label}>Gate Entry No</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Auto-generated" 
-            value={gateEntryData.gateEntryNo || ''} 
-            editable={false} 
-          />
-        </View>
-
-        <View style={styles.field33}>
-          <Text style={styles.label}>Date & Time</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Auto-filled" 
-            value={gateEntryData.dateTime || ''} 
-            editable={false} 
-          />
+      style={styles.container}
+      contentContainerStyle={styles.cardContainer}
+    >
+      {/* ✅ NEW: Entry Type Toggle (FG/RM) */}
+      <View style={styles.entryTypeContainer}>
+        <Text style={styles.entryTypeLabel}>Entry Type:</Text>
+        <View style={styles.entryTypeRow}>
+          {['FG', 'RM'].map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[
+                styles.entryTypeButton,
+                entryType === type && styles.entryTypeButtonActive
+              ]}
+              onPress={() => setEntryType(type)}
+              disabled={isSubmitting || isSearching}
+            >
+              <Text style={[
+                styles.entryTypeButtonText,
+                entryType === type && styles.entryTypeButtonTextActive
+              ]}>
+                {type} Entry
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       </View>
 
-      {/* Row 2 - Vehicle Number with Search */}
-      <View style={styles.row}>
-        <View style={styles.field40}>
-          <Text style={styles.label}>Vehicle No *</Text>
-          <View style={styles.vehicleInputRow}>
-            <TextInput 
-              style={[styles.input, { flex: 1, marginRight: 8 }]} 
-              placeholder="Enter Vehicle No" 
-              value={gateEntryData.vehicleNo || ''} 
-              onChangeText={(text) => updateField('vehicleNo', text.toUpperCase())}
-              autoCapitalize="characters"
-              editable={!isSubmitting && !isSearching}
-            />
+      {/* Conditional Form Rendering */}
+      {entryType === 'FG' ? (
+        // ✅ EXISTING: FG Entry Form (keeping all existing logic)
+        <>
+          <Text style={styles.sectionTitle}>FG Vehicle Entry Details</Text>
+
+          <View style={styles.row}>
+            <View style={styles.field33}>
+              <Text style={styles.label}>Gate Type:</Text>
+              <View style={styles.radioRow}>
+                {['Gate-In', 'Gate-Out'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.radioButton}
+                    onPress={() => updateField('gateType', type)}
+                    disabled={isSubmitting || isSearching}
+                  >
+                    <View style={styles.radioCircle}>
+                      {gateEntryData.gateType === type && <View style={styles.selectedDot} />}
+                    </View>
+                    <Text>{type}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.field33}>
+              <Text style={styles.label}>Gate Entry No</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Auto-generated" 
+                value={gateEntryData.gateEntryNo || ''} 
+                editable={false} 
+              />
+            </View>
+
+            <View style={styles.field33}>
+              <Text style={styles.label}>Date & Time</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Auto-filled" 
+                value={gateEntryData.dateTime || ''} 
+                editable={false} 
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.field40}>
+              <Text style={styles.label}>Vehicle No *</Text>
+              <View style={styles.vehicleInputRow}>
+                <TextInput 
+                  style={[styles.input, { flex: 1, marginRight: 8 }]} 
+                  placeholder="Enter Vehicle No" 
+                  value={gateEntryData.vehicleNo || ''} 
+                  onChangeText={(text) => updateField('vehicleNo', text.toUpperCase())}
+                  autoCapitalize="characters"
+                  editable={!isSubmitting && !isSearching}
+                />
+                <TouchableOpacity 
+                  style={[
+                    styles.searchButton,
+                    (isSearching || isSubmitting) && styles.buttonDisabled
+                  ]}
+                  onPress={handleVehicleSearch}
+                  disabled={isSearching || isSubmitting}
+                >
+                  {isSearching ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Text style={styles.searchButtonText}>Search</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.field35}>
+              <Text style={styles.label}>Driver Name</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Driver Name" 
+                value={gateEntryData.driverName || ''} 
+                onChangeText={(text) => updateField('driverName', text)}
+                editable={!isSubmitting && !isSearching}
+              />
+            </View>
+
+            <View style={styles.field10}>
+              <Text style={styles.label}>KM IN</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="0" 
+                keyboardType="numeric" 
+                value={gateEntryData.kmIn || ''} 
+                onChangeText={(text) => updateField('kmIn', text)}
+                editable={!isSubmitting && !isSearching}
+              />
+            </View>
+
+            <View style={styles.field10}>
+              <Text style={styles.label}>KM OUT</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="0" 
+                keyboardType="numeric" 
+                value={gateEntryData.kmOut || ''} 
+                onChangeText={(text) => updateField('kmOut', text)}
+                editable={!isSubmitting && !isSearching}
+              />
+            </View>
+          </View>
+
+          <View style={styles.row}>
+            <View style={styles.field75}>
+              <Text style={styles.label}>Remarks</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Optional" 
+                value={gateEntryData.remarks || ''} 
+                onChangeText={(text) => updateField('remarks', text)}
+                editable={!isSubmitting && !isSearching}
+              />
+            </View>
+
+            <View style={styles.field25}>
+              <Text style={styles.label}>Loader Names</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Loader Name" 
+                value={gateEntryData.loaderNames || ''} 
+                onChangeText={(text) => updateField('loaderNames', text)}
+                editable={!isSubmitting && !isSearching}
+              />
+            </View>
+          </View>
+
+          {vehicleStatus && vehicleStatus.status === "active" && (
+            <View style={styles.statusContainer}>
+              <Text style={styles.statusTitle}>Vehicle Status:</Text>
+              <Text style={styles.statusText}>
+                Last Movement: {vehicleStatus.last_movement.type} on {new Date(vehicleStatus.last_movement.date).toLocaleDateString()}
+              </Text>
+            </View>
+          )}
+
+          {searchResults && (
+            <View style={styles.searchResultsContainer}>
+              <Text style={styles.searchResultsTitle}>
+                Search Results for {gateEntryData.vehicleNo} ({searchResults.count} documents found)
+              </Text>
+              {selectedDocuments.length > 0 && (
+                <Text style={styles.selectedCountText}>
+                  {selectedDocuments.length} document(s) selected for submission
+                </Text>
+              )}
+            </View>
+          )}
+          
+          {renderDocumentTable()}
+
+          <View style={styles.buttonRow}>
             <TouchableOpacity 
               style={[
-                styles.searchButton,
-                (isSearching || isSubmitting) && styles.buttonDisabled
-              ]}
-              onPress={handleVehicleSearch}
-              disabled={isSearching || isSubmitting}
+                styles.button, 
+                styles.submitButton,
+                (isSubmitting || !searchResults || (searchResults.count > 0 && selectedDocuments.length === 0)) && styles.buttonDisabled
+              ]} 
+              onPress={handleEnhancedSubmit}
+              disabled={isSubmitting || !searchResults || (searchResults.count > 0 && selectedDocuments.length === 0)}
             >
-              {isSearching ? (
+              {isSubmitting ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Text style={styles.searchButtonText}>Search</Text>
+                <Text style={styles.buttonText}>
+                  {searchResults && searchResults.count === 0 ? 'Manual Entry' : `Submit (${selectedDocuments.length} selected)`}
+                </Text>
               )}
             </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.button,
+                styles.manualButton,
+                (isSubmitting || isSearching) && styles.buttonDisabled
+              ]} 
+              onPress={() => router.push(`/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}`)}
+              disabled={isSubmitting || isSearching}
+            >
+              <Text style={styles.buttonText}>Manual Entry</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.button,
+                styles.clearButton,
+                (isSubmitting || isSearching) && styles.buttonDisabled
+              ]} 
+              onPress={handleClearButtonPress}
+              disabled={isSubmitting || isSearching}
+            >
+              <Text style={styles.buttonText}>Clear All</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        </>
+      ) : (
+        // ✅ NEW: RM Entry Form
+        <>
+          <Text style={styles.sectionTitle}>Raw Materials Entry</Text>
 
-        <View style={styles.field35}>
-          <Text style={styles.label}>Driver Name</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Driver Name" 
-            value={gateEntryData.driverName || ''} 
-            onChangeText={(text) => updateField('driverName', text)}
-            editable={!isSubmitting && !isSearching}
-          />
-        </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Gate Type:</Text>
+              <View style={styles.radioRow}>
+                {['Gate-In', 'Gate-Out'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.radioButton}
+                    onPress={() => updateRMField('gateType', type)}
+                    disabled={isSubmitting}
+                  >
+                    <View style={styles.radioCircle}>
+                      {rmFormData.gateType === type && <View style={styles.selectedDot} />}
+                    </View>
+                    <Text>{type}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
 
-        <View style={styles.field10}>
-          <Text style={styles.label}>KM IN</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="0" 
-            keyboardType="numeric" 
-            value={gateEntryData.kmIn || ''} 
-            onChangeText={(text) => updateField('kmIn', text)}
-            editable={!isSubmitting && !isSearching}
-          />
-        </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Vehicle Number *</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Vehicle Number" 
+                value={rmFormData.vehicleNo} 
+                onChangeText={(text) => updateRMField('vehicleNo', text.toUpperCase())}
+                autoCapitalize="characters"
+                editable={!isSubmitting}
+              />
+            </View>
+          </View>
 
-        <View style={styles.field10}>
-          <Text style={styles.label}>KM OUT</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="0" 
-            keyboardType="numeric" 
-            value={gateEntryData.kmOut || ''} 
-            onChangeText={(text) => updateField('kmOut', text)}
-            editable={!isSubmitting && !isSearching}
-          />
-        </View>
-      </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Document Number *</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Document Number" 
+                value={rmFormData.documentNo} 
+                onChangeText={(text) => updateRMField('documentNo', text)}
+                editable={!isSubmitting}
+              />
+            </View>
+          </View>
 
-      {/* Row 3 - Remarks with Loader Names */}
-      <View style={styles.row}>
-        <View style={styles.field75}>
-          <Text style={styles.label}>Remarks</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Optional" 
-            value={gateEntryData.remarks || ''} 
-            onChangeText={(text) => updateField('remarks', text)}
-            editable={!isSubmitting && !isSearching}
-          />
-        </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Name of Party *</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Name of Party" 
+                value={rmFormData.nameOfParty} 
+                onChangeText={(text) => updateRMField('nameOfParty', text)}
+                editable={!isSubmitting}
+              />
+            </View>
+          </View>
 
-        <View style={styles.field25}>
-          <Text style={styles.label}>Loader Names</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Loader Name" 
-            value={gateEntryData.loaderNames || ''} 
-            onChangeText={(text) => updateField('loaderNames', text)}
-            editable={!isSubmitting && !isSearching}
-          />
-        </View>
-      </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Description of Material *</Text>
+              <TextInput 
+                style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
+                placeholder="Enter Description of Material" 
+                value={rmFormData.descriptionOfMaterial} 
+                onChangeText={(text) => updateRMField('descriptionOfMaterial', text)}
+                multiline
+                numberOfLines={3}
+                editable={!isSubmitting}
+              />
+            </View>
+          </View>
 
-      {/* ✅ Vehicle Status Display */}
-      {vehicleStatus && vehicleStatus.status === "active" && (
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusTitle}>Vehicle Status:</Text>
-          <Text style={styles.statusText}>
-            Last Movement: {vehicleStatus.last_movement.type} on {new Date(vehicleStatus.last_movement.date).toLocaleDateString()}
-          </Text>
-        </View>
+          <View style={styles.row}>
+            <View style={styles.fieldFull}>
+              <Text style={styles.label}>Quantity *</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter Quantity" 
+                value={rmFormData.quantity} 
+                onChangeText={(text) => updateRMField('quantity', text)}
+                editable={!isSubmitting}
+              />
+            </View>
+          </View>
+
+          <View style={styles.buttonRow}>
+            <TouchableOpacity 
+              style={[
+                styles.button, 
+                styles.submitButton,
+                isSubmitting && styles.buttonDisabled
+              ]} 
+              onPress={handleRMSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <Text style={styles.buttonText}>Submit RM Entry</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[
+                styles.button,
+                styles.clearButton,
+                isSubmitting && styles.buttonDisabled
+              ]} 
+              onPress={handleClearButtonPress}
+              disabled={isSubmitting}
+            >
+              <Text style={styles.buttonText}>Clear All</Text>
+            </TouchableOpacity>
+          </View>
+        </>
       )}
 
-      {/* ✅ Search Results Display */}
-      {searchResults && (
-        <View style={styles.searchResultsContainer}>
-          <Text style={styles.searchResultsTitle}>
-            Search Results for {gateEntryData.vehicleNo} ({searchResults.count} documents found)
-          </Text>
-          {selectedDocuments.length > 0 && (
-            <Text style={styles.selectedCountText}>
-              {selectedDocuments.length} document(s) selected for submission
-            </Text>
-          )}
-        </View>
-      )}
-      
-      {/* ✅ FIXED: Clean Document Table */}
-      {renderDocumentTable()}
-
-      {/* ✅ Action Buttons */}
-      <View style={styles.buttonRow}>
-        <TouchableOpacity 
-          style={[
-            styles.button, 
-            styles.submitButton,
-            (isSubmitting || !searchResults || (searchResults.count > 0 && selectedDocuments.length === 0)) && styles.buttonDisabled
-          ]} 
-          onPress={handleEnhancedSubmit}
-          disabled={isSubmitting || !searchResults || (searchResults.count > 0 && selectedDocuments.length === 0)}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color="white" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {searchResults && searchResults.count === 0 ? 'Manual Entry' : `Submit (${selectedDocuments.length} selected)`}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[
-            styles.button,
-            styles.manualButton,
-            (isSubmitting || isSearching) && styles.buttonDisabled
-          ]} 
-          onPress={() => router.push(`/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}`)}
-
-          disabled={isSubmitting || isSearching}
-        >
-          <Text style={styles.buttonText}>Manual Entry</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[
-            styles.button,
-            styles.clearButton,
-            (isSubmitting || isSearching) && styles.buttonDisabled
-          ]} 
-          onPress={handleClearButtonPress}
-          disabled={isSubmitting || isSearching}
-        >
-          <Text style={styles.buttonText}>Clear All</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ✅ Status Indicators */}
       {(isSearching || isSubmitting) && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
           <Text style={styles.loadingText}>
-            {isSearching ? 'Searching documents...' : 'Submitting gate entries...'}
+            {isSearching ? 'Searching documents...' : isSubmitting ? (entryType === 'RM' ? 'Creating RM entry...' : 'Submitting gate entries...') : ''}
           </Text>
         </View>
       )}

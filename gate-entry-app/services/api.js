@@ -4,7 +4,7 @@ import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 
-// Get the appropriate API URL based on platform
+// // Get the appropriate API URL based on platform
 const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
@@ -19,10 +19,44 @@ const getApiUrl = () => {
     // Web platform
     return 'http://192.168.1.56:8000'; // Updated to your local IP
   }
-  return 'http://123.63.20.237:8081';
+  return 'http://192.168.1.56:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
+
+// // Get the appropriate API URL based on platform and environment
+// const getApiUrl = () => {
+//   if (__DEV__) {
+//     // Development mode
+//     if (Platform.OS === 'android') {
+//       if (Device.isDevice) {
+//         // Physical Android device - use your public IP
+//         return 'http://123.63.20.237:8000'; 
+//       } else {
+//         // Android emulator - use emulator bridge IP
+//         return 'http://10.0.2.2:8000';
+//       }
+//     } else if (Platform.OS === 'ios') {
+//       if (Device.isDevice) {
+//         // Physical iOS device - use your public IP
+//         return 'http://123.63.20.237:8000';
+//       } else {
+//         // iOS simulator - can use localhost or public IP
+//         return 'http://123.63.20.237:8000';
+//       }
+//     } else if (Platform.OS === 'web') {
+//       // Web platform - use public IP for global access
+//       return 'http://123.63.20.237:8000';
+//     }
+//     // Fallback
+//     return 'http://123.63.20.237:8000';
+//   }
+  
+//   // Production mode - use your production backend URL
+//   return 'http://123.63.20.237:8000'; // Update this when you have a domain
+// };
+
+// export const API_BASE_URL = getApiUrl();
 
 // Create axios instance
 const api = axios.create({
