@@ -99,16 +99,45 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 5,
   },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 18,
-    backgroundColor: '#f8f9fa',
+  rolesContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
+    flexWrap: 'wrap',
   },
-  picker: {
-    height: 45,
+  roleButton: {
+    backgroundColor: '#e0e0e0',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    minWidth: '28%',
+    alignItems: 'center',
+  },
+  roleButtonSelected: {
+    backgroundColor: '#1976d2',
+  },
+  roleButtonText: {
     color: '#333',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  roleButtonTextSelected: {
+    color: '#fff',
+  },
+  deleteButton: {
+    backgroundColor: '#d32f2f',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginTop: 10,
+    elevation: 2,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });
 

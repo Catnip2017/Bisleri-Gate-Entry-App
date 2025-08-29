@@ -20,7 +20,7 @@ import RegisterScreen from './screens/RegisterScreen';
 import ModifyUserScreen from './screens/ModifyUserScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
 
-// Import styles (separated)
+// Import styles
 import styles from './AdminDashboardStyles';
 
 const AdminDashboard = () => {
@@ -42,12 +42,15 @@ const AdminDashboard = () => {
         return;
       }
 
+      // Normalize role: lowercase + remove spaces
+      const normalizedRole = userData.role?.toLowerCase().replace(/\s+/g, '');
+      userData.role = normalizedRole;
       setUser(userData);
 
-      // âœ… Role-based tabs
-      if (userData.role === 'admin') {
+      // ✅ Role-based tabs
+      if (normalizedRole === 'securityadmin') {
         setAvailableTabs(['Admin Insights']);
-      } else if (userData.role === 'itadmin') {
+      } else if (normalizedRole === 'itadmin') {
         setAvailableTabs([
           'Admin Insights',
           'Register Users',
@@ -90,9 +93,8 @@ const AdminDashboard = () => {
     router.push('/landing/');
   };
 
-  // âœ… Role-protected render function
   const renderActiveScreen = () => {
-    const userRole = user?.role?.toLowerCase();
+    const userRole = user?.role;
 
     switch (activeTab) {
       case 'Admin Insights':
@@ -112,7 +114,7 @@ const AdminDashboard = () => {
 
       case 'Reset Password':
         if (userRole === 'itadmin') return <ResetPasswordScreen />;
-        Alert.alert("Access Denied", "Only IT Admin can modify users.");
+        Alert.alert("Access Denied", "Only IT Admin can reset passwords.");
         setActiveTab('Admin Insights');
         return null;
 
@@ -126,7 +128,7 @@ const AdminDashboard = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => setIsSidebarVisible(!isSidebarVisible)}>
-          <Text style={styles.menuButton}>â˜°</Text>
+          <Text style={styles.menuButton}>☰</Text>
         </TouchableOpacity>
 
         <Image

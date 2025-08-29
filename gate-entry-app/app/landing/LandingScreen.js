@@ -30,9 +30,11 @@ export default function LandingScreen() {
           router.replace("/LoginScreen");
           return;
         }
-        // normalize role to lowercase
-        userData.role = userData.role?.toLowerCase();
-        setUser(userData);
+
+        // Normalize role for internal checks
+        const normalizedRole = userData.role?.toLowerCase().replace(/\s+/g, "");
+        setUser({ ...userData, roleNormalized: normalizedRole });
+        console.log("Current user loaded:", { ...userData, roleNormalized: normalizedRole });
       } catch (e) {
         console.error("Error loading user data:", e);
         router.replace("/LoginScreen");
@@ -45,22 +47,26 @@ export default function LandingScreen() {
   const handleAdminCardPress = () => {
     if (!user) return;
 
-    if (user.role === "Security Admin") {
-      router.push("/admin/insights"); // admin -> only insights
-    } else if (user.role === "itadmin") {
-      router.push("/admin"); // itadmin -> full admin section
+    const role = user.roleNormalized;
+
+    if (role === "securityadmin") {
+      router.push("/admin");
+    } else if (role === "itadmin") {
+      router.push("/admin");
     } else {
-      Alert.alert("Access Denied", "You don't have Security Admin privileges.");
+      Alert.alert("Access Denied", "You don't have Admin privileges.");
     }
   };
 
   const handleSecurityCardPress = () => {
     if (!user) return;
 
-    if (user.role === "Security Guard" || user.role === "IT Admin") {
-      router.push("/security"); // security + itadmin
+    const role = user.roleNormalized;
+
+    if (role === "securityguard" || role === "itadmin") {
+      router.push("/security");
     } else {
-      Alert.alert("Access Denied", "You don't have security privileges.");
+      Alert.alert("Access Denied", "You don't have Security privileges.");
     }
   };
 
@@ -95,6 +101,13 @@ export default function LandingScreen() {
     );
   }
 
+  // Friendly display names for UI
+  const roleDisplayName = {
+    securityadmin: "Security Admin",
+    itadmin: "IT Admin",
+    securityguard: "Security Guard",
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -109,7 +122,7 @@ export default function LandingScreen() {
             <Text style={styles.welcomeText}>
               Welcome, {user.fullName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()}
             </Text>
-            <Text style={styles.roleText}>Role: {user.role}</Text>
+            <Text style={styles.roleText}>Role: {roleDisplayName[user.roleNormalized]}</Text>
           </View>
         )}
       </View>
@@ -119,41 +132,29 @@ export default function LandingScreen() {
         <Text style={styles.heading}>Bisleri Gate Entry Management System</Text>
 
         <View style={styles.cardContainer}>
-          {/* Admin / ITAdmin */}
-          {(user?.role === "Security Admin" || user?.role === "IT Admin") && (
-            <TouchableOpacity
-              style={[styles.card, styles.adminCard]}
-              onPress={handleAdminCardPress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardIconContainer}>
-                <Image
-                  source={require("../../assets/images/admin.png")}
-                  style={styles.icon}
-                />
-              </View>
-              <Text style={styles.cardText}>
-                {user.role === "Security Admin" ? "Admin Insights" : "Administrator"}
-              </Text>
-            </TouchableOpacity>
-          )}
+          {/* Admin Card */}
+          <TouchableOpacity
+            style={[styles.card, styles.adminCard]}
+            onPress={handleAdminCardPress}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardIconContainer}>
+              <Image source={require("../../assets/images/admin.png")} style={styles.icon} />
+            </View>
+            <Text style={styles.cardText}>Administrator</Text>
+          </TouchableOpacity>
 
-          {/* Security / ITAdmin */}
-          {(user?.role === "Security Guard" || user?.role === "IT Admin") && (
-            <TouchableOpacity
-              style={[styles.card, styles.guardCard]}
-              onPress={handleSecurityCardPress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardIconContainer}>
-                <Image
-                  source={require("../../assets/images/guard.png")}
-                  style={styles.icon}
-                />
-              </View>
-              <Text style={styles.cardText}>Security Guard</Text>
-            </TouchableOpacity>
-          )}
+          {/* Security Card */}
+          <TouchableOpacity
+            style={[styles.card, styles.guardCard]}
+            onPress={handleSecurityCardPress}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardIconContainer}>
+              <Image source={require("../../assets/images/guard.png")} style={styles.icon} />
+            </View>
+            <Text style={styles.cardText}>Security Guard</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Logout */}

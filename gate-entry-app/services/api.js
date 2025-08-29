@@ -9,7 +9,7 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.51.87:8000'; 
+        return 'http://192.168.1.41:8000'; 
 
         return 'http://192.168.51.108:8000';
 
@@ -910,11 +910,16 @@ export const adminAPI = {
     return response.data;
   },
 
-modifyUser: async (username, data) => {
-  const response = await api.patch(`/user/${username}/add-role`, data);
-  return response.data;
-},
+  // ✅ Corrected modifyUser endpoint
+  modifyUser: async (username, data) => {
+    const response = await api.put(`/modify-user/${username}`, data);
+    return response.data;
+  },
 
+  deleteUser: async (username) => {
+    const response = await api.delete(`/user/${username}/delete`);
+    return response.data;
+  },
 
   getAdminDashboardStats: async () => {
     const response = await api.get('/admin-dashboard-stats');
@@ -936,7 +941,13 @@ modifyUser: async (username, data) => {
     });
     return response.data;
   },
+searchUsers: async (query) => {
+  const response = await api.get(`/search-users`, { params: { q: query } });
+  return response.data; // returns array of { username, first_name, last_name, role }
+},
+
 };
+
 
 // ✅ Document APIs (unchanged)
 export const documentAPI = {

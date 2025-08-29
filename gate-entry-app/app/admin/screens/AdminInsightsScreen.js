@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { adminAPI } from '../../../services/api';
 import styles from '../styles/AdminInsightsStyle';
+import { getCurrentUser } from '../../../utils/jwtUtils';
 
 const AdminInsightsScreen = () => {
   const [fromDate, setFromDate] = useState('2025-01-01');
@@ -19,8 +20,22 @@ const AdminInsightsScreen = () => {
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
+    const fetchUser = async () => {
+      const u = await getCurrentUser();
+      if (!u) {
+        Alert.alert("Error", "User not logged in");
+        return;
+      }
+      // normalize role: lowercase + remove spaces
+      u.role = u.role?.toLowerCase().replace(/\s+/g, "");
+      console.log("Current user loaded:", u);
+      setUser(u);
+    };
+    fetchUser();
+
     loadDashboardStats();
   }, []);
 
@@ -57,6 +72,20 @@ const AdminInsightsScreen = () => {
       setLoading(false);
     }
   };
+
+  // 🔹 Role restriction: only securityadmin & itadmin
+  if (user) {
+    const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+    if (!roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
+      return (
+        <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+          <Text style={{ fontSize: 16, fontWeight: "bold", color: "red" }}>
+            Access Denied - You don’t have permission to view Admin Insights
+          </Text>
+        </View>
+      );
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

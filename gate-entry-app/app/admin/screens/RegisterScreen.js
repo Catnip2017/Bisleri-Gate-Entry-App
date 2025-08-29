@@ -128,7 +128,7 @@ const RegisterScreen = () => {
 
   // Only Security & Admin require warehouse (NOT itadmin)
   if (
-    (formData.role === 'security' || formData.role === 'admin') &&
+    (formData.role === 'securityguard' || formData.role === 'securityadmin') &&
     (!formData.warehouseCode ||
       !formData.warehouseName ||
       !formData.siteCode)
@@ -183,7 +183,7 @@ const handleRegister = async () => {
             confirmPassword: "",
             firstName: "",
             lastName: "",
-            role: "security",
+            role: "securityguard",
             warehouseCode: "",
             warehouseName: "",
             siteCode: "",
@@ -233,14 +233,14 @@ const handleRegister = async () => {
           <TouchableOpacity
             style={[
               styles.roleButton,
-              formData.role === 'security' && styles.roleButtonActive,
+              formData.role === 'securityguard' && styles.roleButtonActive,
             ]}
-            onPress={() => handleInputChange('role', 'security')}
+            onPress={() => handleInputChange('role', 'securityguard')}
           >
             <Text
               style={[
                 styles.roleButtonText,
-                formData.role === 'security' && styles.roleButtonTextActive,
+                formData.role === 'securityguard' && styles.roleButtonTextActive,
               ]}
             >
               Security Guard
@@ -249,14 +249,14 @@ const handleRegister = async () => {
           <TouchableOpacity
             style={[
               styles.roleButton,
-              formData.role === 'admin' && styles.roleButtonActive,
+              formData.role === 'securityadmin' && styles.roleButtonActive,
             ]}
-            onPress={() => handleInputChange('role', 'admin')}
+            onPress={() => handleInputChange('role', 'securityadmin')}
           >
             <Text
               style={[
                 styles.roleButtonText,
-                formData.role === 'admin' && styles.roleButtonTextActive,
+                formData.role === 'securityadmin' && styles.roleButtonTextActive,
               ]}
             >
               Admin
@@ -281,7 +281,7 @@ const handleRegister = async () => {
         </View>
 
         {/* Show Warehouse fields only for Security & Admin */}
-        {(formData.role === 'security' || formData.role === 'admin') && (
+        {(formData.role === 'securityguard' || formData.role === 'securityadmin') && (
           <>
             <Text style={styles.label}>Warehouse Code</Text>
             <View style={styles.searchContainer}>
