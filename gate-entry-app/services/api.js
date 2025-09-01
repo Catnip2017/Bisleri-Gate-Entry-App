@@ -9,7 +9,7 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.41:8000'; 
+        return 'http://192.168.1.13:8000'; 
 
         return 'http://192.168.51.108:8000';
 

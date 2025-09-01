@@ -53,30 +53,32 @@ const ModifyUserScreen = () => {
   const toggleRole = (role) => setRoles([role]);
 
   // Modify user
-  const handleModifyUser = async () => {
-    if (!userFound) {
-      Alert.alert('Error', 'Please select a user first');
-      return;
-    }
-    if (!roles.length) {
-      Alert.alert('Error', 'Please assign a role');
-      return;
-    }
+// Modify user
+const handleModifyUser = async () => {
+  if (!userFound) {
+    Alert.alert('Error', 'Please select a user first');
+    return;
+  }
+  if (!roles.length) {
+    Alert.alert('Error', 'Please assign a role');
+    return;
+  }
 
-    setLoading(true);
-    try {
-      await adminAPI.modifyUser(userFound.username, { roles });
-      Alert.alert('Success', `User "${userFound.username}" role updated successfully!`, [
-        { text: 'OK', onPress: () => resetForm() },
-      ]);
-    } catch (error) {
-      console.error('Error modifying user:', error);
-      const msg = error.response?.data?.detail || 'Failed to update user';
-      Alert.alert('Error', msg);
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    // send single role
+    await adminAPI.modifyUser(userFound.username, { role: roles[0] });
+    Alert.alert('Success', `User "${userFound.username}" role updated successfully!`, [
+      { text: 'OK', onPress: () => resetForm() },
+    ]);
+  } catch (error) {
+    console.error('Error modifying user:', error);
+    const msg = error.response?.data?.detail || 'Failed to update user';
+    Alert.alert('Error', msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleDeleteUser = () => {
     if (!userFound) return;
