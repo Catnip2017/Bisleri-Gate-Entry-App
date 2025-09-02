@@ -114,14 +114,21 @@ export const showAlert = (title, message, buttons = [], options = {}) => {
         visible: true,
         title: title || '',
         message: message || '',
-        buttons: buttons || []
+        buttons: Array.isArray(buttons) ? buttons : [] // FIX: Ensure buttons is always an array
       });
     } else {
       console.warn('CustomAlertModal not initialized. Make sure to include CustomAlertProvider in your app.');
     }
   } else {
     // Use native Alert on mobile/tablet
-    Alert.alert(title, message, buttons, options);
+    // Convert buttons format for native Alert if needed
+    const nativeButtons = Array.isArray(buttons) ? buttons.map(btn => ({
+      text: btn.text,
+      onPress: btn.onPress,
+      style: btn.style
+    })) : [];
+    
+    Alert.alert(title, message, nativeButtons.length > 0 ? nativeButtons : undefined, options);
   }
 };
 
