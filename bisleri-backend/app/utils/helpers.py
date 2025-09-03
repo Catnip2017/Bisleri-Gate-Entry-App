@@ -161,7 +161,7 @@ def validate_vehicle_number(vehicle_no: str) -> bool:
     
     cleaned = clean_vehicle_number(vehicle_no)
     
-    if len(cleaned) < 8 or len(cleaned) > 10:
+    if len(cleaned) < 8 or len(cleaned) > 15:
         return False
     
     if not cleaned[:2].isalpha():

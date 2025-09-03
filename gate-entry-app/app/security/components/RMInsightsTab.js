@@ -1,4 +1,4 @@
-// app/security/components/RMInsightsTab.js - COMPLETE RM Insights Component
+// app/security/components/RMInsightsTab.js - UPDATED WITH PAGINATION AND SCROLLING
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -24,6 +24,10 @@ const RMInsightsTab = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [statistics, setStatistics] = useState(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  // ✅ NEW: Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
   // Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
@@ -86,10 +90,19 @@ const RMInsightsTab = () => {
     }
   };
 
+  // ✅ FIXED: Enhanced loadRMEntries with better filtering
   const loadRMEntries = async () => {
     setLoading(true);
     try {
       const { rmAPI } = await import('../../../services/api');
+      
+      // ✅ DEBUG: Log filter values
+      console.log('RM Filter Debug:', {
+        vehicleFilter: vehicleFilter,
+        vehicleFilterTrimmed: vehicleFilter.trim(),
+        fromDate: formatDateForAPI(fromDate),
+        toDate: formatDateForAPI(toDate)
+      });
       
       const filter = {
         from_date: formatDateForAPI(fromDate),
@@ -99,14 +112,19 @@ const RMInsightsTab = () => {
         movement_type: null
       };
 
+      console.log('Final filter sent to API:', filter);
+
       const response = await rmAPI.getFilteredRMEntries(filter);
       setRMEntries(response.results || []);
+      setCurrentPage(1); // Reset to first page when data loads
       
     } catch (error) {
       console.error('Error loading RM entries:', error);
       const { handleAPIError } = await import('../../../services/api');
       const errorMessage = handleAPIError(error);
-      showAlert('Error', `Failed to load entries: ${errorMessage}`);
+      showAlert('Error', `Failed to load entries: ${errorMessage}`, [
+        { text: 'OK', onPress: () => {} }
+      ]);
     } finally {
       setLoading(false);
     }
@@ -127,11 +145,28 @@ const RMInsightsTab = () => {
     }
   };
 
-  // Apply filters and reload data
+  // ✅ ENHANCED: Apply filters with debug logging
   const handleApplyFilters = () => {
+    console.log('Applying RM filters - Vehicle Filter:', vehicleFilter);
     loadRMEntries();
     loadStatistics();
   };
+
+  // ✅ NEW: Pagination calculations
+  const totalItems = rmEntries.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentRMEntries = rmEntries.slice(startIndex, endIndex);
+  const startItem = totalItems > 0 ? startIndex + 1 : 0;
+  const endItem = Math.min(endIndex, totalItems);
+
+  // ✅ NEW: Pagination handlers
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToPreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
+  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const goToLastPage = () => setCurrentPage(totalPages);
+  const goToPage = (page) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
   // Open edit modal
   const openEditModal = (record) => {
@@ -164,32 +199,44 @@ const RMInsightsTab = () => {
   // Validate edit form
   const validateEditForm = () => {
     if (!editFormData.vehicle_no.trim()) {
-      showAlert('Error', 'Vehicle number is required');
+      showAlert('Error', 'Vehicle number is required', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
     
     if (editFormData.vehicle_no.trim().length < 8) {
-      showAlert('Error', 'Vehicle number must be at least 8 characters');
+      showAlert('Error', 'Vehicle number must be at least 8 characters', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
     
     if (!editFormData.document_no.trim()) {
-      showAlert('Error', 'Document number is required');
+      showAlert('Error', 'Document number is required', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
     
     if (!editFormData.name_of_party.trim()) {
-      showAlert('Error', 'Name of Party is required');
+      showAlert('Error', 'Name of Party is required', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
     
     if (!editFormData.description_of_material.trim()) {
-      showAlert('Error', 'Description of Material is required');
+      showAlert('Error', 'Description of Material is required', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
     
     if (!editFormData.quantity.trim()) {
-      showAlert('Error', 'Quantity is required');
+      showAlert('Error', 'Quantity is required', [
+        { text: 'OK', onPress: () => {} }
+      ]);
       return false;
     }
 
@@ -226,7 +273,9 @@ const RMInsightsTab = () => {
       console.error('Error updating RM entry:', error);
       const { handleAPIError } = await import('../../../services/api');
       const errorMessage = handleAPIError(error);
-      showAlert('Update Failed', errorMessage);
+      showAlert('Update Failed', errorMessage, [
+        { text: 'OK', onPress: () => {} }
+      ]);
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -272,7 +321,7 @@ const RMInsightsTab = () => {
   }, [statistics]);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Card Container */}
       <View style={styles.card}>
         
@@ -375,11 +424,21 @@ const RMInsightsTab = () => {
         {/* Section Title */}
         <Text style={styles.sectionTitle}>Raw Materials Movements</Text>
 
-        {/* Table */}
-        <ScrollView horizontal style={styles.tableScrollContainer}>
+        {/* ✅ NEW: Pagination Info */}
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            {startItem} to {endItem} of {totalItems}
+          </Text>
+          <Text style={styles.paginationText}>
+            Page {currentPage} of {totalPages}
+          </Text>
+        </View>
+
+        {/* ✅ UPDATED: Table with Proper Scrolling Structure */}
+        <ScrollView horizontal style={styles.tableScrollContainer} showsHorizontalScrollIndicator={true}>
           <View style={styles.tableContainer}>
             
-            {/* Table Header */}
+            {/* Table Header - Using RM Red Color */}
             <View style={styles.tableHeader}>
               <Text style={[styles.tableHeaderCell, styles.colGateEntry]}>Gate Entry No</Text>
               <Text style={[styles.tableHeaderCell, styles.colMovement]}>Gate Type</Text>
@@ -396,52 +455,110 @@ const RMInsightsTab = () => {
               <Text style={[styles.tableHeaderCell, styles.colOperationalActions]}>Actions</Text>
             </View>
 
-            {/* Table Rows */}
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#007bff" />
-                <Text style={styles.loadingText}>Loading RM entries...</Text>
-              </View>
-            ) : rmEntries.length === 0 ? (
-              <View style={styles.noDataContainer}>
-                <Text style={styles.noDataText}>No RM entries found for the selected filters</Text>
-              </View>
-            ) : (
-              rmEntries.map((entry, index) => (
-                <View key={entry.id || index} style={[
-                  styles.tableRow,
-                  index % 2 === 0 ? styles.evenRow : styles.oddRow
-                ]}>
-                  <Text style={[styles.tableCell, styles.colGateEntry]}>{entry.gate_entry_no}</Text>
-                  <Text style={[styles.tableCell, styles.colMovement]}>{entry.gate_type}</Text>
-                  <Text style={[styles.tableCell, styles.colVehicle]}>{entry.vehicle_no}</Text>
-                  <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.document_no}</Text>
-                  <Text style={[styles.tableCell, styles.colWarehouse]}>{entry.name_of_party}</Text>
-                  <Text style={[styles.tableCell, styles.colWarehouse]} numberOfLines={2}>{entry.description_of_material}</Text>
-                  <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.quantity}</Text>
-                  <Text style={[styles.tableCell, styles.colDate]}>
-                    {new Date(entry.date_time).toLocaleDateString()}
-                  </Text>
-                  <Text style={[styles.tableCell, styles.colTime]}>
-                    {new Date(entry.date_time).toLocaleTimeString()}
-                  </Text>
-                  <Text style={[styles.tableCell, styles.colSecurity]}>{entry.security_name}</Text>
-                  <Text style={[styles.tableCell, styles.colEditCount]}>{entry.edit_count || 0}</Text>
-                  <Text style={[
-                    styles.tableCell, 
-                    styles.colTimeRemaining,
-                    entry.can_edit ? { color: '#ffc107', fontWeight: 'bold' } : { color: '#6c757d' }
-                  ]}>
-                    {entry.time_remaining || 'Expired'}
-                  </Text>
-                  <View style={[styles.tableCell, styles.colOperationalActions]}>
-                    {renderEditButton(entry)}
-                  </View>
+            {/* ✅ NEW: Proper Scrollable Table Data Container */}
+            <ScrollView 
+              style={[styles.tableDataContainer, { height: 500 }]} 
+              showsVerticalScrollIndicator={true} 
+              nestedScrollEnabled={true}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#007bff" />
+                  <Text style={styles.loadingText}>Loading RM entries...</Text>
                 </View>
-              ))
-            )}
+              ) : currentRMEntries.length === 0 ? (
+                <View style={styles.noDataContainer}>
+                  <Text style={styles.noDataText}>No RM entries found for the selected filters</Text>
+                </View>
+              ) : (
+                currentRMEntries.map((entry, index) => {
+                  const actualIndex = startIndex + index;
+                  return (
+                    <View key={entry.id || actualIndex} style={[
+                      styles.tableRow,
+                      actualIndex % 2 === 0 ? styles.evenRow : styles.oddRow
+                    ]}>
+                      <Text style={[styles.tableCell, styles.colGateEntry]}>{entry.gate_entry_no}</Text>
+                      <Text style={[styles.tableCell, styles.colMovement]}>{entry.gate_type}</Text>
+                      <Text style={[styles.tableCell, styles.colVehicle]}>{entry.vehicle_no}</Text>
+                      <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.document_no}</Text>
+                      <Text style={[styles.tableCell, styles.colWarehouse]}>{entry.name_of_party}</Text>
+                      <Text style={[styles.tableCell, styles.colWarehouse]} numberOfLines={2}>{entry.description_of_material}</Text>
+                      <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.quantity}</Text>
+                      <Text style={[styles.tableCell, styles.colDate]}>
+                        {new Date(entry.date_time).toLocaleDateString()}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.colTime]}>
+                        {new Date(entry.date_time).toLocaleTimeString()}
+                      </Text>
+                      <Text style={[styles.tableCell, styles.colSecurity]}>{entry.security_name}</Text>
+                      <Text style={[styles.tableCell, styles.colEditCount]}>{entry.edit_count || 0}</Text>
+                      <Text style={[
+                        styles.tableCell, 
+                        styles.colTimeRemaining,
+                        entry.can_edit ? { color: '#ffc107', fontWeight: 'bold' } : { color: '#6c757d' }
+                      ]}>
+                        {entry.time_remaining || 'Expired'}
+                      </Text>
+                      <View style={[styles.tableCell, styles.colOperationalActions]}>
+                        {renderEditButton(entry)}
+                      </View>
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
         </ScrollView>
+
+        {/* ✅ NEW: Pagination Controls */}
+        <View style={styles.paginationControls}>
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+            onPress={goToFirstPage}
+            disabled={currentPage === 1}
+          >
+            <Text style={styles.paginationButtonText}>⏮️</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+            onPress={goToPreviousPage}
+            disabled={currentPage === 1}
+          >
+            <Text style={styles.paginationButtonText}>⬅️</Text>
+          </TouchableOpacity>
+
+          <View style={styles.pageInputContainer}>
+            <TextInput
+              style={styles.pageInput}
+              value={currentPage.toString()}
+              onChangeText={(text) => {
+                const page = parseInt(text) || 1;
+                goToPage(page);
+              }}
+              keyboardType="numeric"
+              maxLength={3}
+            />
+            <Text style={styles.pageInputLabel}>of {totalPages}</Text>
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+            onPress={goToNextPage}
+            disabled={currentPage === totalPages}
+          >
+            <Text style={styles.paginationButtonText}>➡️</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+            onPress={goToLastPage}
+            disabled={currentPage === totalPages}
+          >
+            <Text style={styles.paginationButtonText}>⏭️</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Edit Modal */}
@@ -666,7 +783,7 @@ const RMInsightsTab = () => {
           </View>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 };
 
