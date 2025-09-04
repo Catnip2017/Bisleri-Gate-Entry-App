@@ -3,27 +3,29 @@ import axios from 'axios';
 import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
+import Constants from "expo-constants";
 
 // Get the appropriate API URL based on platform
 const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.13:8000'; 
-
-        return 'http://192.168.51.108:8000';
-
+        // Use laptop hotspot IP
+        return 'http://192.168.1.15:8000';
       } else {
+        // For Android Emulator
         return 'http://10.0.2.2:8000';
       }
     } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000'; 
+      // For iOS device on same hotspot
+      return 'http://192.168.137.1:8000';
     }
-    // Web platform
-    return 'http://192.168.1.56:8000'; // Updated to your local IP
+    // For Web
+    return 'http://192.168.137.1:8000';
   }
   return 'https://your-production-api.com';
 };
+
 
 export const API_BASE_URL = getApiUrl();
 

@@ -1,4 +1,3 @@
-// AdminDashboard.js
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -42,25 +41,28 @@ const AdminDashboard = () => {
         return;
       }
 
-      // Normalize role: lowercase + remove spaces
-      const normalizedRole = userData.role?.toLowerCase().replace(/\s+/g, '');
-      userData.role = normalizedRole;
+      // Normalize roles array (multi-role support)
+      const rolesArray = userData.roles && Array.isArray(userData.roles)
+        ? userData.roles.map(r => r.trim().toLowerCase().replace(/\s+/g, ''))
+        : userData.role
+          ? userData.role.split(',').map(r => r.trim().toLowerCase().replace(/\s+/g, ''))
+          : [];
+
+      userData.roles = rolesArray;
       setUser(userData);
 
-      // ✅ Role-based tabs
-      if (normalizedRole === 'securityadmin') {
-        setAvailableTabs(['Admin Insights']);
-      } else if (normalizedRole === 'itadmin') {
-        setAvailableTabs([
-          'Admin Insights',
-          'Register Users',
-          'Modify Users',
-          'Reset Password'
-        ]);
+      // Determine accessible tabs based on roles
+      const tabs = [];
+      if (rolesArray.includes('itadmin')) {
+        tabs.push('Admin Insights', 'Register Users', 'Modify Users', 'Reset Password');
+      } else if (rolesArray.includes('securityadmin')) {
+        tabs.push('Admin Insights');
       } else {
         Alert.alert('Access Denied', 'You do not have access to this page.');
         router.replace('/landing/');
+        return;
       }
+      setAvailableTabs(tabs);
     } catch (error) {
       console.error('Error loading user data:', error);
       router.replace('/LoginScreen');
@@ -69,11 +71,11 @@ const AdminDashboard = () => {
 
   const handleLogout = () => {
     Alert.alert(
-      "Logout Confirmation",
-      "Are you sure you want to logout?",
+      'Logout Confirmation',
+      'Are you sure you want to logout?',
       [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: performLogout }
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Logout', style: 'destructive', onPress: performLogout }
       ]
     );
   };
@@ -94,27 +96,27 @@ const AdminDashboard = () => {
   };
 
   const renderActiveScreen = () => {
-    const userRole = user?.role;
+    const roles = user?.roles || [];
 
     switch (activeTab) {
       case 'Admin Insights':
         return <AdminInsightsScreen />;
 
       case 'Register Users':
-        if (userRole === 'itadmin') return <RegisterScreen />;
-        Alert.alert("Access Denied", "Only IT Admin can register users.");
+        if (roles.includes('itadmin')) return <RegisterScreen />;
+        Alert.alert('Access Denied', 'Only IT Admin can register users.');
         setActiveTab('Admin Insights');
         return null;
 
       case 'Modify Users':
-        if (userRole === 'itadmin') return <ModifyUserScreen />;
-        Alert.alert("Access Denied", "Only IT Admin can modify users.");
+        if (roles.includes('itadmin')) return <ModifyUserScreen />;
+        Alert.alert('Access Denied', 'Only IT Admin can modify users.');
         setActiveTab('Admin Insights');
         return null;
 
       case 'Reset Password':
-        if (userRole === 'itadmin') return <ResetPasswordScreen />;
-        Alert.alert("Access Denied", "Only IT Admin can reset passwords.");
+        if (roles.includes('itadmin')) return <ResetPasswordScreen />;
+        Alert.alert('Access Denied', 'Only IT Admin can reset passwords.');
         setActiveTab('Admin Insights');
         return null;
 
@@ -159,7 +161,9 @@ const AdminDashboard = () => {
                 <Text style={styles.sidebarItem}>
                   Name: {user.firstName} {user.lastName}
                 </Text>
-                <Text style={styles.sidebarItem}>Role: {user.role}</Text>
+                <Text style={styles.sidebarItem}>
+                  Role: {user.roles.join(', ')}
+                </Text>
                 {user.warehouse_code && (
                   <Text style={styles.sidebarItem}>WH Code: {user.warehouse_code}</Text>
                 )}
@@ -178,16 +182,10 @@ const AdminDashboard = () => {
             {availableTabs.map((tab) => (
               <TouchableOpacity
                 key={tab}
-                style={[
-                  styles.tab,
-                  activeTab === tab && styles.activeTab
-                ]}
+                style={[styles.tab, activeTab === tab && styles.activeTab]}
                 onPress={() => setActiveTab(tab)}
               >
-                <Text style={[
-                  styles.tabText,
-                  activeTab === tab && styles.activeTabText
-                ]}>
+                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
                   {tab}
                 </Text>
               </TouchableOpacity>
