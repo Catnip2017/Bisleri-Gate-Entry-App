@@ -1315,7 +1315,7 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.14:8000'; 
+        return 'http://192.168.1.11:8000'; 
       } else {
         return 'http://10.0.2.2:8000';
       }
@@ -1323,9 +1323,9 @@ const getApiUrl = () => {
       return 'http://192.168.51.151:8000'; 
     }
     // Web platform
-    return 'http://192.168.1.14:8000';
+    return 'http://192.168.1.11:8000';
   }
-  return 'http://192.168.1.14:8000';
+  return 'http://192.168.1.11:8000';
 };
 
 export const API_BASE_URL = getApiUrl();

@@ -1,23 +1,40 @@
-from pydantic import BaseModel, EmailStr
+# app/schemas.py
+from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
+from typing import List
 
 class UserBase(BaseModel):
     username: str
     first_name: str
     last_name: str
     role: str
-    warehouse_code: str
-    site_code: str
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    site_code: Optional[str] = None
 
-class UserCreate(UserBase):
+class UserCreate(BaseModel):
+    username: str
     password: str
+    first_name: str
+    last_name: str
+    role: str
+    # ✅ FIXED: Make these fields truly optional
+    warehouse_code: Optional[str] = None
+    site_code: Optional[str] = None
 
+# In user_schemas.py:
 class UserResponse(UserBase):
-    last_login: Optional[datetime]
+    warehouse_code: Optional[str] = ""
+    warehouse_name: Optional[str] = ""
+    site_code: Optional[str] = ""
+    last_login: Optional[datetime] = None
     
     class Config:
-        orm_code = True
+        orm_mode = True
+        # Add this to handle None values gracefully
+        validate_assignment = True
+        use_enum_values = True
 
 class LoginRequest(BaseModel):
     username: str
@@ -31,7 +48,7 @@ class Token(BaseModel):
     token_type: str
 
 class GateEntryCreate(BaseModel):
-    gate_type: str  # "Gate-In" or "Gate-Out"
+    gate_type: str
     vehicle_no: str
     document_no: Optional[str] = None
     remarks: Optional[str] = None
@@ -70,3 +87,14 @@ class PasswordReset(BaseModel):
     username: str
     new_password: str
     confirm_password: str
+
+class RegisterResponse(BaseModel):
+    message: str
+    user: UserResponse
+
+class UserRoleUpdate(BaseModel):
+    role: Optional[str] = None
+    warehouse_code: Optional[str] = None
+
+    class Config:
+        orm_mode = True

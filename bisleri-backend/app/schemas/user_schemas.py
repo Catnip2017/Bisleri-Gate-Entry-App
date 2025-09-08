@@ -23,3 +23,11 @@ class PasswordReset(BaseModel):
     username: str
     new_password: str
     confirm_password: str
+
+# ✅ Add this for role updates
+class UserRoleUpdate(BaseModel):
+    role: Optional[str] = None
+    warehouse_code: Optional[str] = None
+
+    class Config:
+        orm_mode = True

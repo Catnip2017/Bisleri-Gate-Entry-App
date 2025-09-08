@@ -245,6 +245,7 @@ import {
   TouchableOpacity,
   Pressable,
   SafeAreaView,
+  Alert,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -253,7 +254,6 @@ import styles from "./LandingScreenStyles";
 import { storage } from "../../utils/storage";
 import { getCurrentUser } from "../../utils/jwtUtils";
 import { authAPI } from "../../services/api";
-import { showAlert } from '../../utils/customModal';
 
 export default function LandingScreen() {
   const router = useRouter();
@@ -261,88 +261,63 @@ export default function LandingScreen() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadUserData();
+    (async () => {
+      try {
+        const userData = await getCurrentUser();
+        if (!userData) {
+          router.replace("/LoginScreen");
+          return;
+        }
+
+        // 🔹 Normalize roles into an array
+        const rolesArray = userData.roles && Array.isArray(userData.roles)
+          ? userData.roles.map(r => r.trim().toLowerCase().replace(/\s+/g, ""))
+          : userData.role
+            ? userData.role.split(",").map(r => r.trim().toLowerCase().replace(/\s+/g, ""))
+            : [];
+
+        setUser({ ...userData, roles: rolesArray });
+        console.log("✅ Normalized user roles:", rolesArray);
+      } catch (e) {
+        console.error("Error loading user data:", e);
+        router.replace("/LoginScreen");
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  const loadUserData = async () => {
-    try {
-      const userData = await getCurrentUser();
-      if (!userData) {
-        router.replace("/LoginScreen");
-        return;
-      }
-
-      // ✅ MERGED: Enhanced role normalization with multi-role support
-      const rolesArray = userData.roles && Array.isArray(userData.roles)
-        ? userData.roles
-        : userData.role
-          ? [userData.role]
-          : [];
-
-      setUser({ ...userData, roles: rolesArray });
-      console.log("✅ User loaded with roles:", rolesArray);
-    } catch (e) {
-      console.error("Error loading user data:", e);
-      router.replace("/LoginScreen");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ✅ MERGED: Helper to check if user has a role
+  // 🔹 Helper to check if user has a role
   const hasRole = (roleName) => {
     if (!user || !user.roles) return false;
-    const normalizedRole = roleName.toLowerCase().replace(/\s+/g, '');
-    return user.roles.includes(normalizedRole);
+    return user.roles.includes(roleName.toLowerCase());
   };
 
   const handleAdminCardPress = () => {
-    if (hasRole("Security Admin") || hasRole("IT Admin")) {
-      if (Platform.OS === 'web') {
-        router.push("/admin");
-      } else {
-        showAlert(
-          "Admin Access",
-          "Navigating to Administrator Panel...",
-          [
-            { text: "OK", onPress: () => router.push('/admin') },
-            { text: "Cancel", style: "cancel" }
-          ]
-        );
-      }
+    if (hasRole("securityadmin") || hasRole("itadmin")) {
+      router.push("/admin/AdminDashboard");
     } else {
-      showAlert("Access Denied", "You don't have administrator privileges.");
+      Alert.alert("Access Denied", "You don't have Admin privileges.");
     }
   };
 
   const handleSecurityCardPress = () => {
-    if (hasRole("Security Guard") || hasRole("IT Admin")) {
-      if (Platform.OS === 'web') {
-        router.push("/security");
-      } else {
-        showAlert(
-          "Security Access",
-          "Navigating to Security Guard Panel...",
-          [
-            { text: "OK", onPress: () => router.push('/security') },
-            { text: "Cancel", style: "cancel" }
-          ]
-        );
-      }
+    if (hasRole("securityguard") || hasRole("itadmin")) {
+      router.push("/security");
     } else {
-      showAlert("Access Denied", "You don't have security guard privileges.");
+      Alert.alert("Access Denied", "You don't have Security privileges.");
     }
   };
 
   const handleLogout = () => {
-    showAlert(
-      "Logout Confirmation",
-      "Are you sure you want to logout?",
-      [
+    if (Platform.OS === "web") {
+      performLogout();
+    } else {
+      Alert.alert("Logout", "Are you sure you want to logout?", [
         { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: performLogout }
-      ]
-    );
+        { text: "Logout", style: "destructive", onPress: performLogout },
+      ]);
+    }
   };
 
   const performLogout = async () => {
@@ -361,16 +336,15 @@ export default function LandingScreen() {
       <SafeAreaView
         style={[styles.container, { justifyContent: "center", alignItems: "center" }]}
       >
-        <ActivityIndicator size="large" color="#007bff" />
-        <Text style={{ marginTop: 10, fontSize: 16, color: '#666' }}>Loading...</Text>
+        <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 10 }}>Loading...</Text>
       </SafeAreaView>
     );
   }
 
-  // ✅ MERGED: Role display mapping
   const roleDisplayName = {
     securityadmin: "Security Admin",
-    itadmin: "IT Admin", 
+    itadmin: "IT Admin",
     securityguard: "Security Guard",
   };
 
@@ -390,7 +364,7 @@ export default function LandingScreen() {
         {user && (
           <View style={styles.welcomeContainer}>
             <Text style={styles.welcomeText}>
-              Welcome, {user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim()}
+              Welcome, {user.fullName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()}
             </Text>
             <Text style={styles.roleText}>Role: {displayRoles}</Text>
           </View>
@@ -409,11 +383,7 @@ export default function LandingScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.cardIconContainer}>
-              <Image 
-                source={require("../../assets/images/admin.png")} 
-                style={styles.icon}
-                tintColor="#2b6cb0" 
-              />
+              <Image source={require("../../assets/images/admin.png")} style={styles.icon} />
             </View>
             <Text style={styles.cardText}>Administrator</Text>
           </TouchableOpacity>
@@ -425,11 +395,7 @@ export default function LandingScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.cardIconContainer}>
-              <Image 
-                source={require("../../assets/images/guard.png")} 
-                style={styles.icon}
-                tintColor="#2b6cb0"
-              />
+              <Image source={require("../../assets/images/guard.png")} style={styles.icon} />
             </View>
             <Text style={styles.cardText}>Security Guard</Text>
           </TouchableOpacity>
