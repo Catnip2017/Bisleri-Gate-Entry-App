@@ -1315,17 +1315,17 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.11:8000'; 
+        return 'http://192.168.137.1:8000'; 
       } else {
-        return 'http://10.0.2.2:8000';
+        return 'http://192.168.137.1:8000';
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.51.151:8000'; 
     }
     // Web platform
-    return 'http://192.168.1.11:8000';
+    return 'http://192.168.137.1:8000';
   }
-  return 'http://192.168.1.11:8000';
+  return 'http://192.168.137.1:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -1513,12 +1513,13 @@ export const adminAPI = {
   },
 
   getAdminInsights: async (filters) => {
-    const response = await api.post('/vehicle-movements', {
-      from_date: filters.fromDate,
-      to_date: filters.toDate,
-      site_code: filters.siteCode || null,
-      warehouse_code: filters.warehouseCode || null,
-      movement_type: null
+    const response = await api.post('/filtered-movements', {
+      from_date: filters.from_date,
+      to_date: filters.to_date,
+      site_code: filters.site_code || null,
+      warehouse_code: filters.warehouse_code || null,
+      movement_type: null,
+      vehicle_no: null
     });
     return response.data;
   },
