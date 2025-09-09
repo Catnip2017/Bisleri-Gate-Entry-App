@@ -57,10 +57,10 @@ const AdminInsightsScreen = () => {
     setLoading(true);
     try {
       const filters = {
-        fromDate,
-        toDate,
-        siteCode: siteCode || null,
-        warehouseCode: whCode || null
+        from_date: fromDate,        // ✅ Fixed parameter name
+        to_date: toDate,           // ✅ Fixed parameter name
+        site_code: siteCode || null,      // ✅ Fixed parameter name
+        warehouse_code: whCode || null    // ✅ Fixed parameter name
       };
 
       const data = await adminAPI.getAdminInsights(filters);
@@ -80,7 +80,7 @@ const AdminInsightsScreen = () => {
       return (
         <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
           <Text style={{ fontSize: 16, fontWeight: "bold", color: "red" }}>
-            Access Denied - You don’t have permission to view Admin Insights
+            Access Denied - You don't have permission to view Admin Insights
           </Text>
         </View>
       );
@@ -170,7 +170,7 @@ const AdminInsightsScreen = () => {
           </View>
         )}
 
-        {/* Results Table */}
+        {/* Results Table - ✅ ENHANCED with new columns */}
         {insights && (
           <View style={styles.tableContainer}>
             <Text style={styles.tableTitle}>Vehicle Movement Records ({insights.count})</Text>
@@ -187,6 +187,12 @@ const AdminInsightsScreen = () => {
                   <Text style={styles.headerCell}>Warehouse</Text>
                   <Text style={styles.headerCell}>Security Guard</Text>
                   <Text style={styles.headerCell}>Remarks</Text>
+                  {/* ✅ NEW COLUMNS */}
+                  <Text style={styles.headerCell}>Document Date</Text>
+                  <Text style={styles.headerCell}>Document Age</Text>
+                  <Text style={styles.headerCell}>Driver Name</Text>
+                  <Text style={styles.headerCell}>KM Reading</Text>
+                  <Text style={styles.headerCell}>Loader Names</Text>
                 </View>
 
                 {insights.results.map((movement, index) => (
@@ -200,6 +206,17 @@ const AdminInsightsScreen = () => {
                     <Text style={styles.cell}>{movement.warehouse_name}</Text>
                     <Text style={styles.cell}>{movement.security_name}</Text>
                     <Text style={styles.cell}>{movement.remarks}</Text>
+                    {/* ✅ NEW COLUMN DATA */}
+                    <Text style={styles.cell}>
+                      {movement.document_date 
+                        ? new Date(movement.document_date).toLocaleDateString()
+                        : '--'
+                      }
+                    </Text>
+                    <Text style={styles.cell}>{movement.document_age_time || '--'}</Text>
+                    <Text style={styles.cell}>{movement.driver_name || '--'}</Text>
+                    <Text style={styles.cell}>{movement.km_reading || '--'}</Text>
+                    <Text style={styles.cell}>{movement.loader_names || '--'}</Text>
                   </View>
                 ))}
               </View>
