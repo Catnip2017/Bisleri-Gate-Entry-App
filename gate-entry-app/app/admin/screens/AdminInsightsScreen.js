@@ -11,6 +11,8 @@ import {
 import { adminAPI } from '../../../services/api';
 import styles from '../styles/AdminInsightsStyle';
 import { getCurrentUser } from '../../../utils/jwtUtils';
+import { showAlert } from '../../../utils/customModal';
+
 
 const AdminInsightsScreen = () => {
   const [fromDate, setFromDate] = useState('2025-01-01');
@@ -26,7 +28,7 @@ const AdminInsightsScreen = () => {
     const fetchUser = async () => {
       const u = await getCurrentUser();
       if (!u) {
-        Alert.alert("Error", "User not logged in");
+        showAlert("Error", "User not logged in");
         return;
       }
       // normalize role: lowercase + remove spaces
@@ -50,7 +52,7 @@ const AdminInsightsScreen = () => {
 
   const handleShowResults = async () => {
     if (!fromDate || !toDate) {
-      Alert.alert('Error', 'Please select both from and to dates');
+      showAlert('Error', 'Please select both from and to dates');
       return;
     }
 
@@ -67,7 +69,7 @@ const AdminInsightsScreen = () => {
       setInsights(data);
     } catch (error) {
       console.error('Error fetching insights:', error);
-      Alert.alert('Error', 'Failed to load insights data');
+      showAlert('Error', 'Failed to load insights data');
     } finally {
       setLoading(false);
     }
