@@ -112,6 +112,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     position: 'relative',
     marginBottom: 15,
+    zIndex: 9999,
   },
   dropdown: {
     position: 'absolute',
@@ -126,7 +127,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     maxHeight: 200,
-    zIndex: 1000,
+    zIndex: 9999,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },

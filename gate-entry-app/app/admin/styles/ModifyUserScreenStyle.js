@@ -21,6 +21,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    marginBottom: 50,
+    height: 600,
   },
   title: {
     fontSize: 20,
@@ -139,6 +141,25 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+
+    dropdown: {
+    position: 'absolute',
+    top: 50,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    maxHeight: 150,
+    zIndex: 10,
+  },
+  
+  dropdownItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
+  },
+
 });
 
 export default styles;

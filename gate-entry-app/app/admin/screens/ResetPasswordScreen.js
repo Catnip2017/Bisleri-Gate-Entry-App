@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { adminAPI } from '../../../services/api';
 import styles from '../styles/ResetPasswordScreenStyle';
+import { showAlert } from '../../../utils/customModal';
+
 
 const ResetPasswordScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -73,19 +75,19 @@ const ResetPasswordScreen = () => {
   // Form validation
   const validateForm = () => {
     if (!userFound) {
-      Alert.alert('Error', 'Please select a user first');
+      showAlert('Error', 'Please select a user first');
       return false;
     }
     if (!newPassword.trim()) {
-      Alert.alert('Error', 'New password is required');
+      showAlert('Error', 'New password is required');
       return false;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      showAlert('Error', 'Password must be at least 6 characters long');
       return false;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      showAlert('Error', 'Passwords do not match');
       return false;
     }
     return true;
@@ -95,7 +97,7 @@ const ResetPasswordScreen = () => {
   const handleResetPassword = () => {
     if (!validateForm()) return;
 
-    Alert.alert(
+    showAlert(
       'Confirm Password Reset',
       `Are you sure you want to reset password for "${userFound.username}"?`,
       [
@@ -115,7 +117,7 @@ const ResetPasswordScreen = () => {
         confirm_password: confirmPassword,
       });
 
-      Alert.alert(
+      showAlert(
         'Success',
         `Password for "${userFound.username}" has been reset!`,
         [
@@ -135,7 +137,7 @@ const ResetPasswordScreen = () => {
     } catch (error) {
       console.error('Error resetting password:', error);
       const errorMessage = error.response?.data?.detail || 'Failed to reset password';
-      Alert.alert('Error', errorMessage);
+      showAlert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -164,7 +166,7 @@ const ResetPasswordScreen = () => {
         <View style={{ position: 'relative', width: '100%' }}>
           <TextInput
             style={styles.input}
-            placeholder="Enter username"
+            placeholder="Enter Username"
             value={searchQuery}
             onChangeText={handleSearchUser}
             autoCapitalize="none"
@@ -172,31 +174,22 @@ const ResetPasswordScreen = () => {
           {searching && <ActivityIndicator style={{ position: 'absolute', right: 10, top: 15 }} />}
 
           {/* Dropdown */}
-          {matchingUsers.length > 0 && (
-            <View
-              style={{
-                position: 'absolute',
-                top: 50,
-                left: 0,
-                right: 0,
-                backgroundColor: '#fff',
-                borderWidth: 1,
-                borderColor: '#ccc',
-                maxHeight: 150,
-                zIndex: 10,
-              }}
-            >
-              {matchingUsers.map((user) => (
-                <TouchableOpacity
-                  key={user.username}
-                  onPress={() => handleSelectUser(user)}
-                  style={{ padding: 10, borderBottomWidth: 1, borderColor: '#eee' }}
-                >
-                  <Text>{user.username}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+{matchingUsers.length > 0 && (
+  <View style={styles.dropdown}>
+    <ScrollView>
+      {matchingUsers.map((user) => (
+        <TouchableOpacity
+          key={user.username}
+          onPress={() => handleSelectUser(user)}
+          style={styles.dropdownItem}
+        >
+          <Text>{user.username}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  </View>
+)}
+ 
         </View>
 
         
