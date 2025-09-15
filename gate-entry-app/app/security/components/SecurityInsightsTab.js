@@ -24,6 +24,7 @@ import {
 } from '../../../services/api';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import OperationalEditModal from './OperationalEditModal';
+import { showAlert } from '@/utils/customModal';
 
 const SecurityInsightsTab = ({ 
   insightsData, 
@@ -99,6 +100,33 @@ const SecurityInsightsTab = ({
     }
   };
 
+  // const loadMovements = async () => {
+  //   setLoading(true);
+  //   try {
+  //     const filter = {
+  //       from_date: formatDateForAPI(fromDate),
+  //       to_date: formatDateForAPI(toDate),
+  //       warehouse_code: userData?.warehouse_code || null,
+  //       vehicle_no: vehicleFilter.trim() || null,
+  //       movement_type: null
+  //     };
+
+  //     const response = await insightsAPI.getFilteredMovements(filter);
+      
+  //     // Sort by edit priority (Yellow -> Green -> Black)
+  //     const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
+  //     setMovements(sortedMovements);
+  //     setCurrentPage(1); // Reset to first page when data loads
+      
+  //   } catch (error) {
+  //     console.error('Error loading movements:', error);
+  //     const errorMessage = handleAPIError(error);
+  //     showAlert('Error', `Failed to load movements: ${errorMessage}`);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const loadMovements = async () => {
     setLoading(true);
     try {
@@ -110,17 +138,18 @@ const SecurityInsightsTab = ({
         movement_type: null
       };
 
+      console.log('Final filter sent to API:', filter); // Add this debug log
+
       const response = await insightsAPI.getFilteredMovements(filter);
       
-      // Sort by edit priority (Yellow -> Green -> Black)
       const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
       setMovements(sortedMovements);
-      setCurrentPage(1); // Reset to first page when data loads
+      setCurrentPage(1);
       
     } catch (error) {
       console.error('Error loading movements:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load movements: ${errorMessage}`);
+      showAlert('Error', `Failed to load movements: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -142,7 +171,21 @@ const SecurityInsightsTab = ({
   };
 
   // Apply filters and reload data
+  // const handleApplyFilters = () => {
+  //   loadMovements();
+  //   loadEditStatistics();
+  // };
+
   const handleApplyFilters = () => {
+    console.log('Applying filters - Debug info:', {
+      fromDate: fromDate,
+      toDate: toDate,
+      fromDateFormatted: formatDateForAPI(fromDate),
+      toDateFormatted: formatDateForAPI(toDate),
+      vehicleFilter: vehicleFilter,
+      platform: Platform.OS
+    });
+    
     loadMovements();
     loadEditStatistics();
   };
@@ -182,7 +225,7 @@ const SecurityInsightsTab = ({
       setAvailableDocuments(response.documents || []);
       
       if (response.available_count === 0) {
-        Alert.alert(
+        showAlert(
           'No Documents Found', 
           `No unassigned documents found for vehicle ${vehicleNo} in the last 8 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
         );
@@ -190,7 +233,7 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Error', `Failed to load documents: ${errorMessage}`);
+      showAlert('Error', `Failed to load documents: ${errorMessage}`);
     } finally {
       setLoadingDocuments(false);
     }
@@ -199,11 +242,11 @@ const SecurityInsightsTab = ({
   // NEW: Handle document assignment
   const handleDocumentAssignment = async () => {
     if (!selectedDocument || !assigningRecord) {
-      Alert.alert('Error', 'Please select a document first');
+      showAlert('Error', 'Please select a document first');
       return;
     }
 
-    Alert.alert(
+    showAlert(
       'Confirm Assignment',
       `Assign document ${selectedDocument.document_no} to this manual entry?`,
       [
@@ -224,7 +267,7 @@ const SecurityInsightsTab = ({
 
       const response = await gateAPI.assignDocumentToManualEntry(assignmentData);
       
-      Alert.alert(
+      showAlert(
         'Success',
         `Document ${selectedDocument.document_no} assigned successfully!\n\nGate Entry: ${response.gate_entry_no}\nEdit Count: ${response.updated_insights.edit_count}`,
         [
@@ -241,38 +284,73 @@ const SecurityInsightsTab = ({
     } catch (error) {
       console.error('Error assigning document:', error);
       const errorMessage = handleAPIError(error);
-      Alert.alert('Assignment Failed', errorMessage);
+      showAlert('Assignment Failed', errorMessage);
     } finally {
       setAssigningDocument(false);
     }
   };
 
   // Enhanced stats calculation
-  const stats = React.useMemo(() => {
-    if (!movements || movements.length === 0) {
+  // const stats = React.useMemo(() => {
+  //   if (!movements || movements.length === 0) {
+  //     return {
+  //       totalMovements: 0,
+  //       uniqueVehicles: 0,
+  //       needsCompletion: 0,
+  //       pendingAssignment: 0, // NEW: Count of pending document assignments
+  //     };
+  //   }
+    
+  //   const uniqueVehicles = [...new Set(movements.map(m => m.vehicle_no))].length;
+  //   const needsCompletion = movements.filter(m => 
+  //     editStatusUtils.getButtonConfig(m).action === 'complete_required'
+  //   ).length;
+  //   const pendingAssignment = movements.filter(m => 
+  //     documentAssignmentUtils.needsDocumentAssignment(m)
+  //   ).length;
+    
+  //   return {
+  //     totalMovements: movements.length,
+  //     uniqueVehicles,
+  //     needsCompletion,
+  //     pendingAssignment,
+  //   };
+  // }, [movements]);
+
+        // Enhanced stats calculation with date filtering
+    const stats = React.useMemo(() => {
+      if (!movements || movements.length === 0) {
+        return {
+          gateInCount: 0,
+          gateOutCount: 0,
+          totalMovements: 0,
+          uniqueVehicles: 0,
+          needsCompletion: 0,
+          pendingAssignment: 0,
+          assigned: 0,
+        };
+      }
+      
+      const gateInCount = movements.filter(m => m.movement_type === 'Gate-In').length;
+      const gateOutCount = movements.filter(m => m.movement_type === 'Gate-Out').length;
+      const uniqueVehicles = [...new Set(movements.map(m => m.vehicle_no))].length;
+      const needsCompletion = movements.filter(m => 
+        editStatusUtils.getButtonConfig(m).action === 'complete_required'
+      ).length;
+      const pendingAssignment = movements.filter(m => 
+        documentAssignmentUtils.needsDocumentAssignment(m)
+      ).length;
+      
       return {
-        totalMovements: 0,
-        uniqueVehicles: 0,
-        needsCompletion: 0,
-        pendingAssignment: 0, // NEW: Count of pending document assignments
+        gateInCount,
+        gateOutCount,
+        totalMovements: movements.length,
+        uniqueVehicles,
+        needsCompletion,
+        pendingAssignment,
+        assigned: movements.length - pendingAssignment,
       };
-    }
-    
-    const uniqueVehicles = [...new Set(movements.map(m => m.vehicle_no))].length;
-    const needsCompletion = movements.filter(m => 
-      editStatusUtils.getButtonConfig(m).action === 'complete_required'
-    ).length;
-    const pendingAssignment = movements.filter(m => 
-      documentAssignmentUtils.needsDocumentAssignment(m)
-    ).length;
-    
-    return {
-      totalMovements: movements.length,
-      uniqueVehicles,
-      needsCompletion,
-      pendingAssignment,
-    };
-  }, [movements]);
+    }, [movements]);
 
   // Open edit modal
   const openEditModal = (record) => {
@@ -440,26 +518,41 @@ const SecurityInsightsTab = ({
       <View style={styles.card}>
         
         {/* UPDATED: 4x1 Stats Cards with document assignment tracking */}
-        <View style={styles.statsCardsContainer}>
-          <View style={styles.statsRowContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalMovements}</Text>
-              <Text style={styles.statLabel}>Total Movements</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#ffc107' }]}>
-              <Text style={styles.statNumber}>{stats.needsCompletion}</Text>
-              <Text style={styles.statLabel}>Need Completion</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#dc3545' }]}>
-              <Text style={styles.statNumber}>{stats.pendingAssignment}</Text>
-              <Text style={styles.statLabel}>Pending Assignment</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#28a745' }]}>
-              <Text style={styles.statNumber}>{stats.totalMovements - stats.pendingAssignment}</Text>
-              <Text style={styles.statLabel}>Assigned</Text>
-            </View>
-          </View>
+       {/* UPDATED: 7 Stats Cards for FG Insights */}
+    <View style={styles.statsCardsContainer}>
+      <View style={styles.statsRowContainer}>
+        <View style={[styles.statCard, { backgroundColor: '#28a745' }]}>
+          <Text style={styles.statNumber}>{stats.gateInCount}</Text>
+          <Text style={styles.statLabel}>Gate In</Text>
         </View>
+        <View style={[styles.statCard, { backgroundColor: '#dc3545' }]}>
+          <Text style={styles.statNumber}>{stats.gateOutCount}</Text>
+          <Text style={styles.statLabel}>Gate Out</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statNumber}>{stats.totalMovements}</Text>
+          <Text style={styles.statLabel}>Total Movements</Text>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: '#17a2b8' }]}>
+          <Text style={styles.statNumber}>{stats.uniqueVehicles}</Text>
+          <Text style={styles.statLabel}>Unique Vehicles</Text>
+        </View>
+      </View>
+      <View style={styles.statsRowContainer}>
+        <View style={[styles.statCard, { backgroundColor: '#ffc107' }]}>
+          <Text style={styles.statNumber}>{stats.needsCompletion}</Text>
+          <Text style={styles.statLabel}>Need Completion</Text>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: '#6f42c1' }]}>
+          <Text style={styles.statNumber}>{stats.pendingAssignment}</Text>
+          <Text style={styles.statLabel}>Pending Assignment</Text>
+        </View>
+        <View style={[styles.statCard, { backgroundColor: '#20c997' }]}>
+          <Text style={styles.statNumber}>{stats.assigned}</Text>
+          <Text style={styles.statLabel}>Assigned</Text>
+        </View>
+      </View>
+    </View>
         
         {/* Enhanced Filters */}
         <View style={styles.filters}>
