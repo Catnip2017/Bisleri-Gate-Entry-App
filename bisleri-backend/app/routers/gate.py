@@ -238,6 +238,7 @@ def create_enhanced_batch_gate_entry(
                         gate_entry_no=gate_entry_no,
                         document_type=document.document_type or "",
                         sub_document_type=document.sub_document_type or "",
+                        document_no=document.document_no,
                         vehicle_no=document.vehicle_no or vehicle_no,
                         warehouse_name=document.warehouse_name or current_user.warehouse_code,
                         date=now.date(),
@@ -435,6 +436,7 @@ def create_batch_gate_entry(
                     gate_entry_no=gate_entry_no,
                     document_type=document.document_type or "",
                     sub_document_type=document.sub_document_type or "",
+                    document_no=document.document_no,
                     vehicle_no=document.vehicle_no or vehicle_no,
                     warehouse_name=document.warehouse_name or current_user.warehouse_code,
                     date=now.date(),
@@ -870,6 +872,7 @@ def assign_document_to_manual_entry(
         # Update insights record with document details
         insights_record.document_type = document_record.document_type or "Assigned Document"
         insights_record.sub_document_type = document_record.sub_document_type
+        insights_record.document_no = document_record.document_no
         insights_record.document_date = document_record.document_date
         insights_record.remarks = f"Assigned document {document_no} | Original: {insights_record.remarks}"
         insights_record.last_edited_at = datetime.now()
