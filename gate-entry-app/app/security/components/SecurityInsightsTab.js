@@ -82,6 +82,61 @@ const SecurityInsightsTab = ({
     return `${day}-${month}-${year}`;
   };
 
+  // Add this new function after formatDateToDDMMYYYY
+  const renderDatePicker = (value, onChange, show, setShow, label) => {
+    if (Platform.OS === 'web') {
+      // Web: Use HTML5 date input
+      return (
+        <input
+          type="date"
+          value={value.toISOString().split('T')[0]} // Convert to YYYY-MM-DD format
+          onChange={(e) => {
+            const newDate = new Date(e.target.value);
+            onChange(null, newDate);
+          }}
+          style={{
+            borderWidth: 1,
+            borderColor: '#aaa',
+            padding: 10,
+            borderRadius: 4,
+            backgroundColor: 'white',
+            fontSize: 14,
+            width: '100%',
+            minHeight: 40,
+          }}
+        />
+      );
+    }
+    
+    // Mobile: Use existing DateTimePicker
+    return (
+      <>
+        <TouchableOpacity 
+          style={styles.datePickerButton}
+          onPress={() => setShow(true)}
+        >
+          <Text style={styles.datePickerText}>
+            {formatDateToDDMMYYYY(value)}
+          </Text>
+        </TouchableOpacity>
+        
+        {show && (
+          <DateTimePicker
+            value={value}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              setShow(Platform.OS === 'ios');
+              if (selectedDate) {
+                onChange(event, selectedDate);
+              }
+            }}
+          />
+        )}
+      </>
+    );
+  };
+
   const loadUserData = async () => {
     try {
       const user = await getCurrentUser();
@@ -559,44 +614,24 @@ const SecurityInsightsTab = ({
           {/* From Date */}
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>From Date</Text>
-            <TouchableOpacity 
-              style={styles.datePickerButton}
-              onPress={() => setShowFromDatePicker(true)}
-            >
-              <Text style={styles.datePickerText}>
-                {formatDateToDDMMYYYY(fromDate)}
-              </Text>
-            </TouchableOpacity>
-            
-            {showFromDatePicker && (
-              <DateTimePicker
-                value={fromDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onFromDateChange}
-              />
+            {renderDatePicker(
+              fromDate, 
+              onFromDateChange, 
+              showFromDatePicker, 
+              setShowFromDatePicker,
+              'From Date'
             )}
           </View>
           
           {/* To Date */}
           <View style={styles.filterItem}>
             <Text style={styles.filterLabel}>To Date</Text>
-            <TouchableOpacity 
-              style={styles.datePickerButton}
-              onPress={() => setShowToDatePicker(true)}
-            >
-              <Text style={styles.datePickerText}>
-                {formatDateToDDMMYYYY(toDate)}
-              </Text>
-            </TouchableOpacity>
-            
-            {showToDatePicker && (
-              <DateTimePicker
-                value={toDate}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={onToDateChange}
-              />
+            {renderDatePicker(
+              toDate, 
+              onToDateChange, 
+              showToDatePicker, 
+              setShowToDatePicker,
+              'To Date'
             )}
           </View>
 
