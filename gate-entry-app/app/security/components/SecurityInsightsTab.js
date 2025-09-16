@@ -717,8 +717,7 @@ const SecurityInsightsTab = ({
               <Text style={[styles.tableHeaderCell, styles.colKMReading]}>KM Reading</Text>
               <Text style={[styles.tableHeaderCell, styles.colLoaderNames]}>Loader Names</Text>
               
-              <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>Warehouse</Text>
-              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
+              <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>To Warehouse</Text>              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
               <Text style={[styles.tableHeaderCell, styles.colEditCount]}>Edit Count</Text>
               <Text style={[styles.tableHeaderCell, styles.colTimeRemaining]}>Time Remaining</Text>
               
@@ -780,7 +779,7 @@ const SecurityInsightsTab = ({
                         {renderOperationalCell(movement, 'loader_names')}
                       </View>
                       
-                      <Text style={[styles.tableCell, styles.colWarehouse]}>{movement.warehouse_name}</Text>
+                      <Text style={[styles.tableCell, styles.colWarehouse]}>{movement.to_warehouse_code || movement.warehouse_code || '--'}</Text>
                       <Text style={[styles.tableCell, styles.colSecurity]}>{movement.security_name}</Text>
                       
                       {/* Edit count */}

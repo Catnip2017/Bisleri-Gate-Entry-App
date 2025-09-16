@@ -78,7 +78,7 @@ def get_enhanced_filtered_movements(
                 "date": movement.date.isoformat() if movement.date else None,
                 "time": movement.time.isoformat() if movement.time else None,
                 "movement_type": movement.movement_type,
-                "warehouse_name": movement.warehouse_name,
+                "to_warehouse_code": movement.warehouse_code,
                 "security_name": movement.security_name,
                 "security_username": movement.security_username,
                 "site_code": movement.site_code,
