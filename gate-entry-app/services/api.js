@@ -10,18 +10,18 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; // Local network for mobile development
+        return 'http://10.103.237.157:8000'; // Local network for mobile development
       } else {
-        return 'http://192.168.1.56:8000'; // Emulator
+        return 'http://10.103.237.157:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.51.151:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-    return 'https://123.63.20.237:19000/api';
+    return 'http://10.103.237.157:8000';
   }
   // Production - USE IP ADDRESS
-  return 'https://123.63.20.237:19000/api';
+  return 'http://10.103.237.157:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -111,6 +111,17 @@ export const gateAPI = {
       throw new Error('At least one document must be selected');
     }
     const response = await api.post('/batch-gate-entry', batchData);
+    return response.data;
+  },
+
+  createEnhancedBatchGateEntry: async (enhancedBatchData) => {
+    if (!enhancedBatchData.vehicle_no?.trim()) {
+      throw new Error('Vehicle number is required');
+    }
+    if (!enhancedBatchData.document_nos || enhancedBatchData.document_nos.length === 0) {
+      throw new Error('At least one document must be selected');
+    }
+    const response = await api.post('/enhanced-batch-gate-entry', enhancedBatchData);
     return response.data;
   },
 
