@@ -723,7 +723,25 @@ const styles = StyleSheet.create({
     },
   },
 
+// ✅ NEW: Validation styles
+inputError: {
+  borderColor: '#dc3545',
+  borderWidth: 2,
+  backgroundColor: '#fff5f5',
+},
 
+errorText: {
+  fontSize: 12,
+  color: '#dc3545',
+  marginTop: 4,
+  fontWeight: '500',
+},
+
+inputValid: {
+  borderColor: '#28a745',
+  borderWidth: 1,
+  backgroundColor: '#f8fff8',
+},
 // Export the new styles to be merged with existing gateEntryStyles
 
 });

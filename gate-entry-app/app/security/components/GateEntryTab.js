@@ -46,6 +46,92 @@ const [fieldValidation, setFieldValidation] = useState({
   loader_names: { isValid: false, touched: false }
 });
 
+// ✅ NEW: Validation functions matching OperationalEditModal
+const validateDriverName = (value) => {
+  if (!value || !value.trim()) {
+    return { isValid: false, error: 'Driver name is required' };
+  }
+  if (value.trim().length < 2) {
+    return { isValid: false, error: 'Driver name must be at least 2 characters' };
+  }
+  if (value.trim().length > 50) {
+    return { isValid: false, error: 'Driver name must be less than 50 characters' };
+  }
+  return { isValid: true, error: '' };
+};
+
+const validateKMReading = (value) => {
+  if (!value || !value.trim()) {
+    return { isValid: false, error: 'KM reading is required' };
+  }
+  const cleanValue = value.replace(/[^0-9]/g, '');
+  if (!cleanValue) {
+    return { isValid: false, error: 'KM reading must be numeric' };
+  }
+  if (cleanValue.length < 3 || cleanValue.length > 6) {
+    return { isValid: false, error: 'KM reading must be 3-6 digits' };
+  }
+  const kmValue = parseInt(cleanValue);
+  if (kmValue < 0 || kmValue > 999999) {
+    return { isValid: false, error: 'KM reading must be between 0 and 999999' };
+  }
+  return { isValid: true, error: '' };
+};
+
+const validateLoaderNames = (value) => {
+  if (!value || !value.trim()) {
+    return { isValid: false, error: 'Loader names are required' };
+  }
+  const names = value.split(',').map(name => name.trim()).filter(name => name);
+  if (names.length === 0) {
+    return { isValid: false, error: 'At least one loader name is required' };
+  }
+  if (names.length > 10) {
+    return { isValid: false, error: 'Maximum 10 loader names allowed' };
+  }
+  for (let name of names) {
+    if (name.length < 2) {
+      return { isValid: false, error: 'Each loader name must be at least 2 characters' };
+    }
+  }
+  return { isValid: true, error: '' };
+};
+
+const updateOperationalField = (field, value) => {
+  let validation;
+  let cleanValue = value;
+  
+  switch (field) {
+    case 'driver_name':
+      validation = validateDriverName(value);
+      break;
+    case 'km_reading':
+      cleanValue = value.replace(/[^0-9]/g, '');
+      validation = validateKMReading(cleanValue);
+      break;
+    case 'loader_names':
+      validation = validateLoaderNames(value);
+      break;
+    default:
+      validation = { isValid: true, error: '' };
+  }
+  
+  setOperationalData(prev => ({
+    ...prev,
+    [field]: cleanValue
+  }));
+  
+  setValidationErrors(prev => ({
+    ...prev,
+    [field]: validation.error
+  }));
+  
+  setFieldValidation(prev => ({
+    ...prev,
+    [field]: { isValid: validation.isValid, touched: true }
+  }));
+};
+
   // ✅ MERGED: State management for RM Entry
   const [rmFormData, setRMFormData] = useState({
     gateType: 'Gate-In',
@@ -316,14 +402,27 @@ const [fieldValidation, setFieldValidation] = useState({
     setIsSubmitting(true);
     
     try {
-      const batchData = {
-        gate_type: gateEntryData.gateType,
-        vehicle_no: gateEntryData.vehicleNo?.trim(),
-        document_nos: selectedDocuments,
-        remarks: gateEntryData.remarks || null
-      };
+        // Validate operational data before submission
+        const allFieldsValid = fieldValidation.driver_name.isValid && 
+                              fieldValidation.km_reading.isValid && 
+                              fieldValidation.loader_names.isValid;
+
+        if (!allFieldsValid) {
+          showAlert('Error', 'Please complete all required operational fields correctly before submitting.');
+          return;
+        }
+
+        const batchData = {
+          gate_type: gateEntryData.gateType,
+          vehicle_no: gateEntryData.vehicleNo?.trim(),
+          document_nos: selectedDocuments,
+          remarks: gateEntryData.remarks || null,
+          driver_name: operationalData.driver_name.trim(),
+          km_reading: operationalData.km_reading,
+          loader_names: operationalData.loader_names.trim()
+        };
       
-      const result = await gateAPI.createBatchGateEntry(batchData);
+      const result = await gateAPI.createEnhancedBatchGateEntry(batchData);
       
       const successMessage = gateHelpers.formatSuccessMessage(result, false);
       
@@ -344,6 +443,24 @@ const [fieldValidation, setFieldValidation] = useState({
         remarks: '',
         gateEntryNo: '',
         dateTime: ''
+      });
+
+      setOperationalData({
+        driver_name: '',
+        km_reading: '',
+        loader_names: ''
+      });
+
+      setValidationErrors({
+        driver_name: '',
+        km_reading: '',
+        loader_names: ''
+      });
+
+      setFieldValidation({
+        driver_name: { isValid: false, touched: false },
+        km_reading: { isValid: false, touched: false },
+        loader_names: { isValid: false, touched: false }
       });
       
     } catch (error) {
@@ -658,38 +775,42 @@ const [fieldValidation, setFieldValidation] = useState({
             </View>
 
             <View style={styles.field35}>
-              <Text style={styles.label}>Driver Name</Text>
+              <Text style={styles.label}>Driver Name *</Text>
               <TextInput 
-                style={styles.input} 
+                style={[
+                  styles.input,
+                  fieldValidation.driver_name.touched && !fieldValidation.driver_name.isValid && styles.inputError
+                ]} 
                 placeholder="Enter Driver Name" 
-                value={gateEntryData.driverName || ''} 
-                onChangeText={(text) => updateField('driverName', text)}
+                value={operationalData.driver_name} 
+                onChangeText={(text) => updateOperationalField('driver_name', text)}
                 editable={!isSubmitting && !isSearching}
+                autoCapitalize="words"
               />
+              {fieldValidation.driver_name.touched && validationErrors.driver_name ? (
+                <Text style={styles.errorText}>{validationErrors.driver_name}</Text>
+              ) : null}
             </View>
 
             <View style={styles.field10}>
-              <Text style={styles.label}>KM IN</Text>
+              <Text style={styles.label}>
+                {gateEntryData.gateType === 'Gate-Out' ? 'KM OUT *' : 'KM IN *'}
+              </Text>
               <TextInput 
-                style={styles.input} 
-                placeholder="0" 
+                style={[
+                  styles.input,
+                  fieldValidation.km_reading.touched && !fieldValidation.km_reading.isValid && styles.inputError
+                ]} 
+                placeholder={gateEntryData.gateType === 'Gate-Out' ? 'Enter KM OUT' : 'Enter KM IN'} 
                 keyboardType="numeric" 
-                value={gateEntryData.kmIn || ''} 
-                onChangeText={(text) => updateField('kmIn', text)}
+                value={operationalData.km_reading} 
+                onChangeText={(text) => updateOperationalField('km_reading', text)}
                 editable={!isSubmitting && !isSearching}
+                maxLength={6}
               />
-            </View>
-
-            <View style={styles.field10}>
-              <Text style={styles.label}>KM OUT</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="0" 
-                keyboardType="numeric" 
-                value={gateEntryData.kmOut || ''} 
-                onChangeText={(text) => updateField('kmOut', text)}
-                editable={!isSubmitting && !isSearching}
-              />
+              {fieldValidation.km_reading.touched && validationErrors.km_reading ? (
+                <Text style={styles.errorText}>{validationErrors.km_reading}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -706,14 +827,21 @@ const [fieldValidation, setFieldValidation] = useState({
             </View>
 
             <View style={styles.field25}>
-              <Text style={styles.label}>Loader Names</Text>
+              <Text style={styles.label}>Loader Names *</Text>
               <TextInput 
-                style={styles.input} 
-                placeholder="Enter Loader Name" 
-                value={gateEntryData.loaderNames || ''} 
-                onChangeText={(text) => updateField('loaderNames', text)}
+                style={[
+                  styles.input,
+                  fieldValidation.loader_names.touched && !fieldValidation.loader_names.isValid && styles.inputError
+                ]} 
+                placeholder="Enter Loader Names (comma-separated)" 
+                value={operationalData.loader_names} 
+                onChangeText={(text) => updateOperationalField('loader_names', text)}
                 editable={!isSubmitting && !isSearching}
+                maxLength={200}
               />
+              {fieldValidation.loader_names.touched && validationErrors.loader_names ? (
+                <Text style={styles.errorText}>{validationErrors.loader_names}</Text>
+              ) : null}
             </View>
           </View>
 
