@@ -577,7 +577,6 @@ def create_enhanced_manual_gate_entry(
             document_type=entry.document_type or "Manual Entry",
             sub_document_type="Manual Entry",
             vehicle_no=vehicle_no,
-            warehouse_name=warehouse_name,
             date=now.date(),
             time=now.time(),
             movement_type=entry.gate_type,
@@ -603,7 +602,7 @@ def create_enhanced_manual_gate_entry(
             time=now,
             vehicle_no=vehicle_no,
             document_no=f"MANUAL-{gate_entry_no}",
-            warehouse_name=warehouse_name,
+            warehouse_name=f"Warehouse-{current_user.warehouse_code}",
             movement_type=entry.gate_type
         )
         
@@ -685,7 +684,6 @@ def create_manual_gate_entry(
             document_type=entry.document_type or "Manual Entry",
             sub_document_type="Manual Entry",
             vehicle_no=vehicle_no,
-            warehouse_name=warehouse_name,
             date=now.date(),
             time=now.time(),
             movement_type=entry.gate_type,
@@ -706,7 +704,7 @@ def create_manual_gate_entry(
             time=now,
             vehicle_no=vehicle_no,
             document_no=f"MANUAL-{gate_entry_no}",
-            warehouse_name=warehouse_name,
+            warehouse_name=f"Warehouse-{current_user.warehouse_code}",
             movement_type=entry.gate_type
         )
         
@@ -1140,7 +1138,6 @@ def create_multi_document_manual_entry(
                 document_type="EMPTY VEHICLE",  # ✅ NEW: Special document type for empty vehicles
                 sub_document_type="Empty Vehicle",
                 vehicle_no=vehicle_no,
-                warehouse_name=warehouse_name,
                 date=now.date(),
                 time=now.time(),
                 movement_type=entry.gate_type,
@@ -1179,7 +1176,6 @@ def create_multi_document_manual_entry(
                     document_type="Manual Entry - Pending Assignment",  # Clear status for manual entries
                     sub_document_type="Manual Entry",
                     vehicle_no=vehicle_no,
-                    warehouse_name=warehouse_name,
                     date=now.date(),
                     time=now.time(),
                     movement_type=entry.gate_type,
