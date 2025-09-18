@@ -14,13 +14,13 @@ const getApiUrl = () => {
         return 'http://192.168.1.56:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000'; // iOS development
+      return 'http://192.168.1.16:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-    return 'https://123.63.20.237:19000/api';
+    return 'http://192.168.1.16:8000';
   }
   // Production - USE IP ADDRESS
-  return 'https://123.63.20.237:19000/api';
+  return 'http://192.168.1.16:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -208,33 +208,77 @@ export const adminAPI = {
     return response.data;
   },
 
-  getAdminDashboardStats: async () => {
-    const response = await api.get('/admin-dashboard-stats');
+getAdminDashboardStats: async (filters = {}) => {
+    const params = new URLSearchParams();
+    
+    if (filters.site_code) params.append('site_code', filters.site_code);
+    if (filters.warehouse_code) params.append('warehouse_code', filters.warehouse_code);
+    if (filters.from_date) params.append('from_date', filters.from_date);
+    if (filters.to_date) params.append('to_date', filters.to_date);
+    
+    const url = params.toString() ? `/admin-dashboard-stats?${params}` : '/admin-dashboard-stats';
+    const response = await api.get(url);
     return response.data;
   },
-
   getWarehouses: async () => {
     const response = await api.get('/warehouses');
     return response.data;
   },
 
   getAdminInsights: async (filters) => {
-    const response = await api.post('/filtered-movements', {
-      from_date: filters.from_date,
-      to_date: filters.to_date,
-      site_code: filters.site_code || null,
-      warehouse_code: filters.warehouse_code || null,
-      movement_type: null,
-      vehicle_no: null
-    });
+    const response = await api.post('/filtered-movements', filters);
     return response.data;
   },
-
   searchUsers: async (query) => {
     const response = await api.get(`/search-users`, { params: { q: query } });
     return response.data;
   },
+
+ getAdminRMInsights: async (filters) => {
+    const response = await api.post('/rm/filtered-entries', filters);
+    return response.data;
+  },
+
+
+ getAdminRMStatistics: async (filters = {}) => {
+    const params = new URLSearchParams();
+    
+    if (filters.site_code) params.append('site_code', filters.site_code);
+    if (filters.warehouse_code) params.append('warehouse_code', filters.warehouse_code);
+    if (filters.from_date) params.append('from_date', filters.from_date);
+    if (filters.to_date) params.append('to_date', filters.to_date);
+    
+    const url = params.toString() ? `/admin-rm-statistics?${params}` : '/rm/statistics';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+   getCombinedStats: async (filters = {}) => {
+    try {
+      const [fgStats, rmStats] = await Promise.all([
+        adminAPI.getAdminDashboardStats(filters),
+        rmAPI.getRMStatistics()
+      ]);
+      
+      return {
+        fg: fgStats,
+        rm: rmStats,
+        combined: {
+          total_entries: (fgStats.total_movements || 0) + (rmStats.total_entries || 0),
+          unique_vehicles: Math.max(fgStats.unique_vehicles || 0, rmStats.unique_vehicles || 0),
+          gate_in_total: (fgStats.gate_in || 0) + (rmStats.gate_in_count || 0),
+          gate_out_total: (fgStats.gate_out || 0) + (rmStats.gate_out_count || 0)
+        }
+      };
+    } catch (error) {
+      console.error('Error getting combined stats:', error);
+      return null;
+    }
+  }
+
 };
+
+
 
 // ✅ MERGED: Complete RM APIs from main branch
 export const rmAPI = {
@@ -259,7 +303,24 @@ export const rmAPI = {
     return response.data;
   },
 
+ getAdminFilteredRMEntries: async (filters) => {
+    const response = await api.post('/rm/admin-filtered-entries', filters);
+    return response.data;
+  },
+
+  // Enhanced regular filtered entries (keeping backward compatibility)
   getFilteredRMEntries: async (filters) => {
+    // For admin users, use admin endpoint; for regular users, use regular endpoint
+    try {
+      const currentUser = await getCurrentUser();
+      if (currentUser && (currentUser.roles?.includes('itadmin') || currentUser.roles?.includes('securityadmin'))) {
+        return await rmAPI.getAdminFilteredRMEntries(filters);
+      }
+    } catch (error) {
+      console.log('User check failed, using regular endpoint');
+    }
+    
+    // Regular user endpoint
     const filterData = {
       from_date: filters.from_date,
       to_date: filters.to_date,
