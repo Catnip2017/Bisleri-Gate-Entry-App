@@ -285,3 +285,109 @@ def get_rm_statistics(
     except Exception as e:
         print(f"Error getting RM statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
+    
+# ✅ ENHANCED: Admin filtered RM entries
+@router.post("/admin-filtered-entries")
+def get_admin_filtered_rm_entries(
+    filters: dict,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user)
+):
+    """Get filtered raw materials entries for admin with proper role-based access"""
+    try:
+        # Normalize roles
+        if hasattr(current_user, 'role') and current_user.role:
+            roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
+        else:
+            roles = []
+        
+        if not any(r in ["securityadmin", "itadmin"] for r in roles):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Build dynamic query
+        query = db.query(RawMaterialsData)
+        
+        # ✅ NEW: Role-based filtering
+        if "securityadmin" in roles and "itadmin" not in roles:
+            # Security Admin: only their warehouse
+            query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
+        else:
+            # IT Admin: can filter by site/warehouse if provided
+            if filters.get('site_code'):
+                query = query.filter(RawMaterialsData.site_code == filters['site_code'])
+            if filters.get('warehouse_code'):
+                query = query.filter(RawMaterialsData.warehouse_code == filters['warehouse_code'])
+        
+        # Date filters
+        if filters.get('from_date'):
+            from_date = datetime.strptime(filters['from_date'], '%Y-%m-%d').date()
+            query = query.filter(RawMaterialsData.date_time >= from_date)
+        if filters.get('to_date'):
+            to_date = datetime.strptime(filters['to_date'], '%Y-%m-%d').date()
+            # Add one day and convert to end of day
+            end_date = datetime.combine(to_date, datetime.max.time())
+            query = query.filter(RawMaterialsData.date_time <= end_date)
+            
+        # Vehicle number filter
+        if filters.get('vehicle_no'):
+            vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
+            query = query.filter(RawMaterialsData.vehicle_no.ilike(vehicle_filter))
+            
+        # Movement type filter
+        if filters.get('movement_type'):
+            query = query.filter(RawMaterialsData.gate_type == filters['movement_type'])
+        
+        # Execute query
+        entries = query.order_by(
+            RawMaterialsData.date_time.desc()
+        ).limit(500).all()
+        
+        # Format response with edit status
+        result_list = []
+        for entry in entries:
+            # Check if entry can be edited (24-hour window)
+            time_since_creation = datetime.now() - entry.date_time
+            can_edit = (
+                time_since_creation <= timedelta(hours=24) and
+                (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
+            )
+            
+            # Calculate time remaining
+            time_remaining = None
+            if time_since_creation <= timedelta(hours=24):
+                remaining_seconds = (timedelta(hours=24) - time_since_creation).total_seconds()
+                hours = int(remaining_seconds // 3600)
+                minutes = int((remaining_seconds % 3600) // 60)
+                time_remaining = f"{hours}h {minutes}m"
+            
+            result_list.append({
+                "id": entry.id,
+                "gate_entry_no": entry.gate_entry_no,
+                "gate_type": entry.gate_type,
+                "vehicle_no": entry.vehicle_no,
+                "document_no": entry.document_no,
+                "name_of_party": entry.name_of_party,
+                "description_of_material": entry.description_of_material,
+                "quantity": entry.quantity,
+                "date_time": entry.date_time.isoformat(),
+                "security_name": entry.security_name,
+                "security_username": entry.security_username,
+                "warehouse_code": entry.warehouse_code,
+                "site_code": entry.site_code,
+                "last_edited_at": entry.last_edited_at.isoformat() if entry.last_edited_at else None,
+                "edit_count": entry.edit_count or 0,
+                "can_edit": can_edit,
+                "time_remaining": time_remaining
+            })
+        
+        return {
+            "count": len(result_list),
+            "results": result_list,
+            "filters_applied": filters,
+            "user_role": current_user.role,
+            "access_level": "itadmin" if "itadmin" in roles else "securityadmin"
+        }
+        
+    except Exception as e:
+        print(f"Error in admin filtered RM entries: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Filter error: {str(e)}")
