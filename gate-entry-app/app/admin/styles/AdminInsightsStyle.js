@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  // ✅ NEW: Insight Type Toggle Styles
+  // ✅ Insight Type Toggle Styles
   insightTypeContainer: {
     marginBottom: 20,
     alignItems: 'center',
@@ -75,28 +75,13 @@ const styles = StyleSheet.create({
     color: '#1976d2',
   },
 
-  // ✅ ENHANCED: Warehouse Search Dropdown Styles
-  warehouseSearchContainer: {
+  // ✅ FIXED: Search Container and Dropdown Styles (matching RegisterScreen pattern)
+  searchContainer: {
     position: 'relative',
+    marginBottom: 15,
+    zIndex: 9999,
   },
-  clearButton: {
-    position: 'absolute',
-    right: 10,
-    top: '50%',
-    transform: [{ translateY: -10 }],
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#999',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  clearButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  warehouseDropdown: {
+  dropdown: {
     position: 'absolute',
     top: '100%',
     left: 0,
@@ -109,7 +94,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     maxHeight: 200,
-    zIndex: 1000,
+    zIndex: 9999,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -136,7 +121,14 @@ const styles = StyleSheet.create({
     color: '#666',
   },
 
-  // ✅ NEW: Date Picker Styles
+  // ✅ Input filled state
+  inputFilled: {
+    backgroundColor: '#e8f5e8',
+    borderColor: '#28a745',
+    borderWidth: 2,
+  },
+
+  // ✅ Date Picker Styles
   datePickerButton: {
     borderWidth: 1,
     borderColor: '#888',
@@ -166,7 +158,7 @@ const styles = StyleSheet.create({
     flexWrap: 'nowrap',
   },
   inputBox: {
-    width: 160, // ✅ Increased width for warehouse search
+    width: 160,
     marginHorizontal: 6,
   },
   input: {
@@ -270,11 +262,6 @@ const styles = StyleSheet.create({
   loadingContainer: {
     padding: 40,
     alignItems: 'center',
-  },
-  errorText: {
-    color: '#d32f2f',
-    textAlign: 'center',
-    margin: 20,
   },
 });
 

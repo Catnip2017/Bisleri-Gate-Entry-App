@@ -39,8 +39,12 @@ def get_enhanced_filtered_movements(
         if filters.get('movement_type'):
             query = query.filter(InsightsData.movement_type == filters['movement_type'])
         
+        # # Security filter for non-admins
+        # if current_user.role != "Admin":
+        #     query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
         # Security filter for non-admins
-        if current_user.role != "Admin":
+        user_roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
+        if not any(role in ["admin", "itadmin"] for role in user_roles):
             query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
         
         # Execute query

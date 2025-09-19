@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
-import { adminAPI, rmAPI } from '../../../services/api';
+import { adminAPI, rmAPI, insightsAPI } from '../../../services/api';
 import styles from '../styles/AdminInsightsStyle';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
@@ -18,7 +18,6 @@ import { showAlert } from '../../../utils/customModal';
 const formatDateForAPI = (date) => {
   if (!date) return '';
   
-  // Format date as YYYY-MM-DD
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
@@ -27,10 +26,8 @@ const formatDateForAPI = (date) => {
 };
 
 const AdminInsightsScreen = () => {
-  // ✅ NEW: Toggle between FG and RM insights
   const [insightType, setInsightType] = useState('FG');
   
-  // ✅ UPDATED: Default to last 7 days
   const getDefaultDateRange = () => {
     const today = new Date();
     const lastWeek = new Date();
@@ -46,19 +43,39 @@ const AdminInsightsScreen = () => {
   const [fromDate, setFromDate] = useState(defaultDates.fromDate);
   const [toDate, setToDate] = useState(defaultDates.toDate);
   
-  // ✅ FIXED: Simple separate filters like Security Insights
   const [siteCode, setSiteCode] = useState('');
   const [whCode, setWhCode] = useState('');
+  const [warehouses, setWarehouses] = useState([]);
+  const [warehouseSearchText, setWarehouseSearchText] = useState('');
+  const [filteredWarehouses, setFilteredWarehouses] = useState([]);
+  const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   
-  // Remove the complex search functionality
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
   const [user, setUser] = useState(null);
 
-  // ✅ NEW: Date picker states
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
+
+  const clearWarehouseSelection = () => {
+    setWhCode('');
+    setSiteCode('');
+    setWarehouseSearchText('');
+    setShowWarehouseDropdown(false);
+    setFilteredWarehouses([]);
+  };
+
+  const selectWarehouse = (warehouse) => {
+    setWhCode(warehouse.warehouse_code);
+    setSiteCode(warehouse.site_code);
+    setWarehouseSearchText(warehouse.warehouse_code);
+    setShowWarehouseDropdown(false);
+    setFilteredWarehouses([]);
+    console.log("Selected warehouse:", warehouse);
+    console.log("Set whCode to:", warehouse.warehouse_code);
+    console.log("Set siteCode to:", warehouse.site_code);
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -67,17 +84,60 @@ const AdminInsightsScreen = () => {
         showAlert("Error", "User not logged in");
         return;
       }
-      // normalize role: lowercase + remove spaces
       u.role = u.role?.toLowerCase().replace(/\s+/g, "");
       console.log("Current user loaded:", u);
       setUser(u);
     };
     fetchUser();
 
+    loadWarehouses();
     loadDashboardStats();
   }, []);
 
-  // ✅ FIXED: Simple load dashboard stats
+  const loadWarehouses = async () => {
+    try {
+      const warehouseData = await adminAPI.getWarehouses();
+      setWarehouses(warehouseData);
+      console.log("Warehouses loaded:", warehouseData.length);
+    } catch (error) {
+      console.error('Error loading warehouses:', error);
+      showAlert('Error', 'Failed to load warehouse data');
+    }
+  };
+
+  const handleWarehouseCodeChange = (text) => {
+    console.log("🔍 handleWarehouseCodeChange called with:", text);
+    
+    setWarehouseSearchText(text);
+    
+    if (!text.trim()) {
+      console.log("➡️ Empty text, clearing everything");
+      setWhCode('');  // Clear whCode when text is empty
+      setSiteCode('');
+      setFilteredWarehouses([]);
+      setShowWarehouseDropdown(false);
+      return;
+    }
+
+    // Don't set whCode here - only set it when a warehouse is actually selected
+    const searchTerm = text.toLowerCase();
+    console.log("🔎 Search term:", searchTerm);
+    
+    const filtered = warehouses.filter((warehouse) => {
+      const code = warehouse.warehouse_code?.toLowerCase() || '';
+      const name = warehouse.warehouse_name?.toLowerCase() || '';
+      return code.includes(searchTerm) || name.includes(searchTerm);
+    });
+
+    console.log("✅ Filtered results count:", filtered.length);
+    if (filtered.length > 0) {
+      console.log("📋 First 3 filtered warehouses:", filtered.slice(0, 3));
+    }
+    
+    setFilteredWarehouses(filtered);
+    setShowWarehouseDropdown(filtered.length > 0);
+  };
+
   const loadDashboardStats = async () => {
     try {
       if (insightType === 'FG') {
@@ -104,12 +164,19 @@ const AdminInsightsScreen = () => {
     }
   };
 
-  // ✅ FIXED: Simple show results function
   const handleShowResults = async () => {
     if (!fromDate || !toDate) {
       showAlert('Error', 'Please select both from and to dates');
       return;
     }
+
+    // Log the current filter values
+    console.log('=== FILTER VALUES BEFORE API CALL ===');
+    console.log('whCode:', whCode);
+    console.log('siteCode:', siteCode);
+    console.log('warehouseSearchText:', warehouseSearchText);
+    console.log('fromDate:', formatDateForAPI(fromDate));
+    console.log('toDate:', formatDateForAPI(toDate));
 
     setLoading(true);
     try {
@@ -117,25 +184,30 @@ const AdminInsightsScreen = () => {
         const filters = {
           from_date: formatDateForAPI(fromDate),
           to_date: formatDateForAPI(toDate),
-          site_code: siteCode || null,
-          warehouse_code: whCode || null,
+          warehouse_code: whCode && whCode.trim() !== '' ? whCode : null,
+          site_code: siteCode && siteCode.trim() !== '' ? siteCode : null,
           vehicle_no: null,
           movement_type: null
         };
-        console.log('FG Filters being sent:', filters);
-        const data = await adminAPI.getAdminInsights(filters);
+        
+        console.log('✅ FG Filters being sent to API:', JSON.stringify(filters, null, 2));
+        
+        const data = await insightsAPI.getFilteredMovements(filters);
+        console.log('✅ Results received:', data.count, 'records');
         setInsights(data);
       } else {
         const filters = {
           from_date: formatDateForAPI(fromDate),
           to_date: formatDateForAPI(toDate),
-          site_code: siteCode || null,
-          warehouse_code: whCode || null,
+          warehouse_code: whCode && whCode.trim() !== '' ? whCode : null,
+          site_code: siteCode && siteCode.trim() !== '' ? siteCode : null,
           vehicle_no: null,
           movement_type: null
         };
-        console.log('RM Filters being sent:', filters);
+        
+        console.log('✅ RM Filters being sent to API:', JSON.stringify(filters, null, 2));
         const data = await rmAPI.getFilteredRMEntries(filters);
+        console.log('✅ Results received:', data.count, 'records');
         setInsights(data);
       }
     } catch (error) {
@@ -146,17 +218,80 @@ const AdminInsightsScreen = () => {
     }
   };
 
-  // ✅ NEW: Handle insight type toggle
   const handleInsightTypeChange = (type) => {
     setInsightType(type);
-    setInsights(null); // Clear current insights
-    // Reload stats immediately when type changes
+    setInsights(null);
     setTimeout(() => {
       loadDashboardStats();
     }, 100);
   };
 
-  // 🔹 Role restriction: only securityadmin & itadmin
+  const renderDatePicker = (value, onChange, show, setShow, label) => {
+    if (Platform.OS === 'web') {
+      return (
+        <input
+          type="date"
+          value={value.toISOString().split('T')[0]}
+          onChange={(e) => {
+            const newDate = new Date(e.target.value);
+            onChange(null, newDate);
+          }}
+          style={{
+            borderWidth: 1,
+            borderColor: '#aaa',
+            padding: 10,
+            borderRadius: 4,
+            backgroundColor: 'white',
+            fontSize: 14,
+            width: '100%',
+            minHeight: 40,
+          }}
+        />
+      );
+    }
+    
+    return (
+      <>
+        <TouchableOpacity 
+          style={styles.datePickerButton}
+          onPress={() => setShow(true)}
+        >
+          <Text style={styles.datePickerText}>
+            {formatDateForAPI(value)}
+          </Text>
+        </TouchableOpacity>
+        
+        {show && (
+          <DateTimePicker
+            value={value}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              setShow(Platform.OS === 'ios');
+              if (selectedDate) {
+                onChange(event, selectedDate);
+              }
+            }}
+          />
+        )}
+      </>
+    );
+  };
+
+  const onFromDateChange = (event, selectedDate) => {
+    setShowFromDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setFromDate(selectedDate);
+    }
+  };
+
+  const onToDateChange = (event, selectedDate) => {
+    setShowToDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setToDate(selectedDate);
+    }
+  };
+
   if (user) {
     const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
     if (!roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
@@ -170,7 +305,6 @@ const AdminInsightsScreen = () => {
     }
   }
 
-  // ✅ ENHANCED: Render stats based on insight type
   const renderStats = () => {
     if (!stats) return null;
 
@@ -178,20 +312,20 @@ const AdminInsightsScreen = () => {
       return (
         <View style={styles.summaryBox}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.today?.gate_in + stats.today?.gate_out || 0}</Text>
+            <Text style={styles.summaryCount}>{(stats.today?.gate_in || 0) + (stats.today?.gate_out || 0)}</Text>
             <Text>Today's Total</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.last_30_days?.unique_vehicles || 0}</Text>
+            <Text style={styles.summaryCount}>{stats.unique_vehicles || 0}</Text>
             <Text>Unique Vehicles</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.today?.gate_in || 0}</Text>
-            <Text>Gate-In Today</Text>
+            <Text style={styles.summaryCount}>{stats.today?.gate_in || stats.gate_in || 0}</Text>
+            <Text>Gate-In</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.today?.gate_out || 0}</Text>
-            <Text>Gate-Out Today</Text>
+            <Text style={styles.summaryCount}>{stats.today?.gate_out || stats.gate_out || 0}</Text>
+            <Text>Gate-Out</Text>
           </View>
         </View>
       );
@@ -219,7 +353,6 @@ const AdminInsightsScreen = () => {
     }
   };
 
-  // ✅ ENHANCED: Render table based on insight type
   const renderInsightTable = () => {
     if (!insights) return null;
 
@@ -261,7 +394,7 @@ const AdminInsightsScreen = () => {
               <Text style={styles.cell}>{movement.vehicle_no}</Text>
               <Text style={styles.cell}>{movement.document_type}</Text>
               <Text style={styles.cell}>{movement.movement_type}</Text>
-              <Text style={styles.cell}>{movement.warehouse_name}</Text>
+              <Text style={styles.cell}>{movement.warehouse_name || movement.warehouse_code}</Text>
               <Text style={styles.cell}>{movement.security_name}</Text>
               <Text style={styles.cell}>{movement.remarks}</Text>
               <Text style={styles.cell}>
@@ -331,7 +464,7 @@ const AdminInsightsScreen = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
         
-        {/* ✅ NEW: Insight Type Toggle */}
+        {/* Insight Type Toggle */}
         <View style={styles.insightTypeContainer}>
           <Text style={styles.insightTypeLabel}>Insight Type:</Text>
           <View style={styles.insightTypeRow}>
@@ -360,129 +493,148 @@ const AdminInsightsScreen = () => {
           {insightType === 'FG' ? 'FG Vehicle Movements' : 'Raw Materials Movements'}
         </Text>
 
-        {/* Filter Inputs - EXACTLY like Security Insights Tab */}
-        <View style={styles.inputRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.inputInline}>
+        {/* Filter Inputs - WITH OVERFLOW VISIBLE */}
+        <View style={[styles.inputRow, { overflow: 'visible', zIndex: 1000 }]}>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            style={{ overflow: 'visible' }}
+            contentContainerStyle={{ overflow: 'visible' }}
+          >
+            <View style={[styles.inputInline, { overflow: 'visible' }]}>
               {/* From Date */}
               <View style={styles.inputBox}>
                 <Text>From Date</Text>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={fromDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const newDate = new Date(e.target.value);
-                      setFromDate(newDate);
-                    }}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#888',
-                      padding: 6,
-                      borderRadius: 4,
-                      fontSize: 13,
-                      backgroundColor: '#fff',
-                      width: '100%',
-                      minHeight: 32,
-                    }}
-                  />
-                ) : (
-                  <>
-                    <TouchableOpacity 
-                      style={styles.datePickerButton}
-                      onPress={() => setShowFromDatePicker(true)}
-                    >
-                      <Text style={styles.datePickerText}>
-                        {formatDateForAPI(fromDate)}
-                      </Text>
-                    </TouchableOpacity>
-                    
-                    {showFromDatePicker && (
-                      <DateTimePicker
-                        value={fromDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, selectedDate) => {
-                          setShowFromDatePicker(Platform.OS === 'ios');
-                          if (selectedDate) {
-                            setFromDate(selectedDate);
-                          }
-                        }}
-                      />
-                    )}
-                  </>
+                {renderDatePicker(
+                  fromDate,
+                  onFromDateChange,
+                  showFromDatePicker,
+                  setShowFromDatePicker,
+                  'From Date'
                 )}
               </View>
 
               {/* To Date */}
               <View style={styles.inputBox}>
                 <Text>To Date</Text>
-                {Platform.OS === 'web' ? (
-                  <input
-                    type="date"
-                    value={toDate.toISOString().split('T')[0]}
-                    onChange={(e) => {
-                      const newDate = new Date(e.target.value);
-                      setToDate(newDate);
-                    }}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: '#888',
-                      padding: 6,
-                      borderRadius: 4,
-                      fontSize: 13,
-                      backgroundColor: '#fff',
-                      width: '100%',
-                      minHeight: 32,
-                    }}
-                  />
-                ) : (
-                  <>
-                    <TouchableOpacity 
-                      style={styles.datePickerButton}
-                      onPress={() => setShowToDatePicker(true)}
-                    >
-                      <Text style={styles.datePickerText}>
-                        {formatDateForAPI(toDate)}
-                      </Text>
-                    </TouchableOpacity>
-                    
-                    {showToDatePicker && (
-                      <DateTimePicker
-                        value={toDate}
-                        mode="date"
-                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                        onChange={(event, selectedDate) => {
-                          setShowToDatePicker(Platform.OS === 'ios');
-                          if (selectedDate) {
-                            setToDate(selectedDate);
-                          }
-                        }}
-                      />
-                    )}
-                  </>
+                {renderDatePicker(
+                  toDate,
+                  onToDateChange,
+                  showToDatePicker,
+                  setShowToDatePicker,
+                  'To Date'
                 )}
               </View>
               
-              {/* Site Code - Simple input like Security Insights */}
+              {/* Warehouse Code with Visible Dropdown */}
+              <View style={[styles.inputBox, { overflow: 'visible', zIndex: 9999 }]}>
+                <Text>Warehouse Code</Text>
+                <View style={{ position: 'relative' }}>
+                  <TextInput 
+                    style={styles.input} 
+                    value={warehouseSearchText} 
+                    onChangeText={handleWarehouseCodeChange}
+                    placeholder="Type to search..."
+                    onFocus={() => {
+                      // Show dropdown when focusing if there's text
+                      if (warehouseSearchText) {
+                        handleWarehouseCodeChange(warehouseSearchText);
+                      }
+                    }}
+                    autoCapitalize="characters"
+                  />
+                  
+                  {/* Clear Button */}
+                  {warehouseSearchText ? (
+                    <TouchableOpacity 
+                      style={{
+                        position: 'absolute',
+                        right: 10,
+                        top: '50%',
+                        transform: [{ translateY: -10 }],
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: '#999',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 2,
+                      }}
+                      onPress={clearWarehouseSelection}
+                    >
+                      <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>×</Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {/* Dropdown with explicit visibility */}
+                  {showWarehouseDropdown && filteredWarehouses.length > 0 && (
+                    <View style={{
+                      position: 'absolute',
+                      top: 35,
+                      left: 0,
+                      right: 0,
+                      backgroundColor: '#fff',
+                      borderWidth: 1,
+                      borderColor: '#ddd',
+                      borderTopWidth: 0,
+                      borderRadius: 4,
+                      borderTopLeftRadius: 0,
+                      borderTopRightRadius: 0,
+                      maxHeight: 200,
+                      zIndex: 999999,
+                      elevation: 999,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 5,
+                    }}>
+                      <ScrollView
+                        style={{ maxHeight: 200 }}
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filteredWarehouses.map((warehouse, index) => (
+                          <TouchableOpacity
+                            key={`${warehouse.warehouse_code}-${index}`}
+                            style={{
+                              padding: 12,
+                              borderBottomWidth: 1,
+                              borderBottomColor: '#eee',
+                              backgroundColor: '#fff',
+                            }}
+                            onPress={() => selectWarehouse(warehouse)}
+                          >
+                            <Text style={{
+                              fontSize: 14,
+                              fontWeight: 'bold',
+                              color: '#1976d2',
+                              marginBottom: 2,
+                            }}>
+                              {warehouse.warehouse_code}
+                            </Text>
+                            <Text style={{
+                              fontSize: 13,
+                              color: '#666',
+                            }}>
+                              {warehouse.warehouse_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Site Code */}
               <View style={styles.inputBox}>
                 <Text>Site Code</Text>
                 <TextInput 
-                  style={styles.input} 
+                  style={[styles.input, siteCode && styles.inputFilled]} 
                   value={siteCode} 
                   onChangeText={setSiteCode} 
-                  placeholder="Optional"
-                />
-              </View>
-
-              {/* Warehouse Code - Simple input like Security Insights */}
-              <View style={styles.inputBox}>
-                <Text>Warehouse Code</Text>
-                <TextInput 
-                  style={styles.input} 
-                  value={whCode} 
-                  onChangeText={setWhCode} 
-                  placeholder="Optional"
+                  placeholder="Auto-filled or manual"
+                  editable={true}
                 />
               </View>
 

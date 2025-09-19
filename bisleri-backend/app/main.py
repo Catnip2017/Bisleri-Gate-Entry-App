@@ -38,17 +38,25 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:8081",
-        "http://127.0.0.1:8081", 
-        "http://192.168.1.16:8081",
+        # "http://localhost:8081",
+        # "http://127.0.0.1:8081", 
+        # "http:/10.103.237.157:8081",
+        # "http://123.63.20.237:8081",
+        # "http://192.168.1.56:8081",
+        # # Add nginx proxy URLs
+        # "https://srvhofortiems.bisleri.com:19000",
+        # "https://123.63.20.237:19000",
+        # "https://srvhofortiems.bisleri.com",
+        # "https://123.63.20.237",
+        # "*"  # Keep this for development, remove in production if needed
+        "http://127.0.0.1:8081",
+        "http://10.28.140.157:8081",
         "http://123.63.20.237:8081",
         "http://192.168.1.56:8081",
-        # Add nginx proxy URLs
-        "https://srvhofortiems.bisleri.com:19000",
-        "https://123.63.20.237:19000",
-        "https://srvhofortiems.bisleri.com",
-        "https://123.63.20.237",
-        "*"  # Keep this for development, remove in production if needed
+        "http://10.28.140.94:8081",
+        "http://10.28.140.157:8081",
+        "http://192.168.1.11:8081",
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
