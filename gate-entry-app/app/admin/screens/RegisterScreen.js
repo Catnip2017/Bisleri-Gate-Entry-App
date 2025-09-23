@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -7,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { adminAPI } from '../../../services/api';
@@ -20,7 +17,6 @@ import {
 } from '../utils/validation';
 import { showAlert } from '../../../utils/customModal';
 
-
 const RegisterScreen = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -28,16 +24,16 @@ const RegisterScreen = () => {
     confirmPassword: '',
     firstName: '',
     lastName: '',
-    role: 'Security Guard',   // 👈 default role
+    role: 'Security Guard',
     warehouseCode: '',
     warehouseName: '',
     siteCode: '',
+    email: '',
+    phone_number: '',
   });
 
   const [warehouses, setWarehouses] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Autocomplete states
   const [searchText, setSearchText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [filteredWarehouses, setFilteredWarehouses] = useState([]);
@@ -57,48 +53,33 @@ const RegisterScreen = () => {
   };
 
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // Warehouse Code Filter & Auto-fill
   const handleWarehouseCodeChange = (text) => {
     setSearchText(text);
 
     if (!text.trim()) {
-      setFormData((prev) => ({
-        ...prev,
-        warehouseCode: '',
-        warehouseName: '',
-        siteCode: '',
-      }));
+      setFormData(prev => ({ ...prev, warehouseCode: '', warehouseName: '', siteCode: '' }));
       setFilteredWarehouses([]);
       setShowDropdown(false);
       return;
     }
 
     const searchTerm = text.toLowerCase();
-    const filtered = warehouses.filter((warehouse) => {
-      const code = warehouse.warehouse_code?.toLowerCase() || '';
-      const name = warehouse.warehouse_name?.toLowerCase() || '';
-      return code.includes(searchTerm) || name.includes(searchTerm);
-    });
+    const filtered = warehouses.filter(w =>
+      (w.warehouse_code?.toLowerCase() || '').includes(searchTerm) ||
+      (w.warehouse_name?.toLowerCase() || '').includes(searchTerm)
+    );
 
     setFilteredWarehouses(filtered);
     setShowDropdown(filtered.length > 0);
 
-    setFormData((prev) => ({
-      ...prev,
-      warehouseCode: text,
-      warehouseName: '',
-      siteCode: '',
-    }));
+    setFormData(prev => ({ ...prev, warehouseCode: text, warehouseName: '', siteCode: '' }));
   };
 
   const selectWarehouse = (warehouse) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       warehouseCode: warehouse.warehouse_code,
       warehouseName: warehouse.warehouse_name,
@@ -124,18 +105,27 @@ const RegisterScreen = () => {
     const passwordError = validatePassword(formData.password);
     if (passwordError) errors.password = passwordError;
 
-    const passwordMatchError = validatePasswordMatch(
-      formData.password,
-      formData.confirmPassword
-    );
+    const passwordMatchError = validatePasswordMatch(formData.password, formData.confirmPassword);
     if (passwordMatchError) errors.confirmPassword = passwordMatchError;
 
-    // Only Security Guard & Security Admin require warehouse
-    if (
-      (formData.role === 'Security Guard' || formData.role === 'Security Admin') &&
-      (!formData.warehouseCode || !formData.warehouseName || !formData.siteCode)
-    ) {
-      errors.warehouse = 'Please enter a valid Warehouse Code';
+    // Email validation
+    if (["Security Admin", "IT Admin"].includes(formData.role)) {
+      if (!formData.email) errors.email = 'Email is required for this role';
+      else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Enter a valid email address';
+    } else if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Enter a valid email address';
+    }
+
+    // Phone validation (optional but must be valid if entered)
+    if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
+      errors.phone_number = 'Enter a valid 10-digit mobile number';
+    }
+
+    // Warehouse required for Guards/Admins
+    if (["Security Guard", "Security Admin"].includes(formData.role)) {
+      if (!formData.warehouseCode || !formData.warehouseName || !formData.siteCode) {
+        errors.warehouse = 'Please enter a valid Warehouse Code';
+      }
     }
 
     const errorKeys = Object.keys(errors);
@@ -157,63 +147,51 @@ const RegisterScreen = () => {
         password: formData.password,
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
-        role: formData.role,  // 👈 stored as readable string
-        warehouse_code: formData.role === "IT Admin" ? "" : formData.warehouseCode,
-        site_code: formData.role === "IT Admin" ? "" : formData.siteCode,
+        role: formData.role,
+        warehouse_code: formData.warehouseCode?.trim() || undefined,
+        site_code: formData.siteCode?.trim() || undefined,
       };
 
-      console.log('=== REGISTRATION ATTEMPT ===');
-      console.log('User Data:', JSON.stringify(userData, null, 2));
-      console.log('Role:', formData.role);
+      // add email & phone only if filled
+      if (formData.email?.trim()) {
+        userData.email = formData.email.trim();
+      }
+      if (formData.phone_number?.trim()) {
+        userData.phone_number = formData.phone_number.trim();
+      }
+
+      console.log('Register Payload:', userData);
 
       const response = await adminAPI.registerUser(userData);
-      console.log("✅ Registration successful!", response);
 
-      const successMsg = response.message || "User registered successfully!";
-
-      showAlert("Success", successMsg, [
+      showAlert('Success', response.message || 'User registered successfully!', [
         {
-          text: "OK",
+          text: 'OK',
           onPress: () => {
             setFormData({
-              username: "",
-              password: "",
-              confirmPassword: "",
-              firstName: "",
-              lastName: "",
-              role: "Security Guard",  // reset default role
-              warehouseCode: "",
-              warehouseName: "",
-              siteCode: "",
+              username: '',
+              password: '',
+              confirmPassword: '',
+              firstName: '',
+              lastName: '',
+              role: 'Security Guard',
+              warehouseCode: '',
+              warehouseName: '',
+              siteCode: '',
+              email: '',
+              phone_number: '',
             });
-            setSearchText("");
-            setShowDropdown(false);          // Add this line
-            setFilteredWarehouses([]);
+            setSearchText('');
           },
         },
       ]);
-
     } catch (error) {
-      console.log('=== REGISTRATION ERROR ===');
-      console.error('Error details:', error.message);
+      console.error('Registration Error:', error);
+      let errorMessage = "Registration failed";
 
-      if (error.response) {
-        console.error('Status:', error.response.status);
-        console.error('Error data:', JSON.stringify(error.response.data, null, 2));
-        console.error('Request URL:', error.response.config?.url);
-      }
-
-      let errorMessage = 'Registration failed';
-
-      if (error.response?.status === 422) {
-        errorMessage = 'Validation error: ' + (error.response?.data?.detail || 'Invalid data format');
-      } else if (error.response?.status === 403) {
-        errorMessage = 'Access denied: Only IT Admins can register users';
-      } else if (error.response?.status === 401) {
-        errorMessage = 'Authentication required: Please login as IT Admin first';
-      } else if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      }
+      if (error.response?.status === 422) errorMessage = "Validation error. Check input.";
+      else if (error.response?.status === 403) errorMessage = "Only IT Admins can register users";
+      else if (error.response?.status === 400 && error.response.data?.detail) errorMessage = error.response.data.detail;
 
       showAlert('Registration Error', errorMessage);
     } finally {
@@ -229,60 +207,21 @@ const RegisterScreen = () => {
         {/* Role Selection */}
         <Text style={styles.label}>Role</Text>
         <View style={styles.roleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.roleButton,
-              formData.role === 'Security Guard' && styles.roleButtonActive,
-            ]}
-            onPress={() => handleInputChange('role', 'Security Guard')}
-          >
-            <Text
-              style={[
-                styles.roleButtonText,
-                formData.role === 'Security Guard' && styles.roleButtonTextActive,
-              ]}
+          {['Security Guard', 'Security Admin', 'IT Admin'].map(role => (
+            <TouchableOpacity
+              key={role}
+              style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
+              onPress={() => handleInputChange('role', role)}
             >
-              Security Guard
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.roleButton,
-              formData.role === 'Security Admin' && styles.roleButtonActive,
-            ]}
-            onPress={() => handleInputChange('role', 'Security Admin')}
-          >
-            <Text
-              style={[
-                styles.roleButtonText,
-                formData.role === 'Security Admin' && styles.roleButtonTextActive,
-              ]}
-            >
-              Security Admin
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.roleButton,
-              formData.role === 'IT Admin' && styles.roleButtonActive,
-            ]}
-            onPress={() => handleInputChange('role', 'IT Admin')}
-          >
-            <Text
-              style={[
-                styles.roleButtonText,
-                formData.role === 'IT Admin' && styles.roleButtonTextActive,
-              ]}
-            >
-              IT Admin
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.roleButtonText, formData.role === role && styles.roleButtonTextActive]}>
+                {role}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Show Warehouse fields only for Security Guard & Admin */}
-        {(formData.role === 'Security Guard' || formData.role === 'Security Admin') && (
+        {/* Warehouse fields for Security roles */}
+        {["Security Guard", "Security Admin"].includes(formData.role) && (
           <>
             <Text style={styles.label}>Warehouse Code</Text>
             <View style={styles.searchContainer}>
@@ -291,32 +230,16 @@ const RegisterScreen = () => {
                 placeholder="Type warehouse code or name..."
                 value={searchText}
                 onChangeText={handleWarehouseCodeChange}
-                onFocus={() => {
-                  if (searchText && filteredWarehouses.length > 0) {
-                    setShowDropdown(true);
-                  }
-                }}
+                onFocus={() => { if (searchText && filteredWarehouses.length > 0) setShowDropdown(true); }}
                 autoCapitalize="characters"
               />
-
               {showDropdown && (
                 <View style={styles.dropdown}>
-                  <ScrollView
-                    style={styles.dropdownScrollView}
-                    nestedScrollEnabled={true}
-                  >
-                    {filteredWarehouses.map((warehouse) => (
-                      <TouchableOpacity
-                        key={warehouse.warehouse_code}
-                        style={styles.dropdownItem}
-                        onPress={() => selectWarehouse(warehouse)}
-                      >
-                        <Text style={styles.dropdownItemCode}>
-                          {warehouse.warehouse_code}
-                        </Text>
-                        <Text style={styles.dropdownItemName}>
-                          {warehouse.warehouse_name}
-                        </Text>
+                  <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
+                    {filteredWarehouses.map(w => (
+                      <TouchableOpacity key={w.warehouse_code} style={styles.dropdownItem} onPress={() => selectWarehouse(w)}>
+                        <Text style={styles.dropdownItemCode}>{w.warehouse_code}</Text>
+                        <Text style={styles.dropdownItemName}>{w.warehouse_name}</Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -325,18 +248,9 @@ const RegisterScreen = () => {
             </View>
 
             <Text style={styles.label}>Warehouse Name</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={formData.warehouseName}
-              editable={false}
-            />
-
+            <TextInput style={[styles.input, styles.inputDisabled]} value={formData.warehouseName} editable={false} />
             <Text style={styles.label}>Site Code</Text>
-            <TextInput
-              style={[styles.input, styles.inputDisabled]}
-              value={formData.siteCode}
-              editable={false}
-            />
+            <TextInput style={[styles.input, styles.inputDisabled]} value={formData.siteCode} editable={false} />
           </>
         )}
 
@@ -344,71 +258,43 @@ const RegisterScreen = () => {
         <View style={styles.row}>
           <View style={styles.field}>
             <Text style={styles.label}>First Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="First Name"
-              value={formData.firstName}
-              onChangeText={(value) => handleInputChange('firstName', value)}
-            />
+            <TextInput style={styles.input} placeholder="First Name" value={formData.firstName} onChangeText={v => handleInputChange('firstName', v)} />
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Username</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Username"
-              value={formData.username}
-              onChangeText={(value) => handleInputChange('username', value)}
-              autoCapitalize="none"
-            />
+            <TextInput style={styles.input} placeholder="Username" value={formData.username} onChangeText={v => handleInputChange('username', v)} autoCapitalize="none" />
           </View>
         </View>
 
         <View style={styles.row}>
           <View style={styles.field}>
             <Text style={styles.label}>Last Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Last Name"
-              value={formData.lastName}
-              onChangeText={(value) => handleInputChange('lastName', value)}
-            />
+            <TextInput style={styles.input} placeholder="Last Name" value={formData.lastName} onChangeText={v => handleInputChange('lastName', v)} />
           </View>
           <View style={styles.field}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              secureTextEntry
-              value={formData.password}
-              onChangeText={(value) => handleInputChange('password', value)}
-            />
+            <TextInput style={styles.input} placeholder="Password" secureTextEntry value={formData.password} onChangeText={v => handleInputChange('password', v)} />
           </View>
         </View>
 
         <Text style={styles.label}>Confirm Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Confirm Password"
-          secureTextEntry
-          value={formData.confirmPassword}
-          onChangeText={(value) =>
-            handleInputChange('confirmPassword', value)
-          }
-        />
+        <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={formData.confirmPassword} onChangeText={v => handleInputChange('confirmPassword', v)} />
 
-        <TouchableOpacity
-          style={[
-            styles.registerButton,
-            loading && styles.registerButtonDisabled,
-          ]}
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.registerText}>Register User</Text>
-          )}
+        <Text style={styles.label}>Email</Text>
+        <TextInput style={styles.input} placeholder="Enter Email" value={formData.email} onChangeText={v => handleInputChange('email', v)} keyboardType="email-address" autoCapitalize="none" />
+
+       <Text style={styles.label}>Mobile Number</Text>
+<TextInput
+  style={styles.input}
+  placeholder="Enter Mobile Number"
+  value={formData.phone_number}
+  onChangeText={v => handleInputChange('phone_number', v.replace(/[^0-9]/g, ''))} // only digits
+  keyboardType="number-pad"
+  maxLength={10} // 🔹 limit to 10 digits
+/>
+
+        <TouchableOpacity style={[styles.registerButton, loading && styles.registerButtonDisabled]} onPress={handleRegister} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register User</Text>}
         </TouchableOpacity>
       </View>
     </ScrollView>
