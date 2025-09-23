@@ -4,10 +4,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from typing import List
 import traceback
 import logging
-
 from app.database import get_db
 from app.models import UsersMaster, LocationMaster
-from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate
+from app.schemas.user_schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
 
 # Set up logging
@@ -30,40 +29,44 @@ def register_user(
     current_user: UsersMaster = Depends(get_current_user),
 ):
     try:
-        current_roles = normalize_roles(current_user.role)
-        if "itadmin" not in current_roles:
+        # ✅ Only IT Admins can create users
+        if "itadmin" not in normalize_roles(current_user.role):
             raise HTTPException(status_code=403, detail="Only ITAdmins can register users")
 
-        existing_user = db.query(UsersMaster).filter(UsersMaster.username == user.username).first()
-        if existing_user:
+        # ✅ Duplicate username check
+        if db.query(UsersMaster).filter(UsersMaster.username == user.username).first():
             raise HTTPException(status_code=400, detail="Username already registered")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
         needs_warehouse = any(r.lower().replace(" ", "") in ["securityadmin", "securityguard"] for r in roles_requested)
 
+        # ❌ Removed requires_email check
+        # ❌ Removed duplicate email check
+
+        # ✅ Warehouse handling
         warehouse_name, final_site_code = None, None
         if needs_warehouse:
-            if not user.warehouse_code or user.warehouse_code.strip() == "":
+            if not user.warehouse_code:
                 raise HTTPException(status_code=400, detail="Warehouse code is required for security roles")
-
-            warehouse = db.query(LocationMaster).filter(
-                LocationMaster.warehouse_code == user.warehouse_code.strip()
-            ).first()
+            warehouse = db.query(LocationMaster).filter(LocationMaster.warehouse_code == user.warehouse_code).first()
             if not warehouse:
                 raise HTTPException(status_code=400, detail="Invalid warehouse code")
-
             warehouse_name = warehouse.warehouse_name
             final_site_code = warehouse.site_code
 
+        # ✅ Create user (email & phone_number stored only if provided in request body)
         new_user = UsersMaster(
             username=user.username.strip(),
             first_name=user.first_name.strip(),
             last_name=user.last_name.strip(),
-            role=", ".join(roles_requested),   # ✅ store roles as "Security Admin, Security Guard"
-            warehouse_code=user.warehouse_code.strip() if needs_warehouse else None,
+            role=", ".join(roles_requested),
+            warehouse_code=user.warehouse_code if needs_warehouse else None,
             warehouse_name=warehouse_name,
             site_code=final_site_code,
             password=get_password_hash(user.password),
+           email=user.email.strip() if user.email else None,
+           phone_number=user.phone_number.strip() if user.phone_number else None
+
         )
         db.add(new_user)
         db.commit()
@@ -77,11 +80,14 @@ def register_user(
             warehouse_code=new_user.warehouse_code or "",
             warehouse_name=new_user.warehouse_name or "",
             site_code=new_user.site_code or "",
-            last_login=None
+            last_login=None,
+            email=new_user.email,
+            phone_number=new_user.phone_number
         )
+
     except Exception as e:
         db.rollback()
-        raise
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/test-admin")
 def test_admin_router():
@@ -221,10 +227,32 @@ def delete_user(username: str, db: Session = Depends(get_db), current_user: User
     return {"message": f"User {username} deleted successfully"}
 
 # ✅ Search Users
-@router.get("/search-users", response_model=List[dict])
+@router.get("/search-users", response_model=List[UserSearchResponse])
 def search_users(q: str, db: Session = Depends(get_db)):
     if not q:
         return []
 
-    users = db.query(UsersMaster).filter(UsersMaster.username.ilike(f"%{q}%")).limit(10).all()
-    return [{"username": user.username, "first_name": user.first_name, "last_name": user.last_name, "role": user.role} for user in users]
+    users = (
+        db.query(UsersMaster)
+        .filter(UsersMaster.username.ilike(f"%{q}%"))
+        .limit(10)
+        .all()
+    )
+    return users   # ✅ FastAPI will auto-convert ORM to schema
+
+ # ✅ Edit User Details (Name, Email, Phone)
+# ✅ Update User Details (edit user info, not just roles)
+@router.put("/users/{username}/update")
+def update_user_details(username: str, payload: UserUpdate, db: Session = Depends(get_db)):
+    user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.first_name = payload.first_name
+    user.last_name = payload.last_name
+    user.email = payload.email
+    user.phone_number = payload.phone_number
+
+    db.commit()
+    db.refresh(user)
+    return {"message": "User details updated successfully"}

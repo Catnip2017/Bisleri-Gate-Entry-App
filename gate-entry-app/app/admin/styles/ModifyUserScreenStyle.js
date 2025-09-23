@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
     marginBottom: 50,
-    height: 600,
+    height: 800,
   },
   title: {
     fontSize: 20,
@@ -159,6 +159,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#eee',
   },
+  toggleRow: {
+  flexDirection: "row",
+  justifyContent: "center",
+  marginBottom: 20,
+},
+toggleButton: {
+  paddingVertical: 10,
+  paddingHorizontal: 20,
+  borderWidth: 1,
+  borderColor: "#ccc",
+  borderRadius: 8,
+  marginHorizontal: 5,
+  backgroundColor: "#fff",
+},
+activeButton: {
+  backgroundColor: "#1976d2",
+  borderColor: "#1976d2",
+},
+toggleText: {
+  fontSize: 14,
+  color: "#555",
+  fontWeight: "600",
+},
+activeText: {
+  color: "#fff",
+},
+formGroup: {
+  marginBottom: 15,
+},
+
 
 });
 

@@ -9,18 +9,18 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; // Local network for mobile development
+        return 'http://10.148.248.117:8000'; // Local network for mobile development
       } else {
-        return 'http://192.168.1.56:8000'; // Emulator
+        return 'http://10.148.248.117:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.51.151:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-    return 'https://123.63.20.237:19000/api';
+  return 'http://10.148.248.117:8000';
   }
   // Production - USE IP ADDRESS
-  return 'https://123.63.20.237:19000/api';
+  return 'http://10.148.248.117:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -189,12 +189,12 @@ export const insightsAPI = {
 // ✅ MERGED: Complete Admin APIs
 export const adminAPI = {
   registerUser: async (userData) => {
-    const response = await api.post('/register', userData);
+    const response = await api.post("/register", userData);
     return response.data;
   },
 
   resetPassword: async (resetData) => {
-    const response = await api.post('/reset-password', resetData);
+    const response = await api.post("/reset-password", resetData);
     return response.data;
   },
 
@@ -209,32 +209,42 @@ export const adminAPI = {
   },
 
   getAdminDashboardStats: async () => {
-    const response = await api.get('/admin-dashboard-stats');
+    const response = await api.get("/admin-dashboard-stats");
     return response.data;
   },
 
   getWarehouses: async () => {
-    const response = await api.get('/warehouses');
+    const response = await api.get("/warehouses");
     return response.data;
   },
 
   getAdminInsights: async (filters) => {
-    const response = await api.post('/filtered-movements', {
+    const response = await api.post("/filtered-movements", {
       from_date: filters.from_date,
       to_date: filters.to_date,
       site_code: filters.site_code || null,
       warehouse_code: filters.warehouse_code || null,
       movement_type: null,
-      vehicle_no: null
+      vehicle_no: null,
     });
     return response.data;
   },
 
-  searchUsers: async (query) => {
-    const response = await api.get(`/search-users`, { params: { q: query } });
-    return response.data;
-  },
+  // ✅ FIXED: match backend param name "query"
+searchUsers: async (query) => {
+  const response = await api.get(`/search-users`, { params: { q: query } });  // ✅ use q
+  return response.data;
+},
+
+
+  // ✅ FIXED: was using axios directly instead of api
+updateUser: async (username, data) => {
+  const response = await api.put(`/users/${username}/update`, data); // ✅ match backend
+  return response.data;
+},
+
 };
+
 
 // ✅ MERGED: Complete RM APIs from main branch
 export const rmAPI = {
