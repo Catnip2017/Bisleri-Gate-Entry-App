@@ -147,19 +147,7 @@ def get_user(username: str, db: Session = Depends(get_db), current_user: UsersMa
         last_login=getattr(user, "last_login", None)
     )
 
-# ✅ Admin Dashboard
-@router.get("/admin-dashboard-stats")
-def get_dashboard_stats(current_user: UsersMaster = Depends(get_current_user)):
-    roles = normalize_roles(current_user.role)
-    if not any(r in ["securityadmin", "itadmin"] for r in roles):
-        raise HTTPException(status_code=403, detail=f"Only Admin/ITAdmin can view dashboard stats. Your roles: {current_user.role}")
 
-    return {
-        "total_movements": 50,
-        "unique_vehicles": 20,
-        "gate_in": 30,
-        "gate_out": 20,
-    }
 
 # ✅ Warehouses
 @router.get("/warehouses")
@@ -340,6 +328,7 @@ def get_admin_filtered_movements(
         if filters.get('to_date'):
             query = query.filter(InsightsData.date <= filters['to_date'])
             
+        
         # Vehicle number filter
         if filters.get('vehicle_no'):
             vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
