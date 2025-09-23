@@ -3,6 +3,7 @@ import axios from 'axios';
 import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
+import { getCurrentUser } from '../utils/jwtUtils';
 
 // Get the appropriate API URL based on platform
 const getApiUrl = () => {
@@ -22,9 +23,9 @@ const getApiUrl = () => {
   // // Production - USE IP ADDRESS
   // return 'https://123.63.20.237:19000/api';
   // Web platform
-    return 'http://192.168.1.11:8000';
+    return 'http://10.103.237.124:8000';
   }
-  return 'http://192.168.1.11:8000';
+  return 'http://10.103.237.124:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -167,9 +168,9 @@ export const insightsAPI = {
     const filterData = {
       from_date: filters.from_date,
       to_date: filters.to_date,
-      site_code: filters.siteCode || null,
-      warehouse_code: filters.warehouseCode || null,
-      movement_type: filters.movementType || null,
+      site_code: filters.site_code || null,
+      warehouse_code: filters.warehouse_code || null,
+      movement_type: filters.movement_type || null,
       vehicle_no: filters.vehicle_no || null,
     };
     const response = await api.post('/filtered-movements', filterData);
@@ -252,7 +253,9 @@ getAdminDashboardStats: async (filters = {}) => {
     if (filters.from_date) params.append('from_date', filters.from_date);
     if (filters.to_date) params.append('to_date', filters.to_date);
     
-    const url = params.toString() ? `/admin-rm-statistics?${params}` : '/rm/statistics';
+    // const url = params.toString() ? `/admin-rm-statistics?${params}` : '/rm/statistics';
+    const url = params.toString() ? `/rm/statistics?${params}` : '/rm/statistics';
+
     const response = await api.get(url);
     return response.data;
   },

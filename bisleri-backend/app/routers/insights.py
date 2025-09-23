@@ -30,6 +30,14 @@ def get_enhanced_filtered_movements(
         if filters.get('to_date'):
             query = query.filter(InsightsData.date <= filters['to_date'])
             
+        # ✅ ADD WAREHOUSE CODE FILTER HERE
+        if filters.get('warehouse_code'):
+            query = query.filter(InsightsData.warehouse_code == filters['warehouse_code'])
+            
+        # ✅ ADD SITE CODE FILTER HERE  
+        if filters.get('site_code'):
+            query = query.filter(InsightsData.site_code == filters['site_code'])
+            
         # Vehicle number filter
         if filters.get('vehicle_no'):
             vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
@@ -39,13 +47,11 @@ def get_enhanced_filtered_movements(
         if filters.get('movement_type'):
             query = query.filter(InsightsData.movement_type == filters['movement_type'])
         
-        # # Security filter for non-admins
-        # if current_user.role != "Admin":
-        #     query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
         # Security filter for non-admins
         user_roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
         if not any(role in ["admin", "itadmin"] for role in user_roles):
             query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
+        
         
         # Execute query
         movements = query.order_by(

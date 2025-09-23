@@ -77,22 +77,42 @@ const AdminInsightsScreen = () => {
     console.log("Set siteCode to:", warehouse.site_code);
   };
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      const u = await getCurrentUser();
-      if (!u) {
-        showAlert("Error", "User not logged in");
-        return;
+ useEffect(() => {
+  const fetchUser = async () => {
+    const u = await getCurrentUser();
+    if (!u) {
+      showAlert("Error", "User not logged in");
+      return;
+    }
+    u.role = u.role?.toLowerCase().replace(/\s+/g, "");
+    console.log("Current user loaded:", u);
+    setUser(u);
+    
+    // Auto-fill for Security Admin
+    const roleNormalized = u.role?.toLowerCase().replace(/\s+/g, "");
+    if (roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
+      // Pre-fill warehouse and site for Security Admin
+      if (u.warehouse_code) {
+        setWhCode(u.warehouse_code);
+        setWarehouseSearchText(u.warehouse_code);
       }
-      u.role = u.role?.toLowerCase().replace(/\s+/g, "");
-      console.log("Current user loaded:", u);
-      setUser(u);
-    };
-    fetchUser();
+      if (u.site_code) {
+        setSiteCode(u.site_code);
+      }
+    }
+  };
+  fetchUser();
+  loadWarehouses();
+}, []);
 
-    loadWarehouses();
+// Also load data automatically after user and dates are set
+useEffect(() => {
+  if (user && fromDate && toDate) {
     loadDashboardStats();
-  }, []);
+    // Auto-load data on first load
+    handleShowResults();
+  }
+}, [user, fromDate, toDate]);
 
   const loadWarehouses = async () => {
     try {
@@ -170,6 +190,9 @@ const AdminInsightsScreen = () => {
       return;
     }
 
+    // Clear previous results first
+    setInsights(null);  // Add this line to clear old data
+
     // Log the current filter values
     console.log('=== FILTER VALUES BEFORE API CALL ===');
     console.log('whCode:', whCode);
@@ -193,8 +216,13 @@ const AdminInsightsScreen = () => {
         console.log('✅ FG Filters being sent to API:', JSON.stringify(filters, null, 2));
         
         const data = await insightsAPI.getFilteredMovements(filters);
+        console.log('✅ Full API response:', data);
+        console.log('✅ First record warehouse_code:', data.results[0]?.warehouse_code || data.results[0]?.to_warehouse_code);
         console.log('✅ Results received:', data.count, 'records');
         setInsights(data);
+
+        await loadDashboardStats();
+
       } else {
         const filters = {
           from_date: formatDateForAPI(fromDate),
@@ -209,6 +237,8 @@ const AdminInsightsScreen = () => {
         const data = await rmAPI.getFilteredRMEntries(filters);
         console.log('✅ Results received:', data.count, 'records');
         setInsights(data);
+        await loadDashboardStats();
+
       }
     } catch (error) {
       console.error('Error fetching insights:', error);
@@ -535,6 +565,8 @@ const AdminInsightsScreen = () => {
                     value={warehouseSearchText} 
                     onChangeText={handleWarehouseCodeChange}
                     placeholder="Type to search..."
+                    editable={!user || !user.role?.includes("securityadmin") || user.role?.includes("itadmin")}
+
                     onFocus={() => {
                       // Show dropdown when focusing if there's text
                       if (warehouseSearchText) {
