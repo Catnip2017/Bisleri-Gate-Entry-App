@@ -9,9 +9,9 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://10.148.248.117:8000'; // Local network for mobile development
+        return 'http://192.168.1.2:8000'; // Local network for mobile development
       } else {
-        return 'http://10.148.248.117:8000'; // Emulator
+        return 'http://192.168.1.2:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.51.151:8000'; // iOS development
