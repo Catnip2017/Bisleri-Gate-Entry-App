@@ -30,6 +30,14 @@ def get_enhanced_filtered_movements(
         if filters.get('to_date'):
             query = query.filter(InsightsData.date <= filters['to_date'])
             
+        # ✅ ADD WAREHOUSE CODE FILTER HERE
+        if filters.get('warehouse_code'):
+            query = query.filter(InsightsData.warehouse_code == filters['warehouse_code'])
+            
+        # ✅ ADD SITE CODE FILTER HERE  
+        if filters.get('site_code'):
+            query = query.filter(InsightsData.site_code == filters['site_code'])
+            
         # Vehicle number filter
         if filters.get('vehicle_no'):
             vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
@@ -40,8 +48,10 @@ def get_enhanced_filtered_movements(
             query = query.filter(InsightsData.movement_type == filters['movement_type'])
         
         # Security filter for non-admins
-        if current_user.role != "Admin":
+        user_roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
+        if not any(role in ["admin", "itadmin"] for role in user_roles):
             query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
+        
         
         # Execute query
         movements = query.order_by(
@@ -78,7 +88,7 @@ def get_enhanced_filtered_movements(
                 "date": movement.date.isoformat() if movement.date else None,
                 "time": movement.time.isoformat() if movement.time else None,
                 "movement_type": movement.movement_type,
-                "warehouse_name": movement.warehouse_name,
+                "to_warehouse_code": movement.warehouse_code,
                 "security_name": movement.security_name,
                 "security_username": movement.security_username,
                 "site_code": movement.site_code,
