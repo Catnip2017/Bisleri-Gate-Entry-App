@@ -522,7 +522,7 @@ const updateOperationalField = (field, value) => {
     { key: 'sub_document_type', title: 'Sub Doc Type', width: 100 },
     { key: 'document_date', title: 'Doc Date', width: 90 },
     { key: 'vehicle_no', title: 'Vehicle No.', width: 100 },
-    { key: 'warehouse_name', title: 'Warehouse Name', width: 160 },
+    { key: 'to_warehouse_code', title: 'To Warehouse Code', width: 120 },
     { key: 'customer_name', title: 'Customer Name', width: 140 },
     { key: 'site', title: 'Site', width: 70 },
     { key: 'route_code', title: 'Route Code', width: 90 },

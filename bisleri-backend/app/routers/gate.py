@@ -59,7 +59,7 @@ def search_recent_documents(
                 "sub_document_type": doc.sub_document_type,
                 "document_date": doc.document_date.isoformat() if doc.document_date else None,
                 "vehicle_no": doc.vehicle_no,
-                "warehouse_name": doc.warehouse_name,
+                "to_warehouse_code": doc.to_warehouse_code,  
                 "warehouse_code": doc.warehouse_code,
                 "customer_name": doc.customer_name,
                 "customer_code": doc.customer_code,
@@ -73,7 +73,6 @@ def search_recent_documents(
                 "salesman": doc.salesman,
                 "gate_entry_no": doc.gate_entry_no,
                 "from_warehouse_code": doc.from_warehouse_code,
-                "to_warehouse_code": doc.to_warehouse_code,
                 "irn_no": doc.irn_no
             })
         
@@ -240,7 +239,7 @@ def create_enhanced_batch_gate_entry(
                         sub_document_type=document.sub_document_type or "",
                         document_no=document.document_no,
                         vehicle_no=document.vehicle_no or vehicle_no,
-                        warehouse_name=document.warehouse_name or current_user.warehouse_code,
+                        to_warehouse_code=getattr(document, 'to_warehouse_code', None),
                         date=now.date(),
                         time=now.time(),
                         movement_type=entry.gate_type,
@@ -438,7 +437,7 @@ def create_batch_gate_entry(
                     sub_document_type=document.sub_document_type or "",
                     document_no=document.document_no,
                     vehicle_no=document.vehicle_no or vehicle_no,
-                    warehouse_name=document.warehouse_name or current_user.warehouse_code,
+                    to_warehouse_code=getattr(document, 'to_warehouse_code', None),
                     date=now.date(),
                     time=now.time(),
                     movement_type=entry.gate_type,
@@ -558,8 +557,7 @@ def create_enhanced_manual_gate_entry(
                 )
         
         now = datetime.now()
-        warehouse_name = getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}")
-        
+        to_warehouse_code = None        
         # NEW: Process operational data
         operational_data = {}
         if entry.driver_name and entry.driver_name.strip():
@@ -579,7 +577,6 @@ def create_enhanced_manual_gate_entry(
             document_type=entry.document_type or "Manual Entry",
             sub_document_type="Manual Entry",
             vehicle_no=vehicle_no,
-            warehouse_name=warehouse_name,
             date=now.date(),
             time=now.time(),
             movement_type=entry.gate_type,
@@ -605,7 +602,7 @@ def create_enhanced_manual_gate_entry(
             time=now,
             vehicle_no=vehicle_no,
             document_no=f"MANUAL-{gate_entry_no}",
-            warehouse_name=warehouse_name,
+            warehouse_name=f"Warehouse-{current_user.warehouse_code}",
             movement_type=entry.gate_type
         )
         
@@ -680,15 +677,13 @@ def create_manual_gate_entry(
         now = datetime.now()
         
         # Get warehouse name safely
-        warehouse_name = getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}")
-        
+        to_warehouse_code = None        
         # ONLY CREATE insights_data entry
         insight_record = InsightsData(
             gate_entry_no=gate_entry_no,
             document_type=entry.document_type or "Manual Entry",
             sub_document_type="Manual Entry",
             vehicle_no=vehicle_no,
-            warehouse_name=warehouse_name,
             date=now.date(),
             time=now.time(),
             movement_type=entry.gate_type,
@@ -709,7 +704,7 @@ def create_manual_gate_entry(
             time=now,
             vehicle_no=vehicle_no,
             document_no=f"MANUAL-{gate_entry_no}",
-            warehouse_name=warehouse_name,
+            warehouse_name=f"Warehouse-{current_user.warehouse_code}",
             movement_type=entry.gate_type
         )
         
@@ -939,7 +934,7 @@ def get_documents_by_vehicle(
             "sub_document_type": doc.sub_document_type,
             "document_date": doc.document_date,
             "vehicle_no": doc.vehicle_no,
-            "warehouse_name": doc.warehouse_name,
+            "to_warehouse_code": doc.to_warehouse_code,  # CHANGED: Use this instead
             "warehouse_code": doc.warehouse_code,
             "customer_name": doc.customer_name,
             "customer_code": doc.customer_code,
@@ -1134,8 +1129,7 @@ def create_multi_document_manual_entry(
                 )
         
         now = datetime.now()
-        warehouse_name = getattr(current_user, 'warehouse_name', f"Warehouse-{current_user.warehouse_code}")
-        
+        to_warehouse_code = None        
         # ✅ NEW: Handle Empty Vehicle Scenario (no_of_documents = 0)
         if entry.no_of_documents == 0:
             # Create SINGLE entry with "EMPTY VEHICLE" document type
@@ -1144,7 +1138,6 @@ def create_multi_document_manual_entry(
                 document_type="EMPTY VEHICLE",  # ✅ NEW: Special document type for empty vehicles
                 sub_document_type="Empty Vehicle",
                 vehicle_no=vehicle_no,
-                warehouse_name=warehouse_name,
                 date=now.date(),
                 time=now.time(),
                 movement_type=entry.gate_type,
@@ -1183,7 +1176,6 @@ def create_multi_document_manual_entry(
                     document_type="Manual Entry - Pending Assignment",  # Clear status for manual entries
                     sub_document_type="Manual Entry",
                     vehicle_no=vehicle_no,
-                    warehouse_name=warehouse_name,
                     date=now.date(),
                     time=now.time(),
                     movement_type=entry.gate_type,
