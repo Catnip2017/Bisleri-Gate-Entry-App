@@ -263,6 +263,55 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: 'center',
   },
+  
+  // ADD THESE NEW STYLES FOR DOWNLOAD BUTTONS:
+  downloadButtonContainer: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+    marginTop: 20,
+    paddingRight: 20,
+  },
+  downloadButton: {
+    backgroundColor: '#28a745',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  downloadButtonDisabled: {
+    backgroundColor: '#6c757d',
+    opacity: 0.6,
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Excel button style
+  downloadButtonExcel: {
+    backgroundColor: '#007bff',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 200,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  
 });
 
 export default styles;
