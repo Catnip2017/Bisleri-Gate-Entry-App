@@ -166,11 +166,11 @@ const AdminDashboard = () => {
                 <Text style={styles.sidebarItem}>
                   Role: {user.roles.join(', ')}
                 </Text>
-                {user.warehouse_code && (
-                  <Text style={styles.sidebarItem}>WH Code: {user.warehouse_code}</Text>
+                {user.warehouseCode && (
+                  <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
                 )}
-                {user.site_code && (
-                  <Text style={styles.sidebarItem}>Site Code: {user.site_code}</Text>
+                {user.siteCode && (
+                  <Text style={styles.sidebarItem}>Site Code: {user.siteCode}</Text>
                 )}
               </>
             )}
