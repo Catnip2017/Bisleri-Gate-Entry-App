@@ -137,67 +137,68 @@ const RegisterScreen = () => {
     return true;
   };
 
-  const handleRegister = async () => {
-    if (!validateForm()) return;
+ const handleRegister = async () => {
+  if (!validateForm()) return;
 
-    setLoading(true);
-    try {
-      const userData = {
-        username: formData.username.trim(),
-        password: formData.password,
-        first_name: formData.firstName.trim(),
-        last_name: formData.lastName.trim(),
-        role: formData.role,
-        warehouse_code: formData.warehouseCode?.trim() || undefined,
-        site_code: formData.siteCode?.trim() || undefined,
-      };
+  setLoading(true);
+  try {
+    const userData = {
+      username: formData.username.trim(),
+      password: formData.password,
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
+      role: formData.role,
+      warehouse_code: formData.warehouseCode?.trim() || undefined,
+      site_code: formData.siteCode?.trim() || undefined,
+    };
 
-      // add email & phone only if filled
-      if (formData.email?.trim()) {
-        userData.email = formData.email.trim();
-      }
-      if (formData.phone_number?.trim()) {
-        userData.phone_number = formData.phone_number.trim();
-      }
-
-      console.log('Register Payload:', userData);
-
-      const response = await adminAPI.registerUser(userData);
-
-      showAlert('Success', response.message || 'User registered successfully!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            setFormData({
-              username: '',
-              password: '',
-              confirmPassword: '',
-              firstName: '',
-              lastName: '',
-              role: 'Security Guard',
-              warehouseCode: '',
-              warehouseName: '',
-              siteCode: '',
-              email: '',
-              phone_number: '',
-            });
-            setSearchText('');
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error('Registration Error:', error);
-      let errorMessage = "Registration failed";
-
-      if (error.response?.status === 422) errorMessage = "Validation error. Check input.";
-      else if (error.response?.status === 403) errorMessage = "Only IT Admins can register users";
-      else if (error.response?.status === 400 && error.response.data?.detail) errorMessage = error.response.data.detail;
-
-      showAlert('Registration Error', errorMessage);
-    } finally {
-      setLoading(false);
+    // 🔹 Only add email/phone if user entered
+    if (formData.email?.trim()) {
+      userData.email = formData.email.trim();
     }
-  };
+    if (formData.phone_number?.trim()) {
+      userData.phone_number = formData.phone_number.trim();
+    }
+
+    console.log('Register Payload:', userData);
+
+    const response = await adminAPI.registerUser(userData);
+
+    showAlert('Success', response.message || 'User registered successfully!', [
+      {
+        text: 'OK',
+        onPress: () => {
+          setFormData({
+            username: '',
+            password: '',
+            confirmPassword: '',
+            firstName: '',
+            lastName: '',
+            role: 'Security Guard',
+            warehouseCode: '',
+            warehouseName: '',
+            siteCode: '',
+            email: '',
+            phone_number: '',
+          });
+          setSearchText('');
+        },
+      },
+    ]);
+  } catch (error) {
+    console.error('Registration Error:', error);
+    let errorMessage = "Registration failed";
+
+    if (error.response?.status === 422) errorMessage = "Validation error. Check input.";
+    else if (error.response?.status === 403) errorMessage = "Only IT Admins can register users";
+    else if (error.response?.status === 400 && error.response.data?.detail) errorMessage = error.response.data.detail;
+
+    showAlert('Registration Error', errorMessage);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

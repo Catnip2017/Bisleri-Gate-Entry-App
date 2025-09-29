@@ -50,7 +50,7 @@ app.add_middleware(
         # "https://123.63.20.237",
         # "*"  # Keep this for development, remove in production if needed
         "http://127.0.0.1:8081",
-        "http://192.168.1.2:8081",
+        "http://192.168.1.11:8081",
         "http://123.63.20.237:8081",
         "http://192.168.1.56:8081",
         "http://10.28.140.94:8081",
