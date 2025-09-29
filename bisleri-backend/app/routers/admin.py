@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
+from sqlalchemy import func
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -66,8 +67,8 @@ def register_user(
             warehouse_name=warehouse_name,
             site_code=final_site_code,
             password=get_password_hash(user.password),
-           email=user.email.strip() if user.email else None,
-           phone_number=user.phone_number.strip() if user.phone_number else None
+            email=user.email.strip() if user.email else None,  
+            phone_number=user.phone_number.strip() if user.phone_number else None
 
         )
         db.add(new_user)
@@ -229,25 +230,26 @@ def search_users(q: str, db: Session = Depends(get_db)):
         .all()
     )
     return users   # ✅ FastAPI will auto-convert ORM to schema
-
- # ✅ Edit User Details (Name, Email, Phone)
-# ✅ Update User Details (edit user info, not just roles)
 @router.put("/users/{username}/update")
 def update_user_details(username: str, payload: UserUpdate, db: Session = Depends(get_db)):
     user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    user.first_name = payload.first_name
-    user.last_name = payload.last_name
-    user.email = payload.email
-    user.phone_number = payload.phone_number
+    # ✅ Update only if payload has value
+    if payload.first_name is not None:
+        user.first_name = payload.first_name.strip() or None
+    if payload.last_name is not None:
+        user.last_name = payload.last_name.strip() or None
+    if payload.email is not None:
+        user.email = payload.email.strip() or None
+    if payload.phone_number is not None:
+        user.phone_number = payload.phone_number.strip() or None
 
     db.commit()
     db.refresh(user)
     return {"message": "User details updated successfully"}
-    users = db.query(UsersMaster).filter(UsersMaster.username.ilike(f"%{q}%")).limit(10).all()
-    return [{"username": user.username, "first_name": user.first_name, "last_name": user.last_name, "role": user.role} for user in users]
+
 
 @router.get("/admin-dashboard-stats")
 def get_dashboard_stats(
@@ -479,8 +481,8 @@ def get_admin_rm_statistics(
             end_date = datetime.strptime(to_date, '%Y-%m-%d').date()
         
         base_query = base_query.filter(
-            db.func.date(RawMaterialsData.date_time) >= start_date,
-            db.func.date(RawMaterialsData.date_time) <= end_date
+            func.DATE(RawMaterialsData.date_time) >= start_date,
+            func.DATE(RawMaterialsData.date_time) <= end_date
         )
         
         recent_records = base_query.all()

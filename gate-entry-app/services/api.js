@@ -10,18 +10,18 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.2:8000'; // Local network for mobile development
+        return 'http://192.168.1.11:8000'; // Local network for mobile development
       } else {
-        return 'http://192.168.1.2:8000'; // Emulator
+        return 'http://192.168.1.11:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.1.16:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-  return 'http://192.168.1.9:8000';
+  return 'http://192.168.1.11:8000';
   }
   // Production - USE IP ADDRESS
-  return 'http://192.168.1.9:8000';
+  return 'http://192.168.1.11:8000';
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -203,6 +203,11 @@ export const adminAPI = {
     const response = await api.put(`/modify-user/${username}`, data);
     return response.data;
   },
+  updateUser: async (username, data) => {
+  const response = await api.put(`/users/${username}/update`, data);
+  return response.data;
+},
+
 
   deleteUser: async (username) => {
     const response = await api.delete(`/user/${username}/delete`);

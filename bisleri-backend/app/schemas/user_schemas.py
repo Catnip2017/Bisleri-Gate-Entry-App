@@ -76,10 +76,10 @@ class UserRoleUpdate(BaseModel):
         from_attributes = True
 
 class UserUpdate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
-    phone_number: Annotated[str, StringConstraints(pattern=r'^\d{10}$')]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone_number: Optional[str] = None   # Optional, you can add regex validation if needed
 
 
 
