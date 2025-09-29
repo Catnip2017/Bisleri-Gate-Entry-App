@@ -9,17 +9,17 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; 
+        return 'http://192.168.1.11:8000'; 
       } else {
-        return 'http://10.0.2.2:8000';
+        return 'http://192.168.1.11:8000';
       }
     } else if (Platform.OS === 'ios') {
       return 'http://192.168.51.151:8000'; 
     }
     // Web platform
-    return 'http://192.168.1.56:8000'; // Updated to your local IP
+    return 'http://192.168.1.11:8000'; // Updated to your local IP
   }
-  return 'http://123.63.20.237:8081';
+  return 'http://192.168.1.11:8081';
 };
 
 export const API_BASE_URL = getApiUrl();
