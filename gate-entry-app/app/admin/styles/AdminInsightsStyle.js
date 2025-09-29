@@ -315,6 +315,12 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+
+  inputDisabled: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ccc',
+    color: '#666',
+  },
   
 });
 

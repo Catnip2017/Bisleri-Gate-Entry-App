@@ -62,6 +62,13 @@ const AdminInsightsScreen = () => {
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
 
+  // Add this helper function
+  const isSecurityAdmin = () => {
+    if (!user) return false;
+    const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+    return roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin");
+  };
+
   // Secure CSV Export Function (Alternative to Excel)
   const handleDownloadReport = async () => {
     if (!insights || !insights.results || insights.results.length === 0) {
@@ -404,7 +411,20 @@ const AdminInsightsScreen = () => {
     console.log("Set siteCode to:", warehouse.site_code);
   };
 
- useEffect(() => {
+ const loadWarehouses = async () => {
+  try {
+    const warehouseData = await adminAPI.getWarehouses();
+    setWarehouses(warehouseData);
+    console.log("Warehouses loaded:", warehouseData.length);
+  } catch (error) {
+    console.error('Error loading warehouses:', error);
+    showAlert('Error', 'Failed to load warehouse data');
+  }
+};
+
+
+
+useEffect(() => {
   const fetchUser = async () => {
     const u = await getCurrentUser();
     if (!u) {
@@ -414,43 +434,34 @@ const AdminInsightsScreen = () => {
     u.role = u.role?.toLowerCase().replace(/\s+/g, "");
     console.log("Current user loaded:", u);
     setUser(u);
-    
-    // Auto-fill for Security Admin
-    const roleNormalized = u.role?.toLowerCase().replace(/\s+/g, "");
-    if (roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
-      // Pre-fill warehouse and site for Security Admin
-      if (u.warehouse_code) {
-        setWhCode(u.warehouse_code);
-        setWarehouseSearchText(u.warehouse_code);
-      }
-      if (u.site_code) {
-        setSiteCode(u.site_code);
-      }
-    }
   };
   fetchUser();
   loadWarehouses();
 }, []);
 
-// Also load data automatically after user and dates are set
-useEffect(() => {
-  if (user && fromDate && toDate) {
-    loadDashboardStats();
-    // Auto-load data on first load
-    handleShowResults();
-  }
-}, [user, fromDate, toDate]);
 
-  const loadWarehouses = async () => {
-    try {
-      const warehouseData = await adminAPI.getWarehouses();
-      setWarehouses(warehouseData);
-      console.log("Warehouses loaded:", warehouseData.length);
-    } catch (error) {
-      console.error('Error loading warehouses:', error);
-      showAlert('Error', 'Failed to load warehouse data');
+
+useEffect(() => {
+  if (!user) return;
+  
+  const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+  if (roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
+    console.log("🔒 Security Admin detected - pre-filling fields");
+    
+    if (user.warehouseCode) {
+      setWhCode(user.warehouseCode);
+      setWarehouseSearchText(user.warehouseCode);
+      console.log("✅ Set whCode to:", user.warehouseCode);
     }
-  };
+    if (user.siteCode) {
+      setSiteCode(user.siteCode);
+      console.log("✅ Set siteCode to:", user.siteCode);
+    }
+  }
+}, [user]);
+
+
+
 
   const handleWarehouseCodeChange = (text) => {
     console.log("🔍 handleWarehouseCodeChange called with:", text);
@@ -578,9 +589,10 @@ useEffect(() => {
   const handleInsightTypeChange = (type) => {
     setInsightType(type);
     setInsights(null);
-    setTimeout(() => {
-      loadDashboardStats();
-    }, 100);
+    setStats(null);
+    // setTimeout(() => {
+    //   loadDashboardStats();
+    // }, 100);
   };
 
   const renderDatePicker = (value, onChange, show, setShow, label) => {
@@ -920,29 +932,30 @@ useEffect(() => {
                 'To Date'
               )}
             </View>
-            
-            {/* Warehouse Code with Visible Dropdown */}
+           {/* Warehouse Code with Visible Dropdown */}
             <View style={[styles.inputBox, { overflow: 'visible', zIndex: 9999 }]}>
               <Text>Warehouse Code</Text>
               <View style={{ position: 'relative' }}>
                 <TextInput 
-                  style={styles.input} 
+                  style={[
+                    styles.input, 
+                    isSecurityAdmin() && styles.inputDisabled
+                  ]} 
                   value={warehouseSearchText} 
                   onChangeText={handleWarehouseCodeChange}
                   placeholder="Type to search..."
-                  editable={true}
-
+                  editable={!isSecurityAdmin()}
                   onFocus={() => {
                     // Show dropdown when focusing if there's text
-                    if (warehouseSearchText) {
+                    if (warehouseSearchText && !isSecurityAdmin()) {
                       handleWarehouseCodeChange(warehouseSearchText);
                     }
                   }}
                   autoCapitalize="characters"
                 />
                 
-                {/* Clear Button */}
-                {warehouseSearchText ? (
+                {/* Clear Button - only show for non-Security Admin */}
+                {warehouseSearchText && !isSecurityAdmin() ? (
                   <TouchableOpacity 
                     style={{
                       position: 'absolute',
@@ -1024,16 +1037,21 @@ useEffect(() => {
             </View>
 
             {/* Site Code */}
-            <View style={styles.inputBox}>
-              <Text>Site Code</Text>
-              <TextInput 
-                style={[styles.input, siteCode && styles.inputFilled]} 
-                value={siteCode} 
-                onChangeText={setSiteCode} 
-                placeholder="Auto-filled or manual"
-                editable={true}
-              />
-            </View>
+                      
+          <View style={styles.inputBox}>
+            <Text>Site Code</Text>
+            <TextInput 
+              style={[
+                styles.input, 
+                siteCode && styles.inputFilled,
+                isSecurityAdmin() && styles.inputDisabled
+              ]} 
+              value={siteCode} 
+              onChangeText={setSiteCode} 
+              placeholder="Auto-filled or manual"
+              editable={!isSecurityAdmin()}
+            />
+          </View>
 
             <TouchableOpacity 
               style={styles.showButton} 

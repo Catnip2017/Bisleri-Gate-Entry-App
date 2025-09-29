@@ -26,6 +26,12 @@ import ResetPasswordScreen from './screens/ResetPasswordScreen';
 // Import styles
 import styles from './AdminDashboardStyles';
 
+const roleLabels = {
+  itadmin: "IT Admin",
+  securityadmin: "Security Admin",
+  securityguard: "Security Guard",
+};
+ 
 const AdminDashboard = () => {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -164,7 +170,9 @@ const AdminDashboard = () => {
                   Name: {user.firstName} {user.lastName}
                 </Text> 
                 <Text style={styles.sidebarItem}>
-                  Role: {user.roles.join(', ')}
+                  Role: {user.roles
+                    .map(role => roleLabels[role] || (role.charAt(0).toUpperCase() + role.slice(1)))
+                    .join(', ')}
                 </Text>
                 {user.warehouseCode && (
                   <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
