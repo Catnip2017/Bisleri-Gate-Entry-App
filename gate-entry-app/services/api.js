@@ -18,10 +18,10 @@ const getApiUrl = () => {
       return 'http://192.168.1.16:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-  return 'http://192.168.1.18:8000';
+  return 'http://192.168.1.9:8000';
   }
   // Production - USE IP ADDRESS
-  return 'http://192.168.1.18:8000';
+  return 'http://192.168.1.9:8000';
 };
 
 export const API_BASE_URL = getApiUrl();

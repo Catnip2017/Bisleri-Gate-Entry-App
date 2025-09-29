@@ -596,12 +596,12 @@ useEffect(() => {
           style={{
             borderWidth: 1,
             borderColor: '#aaa',
-            padding: 10,
+            padding: 5,
             borderRadius: 4,
             backgroundColor: 'white',
             fontSize: 14,
-            width: '100%',
-            minHeight: 40,
+            width: '90%',
+            minHeight: 15,
           }}
         />
       );
@@ -787,7 +787,9 @@ useEffect(() => {
               <Text style={styles.cell}>{movement.vehicle_no}</Text>
               <Text style={styles.cell}>{movement.document_type}</Text>
               <Text style={styles.cell}>{movement.movement_type}</Text>
-              <Text style={styles.cell}>{movement.warehouse_name || movement.warehouse_code}</Text>
+              <Text style={styles.cell}> {movement.warehouse_name  || movement.warehouse_code 
+              || movement.to_warehouse_code || movement.from_warehouse_code || '--'}</Text>
+              
               <Text style={styles.cell}>{movement.security_name}</Text>
               <Text style={styles.cell}>{movement.remarks}</Text>
               <Text style={styles.cell}>

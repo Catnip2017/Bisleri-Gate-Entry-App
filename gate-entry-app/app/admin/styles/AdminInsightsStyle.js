@@ -159,8 +159,12 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     width: 200,       // 🔹 match Warehouse Code input
-    marginHorizontal: 6
+    marginHorizontal: 6,
   },
+ inputReadOnly: {
+  backgroundColor: '#f5f5f5',
+  color: '#000', // ensure dark text is visible
+},
   input: {
     borderWidth: 1,
     borderColor: '#888',
