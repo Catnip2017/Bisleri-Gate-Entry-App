@@ -10,18 +10,18 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.11:8000'; // Local network for mobile development
+        return 'http://192.168.1.56:8000'; // Local network for mobile development
       } else {
-        return 'http://192.168.1.11:8000'; // Emulator
+        return 'http://192.168.1.56:8000'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
-      return 'http://192.168.1.16:8000'; // iOS development
+      return 'http://192.168.51.151:8000'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-  return 'http://192.168.1.9:8000';
+    return 'https://123.63.20.237:19000/api';
   }
   // Production - USE IP ADDRESS
-  return 'http://192.168.1.9:8000';
+  return 'https://123.63.20.237:19000/api';
 };
 
 export const API_BASE_URL = getApiUrl();
