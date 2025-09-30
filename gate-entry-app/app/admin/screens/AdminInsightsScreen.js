@@ -134,7 +134,7 @@ const AdminInsightsScreen = () => {
 
       if (insightType === "FG") {
         // FG CSV Headers
-        csvContent += `S.No,Date,Time,Gate Entry No,Vehicle No,Document Type,Movement Type,Warehouse,Security Guard,Remarks,Document Date,Document Age,Driver Name,KM Reading,Loader Names\n`;
+        csvContent += `S.No,Date,Time,Gate Entry No,Vehicle No, Document No, Document Type,Movement Type,Warehouse,Security Guard,Remarks,Document Date,Document Age,Driver Name,KM Reading,Loader Names\n`;
 
         // FG Data rows
         insights.results.forEach((movement, index) => {
@@ -144,6 +144,7 @@ const AdminInsightsScreen = () => {
             escapeCSV(movement.time || ""),
             escapeCSV(movement.gate_entry_no || ""),
             escapeCSV(movement.vehicle_no || ""),
+            escapeCSV(movement.document_no || ""),
             escapeCSV(movement.document_type || ""),
             escapeCSV(movement.movement_type || ""),
             escapeCSV(movement.warehouse_name || movement.warehouse_code || ""),
@@ -334,6 +335,7 @@ const AdminInsightsScreen = () => {
           "Time",
           "Gate Entry No",
           "Vehicle No",
+          "Document No",
           "Document Type",
           "Movement Type",
           "Warehouse",
@@ -361,6 +363,7 @@ const AdminInsightsScreen = () => {
             movement.time || "",
             movement.gate_entry_no || "",
             movement.vehicle_no || "",
+            movement.document_no || "",
             movement.document_type || "",
             movement.movement_type || "",
             movement.warehouse_name || movement.warehouse_code || "",
@@ -691,8 +694,12 @@ const AdminInsightsScreen = () => {
           "✅ RM Filters being sent to API:",
           JSON.stringify(filters, null, 2)
         );
+        
         const data = await rmAPI.getFilteredRMEntries(filters);
+        
         console.log("✅ Results received:", data.count, "records");
+        console.log("✅ RM First Record:", JSON.stringify(data.results[0], null, 2));
+        console.log("✅ RM First Record Keys:", Object.keys(data.results[0]));
         setInsights(data);
         setCurrentPage(1); // Reset to first page when new data loads
         await loadDashboardStats();
@@ -879,6 +886,7 @@ const AdminInsightsScreen = () => {
             <Text style={styles.headerCell}>Time</Text>
             <Text style={styles.headerCell}>Gate Entry No</Text>
             <Text style={styles.headerCell}>Vehicle No</Text>
+            <Text style={styles.headerCell}>Document No</Text>
             <Text style={styles.headerCell}>Document Type</Text>
             <Text style={styles.headerCell}>Movement Type</Text>
             <Text style={styles.headerCell}>Warehouse</Text>
@@ -897,6 +905,7 @@ const AdminInsightsScreen = () => {
               <Text style={styles.cell}>{movement.time}</Text>
               <Text style={styles.cell}>{movement.gate_entry_no}</Text>
               <Text style={styles.cell}>{movement.vehicle_no}</Text>
+              <Text style={styles.cell}>{movement.document_no || '--'}</Text> 
               <Text style={styles.cell}>{movement.document_type}</Text>
               <Text style={styles.cell}>{movement.movement_type}</Text>
               <Text style={styles.cell}>
