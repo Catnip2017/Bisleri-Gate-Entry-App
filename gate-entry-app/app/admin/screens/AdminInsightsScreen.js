@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,54 +6,54 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  ActivityIndicator
-} from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Platform } from 'react-native';
-import { adminAPI, rmAPI, insightsAPI } from '../../../services/api';
-import styles from '../styles/AdminInsightsStyle';
-import { getCurrentUser } from '../../../utils/jwtUtils';
-import { showAlert } from '../../../utils/customModal';
+  ActivityIndicator,
+} from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Platform } from "react-native";
+import { adminAPI, rmAPI, insightsAPI } from "../../../services/api";
+import styles from "../styles/AdminInsightsStyle";
+import { getCurrentUser } from "../../../utils/jwtUtils";
+import { showAlert } from "../../../utils/customModal";
 // Import for file operations
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 
 const formatDateForAPI = (date) => {
-  if (!date) return '';
-  
+  if (!date) return "";
+
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
   return `${year}-${month}-${day}`;
 };
 
 const AdminInsightsScreen = () => {
-  const [insightType, setInsightType] = useState('FG');
+  const [insightType, setInsightType] = useState("FG");
   const [downloadingReport, setDownloadingReport] = useState(false);
-  
+
   const getDefaultDateRange = () => {
     const today = new Date();
     const lastWeek = new Date();
     lastWeek.setDate(today.getDate() - 7);
-    
+
     return {
       fromDate: lastWeek,
-      toDate: today
+      toDate: today,
     };
   };
 
   const defaultDates = getDefaultDateRange();
   const [fromDate, setFromDate] = useState(defaultDates.fromDate);
   const [toDate, setToDate] = useState(defaultDates.toDate);
-  
-  const [siteCode, setSiteCode] = useState('');
-  const [whCode, setWhCode] = useState('');
+
+  const [siteCode, setSiteCode] = useState("");
+  const [whCode, setWhCode] = useState("");
   const [warehouses, setWarehouses] = useState([]);
-  const [warehouseSearchText, setWarehouseSearchText] = useState('');
+  const [warehouseSearchText, setWarehouseSearchText] = useState("");
   const [filteredWarehouses, setFilteredWarehouses] = useState([]);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
-  
+
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
@@ -61,34 +61,66 @@ const AdminInsightsScreen = () => {
 
   const [showFromDatePicker, setShowFromDatePicker] = useState(false);
   const [showToDatePicker, setShowToDatePicker] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
   // Add this helper function
   const isSecurityAdmin = () => {
     if (!user) return false;
     const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
-    return roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin");
+    return (
+      roleNormalized.includes("securityadmin") &&
+      !roleNormalized.includes("itadmin")
+    );
   };
+
+  // Pagination calculations
+  const totalItems = insights?.results?.length || 0;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentResults = insights?.results?.slice(startIndex, endIndex) || [];
+  const startItem = totalItems > 0 ? startIndex + 1 : 0;
+  const endItem = Math.min(endIndex, totalItems);
+
+  // Pagination handlers
+  const goToFirstPage = () => setCurrentPage(1);
+  const goToPreviousPage = () =>
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  const goToNextPage = () =>
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+  const goToLastPage = () => setCurrentPage(totalPages);
+  const goToPage = (page) =>
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
   // Secure CSV Export Function (Alternative to Excel)
   const handleDownloadReport = async () => {
     if (!insights || !insights.results || insights.results.length === 0) {
-      showAlert('No Data', 'No data available to export. Please load some data first.');
+      showAlert(
+        "No Data",
+        "No data available to export. Please load some data first."
+      );
       return;
     }
 
     setDownloadingReport(true);
     try {
-      let csvContent = '';
-      let fileName = '';
+      let csvContent = "";
+      let fileName = "";
 
       // Create CSV header with metadata
-      const reportType = insightType === 'FG' ? 'FG Vehicle Movement Report' : 'Raw Materials Movement Report';
-      const dateRange = `${formatDateForAPI(fromDate)} to ${formatDateForAPI(toDate)}`;
-      const warehouseInfo = whCode || 'All';
-      const siteInfo = siteCode || 'All';
+      const reportType =
+        insightType === "FG"
+          ? "FG Vehicle Movement Report"
+          : "Raw Materials Movement Report";
+      const dateRange = `${formatDateForAPI(fromDate)} to ${formatDateForAPI(
+        toDate
+      )}`;
+      const warehouseInfo = whCode || "All";
+      const siteInfo = siteCode || "All";
       const totalRecords = insights.count || insights.results.length;
       const generatedOn = new Date().toLocaleString();
-      const generatedBy = user?.name || user?.username || 'Admin';
+      const generatedBy = user?.name || user?.username || "Admin";
 
       // Add metadata header
       csvContent += `Report Type,${reportType}\n`;
@@ -100,75 +132,93 @@ const AdminInsightsScreen = () => {
       csvContent += `Generated By,${generatedBy}\n`;
       csvContent += `\n`; // Empty line separator
 
-      if (insightType === 'FG') {
+      if (insightType === "FG") {
         // FG CSV Headers
         csvContent += `S.No,Date,Time,Gate Entry No,Vehicle No,Document Type,Movement Type,Warehouse,Security Guard,Remarks,Document Date,Document Age,Driver Name,KM Reading,Loader Names\n`;
-        
+
         // FG Data rows
         insights.results.forEach((movement, index) => {
           const row = [
             index + 1,
-            escapeCSV(movement.date || ''),
-            escapeCSV(movement.time || ''),
-            escapeCSV(movement.gate_entry_no || ''),
-            escapeCSV(movement.vehicle_no || ''),
-            escapeCSV(movement.document_type || ''),
-            escapeCSV(movement.movement_type || ''),
-            escapeCSV(movement.warehouse_name || movement.warehouse_code || ''),
-            escapeCSV(movement.security_name || ''),
-            escapeCSV(movement.remarks || ''),
-            escapeCSV(movement.document_date ? new Date(movement.document_date).toLocaleDateString() : ''),
-            escapeCSV(movement.document_age_time || ''),
-            escapeCSV(movement.driver_name || ''),
-            escapeCSV(movement.km_reading || ''),
-            escapeCSV(movement.loader_names || '')
-          ].join(',');
-          csvContent += row + '\n';
+            escapeCSV(movement.date || ""),
+            escapeCSV(movement.time || ""),
+            escapeCSV(movement.gate_entry_no || ""),
+            escapeCSV(movement.vehicle_no || ""),
+            escapeCSV(movement.document_type || ""),
+            escapeCSV(movement.movement_type || ""),
+            escapeCSV(movement.warehouse_name || movement.warehouse_code || ""),
+            escapeCSV(movement.security_name || ""),
+            escapeCSV(movement.remarks || ""),
+            escapeCSV(
+              movement.document_date
+                ? new Date(movement.document_date).toLocaleDateString()
+                : ""
+            ),
+            escapeCSV(movement.document_age_time || ""),
+            escapeCSV(movement.driver_name || ""),
+            escapeCSV(movement.km_reading || ""),
+            escapeCSV(movement.loader_names || ""),
+          ].join(",");
+          csvContent += row + "\n";
         });
-        
-        fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.csv`;
+
+        fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(
+          fromDate
+        )}_to_${formatDateForAPI(toDate)}.csv`;
       } else {
         // RM CSV Headers
         csvContent += `S.No,Gate Entry No,Gate Type,Vehicle No,Document No,Name of Party,Description,Quantity,Date,Time,Security Guard,Edit Count,Time Remaining\n`;
-        
+
         // RM Data rows
         insights.results.forEach((entry, index) => {
           const row = [
             index + 1,
-            escapeCSV(entry.gate_entry_no || ''),
-            escapeCSV(entry.gate_type || ''),
-            escapeCSV(entry.vehicle_no || ''),
-            escapeCSV(entry.document_no || ''),
-            escapeCSV(entry.name_of_party || ''),
-            escapeCSV(entry.description_of_material || ''),
-            escapeCSV(entry.quantity || ''),
-            escapeCSV(entry.date_time ? new Date(entry.date_time).toLocaleDateString() : ''),
-            escapeCSV(entry.date_time ? new Date(entry.date_time).toLocaleTimeString() : ''),
-            escapeCSV(entry.security_name || ''),
-            escapeCSV(entry.edit_count || '0'),
-            escapeCSV(entry.time_remaining || 'Expired')
-          ].join(',');
-          csvContent += row + '\n';
+            escapeCSV(entry.gate_entry_no || ""),
+            escapeCSV(entry.gate_type || ""),
+            escapeCSV(entry.vehicle_no || ""),
+            escapeCSV(entry.document_no || ""),
+            escapeCSV(entry.name_of_party || ""),
+            escapeCSV(entry.description_of_material || ""),
+            escapeCSV(entry.quantity || ""),
+            escapeCSV(
+              entry.date_time
+                ? new Date(entry.date_time).toLocaleDateString()
+                : ""
+            ),
+            escapeCSV(
+              entry.date_time
+                ? new Date(entry.date_time).toLocaleTimeString()
+                : ""
+            ),
+            escapeCSV(entry.security_name || ""),
+            escapeCSV(entry.edit_count || "0"),
+            escapeCSV(entry.time_remaining || "Expired"),
+          ].join(",");
+          csvContent += row + "\n";
         });
-        
-        fileName = `RM_Movement_Report_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.csv`;
+
+        fileName = `RM_Movement_Report_${formatDateForAPI(
+          fromDate
+        )}_to_${formatDateForAPI(toDate)}.csv`;
       }
 
       // Save and share file
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         // For web platform - download CSV
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
+        const blob = new Blob([csvContent], {
+          type: "text/csv;charset=utf-8;",
+        });
+        const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', fileName);
-        link.style.visibility = 'hidden';
+        link.setAttribute("href", url);
+        link.setAttribute("download", fileName);
+        link.style.visibility = "hidden";
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        showAlert('Success', 'Report downloaded successfully!');
+
+        showAlert("Success", "Report downloaded successfully!");
       } else {
         // For mobile platforms
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
@@ -178,18 +228,17 @@ const AdminInsightsScreen = () => {
 
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Save Report',
+            mimeType: "text/csv",
+            dialogTitle: "Save Report",
           });
-          showAlert('Success', 'Report generated and shared successfully!');
+          showAlert("Success", "Report generated and shared successfully!");
         } else {
-          showAlert('Info', `Report saved to: ${fileUri}`);
+          showAlert("Info", `Report saved to: ${fileUri}`);
         }
       }
-
     } catch (error) {
-      console.error('Error generating report:', error);
-      showAlert('Error', `Failed to generate report: ${error.message}`);
+      console.error("Error generating report:", error);
+      showAlert("Error", `Failed to generate report: ${error.message}`);
     } finally {
       setDownloadingReport(false);
     }
@@ -197,10 +246,10 @@ const AdminInsightsScreen = () => {
 
   // Helper function to escape CSV fields
   const escapeCSV = (field) => {
-    if (field === null || field === undefined) return '';
+    if (field === null || field === undefined) return "";
     const str = String(field);
     // If field contains comma, newline, or quotes, wrap in quotes and escape internal quotes
-    if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+    if (str.includes(",") || str.includes("\n") || str.includes('"')) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -209,14 +258,17 @@ const AdminInsightsScreen = () => {
   // Alternative Excel export using a simple XML format (if you really need Excel)
   const handleDownloadExcelReport = async () => {
     if (!insights || !insights.results || insights.results.length === 0) {
-      showAlert('No Data', 'No data available to export. Please load some data first.');
+      showAlert(
+        "No Data",
+        "No data available to export. Please load some data first."
+      );
       return;
     }
 
     setDownloadingReport(true);
     try {
-      let xmlContent = '';
-      let fileName = '';
+      let xmlContent = "";
+      let fileName = "";
 
       // Create Excel XML structure
       xmlContent = `<?xml version="1.0"?>
@@ -237,24 +289,36 @@ const AdminInsightsScreen = () => {
   </Style>
  </Styles>
  
- <Worksheet ss:Name="${insightType === 'FG' ? 'FG Movement Report' : 'RM Movement Report'}">
+ <Worksheet ss:Name="${
+   insightType === "FG" ? "FG Movement Report" : "RM Movement Report"
+ }">
   <Table>`;
 
       // Add metadata rows
       const metadata = [
-        ['Report Type', insightType === 'FG' ? 'FG Vehicle Movement Report' : 'Raw Materials Movement Report'],
-        ['Date Range', `${formatDateForAPI(fromDate)} to ${formatDateForAPI(toDate)}`],
-        ['Warehouse Code', whCode || 'All'],
-        ['Site Code', siteCode || 'All'],
-        ['Total Records', insights.count || insights.results.length],
-        ['Generated On', new Date().toLocaleString()],
-        ['Generated By', user?.name || user?.username || 'Admin']
+        [
+          "Report Type",
+          insightType === "FG"
+            ? "FG Vehicle Movement Report"
+            : "Raw Materials Movement Report",
+        ],
+        [
+          "Date Range",
+          `${formatDateForAPI(fromDate)} to ${formatDateForAPI(toDate)}`,
+        ],
+        ["Warehouse Code", whCode || "All"],
+        ["Site Code", siteCode || "All"],
+        ["Total Records", insights.count || insights.results.length],
+        ["Generated On", new Date().toLocaleString()],
+        ["Generated By", user?.name || user?.username || "Admin"],
       ];
 
-      metadata.forEach(row => {
+      metadata.forEach((row) => {
         xmlContent += `<Row>`;
-        row.forEach(cell => {
-          xmlContent += `<Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(String(cell))}</Data></Cell>`;
+        row.forEach((cell) => {
+          xmlContent += `<Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
+            String(cell)
+          )}</Data></Cell>`;
         });
         xmlContent += `</Row>`;
       });
@@ -262,12 +326,30 @@ const AdminInsightsScreen = () => {
       // Empty row
       xmlContent += `<Row></Row>`;
 
-      if (insightType === 'FG') {
+      if (insightType === "FG") {
         // FG Headers
-        const headers = ['S.No', 'Date', 'Time', 'Gate Entry No', 'Vehicle No', 'Document Type', 'Movement Type', 'Warehouse', 'Security Guard', 'Remarks', 'Document Date', 'Document Age', 'Driver Name', 'KM Reading', 'Loader Names'];
+        const headers = [
+          "S.No",
+          "Date",
+          "Time",
+          "Gate Entry No",
+          "Vehicle No",
+          "Document Type",
+          "Movement Type",
+          "Warehouse",
+          "Security Guard",
+          "Remarks",
+          "Document Date",
+          "Document Age",
+          "Driver Name",
+          "KM Reading",
+          "Loader Names",
+        ];
         xmlContent += `<Row>`;
-        headers.forEach(header => {
-          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(header)}</Data></Cell>`;
+        headers.forEach((header) => {
+          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
+            header
+          )}</Data></Cell>`;
         });
         xmlContent += `</Row>`;
 
@@ -275,36 +357,58 @@ const AdminInsightsScreen = () => {
         insights.results.forEach((movement, index) => {
           const rowData = [
             index + 1,
-            movement.date || '',
-            movement.time || '',
-            movement.gate_entry_no || '',
-            movement.vehicle_no || '',
-            movement.document_type || '',
-            movement.movement_type || '',
-            movement.warehouse_name || movement.warehouse_code || '',
-            movement.security_name || '',
-            movement.remarks || '',
-            movement.document_date ? new Date(movement.document_date).toLocaleDateString() : '',
-            movement.document_age_time || '',
-            movement.driver_name || '',
-            movement.km_reading || '',
-            movement.loader_names || ''
+            movement.date || "",
+            movement.time || "",
+            movement.gate_entry_no || "",
+            movement.vehicle_no || "",
+            movement.document_type || "",
+            movement.movement_type || "",
+            movement.warehouse_name || movement.warehouse_code || "",
+            movement.security_name || "",
+            movement.remarks || "",
+            movement.document_date
+              ? new Date(movement.document_date).toLocaleDateString()
+              : "",
+            movement.document_age_time || "",
+            movement.driver_name || "",
+            movement.km_reading || "",
+            movement.loader_names || "",
           ];
 
           xmlContent += `<Row>`;
-          rowData.forEach(cell => {
-            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(String(cell))}</Data></Cell>`;
+          rowData.forEach((cell) => {
+            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(
+              String(cell)
+            )}</Data></Cell>`;
           });
           xmlContent += `</Row>`;
         });
 
-        fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.xls`;
+        fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(
+          fromDate
+        )}_to_${formatDateForAPI(toDate)}.xls`;
       } else {
         // RM Headers
-        const headers = ['S.No', 'Gate Entry No', 'Gate Type', 'Vehicle No', 'Document No', 'Name of Party', 'Description', 'Quantity', 'Date', 'Time', 'Security Guard', 'Edit Count', 'Time Remaining'];
+        const headers = [
+          "S.No",
+          "Gate Entry No",
+          "Gate Type",
+          "Vehicle No",
+          "Document No",
+          "Name of Party",
+          "Description",
+          "Quantity",
+          "Date",
+          "Time",
+          "Security Guard",
+          "Edit Count",
+          "Time Remaining",
+        ];
         xmlContent += `<Row>`;
-        headers.forEach(header => {
-          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(header)}</Data></Cell>`;
+        headers.forEach((header) => {
+          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
+            header
+          )}</Data></Cell>`;
         });
         xmlContent += `</Row>`;
 
@@ -312,28 +416,36 @@ const AdminInsightsScreen = () => {
         insights.results.forEach((entry, index) => {
           const rowData = [
             index + 1,
-            entry.gate_entry_no || '',
-            entry.gate_type || '',
-            entry.vehicle_no || '',
-            entry.document_no || '',
-            entry.name_of_party || '',
-            entry.description_of_material || '',
-            entry.quantity || '',
-            entry.date_time ? new Date(entry.date_time).toLocaleDateString() : '',
-            entry.date_time ? new Date(entry.date_time).toLocaleTimeString() : '',
-            entry.security_name || '',
-            entry.edit_count || '0',
-            entry.time_remaining || 'Expired'
+            entry.gate_entry_no || "",
+            entry.gate_type || "",
+            entry.vehicle_no || "",
+            entry.document_no || "",
+            entry.name_of_party || "",
+            entry.description_of_material || "",
+            entry.quantity || "",
+            entry.date_time
+              ? new Date(entry.date_time).toLocaleDateString()
+              : "",
+            entry.date_time
+              ? new Date(entry.date_time).toLocaleTimeString()
+              : "",
+            entry.security_name || "",
+            entry.edit_count || "0",
+            entry.time_remaining || "Expired",
           ];
 
           xmlContent += `<Row>`;
-          rowData.forEach(cell => {
-            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(String(cell))}</Data></Cell>`;
+          rowData.forEach((cell) => {
+            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(
+              String(cell)
+            )}</Data></Cell>`;
           });
           xmlContent += `</Row>`;
         });
 
-        fileName = `RM_Movement_Report_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.xls`;
+        fileName = `RM_Movement_Report_${formatDateForAPI(
+          fromDate
+        )}_to_${formatDateForAPI(toDate)}.xls`;
       }
 
       xmlContent += `
@@ -342,21 +454,21 @@ const AdminInsightsScreen = () => {
 </Workbook>`;
 
       // Save and share file
-      if (Platform.OS === 'web') {
-        const blob = new Blob([xmlContent], { 
-          type: 'application/vnd.ms-excel;charset=utf-8;' 
+      if (Platform.OS === "web") {
+        const blob = new Blob([xmlContent], {
+          type: "application/vnd.ms-excel;charset=utf-8;",
         });
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', fileName);
-        link.style.visibility = 'hidden';
+        link.setAttribute("href", url);
+        link.setAttribute("download", fileName);
+        link.style.visibility = "hidden";
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        showAlert('Success', 'Excel report downloaded successfully!');
+
+        showAlert("Success", "Excel report downloaded successfully!");
       } else {
         const fileUri = `${FileSystem.documentDirectory}${fileName}`;
         await FileSystem.writeAsStringAsync(fileUri, xmlContent, {
@@ -365,18 +477,20 @@ const AdminInsightsScreen = () => {
 
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/vnd.ms-excel',
-            dialogTitle: 'Save Excel Report',
+            mimeType: "application/vnd.ms-excel",
+            dialogTitle: "Save Excel Report",
           });
-          showAlert('Success', 'Excel report generated and shared successfully!');
+          showAlert(
+            "Success",
+            "Excel report generated and shared successfully!"
+          );
         } else {
-          showAlert('Info', `Excel report saved to: ${fileUri}`);
+          showAlert("Info", `Excel report saved to: ${fileUri}`);
         }
       }
-
     } catch (error) {
-      console.error('Error generating Excel report:', error);
-      showAlert('Error', `Failed to generate Excel report: ${error.message}`);
+      console.error("Error generating Excel report:", error);
+      showAlert("Error", `Failed to generate Excel report: ${error.message}`);
     } finally {
       setDownloadingReport(false);
     }
@@ -385,17 +499,17 @@ const AdminInsightsScreen = () => {
   // Helper function to escape XML
   const escapeXML = (str) => {
     return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   };
 
   const clearWarehouseSelection = () => {
-    setWhCode('');
-    setSiteCode('');
-    setWarehouseSearchText('');
+    setWhCode("");
+    setSiteCode("");
+    setWarehouseSearchText("");
     setShowWarehouseDropdown(false);
     setFilteredWarehouses([]);
   };
@@ -411,67 +525,63 @@ const AdminInsightsScreen = () => {
     console.log("Set siteCode to:", warehouse.site_code);
   };
 
- const loadWarehouses = async () => {
-  try {
-    const warehouseData = await adminAPI.getWarehouses();
-    setWarehouses(warehouseData);
-    console.log("Warehouses loaded:", warehouseData.length);
-  } catch (error) {
-    console.error('Error loading warehouses:', error);
-    showAlert('Error', 'Failed to load warehouse data');
-  }
-};
-
-
-
-useEffect(() => {
-  const fetchUser = async () => {
-    const u = await getCurrentUser();
-    if (!u) {
-      showAlert("Error", "User not logged in");
-      return;
+  const loadWarehouses = async () => {
+    try {
+      const warehouseData = await adminAPI.getWarehouses();
+      setWarehouses(warehouseData);
+      console.log("Warehouses loaded:", warehouseData.length);
+    } catch (error) {
+      console.error("Error loading warehouses:", error);
+      showAlert("Error", "Failed to load warehouse data");
     }
-    u.role = u.role?.toLowerCase().replace(/\s+/g, "");
-    console.log("Current user loaded:", u);
-    setUser(u);
   };
-  fetchUser();
-  loadWarehouses();
-}, []);
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      const u = await getCurrentUser();
+      if (!u) {
+        showAlert("Error", "User not logged in");
+        return;
+      }
+      u.role = u.role?.toLowerCase().replace(/\s+/g, "");
+      console.log("Current user loaded:", u);
+      setUser(u);
+    };
+    fetchUser();
+    loadWarehouses();
+  }, []);
 
+  useEffect(() => {
+    if (!user) return;
 
-useEffect(() => {
-  if (!user) return;
-  
-  const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
-  if (roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
-    console.log("🔒 Security Admin detected - pre-filling fields");
-    
-    if (user.warehouseCode) {
-      setWhCode(user.warehouseCode);
-      setWarehouseSearchText(user.warehouseCode);
-      console.log("✅ Set whCode to:", user.warehouseCode);
+    const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+    if (
+      roleNormalized.includes("securityadmin") &&
+      !roleNormalized.includes("itadmin")
+    ) {
+      console.log("🔒 Security Admin detected - pre-filling fields");
+
+      if (user.warehouseCode) {
+        setWhCode(user.warehouseCode);
+        setWarehouseSearchText(user.warehouseCode);
+        console.log("✅ Set whCode to:", user.warehouseCode);
+      }
+      if (user.siteCode) {
+        setSiteCode(user.siteCode);
+        console.log("✅ Set siteCode to:", user.siteCode);
+      }
     }
-    if (user.siteCode) {
-      setSiteCode(user.siteCode);
-      console.log("✅ Set siteCode to:", user.siteCode);
-    }
-  }
-}, [user]);
-
-
-
+  }, [user]);
 
   const handleWarehouseCodeChange = (text) => {
     console.log("🔍 handleWarehouseCodeChange called with:", text);
-    
+
     setWarehouseSearchText(text);
-    
+
     if (!text.trim()) {
       console.log("➡️ Empty text, clearing everything");
-      setWhCode('');  // Clear whCode when text is empty
-      setSiteCode('');
+      setWhCode(""); // Clear whCode when text is empty
+      setSiteCode("");
       setFilteredWarehouses([]);
       setShowWarehouseDropdown(false);
       return;
@@ -480,10 +590,10 @@ useEffect(() => {
     // Don't set whCode here - only set it when a warehouse is actually selected
     const searchTerm = text.toLowerCase();
     console.log("🔎 Search term:", searchTerm);
-    
+
     const filtered = warehouses.filter((warehouse) => {
-      const code = warehouse.warehouse_code?.toLowerCase() || '';
-      const name = warehouse.warehouse_name?.toLowerCase() || '';
+      const code = warehouse.warehouse_code?.toLowerCase() || "";
+      const name = warehouse.warehouse_name?.toLowerCase() || "";
       return code.includes(searchTerm) || name.includes(searchTerm);
     });
 
@@ -491,19 +601,19 @@ useEffect(() => {
     if (filtered.length > 0) {
       console.log("📋 First 3 filtered warehouses:", filtered.slice(0, 3));
     }
-    
+
     setFilteredWarehouses(filtered);
     setShowWarehouseDropdown(filtered.length > 0);
   };
 
   const loadDashboardStats = async () => {
     try {
-      if (insightType === 'FG') {
+      if (insightType === "FG") {
         const filters = {
           site_code: siteCode || null,
           warehouse_code: whCode || null,
           from_date: formatDateForAPI(fromDate),
-          to_date: formatDateForAPI(toDate)
+          to_date: formatDateForAPI(toDate),
         };
         const statsData = await adminAPI.getAdminDashboardStats(filters);
         setStats(statsData);
@@ -512,75 +622,84 @@ useEffect(() => {
           site_code: siteCode || null,
           warehouse_code: whCode || null,
           from_date: formatDateForAPI(fromDate),
-          to_date: formatDateForAPI(toDate)
+          to_date: formatDateForAPI(toDate),
         };
         const rmStats = await adminAPI.getAdminRMStatistics(filters);
         setStats(rmStats);
       }
     } catch (error) {
-      console.error('Error loading dashboard stats:', error);
+      console.error("Error loading dashboard stats:", error);
     }
   };
 
   const handleShowResults = async () => {
     if (!fromDate || !toDate) {
-      showAlert('Error', 'Please select both from and to dates');
+      showAlert("Error", "Please select both from and to dates");
       return;
     }
 
     // Clear previous results first
-    setInsights(null);  // Add this line to clear old data
+    setInsights(null);
 
     // Log the current filter values
-    console.log('=== FILTER VALUES BEFORE API CALL ===');
-    console.log('whCode:', whCode);
-    console.log('siteCode:', siteCode);
-    console.log('warehouseSearchText:', warehouseSearchText);
-    console.log('fromDate:', formatDateForAPI(fromDate));
-    console.log('toDate:', formatDateForAPI(toDate));
+    console.log("=== FILTER VALUES BEFORE API CALL ===");
+    console.log("whCode:", whCode);
+    console.log("siteCode:", siteCode);
+    console.log("warehouseSearchText:", warehouseSearchText);
+    console.log("fromDate:", formatDateForAPI(fromDate));
+    console.log("toDate:", formatDateForAPI(toDate));
 
     setLoading(true);
     try {
-      if (insightType === 'FG') {
+      if (insightType === "FG") {
         const filters = {
           from_date: formatDateForAPI(fromDate),
           to_date: formatDateForAPI(toDate),
-          warehouse_code: whCode && whCode.trim() !== '' ? whCode : null,
-          site_code: siteCode && siteCode.trim() !== '' ? siteCode : null,
+          warehouse_code: whCode && whCode.trim() !== "" ? whCode : null,
+          site_code: siteCode && siteCode.trim() !== "" ? siteCode : null,
           vehicle_no: null,
-          movement_type: null
+          movement_type: null,
         };
-        
-        console.log('✅ FG Filters being sent to API:', JSON.stringify(filters, null, 2));
-        
+
+        console.log(
+          "✅ FG Filters being sent to API:",
+          JSON.stringify(filters, null, 2)
+        );
+
         const data = await insightsAPI.getFilteredMovements(filters);
-        console.log('✅ Full API response:', data);
-        console.log('✅ First record warehouse_code:', data.results[0]?.warehouse_code || data.results[0]?.to_warehouse_code);
-        console.log('✅ Results received:', data.count, 'records');
+        console.log("✅ Full API response:", data);
+        console.log(
+          "✅ First record warehouse_code:",
+          data.results[0]?.warehouse_code || data.results[0]?.to_warehouse_code
+        );
+        console.log("✅ Results received:", data.count, "records");
         setInsights(data);
+        setCurrentPage(1); // Reset to first page when new data loads
 
         await loadDashboardStats();
-
       } else {
         const filters = {
           from_date: formatDateForAPI(fromDate),
           to_date: formatDateForAPI(toDate),
-          warehouse_code: whCode && whCode.trim() !== '' ? whCode : null,
-          site_code: siteCode && siteCode.trim() !== '' ? siteCode : null,
+          warehouse_code: whCode && whCode.trim() !== "" ? whCode : null,
+          site_code: siteCode && siteCode.trim() !== "" ? siteCode : null,
           vehicle_no: null,
-          movement_type: null
+          movement_type: null,
         };
-        
-        console.log('✅ RM Filters being sent to API:', JSON.stringify(filters, null, 2));
-        const data = await rmAPI.getFilteredRMEntries(filters);
-        console.log('✅ Results received:', data.count, 'records');
-        setInsights(data);
-        await loadDashboardStats();
 
+        console.log(
+          "✅ RM Filters being sent to API:",
+          JSON.stringify(filters, null, 2)
+        );
+        const data = await rmAPI.getFilteredRMEntries(filters);
+        console.log("✅ Results received:", data.count, "records");
+        setInsights(data);
+        setCurrentPage(1); // Reset to first page when new data loads
+        await loadDashboardStats();
       }
     } catch (error) {
-      console.error('Error fetching insights:', error);
-      showAlert('Error', `Failed to load insights data: ${error.message}`);
+      console.error("Error fetching insights:", error);
+      showAlert("Error", `Failed to load insights data: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -590,53 +709,48 @@ useEffect(() => {
     setInsightType(type);
     setInsights(null);
     setStats(null);
-    // setTimeout(() => {
-    //   loadDashboardStats();
-    // }, 100);
   };
 
   const renderDatePicker = (value, onChange, show, setShow, label) => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS === "web") {
       return (
         <input
           type="date"
-          value={value.toISOString().split('T')[0]}
+          value={value.toISOString().split("T")[0]}
           onChange={(e) => {
             const newDate = new Date(e.target.value);
             onChange(null, newDate);
           }}
           style={{
             borderWidth: 1,
-            borderColor: '#aaa',
+            borderColor: "#aaa",
             padding: 5,
             borderRadius: 4,
-            backgroundColor: 'white',
+            backgroundColor: "white",
             fontSize: 14,
-            width: '90%',
+            width: "90%",
             minHeight: 15,
           }}
         />
       );
     }
-    
+
     return (
       <>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.datePickerButton}
           onPress={() => setShow(true)}
         >
-          <Text style={styles.datePickerText}>
-            {formatDateForAPI(value)}
-          </Text>
+          <Text style={styles.datePickerText}>{formatDateForAPI(value)}</Text>
         </TouchableOpacity>
-        
+
         {show && (
           <DateTimePicker
             value={value}
             mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
             onChange={(event, selectedDate) => {
-              setShow(Platform.OS === 'ios');
+              setShow(Platform.OS === "ios");
               if (selectedDate) {
                 onChange(event, selectedDate);
               }
@@ -648,14 +762,14 @@ useEffect(() => {
   };
 
   const onFromDateChange = (event, selectedDate) => {
-    setShowFromDatePicker(Platform.OS === 'ios');
+    setShowFromDatePicker(Platform.OS === "ios");
     if (selectedDate) {
       setFromDate(selectedDate);
     }
   };
 
   const onToDateChange = (event, selectedDate) => {
-    setShowToDatePicker(Platform.OS === 'ios');
+    setShowToDatePicker(Platform.OS === "ios");
     if (selectedDate) {
       setToDate(selectedDate);
     }
@@ -663,9 +777,17 @@ useEffect(() => {
 
   if (user) {
     const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
-    if (!roleNormalized.includes("securityadmin") && !roleNormalized.includes("itadmin")) {
+    if (
+      !roleNormalized.includes("securityadmin") &&
+      !roleNormalized.includes("itadmin")
+    ) {
       return (
-        <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <View
+          style={[
+            styles.container,
+            { justifyContent: "center", alignItems: "center" },
+          ]}
+        >
           <Text style={{ fontSize: 16, fontWeight: "bold", color: "red" }}>
             Access Denied - You don't have permission to view Admin Insights
           </Text>
@@ -677,23 +799,31 @@ useEffect(() => {
   const renderStats = () => {
     if (!stats) return null;
 
-    if (insightType === 'FG') {
+    if (insightType === "FG") {
       return (
         <View style={styles.summaryBox}>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{(stats.today?.gate_in || 0) + (stats.today?.gate_out || 0)}</Text>
+            <Text style={styles.summaryCount}>
+              {(stats.today?.gate_in || 0) + (stats.today?.gate_out || 0)}
+            </Text>
             <Text>Today's Total</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.unique_vehicles || 0}</Text>
+            <Text style={styles.summaryCount}>
+              {stats.unique_vehicles || 0}
+            </Text>
             <Text>Unique Vehicles</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.today?.gate_in || stats.gate_in || 0}</Text>
+            <Text style={styles.summaryCount}>
+              {stats.today?.gate_in || stats.gate_in || 0}
+            </Text>
             <Text>Gate-In</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.today?.gate_out || stats.gate_out || 0}</Text>
+            <Text style={styles.summaryCount}>
+              {stats.today?.gate_out || stats.gate_out || 0}
+            </Text>
             <Text>Gate-Out</Text>
           </View>
         </View>
@@ -714,7 +844,9 @@ useEffect(() => {
             <Text>RM Gate-Out</Text>
           </View>
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>{stats.unique_vehicles || 0}</Text>
+            <Text style={styles.summaryCount}>
+              {stats.unique_vehicles || 0}
+            </Text>
             <Text>Unique Vehicles</Text>
           </View>
         </View>
@@ -722,56 +854,24 @@ useEffect(() => {
     }
   };
 
-  const renderInsightTable = () => {
-    if (!insights) return null;
-
-    return (
-      <>
-        {/* Download Buttons */}
-        <View style={styles.downloadButtonContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.downloadButton,
-              (!insights || !insights.results || insights.results.length === 0 || downloadingReport) && styles.downloadButtonDisabled
-            ]} 
-            onPress={handleDownloadReport}
-            disabled={!insights || !insights.results || insights.results.length === 0 || downloadingReport}
-          >
-            {downloadingReport ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.downloadButtonText}>📊 Download CSV Report</Text>
-            )}
-          </TouchableOpacity>
-          
-          <View style={{ height: 10 }} />
-          
-          <TouchableOpacity 
-            style={[
-              styles.downloadButtonExcel,
-              (!insights || !insights.results || insights.results.length === 0 || downloadingReport) && styles.downloadButtonDisabled
-            ]} 
-            onPress={handleDownloadExcelReport}
-            disabled={!insights || !insights.results || insights.results.length === 0 || downloadingReport}
-          >
-            {downloadingReport ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.downloadButtonText}>📈 Download Excel Report</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Table Content */}
-        {insightType === 'FG' ? renderFGTable() : renderRMTable()}
-      </>
-    );
-  };
-
   const renderFGTable = () => (
     <View style={styles.tableContainer}>
-      <Text style={styles.tableTitle}>FG Vehicle Movement Records ({insights.count})</Text>
-      
+      <Text style={styles.tableTitle}>
+        FG Vehicle Movement Records ({insights.count})
+      </Text>
+
+      {/* Pagination Info */}
+      {insights && insights.results && insights.results.length > 0 && (
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            Showing {startItem} to {endItem} of {totalItems} records
+          </Text>
+          <Text style={styles.paginationText}>
+            Page {currentPage} of {totalPages}
+          </Text>
+        </View>
+      )}
+
       <ScrollView horizontal>
         <View>
           <View style={styles.tableHeader}>
@@ -791,7 +891,7 @@ useEffect(() => {
             <Text style={styles.headerCell}>Loader Names</Text>
           </View>
 
-          {insights.results.map((movement, index) => (
+          {currentResults.map((movement, index) => (
             <View key={index} style={styles.tableRow}>
               <Text style={styles.cell}>{movement.date}</Text>
               <Text style={styles.cell}>{movement.time}</Text>
@@ -799,21 +899,28 @@ useEffect(() => {
               <Text style={styles.cell}>{movement.vehicle_no}</Text>
               <Text style={styles.cell}>{movement.document_type}</Text>
               <Text style={styles.cell}>{movement.movement_type}</Text>
-              <Text style={styles.cell}> {movement.warehouse_name  || movement.warehouse_code 
-              || movement.to_warehouse_code || movement.from_warehouse_code || '--'}</Text>
-              
+              <Text style={styles.cell}>
+                {" "}
+                {movement.warehouse_name ||
+                  movement.warehouse_code ||
+                  movement.to_warehouse_code ||
+                  movement.from_warehouse_code ||
+                  "--"}
+              </Text>
+
               <Text style={styles.cell}>{movement.security_name}</Text>
               <Text style={styles.cell}>{movement.remarks}</Text>
               <Text style={styles.cell}>
-                {movement.document_date 
+                {movement.document_date
                   ? new Date(movement.document_date).toLocaleDateString()
-                  : '--'
-                }
+                  : "--"}
               </Text>
-              <Text style={styles.cell}>{movement.document_age_time || '--'}</Text>
-              <Text style={styles.cell}>{movement.driver_name || '--'}</Text>
-              <Text style={styles.cell}>{movement.km_reading || '--'}</Text>
-              <Text style={styles.cell}>{movement.loader_names || '--'}</Text>
+              <Text style={styles.cell}>
+                {movement.document_age_time || "--"}
+              </Text>
+              <Text style={styles.cell}>{movement.driver_name || "--"}</Text>
+              <Text style={styles.cell}>{movement.km_reading || "--"}</Text>
+              <Text style={styles.cell}>{movement.loader_names || "--"}</Text>
             </View>
           ))}
         </View>
@@ -823,8 +930,22 @@ useEffect(() => {
 
   const renderRMTable = () => (
     <View style={styles.tableContainer}>
-      <Text style={styles.tableTitle}>RM Movement Records ({insights.count})</Text>
-      
+      <Text style={styles.tableTitle}>
+        RM Movement Records ({insights.count})
+      </Text>
+
+      {/* Pagination Info */}
+      {insights && insights.results && insights.results.length > 0 && (
+        <View style={styles.paginationInfo}>
+          <Text style={styles.paginationText}>
+            Showing {startItem} to {endItem} of {totalItems} records
+          </Text>
+          <Text style={styles.paginationText}>
+            Page {currentPage} of {totalPages}
+          </Text>
+        </View>
+      )}
+
       <ScrollView horizontal>
         <View>
           <View style={styles.tableHeader}>
@@ -842,14 +963,16 @@ useEffect(() => {
             <Text style={styles.headerCell}>Time Remaining</Text>
           </View>
 
-          {insights.results.map((entry, index) => (
+          {currentResults.map((entry, index) => (
             <View key={index} style={styles.tableRow}>
               <Text style={styles.cell}>{entry.gate_entry_no}</Text>
               <Text style={styles.cell}>{entry.gate_type}</Text>
               <Text style={styles.cell}>{entry.vehicle_no}</Text>
               <Text style={styles.cell}>{entry.document_no}</Text>
               <Text style={styles.cell}>{entry.name_of_party}</Text>
-              <Text style={styles.cell} numberOfLines={2}>{entry.description_of_material}</Text>
+              <Text style={styles.cell} numberOfLines={2}>
+                {entry.description_of_material}
+              </Text>
               <Text style={styles.cell}>{entry.quantity}</Text>
               <Text style={styles.cell}>
                 {new Date(entry.date_time).toLocaleDateString()}
@@ -859,7 +982,9 @@ useEffect(() => {
               </Text>
               <Text style={styles.cell}>{entry.security_name}</Text>
               <Text style={styles.cell}>{entry.edit_count || 0}</Text>
-              <Text style={styles.cell}>{entry.time_remaining || 'Expired'}</Text>
+              <Text style={styles.cell}>
+                {entry.time_remaining || "Expired"}
+              </Text>
             </View>
           ))}
         </View>
@@ -868,251 +993,339 @@ useEffect(() => {
   );
 
   return (
-  <ScrollView contentContainerStyle={styles.container}>
-    <View style={styles.card}>
-      
-      {/* Insight Type Toggle */}
-      <View style={styles.insightTypeContainer}>
-        <Text style={styles.insightTypeLabel}>Insight Type:</Text>
-        <View style={styles.insightTypeRow}>
-          {['FG', 'RM'].map((type) => (
-            <TouchableOpacity
-              key={type}
-              style={[
-                styles.insightTypeButton,
-                insightType === type && styles.insightTypeButtonActive
-              ]}
-              onPress={() => handleInsightTypeChange(type)}
-              disabled={loading}
-            >
-              <Text style={[
-                styles.insightTypeButtonText,
-                insightType === type && styles.insightTypeButtonTextActive
-              ]}>
-                {type} Insights
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <Text style={styles.sectionTitle}>
-        {insightType === 'FG' ? 'FG Vehicle Movements' : 'Raw Materials Movements'}
-      </Text>
-
-      {/* Filter Inputs - WITH OVERFLOW VISIBLE */}
-      <View style={[styles.inputRow, { overflow: 'visible', zIndex: 1000 }]}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={{ overflow: 'visible' }}
-          contentContainerStyle={{ overflow: 'visible' }}
-        >
-          <View style={[styles.inputInline, { overflow: 'visible' }]}>
-            {/* From Date */}
-            <View style={styles.inputBox}>
-              <Text>From Date</Text>
-              {renderDatePicker(
-                fromDate,
-                onFromDateChange,
-                showFromDatePicker,
-                setShowFromDatePicker,
-                'From Date'
-              )}
-            </View>
-
-            {/* To Date */}
-            <View style={styles.inputBox}>
-              <Text>To Date</Text>
-              {renderDatePicker(
-                toDate,
-                onToDateChange,
-                showToDatePicker,
-                setShowToDatePicker,
-                'To Date'
-              )}
-            </View>
-           {/* Warehouse Code with Visible Dropdown */}
-            <View style={[styles.inputBox, { overflow: 'visible', zIndex: 9999 }]}>
-              <Text>Warehouse Code</Text>
-              <View style={{ position: 'relative' }}>
-                <TextInput 
+    <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.card}>
+        {/* Insight Type Toggle */}
+        <View style={styles.insightTypeContainer}>
+          <Text style={styles.insightTypeLabel}>Insight Type:</Text>
+          <View style={styles.insightTypeRow}>
+            {["FG", "RM"].map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={[
+                  styles.insightTypeButton,
+                  insightType === type && styles.insightTypeButtonActive,
+                ]}
+                onPress={() => handleInsightTypeChange(type)}
+                disabled={loading}
+              >
+                <Text
                   style={[
-                    styles.input, 
-                    isSecurityAdmin() && styles.inputDisabled
-                  ]} 
-                  value={warehouseSearchText} 
-                  onChangeText={handleWarehouseCodeChange}
-                  placeholder="Type to search..."
-                  editable={!isSecurityAdmin()}
-                  onFocus={() => {
-                    // Show dropdown when focusing if there's text
-                    if (warehouseSearchText && !isSecurityAdmin()) {
-                      handleWarehouseCodeChange(warehouseSearchText);
-                    }
-                  }}
-                  autoCapitalize="characters"
-                />
-                
-                {/* Clear Button - only show for non-Security Admin */}
-                {warehouseSearchText && !isSecurityAdmin() ? (
-                  <TouchableOpacity 
-                    style={{
-                      position: 'absolute',
-                      right: 10,
-                      top: '50%',
-                      transform: [{ translateY: -10 }],
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
-                      backgroundColor: '#999',
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      zIndex: 2,
-                    }}
-                    onPress={clearWarehouseSelection}
-                  >
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14 }}>×</Text>
-                  </TouchableOpacity>
-                ) : null}
+                    styles.insightTypeButtonText,
+                    insightType === type && styles.insightTypeButtonTextActive,
+                  ]}
+                >
+                  {type} Insights
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
 
-                {/* Dropdown with explicit visibility */}
-                {showWarehouseDropdown && filteredWarehouses.length > 0 && (
-                  <View style={{
-                    position: 'absolute',
-                    top: 35,
-                    left: 0,
-                    right: 0,
-                    backgroundColor: '#fff',
-                    borderWidth: 1,
-                    borderColor: '#ddd',
-                    borderTopWidth: 0,
-                    borderRadius: 4,
-                    borderTopLeftRadius: 0,
-                    borderTopRightRadius: 0,
-                    maxHeight: 200,
-                    zIndex: 999999,
-                    elevation: 999,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 5,
-                  }}>
-                    <ScrollView
-                      style={{ maxHeight: 200 }}
-                      nestedScrollEnabled={true}
-                      keyboardShouldPersistTaps="handled"
-                    >
-                      {filteredWarehouses.map((warehouse, index) => (
-                        <TouchableOpacity
-                          key={`${warehouse.warehouse_code}-${index}`}
-                          style={{
-                            padding: 12,
-                            borderBottomWidth: 1,
-                            borderBottomColor: '#eee',
-                            backgroundColor: '#fff',
-                          }}
-                          onPress={() => selectWarehouse(warehouse)}
-                        >
-                          <Text style={{
-                            fontSize: 14,
-                            fontWeight: 'bold',
-                            color: '#1976d2',
-                            marginBottom: 2,
-                          }}>
-                            {warehouse.warehouse_code}
-                          </Text>
-                          <Text style={{
-                            fontSize: 13,
-                            color: '#666',
-                          }}>
-                            {warehouse.warehouse_name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
+        <Text style={styles.sectionTitle}>
+          {insightType === "FG"
+            ? "FG Vehicle Movements"
+            : "Raw Materials Movements"}
+        </Text>
+
+        {/* Filter Inputs - WITH OVERFLOW VISIBLE */}
+        <View style={[styles.inputRow, { overflow: "visible", zIndex: 1000 }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ overflow: "visible" }}
+            contentContainerStyle={{ overflow: "visible" }}
+          >
+            <View style={[styles.inputInline, { overflow: "visible" }]}>
+              {/* From Date */}
+              <View style={styles.inputBox}>
+                <Text>From Date</Text>
+                {renderDatePicker(
+                  fromDate,
+                  onFromDateChange,
+                  showFromDatePicker,
+                  setShowFromDatePicker,
+                  "From Date"
                 )}
               </View>
+
+              {/* To Date */}
+              <View style={styles.inputBox}>
+                <Text>To Date</Text>
+                {renderDatePicker(
+                  toDate,
+                  onToDateChange,
+                  showToDatePicker,
+                  setShowToDatePicker,
+                  "To Date"
+                )}
+              </View>
+              {/* Warehouse Code with Visible Dropdown */}
+              <View
+                style={[styles.inputBox, { overflow: "visible", zIndex: 9999 }]}
+              >
+                <Text>Warehouse Code</Text>
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      isSecurityAdmin() && styles.inputDisabled,
+                    ]}
+                    value={warehouseSearchText}
+                    onChangeText={handleWarehouseCodeChange}
+                    placeholder="Type to search..."
+                    editable={!isSecurityAdmin()}
+                    onFocus={() => {
+                      // Show dropdown when focusing if there's text
+                      if (warehouseSearchText && !isSecurityAdmin()) {
+                        handleWarehouseCodeChange(warehouseSearchText);
+                      }
+                    }}
+                    autoCapitalize="characters"
+                  />
+
+                  {/* Clear Button - only show for non-Security Admin */}
+                  {warehouseSearchText && !isSecurityAdmin() ? (
+                    <TouchableOpacity
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: [{ translateY: -10 }],
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: "#999",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 2,
+                      }}
+                      onPress={clearWarehouseSelection}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontWeight: "bold",
+                          fontSize: 14,
+                        }}
+                      >
+                        ×
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+
+                  {/* Dropdown with explicit visibility */}
+                  {showWarehouseDropdown && filteredWarehouses.length > 0 && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 35,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: "#fff",
+                        borderWidth: 1,
+                        borderColor: "#ddd",
+                        borderTopWidth: 0,
+                        borderRadius: 4,
+                        borderTopLeftRadius: 0,
+                        borderTopRightRadius: 0,
+                        maxHeight: 200,
+                        zIndex: 999999,
+                        elevation: 999,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 5,
+                      }}
+                    >
+                      <ScrollView
+                        style={{ maxHeight: 200 }}
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filteredWarehouses.map((warehouse, index) => (
+                          <TouchableOpacity
+                            key={`${warehouse.warehouse_code}-${index}`}
+                            style={{
+                              padding: 12,
+                              borderBottomWidth: 1,
+                              borderBottomColor: "#eee",
+                              backgroundColor: "#fff",
+                            }}
+                            onPress={() => selectWarehouse(warehouse)}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight: "bold",
+                                color: "#1976d2",
+                                marginBottom: 2,
+                              }}
+                            >
+                              {warehouse.warehouse_code}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                color: "#666",
+                              }}
+                            >
+                              {warehouse.warehouse_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Site Code */}
+
+              <View style={styles.inputBox}>
+                <Text>Site Code</Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    siteCode && styles.inputFilled,
+                    isSecurityAdmin() && styles.inputDisabled,
+                  ]}
+                  value={siteCode}
+                  onChangeText={setSiteCode}
+                  placeholder="Auto-filled or manual"
+                  editable={!isSecurityAdmin()}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.showButton}
+                onPress={handleShowResults}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.showButtonText}>Show Results</Text>
+                )}
+              </TouchableOpacity>
             </View>
+          </ScrollView>
+        </View>
 
-            {/* Site Code */}
-                      
-          <View style={styles.inputBox}>
-            <Text>Site Code</Text>
-            <TextInput 
-              style={[
-                styles.input, 
-                siteCode && styles.inputFilled,
-                isSecurityAdmin() && styles.inputDisabled
-              ]} 
-              value={siteCode} 
-              onChangeText={setSiteCode} 
-              placeholder="Auto-filled or manual"
-              editable={!isSecurityAdmin()}
-            />
-          </View>
+        {/* Summary Stats */}
+        {renderStats()}
 
-            <TouchableOpacity 
-              style={styles.showButton} 
-              onPress={handleShowResults}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.showButtonText}>Show Results</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+        {/* Table Content */}
+        {insights && (insightType === "FG" ? renderFGTable() : renderRMTable())}
+
+        {/* Pagination Controls */}
+        {insights &&
+          insights.results &&
+          insights.results.length > itemsPerPage && (
+            <View style={styles.paginationControls}>
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  currentPage === 1 && styles.paginationButtonDisabled,
+                ]}
+                onPress={goToFirstPage}
+                disabled={currentPage === 1}
+              >
+                <Text style={styles.paginationButtonText}>⏮️</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  currentPage === 1 && styles.paginationButtonDisabled,
+                ]}
+                onPress={goToPreviousPage}
+                disabled={currentPage === 1}
+              >
+                <Text style={styles.paginationButtonText}>⬅️</Text>
+              </TouchableOpacity>
+
+              <View style={styles.pageInputContainer}>
+                <TextInput
+                  style={styles.pageInput}
+                  value={currentPage.toString()}
+                  onChangeText={(text) => {
+                    const page = parseInt(text) || 1;
+                    goToPage(page);
+                  }}
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+                <Text style={styles.pageInputLabel}>of {totalPages}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  currentPage === totalPages && styles.paginationButtonDisabled,
+                ]}
+                onPress={goToNextPage}
+                disabled={currentPage === totalPages}
+              >
+                <Text style={styles.paginationButtonText}>➡️</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.paginationButton,
+                  currentPage === totalPages && styles.paginationButtonDisabled,
+                ]}
+                onPress={goToLastPage}
+                disabled={currentPage === totalPages}
+              >
+                <Text style={styles.paginationButtonText}>⏭️</Text>
+              </TouchableOpacity>
+            </View>
+          )}
       </View>
 
-      {/* Summary Stats */}
-      {renderStats()}
+      {/* Download Buttons OUTSIDE the card */}
+      {insights && insights.results && insights.results.length > 0 && (
+        <View style={styles.downloadButtonContainer}>
+          <TouchableOpacity
+            style={[
+              styles.downloadButton,
+              downloadingReport && styles.downloadButtonDisabled,
+            ]}
+            onPress={handleDownloadReport}
+            disabled={downloadingReport}
+          >
+            {downloadingReport ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.downloadButtonText}>
+                📊 Download CSV Report
+              </Text>
+            )}
+          </TouchableOpacity>
 
-      {/* Table Content - NO DOWNLOAD BUTTONS HERE */}
-      {insights && (insightType === 'FG' ? renderFGTable() : renderRMTable())}
-    </View>
+          <View style={{ height: 10 }} />
 
-    {/* Download Buttons OUTSIDE the card */}
-    {insights && insights.results && insights.results.length > 0 && (
-      <View style={styles.downloadButtonContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.downloadButton,
-            downloadingReport && styles.downloadButtonDisabled
-          ]} 
-          onPress={handleDownloadReport}
-          disabled={downloadingReport}
-        >
-          {downloadingReport ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.downloadButtonText}>📊 Download CSV Report</Text>
-          )}
-        </TouchableOpacity>
-        
-        <View style={{ height: 10 }} />
-        
-        <TouchableOpacity 
-          style={[
-            styles.downloadButtonExcel,
-            downloadingReport && styles.downloadButtonDisabled
-          ]} 
-          onPress={handleDownloadExcelReport}
-          disabled={downloadingReport}
-        >
-          {downloadingReport ? (
-            <ActivityIndicator color="#fff" size="small" />
-          ) : (
-            <Text style={styles.downloadButtonText}>📈 Download Excel Report</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    )}
-  </ScrollView>
-);
+          <TouchableOpacity
+            style={[
+              styles.downloadButtonExcel,
+              downloadingReport && styles.downloadButtonDisabled,
+            ]}
+            onPress={handleDownloadExcelReport}
+            disabled={downloadingReport}
+          >
+            {downloadingReport ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={styles.downloadButtonText}>
+                📈 Download Excel Report
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+    </ScrollView>
+  );
 };
 
 export default AdminInsightsScreen;
