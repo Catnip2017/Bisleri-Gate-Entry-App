@@ -244,10 +244,19 @@ def get_rm_statistics(
 ):
     """Get raw materials statistics"""
     try:
+        # ✅ FIX: Normalize roles like you do everywhere else
+        def normalize_roles(role_string: str) -> List[str]:
+            if not role_string:
+                return []
+            return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
+        
+        current_roles = normalize_roles(current_user.role)
+        
         base_query = db.query(RawMaterialsData)
         
-        # Filter by warehouse for non-admins
-        if current_user.role != "Admin":
+        # ✅ FIX: Check for normalized admin roles
+        if not any(r in ["securityadmin", "itadmin"] for r in current_roles):
+            # Non-admin: filter by warehouse
             base_query = base_query.filter(
                 RawMaterialsData.warehouse_code == current_user.warehouse_code
             )
@@ -285,7 +294,7 @@ def get_rm_statistics(
     except Exception as e:
         print(f"Error getting RM statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
-    
+       
 # ✅ ENHANCED: Admin filtered RM entries
 @router.post("/admin-filtered-entries")
 def get_admin_filtered_rm_entries(
