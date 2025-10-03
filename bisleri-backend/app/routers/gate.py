@@ -720,7 +720,7 @@ def create_manual_gate_entry(
 @router.get("/unassigned-documents/{vehicle_no}")
 def get_unassigned_documents_for_vehicle(
     vehicle_no: str,
-    hours_back: int = 8,  # Default 8 hour, can be made configurable
+    hours_back: int = 24,  # Default 24 hour, can be made configurable
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):

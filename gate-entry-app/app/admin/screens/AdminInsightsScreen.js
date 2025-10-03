@@ -134,7 +134,7 @@ const AdminInsightsScreen = () => {
 
       if (insightType === "FG") {
         // FG CSV Headers
-        csvContent += `S.No,Date,Time,Gate Entry No,Vehicle No, Document No, Document Type,Movement Type,Warehouse,Security Guard,Remarks,Document Date,Document Age,Driver Name,KM Reading,Loader Names\n`;
+        csvContent += `S.No,Date,Time,Gate Entry No,Vehicle No,Document No,Document Type,Movement Type,Warehouse,Security Guard,Remarks,Document Date,Document Age,Driver Name,KM Reading,Loader Names\n`;
 
         // FG Data rows
         insights.results.forEach((movement, index) => {
