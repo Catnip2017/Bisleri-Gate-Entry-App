@@ -108,7 +108,7 @@ def get_filtered_rm_entries(
         # Execute query
         entries = query.order_by(
             RawMaterialsData.date_time.desc()
-        ).limit(500).all()
+        ).limit(5000).all()
         
         # Format response with edit status
         result_list = []
@@ -349,7 +349,7 @@ def get_admin_filtered_rm_entries(
         # Execute query
         entries = query.order_by(
             RawMaterialsData.date_time.desc()
-        ).limit(500).all()
+        ).limit(5000).all()
         
         # Format response with edit status
         result_list = []
