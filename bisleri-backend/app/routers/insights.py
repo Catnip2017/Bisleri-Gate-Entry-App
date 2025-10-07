@@ -57,7 +57,7 @@ def get_enhanced_filtered_movements(
         movements = query.order_by(
             InsightsData.date.desc(), 
             InsightsData.time.desc()
-        ).limit(500).all()
+        ).all()
         
         # ✅ NEW: Enhanced response with operational edit status
         result_list = []
