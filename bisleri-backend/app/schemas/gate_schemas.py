@@ -88,6 +88,9 @@ class MultiDocumentManualEntryCreate(BaseModel):
     vehicle_no: str  # Mandatory
     no_of_documents: int = 0  # ✅ CHANGED: Default to 0 for empty vehicle
     remarks: Optional[str] = None
+    driver_name: Optional[str] = None
+    km_reading: Optional[str] = None
+    loader_names: Optional[str] = None
     
     # ✅ UPDATED: Validation for no_of_documents - now allows 0 for empty vehicles
     @validator('no_of_documents')

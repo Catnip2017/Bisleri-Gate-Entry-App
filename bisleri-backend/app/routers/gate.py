@@ -1147,9 +1147,9 @@ def create_multi_document_manual_entry(
                 document_date=now,  # Use gate entry date
                 edit_count=0,
                 # Empty vehicles don't need document assignment
-                driver_name=None,
-                km_reading=None,
-                loader_names=None
+                driver_name=entry.driver_name,
+                km_reading=entry.km_reading,
+                loader_names=entry.loader_names,
             )
             
             db.add(insight_record)
@@ -1185,9 +1185,9 @@ def create_multi_document_manual_entry(
                     document_date=now,  # Gate entry date, not document date
                     edit_count=0,
                     # Mark as unassigned - these need document assignment
-                    driver_name=None,
-                    km_reading=None,
-                    loader_names=None
+                    driver_name=entry.driver_name,
+                    km_reading=entry.km_reading,
+                    loader_names=entry.loader_names,
                 )
                 
                 db.add(insight_record)

@@ -196,7 +196,14 @@ def update_operational_data(
             "operational_complete": insights_record.is_operational_data_complete(),
             "edit_status": insights_record.get_edit_status(),
             "time_remaining": insights_record.get_time_remaining(),
-            "edit_button_config": updated_button_config
+            "edit_button_config": updated_button_config,
+            "updated_data": {
+            "driver_name": insights_record.driver_name,
+            "km_reading": insights_record.km_reading,
+            "loader_names": insights_record.loader_names,
+            "last_edited_at": insights_record.last_edited_at.isoformat(),
+            "edit_count": insights_record.edit_count,
+    }
         }
         
     except HTTPException:
