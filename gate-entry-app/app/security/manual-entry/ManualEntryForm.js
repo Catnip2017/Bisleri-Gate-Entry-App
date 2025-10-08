@@ -38,19 +38,6 @@ const ManualEntryForm = ({ userData }) => {
     loaderNames: preFilledLoaderNames,
     });
 
-  // Update form when userData or parameters change
-  useEffect(() => {
-    if (preFilledVehicleNo) {
-      setFormData(prev => ({
-        ...prev,
-        vehicleNo: preFilledVehicleNo.toUpperCase(),
-        gateType: preFilledGateType,
-        driverName: preFilledDriverName,      // ✅ ADD
-        kmReading: preFilledKMReading,        // ✅ ADD
-        loaderNames: preFilledLoaderNames,
-      }));
-    }
-  }, [preFilledVehicleNo, preFilledGateType, searchParams]);
 
   const updateField = (field, value) => {
     setFormData(prev => ({
@@ -66,31 +53,6 @@ const ManualEntryForm = ({ userData }) => {
       return false;
     }
     
-    // // ✅ ADD THESE 3 VALIDATIONS:
-    // if (!formData.driverName?.trim()) {
-    //   showAlert('Validation Error', 'Driver name is required');
-    //   return false;
-    // }
-    
-    // if (formData.driverName.trim().length < 2) {
-    //   showAlert('Validation Error', 'Driver name must be at least 2 characters');
-    //   return false;
-    // }
-    
-    // if (!formData.kmReading?.trim()) {
-    //   showAlert('Validation Error', 'KM reading is required');
-    //   return false;
-    // }
-    
-    // if (formData.kmReading.trim().length < 3 || formData.kmReading.trim().length > 6) {
-    //   showAlert('Validation Error', 'KM reading must be 3-6 digits');
-    //   return false;
-    // }
-    
-    // if (!formData.loaderNames?.trim()) {
-    //   showAlert('Validation Error', 'Loader names are required');
-    //   return false;
-    // }
     
     if (formData.noOfDocuments < 0 || formData.noOfDocuments > 20) {
       showAlert('Validation Error', 'Number of documents must be between 0 and 20');
