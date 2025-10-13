@@ -28,6 +28,56 @@ const formatDateForAPI = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getWarehouseDisplay = (movement, warehousesList) => {
+  const code = movement.warehouse_code || 
+               movement.to_warehouse_code || 
+               movement.from_warehouse_code || "";
+  
+  // Look up warehouse name from the warehouses list
+  const warehouse = warehousesList?.find(w => w.warehouse_code === code);
+  const name = warehouse?.warehouse_name || "";
+  
+  if (name && code) return `${name} (${code})`;
+  return code || "--";
+};
+
+const calculateDocumentAge = (movement) => {
+  try {
+    // Extract the date part from movement.date (YYYY-MM-DD)
+    const dateOnly = movement.date.split('T')[0];
+    
+    // Combine date + time to get actual gate entry datetime
+    const gateEntryTime = new Date(`${dateOnly}T${movement.time}`);
+    
+    // Document generation time
+    const documentTime = new Date(movement.document_date);
+    
+    // Calculate difference in milliseconds
+    const diffMs = gateEntryTime - documentTime;
+    
+    // If negative or invalid, return N/A
+    if (diffMs < 0 || isNaN(diffMs)) {
+      console.log("❌ Invalid age calculation:", {
+        gateEntry: gateEntryTime,
+        docTime: documentTime,
+        diff: diffMs
+      });
+      return "N/A";
+    }
+    
+    // Convert to hours, minutes, seconds
+    const hours = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    
+    // Format as HH:MM:SS
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  } catch (error) {
+    console.error("Error calculating document age:", error);
+    return "N/A";
+  }
+};
+
 const AdminInsightsScreen = () => {
   const [insightType, setInsightType] = useState("FG");
   const [downloadingReport, setDownloadingReport] = useState(false);
@@ -147,7 +197,7 @@ const AdminInsightsScreen = () => {
             escapeCSV(movement.document_no || ""),
             escapeCSV(movement.document_type || ""),
             escapeCSV(movement.movement_type || ""),
-            escapeCSV(movement.warehouse_name || movement.warehouse_code || ""),
+            escapeCSV(getWarehouseDisplay(movement, warehouses)),
             escapeCSV(movement.security_name || ""),
             escapeCSV(movement.remarks || ""),
             escapeCSV(
@@ -155,7 +205,7 @@ const AdminInsightsScreen = () => {
                 ? new Date(movement.document_date).toLocaleDateString()
                 : ""
             ),
-            escapeCSV(movement.document_age_time || ""),
+            escapeCSV(calculateDocumentAge(movement)),
             escapeCSV(movement.driver_name || ""),
             escapeCSV(movement.km_reading || ""),
             escapeCSV(movement.loader_names || ""),
@@ -366,13 +416,13 @@ const AdminInsightsScreen = () => {
             movement.document_no || "",
             movement.document_type || "",
             movement.movement_type || "",
-            movement.warehouse_name || movement.warehouse_code || "",
+            getWarehouseDisplay(movement, warehouses),
             movement.security_name || "",
             movement.remarks || "",
             movement.document_date
               ? new Date(movement.document_date).toLocaleDateString()
               : "",
-            movement.document_age_time || "",
+            calculateDocumentAge(movement),
             movement.driver_name || "",
             movement.km_reading || "",
             movement.loader_names || "",
@@ -670,6 +720,7 @@ const AdminInsightsScreen = () => {
         );
 
         const data = await insightsAPI.getFilteredMovements(filters);
+        // console.log("🔍 Sample movement data:", JSON.stringify(data.results[0], null, 2));
         console.log("✅ Full API response:", data);
         console.log(
           "✅ First record warehouse_code:",
@@ -909,12 +960,7 @@ const AdminInsightsScreen = () => {
               <Text style={styles.cell}>{movement.document_type}</Text>
               <Text style={styles.cell}>{movement.movement_type}</Text>
               <Text style={styles.cell}>
-                {" "}
-                {movement.warehouse_name ||
-                  movement.warehouse_code ||
-                  movement.to_warehouse_code ||
-                  movement.from_warehouse_code ||
-                  "--"}
+                 {getWarehouseDisplay(movement, warehouses)}
               </Text>
 
               <Text style={styles.cell}>{movement.security_name}</Text>
@@ -925,7 +971,7 @@ const AdminInsightsScreen = () => {
                   : "--"}
               </Text>
               <Text style={styles.cell}>
-                {movement.document_age_time || "--"}
+                {calculateDocumentAge(movement)}
               </Text>
               <Text style={styles.cell}>{movement.driver_name || "--"}</Text>
               <Text style={styles.cell}>{movement.km_reading || "--"}</Text>

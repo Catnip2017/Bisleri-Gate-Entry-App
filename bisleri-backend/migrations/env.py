@@ -26,6 +26,13 @@ target_metadata = Base.metadata
 DATABASE_URL = f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
 
+# ✅ Define the ignore rule
+def include_object(object, name, type_, reflected, compare_to):
+    if type_ == "table" and name in ["insights_data_poc"]:  # 👈 ignored table
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode."""
     context.configure(
@@ -33,6 +40,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,  # ✅ added here
     )
 
     with context.begin_transaction():
@@ -50,6 +58,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            include_object=include_object,  # ✅ added here
         )
 
         with context.begin_transaction():
