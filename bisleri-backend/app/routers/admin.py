@@ -24,7 +24,8 @@ def normalize_roles(role_string: str) -> List[str]:
         return []
     return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
 
-# ✅ ENHANCED: Register User
+ 
+
 @router.post("/register", response_model=UserResponse)
 def register_user(
     user: UserCreate,
@@ -40,11 +41,19 @@ def register_user(
         if db.query(UsersMaster).filter(UsersMaster.username == user.username).first():
             raise HTTPException(status_code=400, detail="Username already registered")
 
-        roles_requested = [r.strip() for r in user.role.split(",")]
-        needs_warehouse = any(r.lower().replace(" ", "") in ["securityadmin", "securityguard"] for r in roles_requested)
+        # ✅ Optional duplicate email check
+        if user.email and db.query(UsersMaster).filter(UsersMaster.email == user.email).first():
+            raise HTTPException(status_code=400, detail="Email already registered")
 
-        # ❌ Removed requires_email check
-        # ❌ Removed duplicate email check
+        # ✅ Optional duplicate phone number check
+        if user.phone_number and db.query(UsersMaster).filter(UsersMaster.phone_number == user.phone_number).first():
+            raise HTTPException(status_code=400, detail="Phone number already registered")
+
+        roles_requested = [r.strip() for r in user.role.split(",")]
+        needs_warehouse = any(
+            r.lower().replace(" ", "") in ["securityadmin", "securityguard"] 
+            for r in roles_requested
+        )
 
         # ✅ Warehouse handling
         warehouse_name, final_site_code = None, None
@@ -57,7 +66,7 @@ def register_user(
             warehouse_name = warehouse.warehouse_name
             final_site_code = warehouse.site_code
 
-        # ✅ Create user (email & phone_number stored only if provided in request body)
+        # ✅ Create user
         new_user = UsersMaster(
             username=user.username.strip(),
             first_name=user.first_name.strip(),
@@ -67,9 +76,8 @@ def register_user(
             warehouse_name=warehouse_name,
             site_code=final_site_code,
             password=get_password_hash(user.password),
-            email=user.email.strip() if user.email else None,  
+            email=user.email.strip() if user.email else None,
             phone_number=user.phone_number.strip() if user.phone_number else None
-
         )
         db.add(new_user)
         db.commit()
@@ -88,9 +96,25 @@ def register_user(
             phone_number=new_user.phone_number
         )
 
+    except IntegrityError as e:
+        db.rollback()
+        err = str(e.orig).lower()
+        if "username" in err:
+            raise HTTPException(status_code=400, detail="Username already exists")
+        elif "email" in err:
+            raise HTTPException(status_code=400, detail="Email already exists")
+        elif "phone" in err:
+            raise HTTPException(status_code=400, detail="Phone number already exists")
+        else:
+            raise HTTPException(status_code=400, detail="Duplicate entry")
+
+    except HTTPException:
+        raise  # keep original 400 / 403 errors intact
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        print("Unexpected Error:", e)
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/test-admin")
 def test_admin_router():
