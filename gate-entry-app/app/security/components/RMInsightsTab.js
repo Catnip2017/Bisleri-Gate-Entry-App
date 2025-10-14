@@ -357,23 +357,28 @@ const RMInsightsTab = () => {
   };
 
   // Calculate statistics
-  const stats = React.useMemo(() => {
-    if (!statistics) {
-      return {
-        totalEntries: 0,
-        gateInCount: 0,
-        gateOutCount: 0,
-        uniqueVehicles: 0
-      };
-    }
-    
+// Calculate statistics with date filtering
+const stats = React.useMemo(() => {
+  if (!rmEntries || rmEntries.length === 0) {
     return {
-      totalEntries: statistics.total_entries,
-      gateInCount: statistics.gate_in_count,
-      gateOutCount: statistics.gate_out_count,
-      uniqueVehicles: statistics.unique_vehicles
+      totalEntries: 0,
+      gateInCount: 0,
+      gateOutCount: 0,
+      uniqueVehicles: 0
     };
-  }, [statistics]);
+  }
+  
+  const gateInCount = rmEntries.filter(entry => entry.gate_type === 'Gate-In').length;
+  const gateOutCount = rmEntries.filter(entry => entry.gate_type === 'Gate-Out').length;
+  const uniqueVehicles = [...new Set(rmEntries.map(entry => entry.vehicle_no))].length;
+  
+  return {
+    totalEntries: rmEntries.length,
+    gateInCount,
+    gateOutCount,
+    uniqueVehicles
+  };
+}, [rmEntries]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
