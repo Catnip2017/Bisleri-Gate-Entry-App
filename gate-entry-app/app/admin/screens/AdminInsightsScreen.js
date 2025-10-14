@@ -913,140 +913,151 @@ if (insightType === "FG") {
     }
   };
 
-  const renderFGTable = () => (
-    <View style={styles.tableContainer}>
-      <Text style={styles.tableTitle}>
-        FG Vehicle Movement Records ({insights.count})
-      </Text>
+const renderFGTable = () => (
+  <View style={styles.tableContainer}>
+    <Text style={styles.tableTitle}>
+      FG Vehicle Movement Records ({insights.count})
+    </Text>
 
-      {/* Pagination Info */}
-      {insights && insights.results && insights.results.length > 0 && (
-        <View style={styles.paginationInfo}>
-          <Text style={styles.paginationText}>
-            Showing {startItem} to {endItem} of {totalItems} records
-          </Text>
-          <Text style={styles.paginationText}>
-            Page {currentPage} of {totalPages}
-          </Text>
-        </View>
-      )}
+    {/* Pagination Info */}
+    {insights && insights.results && insights.results.length > 0 && (
+      <View style={styles.paginationInfo}>
+        <Text style={styles.paginationText}>
+          Showing {startItem} to {endItem} of {totalItems} records
+        </Text>
+        <Text style={styles.paginationText}>
+          Page {currentPage} of {totalPages}
+        </Text>
+      </View>
+    )}
 
-      <ScrollView horizontal>
-        <View>
-          <View style={styles.tableHeader}>
-            <Text style={styles.headerCell}>Date</Text>
-            <Text style={styles.headerCell}>Time</Text>
-            <Text style={styles.headerCell}>Gate Entry No</Text>
-            <Text style={styles.headerCell}>Vehicle No</Text>
-            <Text style={styles.headerCell}>Document No</Text>
-            <Text style={styles.headerCell}>Document Type</Text>
-            <Text style={styles.headerCell}>Movement Type</Text>
-            <Text style={styles.headerCell}>Warehouse</Text>
-            <Text style={styles.headerCell}>Security Guard</Text>
-            <Text style={styles.headerCell}>Remarks</Text>
-            <Text style={styles.headerCell}>Document Date</Text>
-            <Text style={styles.headerCell}>Document Age</Text>
-            <Text style={styles.headerCell}>Driver Name</Text>
-            <Text style={styles.headerCell}>KM Reading</Text>
-            <Text style={styles.headerCell}>Loader Names</Text>
-          </View>
-
-          {currentResults.map((movement, index) => (
-            <View key={index} style={styles.tableRow}>
-              <Text style={styles.cell}>{movement.date}</Text>
-              <Text style={styles.cell}>{movement.time}</Text>
-              <Text style={styles.cell}>{movement.gate_entry_no}</Text>
-              <Text style={styles.cell}>{movement.vehicle_no}</Text>
-              <Text style={styles.cell}>{movement.document_no || '--'}</Text> 
-              <Text style={styles.cell}>{movement.document_type}</Text>
-              <Text style={styles.cell}>{movement.movement_type}</Text>
-              <Text style={styles.cell}>
-                 {getWarehouseDisplay(movement, warehouses)}
-              </Text>
-
-              <Text style={styles.cell}>{movement.security_name}</Text>
-              <Text style={styles.cell}>{movement.remarks}</Text>
-              <Text style={styles.cell}>
-                {movement.document_date
-                  ? new Date(movement.document_date).toLocaleDateString()
-                  : "--"}
-              </Text>
-              <Text style={styles.cell}>
-                {calculateDocumentAge(movement)}
-              </Text>
-              <Text style={styles.cell}>{movement.driver_name || "--"}</Text>
-              <Text style={styles.cell}>{movement.km_reading || "--"}</Text>
-              <Text style={styles.cell}>{movement.loader_names || "--"}</Text>
+    {/* ✅ Horizontal + Vertical Scroll Enabled */}
+    <View style={{ maxHeight: 400 }}> {/* Adjust height as needed */}
+      <ScrollView horizontal nestedScrollEnabled>
+        <ScrollView nestedScrollEnabled>
+          <View>
+            <View style={styles.tableHeader}>
+              <Text style={styles.headerCell}>Date</Text>
+              <Text style={styles.headerCell}>Time</Text>
+              <Text style={styles.headerCell}>Gate Entry No</Text>
+              <Text style={styles.headerCell}>Vehicle No</Text>
+              <Text style={styles.headerCell}>Document No</Text>
+              <Text style={styles.headerCell}>Document Type</Text>
+              <Text style={styles.headerCell}>Movement Type</Text>
+              <Text style={styles.headerCell}>Warehouse</Text>
+              <Text style={styles.headerCell}>Security Guard</Text>
+              <Text style={styles.headerCell}>Remarks</Text>
+              <Text style={styles.headerCell}>Document Date</Text>
+              <Text style={styles.headerCell}>Document Age</Text>
+              <Text style={styles.headerCell}>Driver Name</Text>
+              <Text style={styles.headerCell}>KM Reading</Text>
+              <Text style={styles.headerCell}>Loader Names</Text>
             </View>
-          ))}
-        </View>
+
+            {currentResults.map((movement, index) => (
+              <View key={index} style={styles.tableRow}>
+                <Text style={styles.cell}>{movement.date}</Text>
+                <Text style={styles.cell}>{movement.time}</Text>
+                <Text style={styles.cell}>{movement.gate_entry_no}</Text>
+                <Text style={styles.cell}>{movement.vehicle_no}</Text>
+                <Text style={styles.cell}>{movement.document_no || "--"}</Text>
+                <Text style={styles.cell}>{movement.document_type}</Text>
+                <Text style={styles.cell}>{movement.movement_type}</Text>
+                <Text style={styles.cell}>
+                  {getWarehouseDisplay(movement, warehouses)}
+                </Text>
+                <Text style={styles.cell}>{movement.security_name}</Text>
+                <Text style={styles.cell}>{movement.remarks}</Text>
+                <Text style={styles.cell}>
+                  {movement.document_date
+                    ? new Date(movement.document_date).toLocaleDateString()
+                    : "--"}
+                </Text>
+                <Text style={styles.cell}>
+                  {calculateDocumentAge(movement)}
+                </Text>
+                <Text style={styles.cell}>{movement.driver_name || "--"}</Text>
+                <Text style={styles.cell}>{movement.km_reading || "--"}</Text>
+                <Text style={styles.cell}>{movement.loader_names || "--"}</Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </ScrollView>
     </View>
-  );
+  </View>
+);
 
-  const renderRMTable = () => (
-    <View style={styles.tableContainer}>
-      <Text style={styles.tableTitle}>
-        RM Movement Records ({insights.count})
-      </Text>
 
-      {/* Pagination Info */}
-      {insights && insights.results && insights.results.length > 0 && (
-        <View style={styles.paginationInfo}>
-          <Text style={styles.paginationText}>
-            Showing {startItem} to {endItem} of {totalItems} records
-          </Text>
-          <Text style={styles.paginationText}>
-            Page {currentPage} of {totalPages}
-          </Text>
-        </View>
-      )}
+const renderRMTable = () => (
+  <View style={styles.tableContainer}>
+    <Text style={styles.tableTitle}>
+      RM Movement Records ({insights.count})
+    </Text>
 
-      <ScrollView horizontal>
-        <View>
-          <View style={styles.tableHeader}>
-            <Text style={styles.headerCell}>Gate Entry No</Text>
-            <Text style={styles.headerCell}>Gate Type</Text>
-            <Text style={styles.headerCell}>Vehicle No</Text>
-            <Text style={styles.headerCell}>Document No</Text>
-            <Text style={styles.headerCell}>Name of Party</Text>
-            <Text style={styles.headerCell}>Description</Text>
-            <Text style={styles.headerCell}>Quantity</Text>
-            <Text style={styles.headerCell}>Date</Text>
-            <Text style={styles.headerCell}>Time</Text>
-            <Text style={styles.headerCell}>Security Guard</Text>
-            <Text style={styles.headerCell}>Edit Count</Text>
-            <Text style={styles.headerCell}>Time Remaining</Text>
-          </View>
+    {/* Pagination Info */}
+    {insights && insights.results && insights.results.length > 0 && (
+      <View style={styles.paginationInfo}>
+        <Text style={styles.paginationText}>
+          Showing {startItem} to {endItem} of {totalItems} records
+        </Text>
+        <Text style={styles.paginationText}>
+          Page {currentPage} of {totalPages}
+        </Text>
+      </View>
+    )}
 
-          {currentResults.map((entry, index) => (
-            <View key={index} style={styles.tableRow}>
-              <Text style={styles.cell}>{entry.gate_entry_no}</Text>
-              <Text style={styles.cell}>{entry.gate_type}</Text>
-              <Text style={styles.cell}>{entry.vehicle_no}</Text>
-              <Text style={styles.cell}>{entry.document_no}</Text>
-              <Text style={styles.cell}>{entry.name_of_party}</Text>
-              <Text style={styles.cell} numberOfLines={2}>
-                {entry.description_of_material}
-              </Text>
-              <Text style={styles.cell}>{entry.quantity}</Text>
-              <Text style={styles.cell}>
-                {new Date(entry.date_time).toLocaleDateString()}
-              </Text>
-              <Text style={styles.cell}>
-                {new Date(entry.date_time).toLocaleTimeString()}
-              </Text>
-              <Text style={styles.cell}>{entry.security_name}</Text>
-              <Text style={styles.cell}>{entry.edit_count || 0}</Text>
-              <Text style={styles.cell}>
-                {entry.time_remaining || "Expired"}
-              </Text>
+    {/* ✅ Horizontal + Vertical Scroll Enabled */}
+    <View style={{ maxHeight: 400 }}>
+      <ScrollView horizontal nestedScrollEnabled>
+        <ScrollView nestedScrollEnabled>
+          <View>
+            <View style={styles.tableHeader}>
+              <Text style={styles.headerCell}>Gate Entry No</Text>
+              <Text style={styles.headerCell}>Gate Type</Text>
+              <Text style={styles.headerCell}>Vehicle No</Text>
+              <Text style={styles.headerCell}>Document No</Text>
+              <Text style={styles.headerCell}>Name of Party</Text>
+              <Text style={styles.headerCell}>Description</Text>
+              <Text style={styles.headerCell}>Quantity</Text>
+              <Text style={styles.headerCell}>Date</Text>
+              <Text style={styles.headerCell}>Time</Text>
+              <Text style={styles.headerCell}>Security Guard</Text>
+              <Text style={styles.headerCell}>Edit Count</Text>
+              <Text style={styles.headerCell}>Time Remaining</Text>
             </View>
-          ))}
-        </View>
+
+            {currentResults.map((entry, index) => (
+              <View key={index} style={styles.tableRow}>
+                <Text style={styles.cell}>{entry.gate_entry_no}</Text>
+                <Text style={styles.cell}>{entry.gate_type}</Text>
+                <Text style={styles.cell}>{entry.vehicle_no}</Text>
+                <Text style={styles.cell}>{entry.document_no}</Text>
+                <Text style={styles.cell}>{entry.name_of_party}</Text>
+                <Text style={styles.cell} numberOfLines={2}>
+                  {entry.description_of_material}
+                </Text>
+                <Text style={styles.cell}>{entry.quantity}</Text>
+                <Text style={styles.cell}>
+                  {new Date(entry.date_time).toLocaleDateString()}
+                </Text>
+                <Text style={styles.cell}>
+                  {new Date(entry.date_time).toLocaleTimeString()}
+                </Text>
+                <Text style={styles.cell}>{entry.security_name}</Text>
+                <Text style={styles.cell}>{entry.edit_count || 0}</Text>
+                <Text style={styles.cell}>
+                  {entry.time_remaining || "Expired"}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       </ScrollView>
     </View>
-  );
+  </View>
+);
+
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
