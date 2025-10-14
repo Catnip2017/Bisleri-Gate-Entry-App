@@ -857,36 +857,37 @@ const AdminInsightsScreen = () => {
   const renderStats = () => {
     if (!stats) return null;
 
-    if (insightType === "FG") {
-      return (
-        <View style={styles.summaryBox}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>
-              {(stats.today?.gate_in || 0) + (stats.today?.gate_out || 0)}
-            </Text>
-            <Text>Today's Total</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>
-              {stats.unique_vehicles || 0}
-            </Text>
-            <Text>Unique Vehicles</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>
-              {stats.today?.gate_in || stats.gate_in || 0}
-            </Text>
-            <Text>Gate-In</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryCount}>
-              {stats.today?.gate_out || stats.gate_out || 0}
-            </Text>
-            <Text>Gate-Out</Text>
-          </View>
-        </View>
-      );
-    } else {
+if (insightType === "FG") {
+  return (
+    <View style={styles.summaryBox}>
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryCount}>
+          {(stats.gate_in || 0) + (stats.gate_out || 0)}
+        </Text>
+        <Text>Total Movements</Text>
+      </View>
+
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryCount}>
+          {stats.unique_vehicles || 0}
+        </Text>
+        <Text>Unique Vehicles</Text>
+      </View>
+
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryCount}>{stats.gate_in || 0}</Text>
+        <Text>Total Gate-In</Text>
+      </View>
+
+      <View style={styles.summaryItem}>
+        <Text style={styles.summaryCount}>{stats.gate_out || 0}</Text>
+        <Text>Total Gate-Out</Text>
+      </View>
+    </View>
+  );
+}
+
+    else {
       return (
         <View style={styles.summaryBox}>
           <View style={styles.summaryItem}>
@@ -1383,4 +1384,4 @@ const AdminInsightsScreen = () => {
   );
 };
 
-export default AdminInsightsScreen;
+export default AdminInsightsScreen;      
