@@ -71,18 +71,3 @@ async def root():
 async def health_check():
     return {"status": "healthy"}
  
-    # Check data sync service status
-    try:
-        sync_status = scheduler.get_sync_status()
-        return {
-            "status": "healthy",
-            "data_sync_service": "available",
-            "sync_status": sync_status
-        }
-    except Exception as e:
-        return {
-            "status": "healthy", 
-            "data_sync_service": "error",
-            "error": str(e)
-        }
- 
