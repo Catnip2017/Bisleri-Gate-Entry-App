@@ -757,7 +757,7 @@ const AdminInsightsScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching insights:", error);
-      showAlert("Error", `Failed to load insights data: ${error.message}`);
+      showAlert("No data", `No Data available for these Dates`);
     } finally {
       setLoading(false);
     }
