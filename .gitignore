@@ -66,4 +66,5 @@ Bisleri/bisleri-backend/app/**/__pycache__/
 *.swp
 *.swo
  
- 
+scheduler_log.txt
+upload_log.txt
