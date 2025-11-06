@@ -307,247 +307,425 @@ const AdminInsightsScreen = () => {
   };
 
   // Alternative Excel export using a simple XML format (if you really need Excel)
-  const handleDownloadExcelReport = async () => {
-    if (!insights || !insights.results || insights.results.length === 0) {
-      showAlert(
-        "No Data",
-        "No data available to export. Please load some data first."
-      );
-      return;
-    }
+ const handleDownloadExcelReport = async () => {
+  if (!insights || !insights.results || insights.results.length === 0) {
+    showAlert(
+      "No Data",
+      "No data available to export. Please load some data first."
+    );
+    return;
+  }
 
-    setDownloadingReport(true);
-    try {
-      let xmlContent = "";
-      let fileName = "";
+  setDownloadingReport(true);
+  try {
+    let xmlContent = "";
+    let fileName = "";
 
-      // Create Excel XML structure
-      xmlContent = `<?xml version="1.0"?>
+    const reportType =
+      insightType === "FG"
+        ? "FG Vehicle Movement Report"
+        : "Raw Materials Movement Report";
+    const dateRange = `${formatDateForAPI(fromDate)} to ${formatDateForAPI(
+      toDate
+    )}`;
+    const warehouseInfo = whCode || "All";
+    const siteInfo = siteCode || "All";
+    const totalRecords = insights.count || insights.results.length;
+    const generatedOn = new Date().toLocaleString();
+    const generatedBy = user?.name || user?.username || "Admin";
+
+    if (insightType === "FG") {
+      // FG Headers
+      const headers = [
+        "S.No",
+        "Date",
+        "Time",
+        "Gate Entry No",
+        "Vehicle No",
+        "Document No",
+        "Document Type",
+        "Movement Type",
+        "Warehouse",
+        "Security Guard",
+        "Remarks",
+        "Document Date",
+        "Document Age",
+        "Driver Name",
+        "KM Reading",
+        "Loader Names",
+      ];
+
+      const numCols = headers.length;
+      const numRows = insights.results.length + 9; // 7 metadata + 1 empty + 1 header + data rows
+
+      // Proper Excel XML with AutoFilter
+      xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:x="urn:schemas-microsoft-com:office:excel"
  xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
- 
+ xmlns:html="http://www.w3.org/1999/xhtml">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>${escapeXML(generatedBy)}</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>12000</WindowHeight>
+  <WindowWidth>24000</WindowWidth>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
  <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" ss:Size="11"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
   <Style ss:ID="HeaderStyle">
-   <Font ss:Bold="1"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
    <Interior ss:Color="#4472C4" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#000000"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#000000"/>
+   </Borders>
   </Style>
   <Style ss:ID="MetadataStyle">
-   <Font ss:Bold="1"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/>
    <Interior ss:Color="#E7E6E6" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="DataStyle">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+   </Borders>
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11"/>
   </Style>
  </Styles>
- 
- <Worksheet ss:Name="${
-   insightType === "FG" ? "FG Movement Report" : "RM Movement Report"
- }">
-  <Table>`;
+ <Worksheet ss:Name="FG Movement Report">
+  <Table ss:ExpandedColumnCount="${numCols}" ss:ExpandedRowCount="${numRows}" x:FullColumns="1" x:FullRows="1">
+   <Column ss:AutoFitWidth="1" ss:Width="50" ss:Span="${numCols - 1}"/>`;
 
       // Add metadata rows
       const metadata = [
-        [
-          "Report Type",
-          insightType === "FG"
-            ? "FG Vehicle Movement Report"
-            : "Raw Materials Movement Report",
-        ],
-        [
-          "Date Range",
-          `${formatDateForAPI(fromDate)} to ${formatDateForAPI(toDate)}`,
-        ],
-        ["Warehouse Code", whCode || "All"],
-        ["Site Code", siteCode || "All"],
-        ["Total Records", insights.count || insights.results.length],
-        ["Generated On", new Date().toLocaleString()],
-        ["Generated By", user?.name || user?.username || "Admin"],
+        ["Report Type", reportType],
+        ["Date Range", dateRange],
+        ["Warehouse Code", warehouseInfo],
+        ["Site Code", siteInfo],
+        ["Total Records", String(totalRecords)],
+        ["Generated On", generatedOn],
+        ["Generated By", generatedBy],
       ];
 
       metadata.forEach((row) => {
-        xmlContent += `<Row>`;
-        row.forEach((cell) => {
-          xmlContent += `<Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
-            String(cell)
-          )}</Data></Cell>`;
-        });
-        xmlContent += `</Row>`;
+        xmlContent += `\n   <Row>`;
+        xmlContent += `\n    <Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
+          String(row[0])
+        )}</Data></Cell>`;
+        xmlContent += `\n    <Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
+          String(row[1])
+        )}</Data></Cell>`;
+        xmlContent += `\n   </Row>`;
       });
 
       // Empty row
-      xmlContent += `<Row></Row>`;
+      xmlContent += `\n   <Row/>`;
 
-      if (insightType === "FG") {
-        // FG Headers
-        const headers = [
-          "S.No",
-          "Date",
-          "Time",
-          "Gate Entry No",
-          "Vehicle No",
-          "Document No",
-          "Document Type",
-          "Movement Type",
-          "Warehouse",
-          "Security Guard",
-          "Remarks",
-          "Document Date",
-          "Document Age",
-          "Driver Name",
-          "KM Reading",
-          "Loader Names",
+      // Header row with proper cell index for AutoFilter
+      xmlContent += `\n   <Row ss:AutoFitHeight="0" ss:Height="20">`;
+      headers.forEach((header) => {
+        xmlContent += `\n    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
+          header
+        )}</Data></Cell>`;
+      });
+      xmlContent += `\n   </Row>`;
+
+      // FG Data rows
+      insights.results.forEach((movement, index) => {
+        const rowData = [
+          String(index + 1),
+          movement.date || "",
+          movement.time || "",
+          movement.gate_entry_no || "",
+          movement.vehicle_no || "",
+          movement.document_no || "",
+          movement.document_type || "",
+          movement.movement_type || "",
+          getWarehouseDisplay(movement, warehouses),
+          movement.security_name || "",
+          movement.remarks || "",
+          movement.document_date
+            ? new Date(movement.document_date).toLocaleDateString()
+            : "",
+          calculateDocumentAge(movement),
+          movement.driver_name || "",
+          movement.km_reading || "",
+          movement.loader_names || "",
         ];
-        xmlContent += `<Row>`;
-        headers.forEach((header) => {
-          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
-            header
+
+        xmlContent += `\n   <Row>`;
+        rowData.forEach((cell) => {
+          xmlContent += `\n    <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${escapeXML(
+            String(cell)
           )}</Data></Cell>`;
         });
-        xmlContent += `</Row>`;
+        xmlContent += `\n   </Row>`;
+      });
 
-        // FG Data
-        insights.results.forEach((movement, index) => {
-          const rowData = [
-            index + 1,
-            movement.date || "",
-            movement.time || "",
-            movement.gate_entry_no || "",
-            movement.vehicle_no || "",
-            movement.document_no || "",
-            movement.document_type || "",
-            movement.movement_type || "",
-            getWarehouseDisplay(movement, warehouses),
-            movement.security_name || "",
-            movement.remarks || "",
-            movement.document_date
-              ? new Date(movement.document_date).toLocaleDateString()
-              : "",
-            calculateDocumentAge(movement),
-            movement.driver_name || "",
-            movement.km_reading || "",
-            movement.loader_names || "",
-          ];
+      xmlContent += `\n  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <PageSetup>
+    <Header x:Margin="0.3"/>
+    <Footer x:Margin="0.3"/>
+    <PageMargins x:Bottom="0.75" x:Left="0.7" x:Right="0.7" x:Top="0.75"/>
+   </PageSetup>
+   <Print>
+    <ValidPrinterInfo/>
+    <HorizontalResolution>600</HorizontalResolution>
+    <VerticalResolution>600</VerticalResolution>
+   </Print>
+   <Selected/>
+  <FreezePanes/>
+  <FrozenNoSplit/>
+  <SplitHorizontal>9</SplitHorizontal>
+  <TopRowBottomPane>9</TopRowBottomPane>
+  <ActivePane>2</ActivePane>
 
-          xmlContent += `<Row>`;
-          rowData.forEach((cell) => {
-            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(
-              String(cell)
-            )}</Data></Cell>`;
-          });
-          xmlContent += `</Row>`;
-        });
-
-        fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(
-          fromDate
-        )}_to_${formatDateForAPI(toDate)}.xls`;
-      } else {
-        // RM Headers
-        const headers = [
-          "S.No",
-          "Gate Entry No",
-          "Gate Type",
-          "Vehicle No",
-          "Document No",
-          "Name of Party",
-          "Description",
-          "Quantity",
-          "Date",
-          "Time",
-          "Security Guard",
-          "Edit Count",
-          "Time Remaining",
-        ];
-        xmlContent += `<Row>`;
-        headers.forEach((header) => {
-          xmlContent += `<Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
-            header
-          )}</Data></Cell>`;
-        });
-        xmlContent += `</Row>`;
-
-        // RM Data
-        insights.results.forEach((entry, index) => {
-          const rowData = [
-            index + 1,
-            entry.gate_entry_no || "",
-            entry.gate_type || "",
-            entry.vehicle_no || "",
-            entry.document_no || "",
-            entry.name_of_party || "",
-            entry.description_of_material || "",
-            entry.quantity || "",
-            entry.date_time
-              ? new Date(entry.date_time).toLocaleDateString()
-              : "",
-            entry.date_time
-              ? new Date(entry.date_time).toLocaleTimeString()
-              : "",
-            entry.security_name || "",
-            entry.edit_count || "0",
-            entry.time_remaining || "Expired",
-          ];
-
-          xmlContent += `<Row>`;
-          rowData.forEach((cell) => {
-            xmlContent += `<Cell><Data ss:Type="String">${escapeXML(
-              String(cell)
-            )}</Data></Cell>`;
-          });
-          xmlContent += `</Row>`;
-        });
-
-        fileName = `RM_Movement_Report_${formatDateForAPI(
-          fromDate
-        )}_to_${formatDateForAPI(toDate)}.xls`;
-      }
-
-      xmlContent += `
-  </Table>
+   <ProtectObjects>False</ProtectObjects>
+   <ProtectScenarios>False</ProtectScenarios>
+  </WorksheetOptions>
+  <AutoFilter x:Range="R8C1:R${numRows}C${numCols}" xmlns="urn:schemas-microsoft-com:office:excel"/>
  </Worksheet>
 </Workbook>`;
 
-      // Save and share file
-      if (Platform.OS === "web") {
-        const blob = new Blob([xmlContent], {
-          type: "application/vnd.ms-excel;charset=utf-8;",
-        });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", fileName);
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+      fileName = `FG_Vehicle_Movement_Report_${formatDateForAPI(
+        fromDate
+      )}_to_${formatDateForAPI(toDate)}.xls`;
+    } else {
+      // RM Headers
+      const headers = [
+        "S.No",
+        "Gate Entry No",
+        "Gate Type",
+        "Vehicle No",
+        "Document No",
+        "Name of Party",
+        "Description",
+        "Quantity",
+        "Date",
+        "Time",
+        "Security Guard",
+        "Edit Count",
+        "Time Remaining",
+      ];
 
-        showAlert("Success", "Excel report downloaded successfully!");
-      } else {
-        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-        await FileSystem.writeAsStringAsync(fileUri, xmlContent, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
+      const numCols = headers.length;
+      const numRows = insights.results.length + 9;
 
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: "application/vnd.ms-excel",
-            dialogTitle: "Save Excel Report",
-          });
-          showAlert(
-            "Success",
-            "Excel report generated and shared successfully!"
-          );
-        } else {
-          showAlert("Info", `Excel report saved to: ${fileUri}`);
-        }
-      }
-    } catch (error) {
-      console.error("Error generating Excel report:", error);
-      showAlert("Error", `Failed to generate Excel report: ${error.message}`);
-    } finally {
-      setDownloadingReport(false);
+      xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/1999/xhtml">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>${escapeXML(generatedBy)}</Author>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <ExcelWorkbook xmlns="urn:schemas-microsoft-com:office:excel">
+  <WindowHeight>12000</WindowHeight>
+  <WindowWidth>24000</WindowWidth>
+  <ProtectStructure>False</ProtectStructure>
+  <ProtectWindows>False</ProtectWindows>
+ </ExcelWorkbook>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Bottom"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" ss:Size="11"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="HeaderStyle">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#4472C4" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#000000"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#000000"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#000000"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="MetadataStyle">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/>
+   <Interior ss:Color="#E7E6E6" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="DataStyle">
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D3D3D3"/>
+   </Borders>
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="RM Movement Report">
+  <Table ss:ExpandedColumnCount="${numCols}" ss:ExpandedRowCount="${numRows}" x:FullColumns="1" x:FullRows="1">
+   <Column ss:AutoFitWidth="1" ss:Width="50" ss:Span="${numCols - 1}"/>`;
+
+      // Add metadata rows
+      const metadata = [
+        ["Report Type", reportType],
+        ["Date Range", dateRange],
+        ["Warehouse Code", warehouseInfo],
+        ["Site Code", siteInfo],
+        ["Total Records", String(totalRecords)],
+        ["Generated On", generatedOn],
+        ["Generated By", generatedBy],
+      ];
+
+      metadata.forEach((row) => {
+        xmlContent += `\n   <Row>`;
+        xmlContent += `\n    <Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
+          String(row[0])
+        )}</Data></Cell>`;
+        xmlContent += `\n    <Cell ss:StyleID="MetadataStyle"><Data ss:Type="String">${escapeXML(
+          String(row[1])
+        )}</Data></Cell>`;
+        xmlContent += `\n   </Row>`;
+      });
+
+      // Empty row
+      xmlContent += `\n   <Row/>`;
+
+      // Header row
+      xmlContent += `\n   <Row ss:AutoFitHeight="0" ss:Height="20">`;
+      headers.forEach((header) => {
+        xmlContent += `\n    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">${escapeXML(
+          header
+        )}</Data></Cell>`;
+      });
+      xmlContent += `\n   </Row>`;
+
+      // RM Data rows
+      insights.results.forEach((entry, index) => {
+        const rowData = [
+          String(index + 1),
+          entry.gate_entry_no || "",
+          entry.gate_type || "",
+          entry.vehicle_no || "",
+          entry.document_no || "",
+          entry.name_of_party || "",
+          entry.description_of_material || "",
+          entry.quantity || "",
+          entry.date_time
+            ? new Date(entry.date_time).toLocaleDateString()
+            : "",
+          entry.date_time
+            ? new Date(entry.date_time).toLocaleTimeString()
+            : "",
+          entry.security_name || "",
+          entry.edit_count || "0",
+          entry.time_remaining || "Expired",
+        ];
+
+        xmlContent += `\n   <Row>`;
+        rowData.forEach((cell) => {
+          xmlContent += `\n    <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${escapeXML(
+            String(cell)
+          )}</Data></Cell>`;
+        });
+        xmlContent += `\n   </Row>`;
+      });
+
+      xmlContent += `\n  </Table>
+  <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+   <PageSetup>
+    <Header x:Margin="0.3"/>
+    <Footer x:Margin="0.3"/>
+    <PageMargins x:Bottom="0.75" x:Left="0.7" x:Right="0.7" x:Top="0.75"/>
+   </PageSetup>
+   <Print>
+    <ValidPrinterInfo/>
+    <HorizontalResolution>600</HorizontalResolution>
+    <VerticalResolution>600</VerticalResolution>
+   </Print>
+   <Selected/>
+  <FreezePanes/>
+    <FrozenNoSplit/>
+    <SplitHorizontal>9</SplitHorizontal>
+    <TopRowBottomPane>9</TopRowBottomPane>
+    <ActivePane>2</ActivePane>
+   <ProtectObjects>False</ProtectObjects>
+   <ProtectScenarios>False</ProtectScenarios>
+  </WorksheetOptions>
+  <AutoFilter x:Range="R8C1:R${numRows}C${numCols}" xmlns="urn:schemas-microsoft-com:office:excel"/>
+ </Worksheet>
+</Workbook>`;
+
+      fileName = `RM_Movement_Report_${formatDateForAPI(
+        fromDate
+      )}_to_${formatDateForAPI(toDate)}.xls`;
     }
-  };
+
+    // Save and share file
+    if (Platform.OS === "web") {
+      const blob = new Blob([xmlContent], {
+        type: "application/vnd.ms-excel",
+      });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute("download", fileName);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showAlert("Success", "Excel report downloaded successfully!");
+    } else {
+      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(fileUri, xmlContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: "application/vnd.ms-excel",
+          dialogTitle: "Save Excel Report",
+        });
+        showAlert(
+          "Success",
+          "Excel report generated and shared successfully!"
+        );
+      } else {
+        showAlert("Info", `Excel report saved to: ${fileUri}`);
+      }
+    }
+  } catch (error) {
+    console.error("Error generating Excel report:", error);
+    showAlert("Error", `Failed to generate Excel report: ${error.message}`);
+  } finally {
+    setDownloadingReport(false);
+  }
+};
 
   // Helper function to escape XML
   const escapeXML = (str) => {
@@ -757,7 +935,7 @@ const AdminInsightsScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching insights:", error);
-      showAlert("No data", `No Data available for these Dates`);
+      showAlert("Error", `Failed to load insights data: ${error.message}`);
     } finally {
       setLoading(false);
     }

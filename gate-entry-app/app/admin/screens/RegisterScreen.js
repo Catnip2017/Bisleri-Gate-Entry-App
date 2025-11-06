@@ -116,10 +116,25 @@ const RegisterScreen = () => {
       errors.email = 'Enter a valid email address';
     }
 
-    // Phone validation (optional but must be valid if entered)
-    if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
-      errors.phone_number = 'Enter a valid 10-digit mobile number';
+     // 🔹 Phone validation (required for Admin roles)
+  if (["Security Admin", "IT Admin"].includes(formData.role)) {
+    // ❌ Don't allow registration if number missing
+    if (!formData.phone_number || !formData.phone_number.trim()) {
+      showAlert('Validation Error', 'Mobile number is required for this role');
+      return false;
     }
+
+    // ❌ Don't allow if invalid number
+    if (!/^\d{10}$/.test(formData.phone_number)) {
+      showAlert('Validation Error', 'Enter a valid 10-digit mobile number');
+      return false;
+    }
+  } else if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
+    // Optional for Guards, but must be valid if entered
+    showAlert('Validation Error', 'Enter a valid 10-digit mobile number');
+    return false;
+  }
+
 
     // Warehouse required for Guards/Admins
     if (["Security Guard", "Security Admin"].includes(formData.role)) {
