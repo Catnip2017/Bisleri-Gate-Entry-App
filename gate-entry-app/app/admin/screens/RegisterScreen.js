@@ -47,7 +47,7 @@ const RegisterScreen = () => {
       const warehouseData = await adminAPI.getWarehouses();
       setWarehouses(warehouseData);
     } catch (error) {
-      console.error('Error loading warehouses:', error);
+      // console.error('Error loading warehouses:', error);
       showAlert('Error', 'Failed to load warehouse data');
     }
   };
@@ -200,7 +200,7 @@ const handleRegister = async () => {
       },
     ]);
   } catch (error) {
-    console.error('Registration Error:', error);
+    // console.error('Registration Error:', error);
 
     let errorMessage = "Registration failed";
 

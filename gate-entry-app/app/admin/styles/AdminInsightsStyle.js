@@ -13,7 +13,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     padding: 20,
     borderRadius: 10,
-    width: "95%",
+    width: "100%",             // ✅ was "95%"
     maxWidth: 1400,
     shadowColor: "#000",
     shadowOpacity: 0.1,
@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1,
     borderColor: "#ccc",
-    paddingBottom: 200
+    paddingBottom: 200,   
   },
   title: {
     fontSize: 20,
@@ -138,13 +138,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginTop: 4,
     backgroundColor: "#fff",
-    justifyContent: "center",
-    minHeight: 32,
+    justifyContent: "flex-start",
+    minHeight: 38,
   },
   datePickerText: {
     fontSize: 13,
     color: "#333",
-    textAlign: "center",
+    textAlign: "left",
+    width: "100%",  
   },
 
   inputRow: {
@@ -155,13 +156,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "center",
+    flexWrap: "wrap",          // ✅ default for tablet / small screens
+    gap: 10,
     paddingHorizontal: 10,
-    flexWrap: "nowrap",
   },
+
+  inputInlineWide: {
+  flexWrap: "nowrap",
+  justifyContent: "center",  // ✅ centers the items in the row
+  alignItems: "flex-end",
+  gap: 15,                   // ✅ even spacing between fields
+  width: "100%",              // ✅ controls how wide the row looks (adjust 65–80%)
+  alignSelf: "center"        // ✅ keeps bottom aligned
+},
   inputBox: {
-    width: 200, // 🔹 match Warehouse Code input
-    marginHorizontal: 6,
+    flexBasis: "48%",          // ✅ two per row on tablet/phone
+    maxWidth: "48%",
+    minWidth: 160,
+    flexGrow: 1,
+    marginVertical: 6, 
   },
+  inputBoxCompact: {
+  flexBasis: "48%",   // two per row for tablets
+  maxWidth: "48%",
+  marginVertical: 6,
+},
+
+inputBoxWide: {
+  flexBasis: "18%",          // ✅ desktop/web = 5 items per row
+  maxWidth: "18%",
+  marginVertical: 6,
+  flexShrink: 1,
+  flexGrow: 1,
+},
+
   inputReadOnly: {
     backgroundColor: "#f5f5f5",
     color: "#000", // ensure dark text is visible
@@ -182,8 +210,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 6,
     justifyContent: "center",
-    alignSelf: "flex-end",
-    height: 42,
+    alignSelf: "center",
+    height: 38,
     marginTop: 16,
     marginLeft: 6,
   },
