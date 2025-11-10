@@ -568,7 +568,7 @@ const SecurityInsightsTab = ({
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}  nestedScrollEnabled={true}>
       {/* Card Container */}
       <View style={styles.card}>
         
@@ -699,7 +699,7 @@ const SecurityInsightsTab = ({
         </View>
 
         {/* ENHANCED: Table with Document Assignment Columns and Pagination */}
-        <ScrollView horizontal style={styles.tableScrollContainer} showsHorizontalScrollIndicator={true}>
+        <ScrollView horizontal style={styles.tableScrollContainer} showsHorizontalScrollIndicator={true} nestedScrollEnabled={false}>
           <View style={styles.tableContainer}>
             
             {/* Table Header - UPDATED with assignment columns */}
@@ -727,7 +727,8 @@ const SecurityInsightsTab = ({
             </View>
 
             {/* Table Rows - Using currentMovements for pagination */}
-            <ScrollView style={[styles.tableDataContainer, { height: 500 }]} showsVerticalScrollIndicator={true} nestedScrollEnabled={true}>
+            <ScrollView style={[styles.tableDataContainer, { height: 500 }]} showsVerticalScrollIndicator={true} nestedScrollEnabled={true} scrollEnabled={true} removeClippedSubviews={false} contentContainerStyle={{ flexGrow: 1 }}
+            >
               {loading ? (
                 <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color="#007bff" />
