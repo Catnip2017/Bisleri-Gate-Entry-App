@@ -11,6 +11,10 @@ DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
+
+# BIS Item Pattern - Items that should have paired PPJRTWMRT containers
+BIS_ITEM_PATTERN = 'BIS-20LTR01'
+
 # Setup logging
 log_file = "upload_log.txt"
 if os.path.exists(log_file):
@@ -153,12 +157,16 @@ def push_to_document_data():
         logging.info("STARTING AGGREGATED DATA INSERTION WITH UPDATES")
         logging.info("=" * 60)
         logging.info("Processing Rules:")
-        logging.info("  - Filter: Exclude rows with itemid = 'PPJRTWMRT'")
+        logging.info("  - Filter: Smart PPJRTWMRT filtering with one-to-one BIS item matching")
+        logging.info("    → Skip PPJRTWMRT only when paired with BIS items (same quantity)")
+        logging.info("    → Keep unpaired PPJRTWMRT lines (extra containers/packaging)")
+        logging.info("    → Keep all PPJRTWMRT when no BIS items present")
+        logging.info(f"  - BIS Items: Pattern matching '{BIS_ITEM_PATTERN}%'")
         logging.info("  - Deduplicate: Keep only one row per document_no and linenum")
         logging.info("  - Aggregate: SUM total_quantity for remaining records")
         logging.info("  - Transporter: Use first non-NULL transporter_name")
         logging.info("  - Clean: Convert spaces to NULL")
-        logging.info("  - Data Type: Cast total_quantity to INTEGER")
+        logging.info("  - Data Type: Cast total_quantity to text")
         logging.info("  - Conflicts: UPDATE existing records (ON CONFLICT DO UPDATE)")
         logging.info("=" * 60)
         
@@ -169,15 +177,69 @@ def push_to_document_data():
         if source_counts.get('mfabric_deliverychallan_data', 0) > 0:
             try:
                 with engine.begin() as conn:
-                    result = conn.execute(text("""
-                        WITH filtered_dc AS (
+                    result = conn.execute(text(f"""
+                        WITH source_data AS (
                             SELECT DISTINCT ON (document_no, linenum)
-                                document_no, linenum, site, document_type, document_date,
+                                document_no, linenum, itemid, site, document_type, document_date,
                                 e_way_bill_no, transporter_name, vehicle_no, irn_no,
                                 route_no, customer_code, customer_name, total_quantity
                             FROM mfabric_deliverychallan_data
-                            WHERE itemid != 'PPJRTWMRT' OR itemid IS NULL
                             ORDER BY document_no, linenum
+                        ),
+                        bis_items AS (
+                            SELECT 
+                                document_no,
+                                linenum,
+                                itemid,
+                                total_quantity,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY document_no, total_quantity 
+                                    ORDER BY linenum
+                                ) as bis_rn
+                            FROM source_data
+                            WHERE itemid LIKE 'BIS-20LTR01%'
+                        ),
+                        matched_ppjrtwmrt AS (
+                            SELECT 
+                                p.document_no,
+                                p.linenum,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY p.document_no, p.total_quantity 
+                                    ORDER BY p.linenum
+                                ) as ppjr_rn
+                            FROM source_data p
+                            WHERE p.itemid = 'PPJRTWMRT'
+                                AND EXISTS (
+                                    SELECT 1 
+                                    FROM bis_items b 
+                                    WHERE b.document_no = p.document_no 
+                                    AND b.total_quantity = p.total_quantity
+                                )
+                        ),
+                        skip_list AS (
+                            SELECT DISTINCT
+                                m.document_no,
+                                m.linenum
+                            FROM matched_ppjrtwmrt m
+                            INNER JOIN bis_items b 
+                                ON b.document_no = m.document_no 
+                                AND b.bis_rn = m.ppjr_rn
+                            INNER JOIN source_data s
+                                ON s.document_no = m.document_no
+                                AND s.linenum = m.linenum
+                            WHERE s.total_quantity = b.total_quantity
+                        ),
+                        filtered_dc AS (
+                            SELECT 
+                                s.document_no, s.linenum, s.site, s.document_type, s.document_date,
+                                s.e_way_bill_no, s.transporter_name, s.vehicle_no, s.irn_no,
+                                s.route_no, s.customer_code, s.customer_name, s.total_quantity
+                            FROM source_data s
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM skip_list sl 
+                                WHERE sl.document_no = s.document_no 
+                                AND sl.linenum = s.linenum
+                            )
                         ),
                         aggregated_dc AS (
                             SELECT 
@@ -247,15 +309,69 @@ def push_to_document_data():
         if source_counts.get('mfabric_invoice_data', 0) > 0:
             try:
                 with engine.begin() as conn:
-                    result = conn.execute(text("""
-                        WITH filtered_inv AS (
+                    result = conn.execute(text(f"""
+                        WITH source_data AS (
                             SELECT DISTINCT ON (document_no, linenum)
-                                document_no, linenum, site, document_type, document_date,
+                                document_no, linenum, itemid, site, document_type, document_date,
                                 e_way_bill_no, transporter_name, vehicle_no, irn_no,
                                 customer_code, customer_name, total_quantity
                             FROM mfabric_invoice_data
-                            WHERE itemid != 'PPJRTWMRT' OR itemid IS NULL
                             ORDER BY document_no, linenum
+                        ),
+                        bis_items AS (
+                            SELECT 
+                                document_no,
+                                linenum,
+                                itemid,
+                                total_quantity,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY document_no, total_quantity 
+                                    ORDER BY linenum
+                                ) as bis_rn
+                            FROM source_data
+                            WHERE itemid LIKE 'BIS-20LTR01%'
+                        ),
+                        matched_ppjrtwmrt AS (
+                            SELECT 
+                                p.document_no,
+                                p.linenum,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY p.document_no, p.total_quantity 
+                                    ORDER BY p.linenum
+                                ) as ppjr_rn
+                            FROM source_data p
+                            WHERE p.itemid = 'PPJRTWMRT'
+                                AND EXISTS (
+                                    SELECT 1 
+                                    FROM bis_items b 
+                                    WHERE b.document_no = p.document_no 
+                                    AND b.total_quantity = p.total_quantity
+                                )
+                        ),
+                        skip_list AS (
+                            SELECT DISTINCT
+                                m.document_no,
+                                m.linenum
+                            FROM matched_ppjrtwmrt m
+                            INNER JOIN bis_items b 
+                                ON b.document_no = m.document_no 
+                                AND b.bis_rn = m.ppjr_rn
+                            INNER JOIN source_data s
+                                ON s.document_no = m.document_no
+                                AND s.linenum = m.linenum
+                            WHERE s.total_quantity = b.total_quantity
+                        ),
+                        filtered_inv AS (
+                            SELECT 
+                                s.document_no, s.linenum, s.site, s.document_type, s.document_date,
+                                s.e_way_bill_no, s.transporter_name, s.vehicle_no, s.irn_no,
+                                s.customer_code, s.customer_name, s.total_quantity
+                            FROM source_data s
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM skip_list sl 
+                                WHERE sl.document_no = s.document_no 
+                                AND sl.linenum = s.linenum
+                            )
                         ),
                         aggregated_inv AS (
                             SELECT 
@@ -323,16 +439,71 @@ def push_to_document_data():
         if source_counts.get('mfabric_transferorder_rgp_data', 0) > 0:
             try:
                 with engine.begin() as conn:
-                    result = conn.execute(text("""
-                        WITH filtered_to AS (
+                    result = conn.execute(text(f"""
+                        WITH source_data AS (
                             SELECT DISTINCT ON (document_no, linenum)
-                                document_no, linenum, site, document_type, document_date,
+                                document_no, linenum, itemid, site, document_type, document_date,
                                 e_way_bill_no, transporter_name, vehicle_no, irn_no,
                                 from_warehouse_code, to_warehouse_code, route_code,
                                 direct_dispatch, sub_document_type, salesman, total_quantity
                             FROM mfabric_transferorder_rgp_data
-                            WHERE itemid != 'PPJRTWMRT' OR itemid IS NULL
                             ORDER BY document_no, linenum
+                        ),
+                        bis_items AS (
+                            SELECT 
+                                document_no,
+                                linenum,
+                                itemid,
+                                total_quantity,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY document_no, total_quantity 
+                                    ORDER BY linenum
+                                ) as bis_rn
+                            FROM source_data
+                            WHERE itemid LIKE 'BIS-20LTR01%'
+                        ),
+                        matched_ppjrtwmrt AS (
+                            SELECT 
+                                p.document_no,
+                                p.linenum,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY p.document_no, p.total_quantity 
+                                    ORDER BY p.linenum
+                                ) as ppjr_rn
+                            FROM source_data p
+                            WHERE p.itemid = 'PPJRTWMRT'
+                                AND EXISTS (
+                                    SELECT 1 
+                                    FROM bis_items b 
+                                    WHERE b.document_no = p.document_no 
+                                    AND b.total_quantity = p.total_quantity
+                                )
+                        ),
+                        skip_list AS (
+                            SELECT DISTINCT
+                                m.document_no,
+                                m.linenum
+                            FROM matched_ppjrtwmrt m
+                            INNER JOIN bis_items b 
+                                ON b.document_no = m.document_no 
+                                AND b.bis_rn = m.ppjr_rn
+                            INNER JOIN source_data s
+                                ON s.document_no = m.document_no
+                                AND s.linenum = m.linenum
+                            WHERE s.total_quantity = b.total_quantity
+                        ),
+                        filtered_to AS (
+                            SELECT 
+                                s.document_no, s.linenum, s.site, s.document_type, s.document_date,
+                                s.e_way_bill_no, s.transporter_name, s.vehicle_no, s.irn_no,
+                                s.from_warehouse_code, s.to_warehouse_code, s.route_code,
+                                s.direct_dispatch, s.sub_document_type, s.salesman, s.total_quantity
+                            FROM source_data s
+                            WHERE NOT EXISTS (
+                                SELECT 1 FROM skip_list sl 
+                                WHERE sl.document_no = s.document_no 
+                                AND sl.linenum = s.linenum
+                            )
                         ),
                         aggregated_to AS (
                             SELECT 

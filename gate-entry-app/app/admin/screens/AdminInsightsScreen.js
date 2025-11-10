@@ -524,6 +524,7 @@ const AdminInsightsScreen = () => {
         "Quantity",
         "Date",
         "Time",
+        "Warehouse",  // <-- ADD THIS
         "Security Guard",
         "Edit Count",
         "Time Remaining",
@@ -640,6 +641,7 @@ const AdminInsightsScreen = () => {
           entry.date_time
             ? new Date(entry.date_time).toLocaleTimeString()
             : "",
+          getWarehouseDisplay(entry, warehouses), 
           entry.security_name || "",
           entry.edit_count || "0",
           entry.time_remaining || "Expired",
