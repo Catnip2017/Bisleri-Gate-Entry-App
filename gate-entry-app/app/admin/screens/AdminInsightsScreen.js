@@ -937,7 +937,7 @@ const AdminInsightsScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching insights:", error);
-      showAlert("Error", `Failed to load insights data: ${error.message}`);
+      showAlert("No data", `No Data available for these Dates`);
     } finally {
       setLoading(false);
     }
@@ -1013,26 +1013,7 @@ const AdminInsightsScreen = () => {
     }
   };
 
-  if (user) {
-    const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
-    if (
-      !roleNormalized.includes("securityadmin") &&
-      !roleNormalized.includes("itadmin")
-    ) {
-      return (
-        <View
-          style={[
-            styles.container,
-            { justifyContent: "center", alignItems: "center" },
-          ]}
-        >
-          <Text style={{ fontSize: 16, fontWeight: "bold", color: "red" }}>
-            Access Denied - You don't have permission to view Admin Insights
-          </Text>
-        </View>
-      );
-    }
-  }
+ 
 
   const renderStats = () => {
     if (!stats) return null;
