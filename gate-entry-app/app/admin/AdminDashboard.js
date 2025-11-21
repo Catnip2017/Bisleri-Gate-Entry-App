@@ -62,17 +62,33 @@ const AdminDashboard = () => {
       setUser(userData);
 
       // Determine accessible tabs based on roles
-      const tabs = [];
-      if (rolesArray.includes('itadmin')) {
-        tabs.push('Admin Insights', 'Register Users', 'Modify Users', 'Reset Password');
-      } else if (rolesArray.includes('securityadmin')) {
-        tabs.push('Admin Insights');
-      } else {
-        showAlert('Access Denied', 'You do not have access to this page.');
-        router.replace('/landing/');
-        return;
-      }
-      setAvailableTabs(tabs);
+      // Determine accessible tabs based on roles
+const tabs = [];
+// ✅ Allow IT Admin full access
+if (rolesArray.includes('itadmin')) {
+  tabs.push('Admin Insights', 'Register Users', 'Modify Users', 'Reset Password');
+}
+
+// ✅ Allow Security Admin (even if also Security Guard)
+else if (rolesArray.includes('securityadmin')) {
+  tabs.push('Admin Insights');
+}
+
+// ✅ NEW: Allow if both Security Guard + Security Admin are assigned
+else if (rolesArray.includes('securityguard') && rolesArray.includes('securityadmin')) {
+  tabs.push('Admin Insights');
+}
+
+// ❌ Everyone else blocked
+else {
+  showAlert('Access Denied', 'You do not have access to this page.');
+  router.replace('/landing/');
+  return;
+}
+
+setAvailableTabs(tabs);
+
+
     } catch (error) {
       console.error('Error loading user data:', error);
       router.replace('/LoginScreen');

@@ -30,6 +30,7 @@ const GateEntryTab = ({
   userData,
 }) => {
   const router = useRouter();
+  const isITAdmin = userData?.role?.toLowerCase() === 'itadmin';
 
   // ✅ MERGED: Entry type toggle (FG or RM)
   const [entryType, setEntryType] = useState("FG");
@@ -1205,21 +1206,27 @@ const GateEntryTab = ({
           </View>
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[
-                styles.button,
-                styles.submitButton,
-                isSubmitting && styles.buttonDisabled,
-              ]}
-              onPress={handleRMSubmit}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text style={styles.buttonText}>Submit RM Entry</Text>
-              )}
-            </TouchableOpacity>
+<TouchableOpacity
+  style={[
+    styles.button,  // ✅ ADDED
+    styles.submitButton,
+    (isSubmitting || isITAdmin) && styles.buttonDisabled
+  ]}
+  onPress={
+    isITAdmin
+      ? () => Alert.alert('Restricted Access', 'IT Admin cannot create manual entries.')
+      : handleRMSubmit  // ✅ FIXED
+  }
+  disabled={isSubmitting || isITAdmin}
+>
+  {isSubmitting ? (
+    <ActivityIndicator size="small" color="white" />
+  ) : (
+    <Text style={styles.buttonText}>  {/* ✅ FIXED */}
+      {isITAdmin ? '🚫 Restricted for IT Admin' : 'Submit RM Entry'}
+    </Text>
+  )}
+</TouchableOpacity>
 
             <TouchableOpacity
               style={[

@@ -18,7 +18,8 @@ const ManualEntryForm = ({ userData }) => {
   const router = useRouter();
   const searchParams = useLocalSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const isITAdmin = userData?.role?.toLowerCase() === 'itadmin';
+
   // Get vehicle number and gate type from URL parameters
   const preFilledVehicleNo = searchParams.vehicle || '';
   const preFilledGateType = searchParams.gateType || 'Gate-In';
@@ -64,6 +65,11 @@ const ManualEntryForm = ({ userData }) => {
 
   // ✅ UPDATED: Enhanced confirmation dialog for empty vehicle scenario
   const handleSubmit = async () => {
+       if (isITAdmin) {
+     showAlert('Access Denied', 'IT Admin cannot create manual entries.');
+    return;
+   }
+
     if (!validateForm()) return;
 
     const isEmptyVehicle = formData.noOfDocuments === 0;
@@ -160,6 +166,16 @@ const ManualEntryForm = ({ userData }) => {
 
  return (
   <View style={styles.container}>
+              {/* 🚫 Show Restriction Info for IT Admin */}
+      {isITAdmin && (
+        <View style={styles.infoBox}>
+          <Text style={[styles.infoTitle, { color: 'red' }]}>🚫 Restricted Access</Text>
+          <Text style={styles.infoText}>
+            IT Admins can only view this page. Manual Entry creation is disabled.
+          </Text>
+        </View>
+      )}
+
     {/* Card Container */}
     <View style={styles.card}>
       <Text style={styles.sectionTitle}>Manual Entry - Support Empty Vehicles</Text>
@@ -221,7 +237,7 @@ const ManualEntryForm = ({ userData }) => {
             placeholder="Enter 0 for empty vehicle, 1-20 for manual entries"
             keyboardType="numeric"
             maxLength={2}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !isITAdmin}  // ✅ ADDED: && !isITAdmin
             selectTextOnFocus={true}
           />
           <Text style={styles.hintText}>
@@ -337,7 +353,7 @@ const ManualEntryForm = ({ userData }) => {
             multiline
             numberOfLines={3}
             maxLength={200}
-            editable={!isSubmitting}
+            editable={!isSubmitting && !isITAdmin}  // ✅ ADDED: && !isITAdmin
           />
           <Text style={styles.hintText}>
             Character count: {formData.remarks.length}/200
@@ -387,38 +403,46 @@ const ManualEntryForm = ({ userData }) => {
           )}
         </View>
 
-        {/* ✅ UPDATED: Dynamic action button */}
+  {/* ✅ UPDATED: Dynamic action button */}
         <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={[
-              styles.button, 
-              styles.submitButton, 
-              formData.noOfDocuments === 0 ? styles.emptyVehicleButton : styles.enhancedSubmitButton,
-              isSubmitting && styles.buttonDisabled
-            ]} 
-            onPress={handleSubmit}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={[styles.buttonText, styles.enhancedButtonText]}>
-                {formData.noOfDocuments === 0 
-                  ? '🚛 Record Empty Vehicle'
-                  : `📋 Create ${formData.noOfDocuments} ${formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}`
-                }
-              </Text>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity 
+          style={[
+            styles.button, 
+            styles.submitButton, 
+            formData.noOfDocuments === 0 ? styles.emptyVehicleButton : styles.enhancedSubmitButton,
+            (isSubmitting || isITAdmin) && styles.buttonDisabled
+          ]} 
+          onPress={isITAdmin 
+            ? () => showAlert('Access Denied', 'IT Admin cannot create manual entries.') 
+            : handleSubmit
+          }
+          disabled={isSubmitting || isITAdmin}
+        >
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={[styles.buttonText, styles.enhancedButtonText]}>
+              {isITAdmin
+                ? '🚫 Restricted for IT Admin'
+                : formData.noOfDocuments === 0
+                ? '🚛 Record Empty Vehicle'
+                : `📋 Create ${formData.noOfDocuments} ${formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}`
+              }
+            </Text>
+          )}
+        </TouchableOpacity>
+
 
           <TouchableOpacity 
             style={[styles.button, styles.clearButton]} 
             onPress={handleClear}
-            disabled={isSubmitting}
+           disabled={isSubmitting || isITAdmin}
+
           >
             <Text style={styles.buttonText}>Clear Form</Text>
           </TouchableOpacity>
         </View>
+
 
         {/* ✅ UPDATED: Dynamic loading state display */}
         {isSubmitting && (
