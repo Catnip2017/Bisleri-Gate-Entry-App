@@ -35,16 +35,10 @@ def search_recent_documents(
     clean_vehicle_no = vehicle_no.strip().upper()
     
     try:
-        # query = text("""
-        #     SELECT * FROM document_data
-        #     WHERE vehicle_no = :vehicle_no
-        #     AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
-        #     ORDER BY document_date DESC
-        # """)
         query = text("""
             SELECT * FROM document_data
             WHERE vehicle_no = :vehicle_no
-            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '6 days'
+            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
             ORDER BY document_date DESC
         """)
         
@@ -336,8 +330,7 @@ def create_enhanced_batch_gate_entry(
                     field for field in ['driver_name', 'km_reading', 'loader_names']
                     if not operational_data.get(field)
                 ],
-                # "edit_window_expires": (now + timedelta(hours=24)).isoformat()
-                "edit_window_expires": (now + timedelta(days=6)).isoformat()
+                "edit_window_expires": (now + timedelta(hours=24)).isoformat()
             }
         else:
             db.rollback()

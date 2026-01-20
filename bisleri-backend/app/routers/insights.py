@@ -142,17 +142,11 @@ def update_operational_data(
         entry_datetime = datetime.combine(insights_record.date, insights_record.time)
         time_elapsed = datetime.now() - entry_datetime
         
-        # if time_elapsed.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
-        #     raise HTTPException(
-        #         status_code=403, 
-        #         detail="Edit window expired. Records can only be edited within 24 hours."
-        #     )
-        if time_elapsed.total_seconds() > 6 * 24 * 60 * 60:  # 6 days in seconds
+        if time_elapsed.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 6 days."
+                detail="Edit window expired. Records can only be edited within 24 hours."
             )
-
             
             # Check permissions (creator or admin)
         if not insights_record.can_be_edited(current_user.username, current_user.role):
@@ -411,13 +405,9 @@ def get_records_needing_completion(
             )
         
         # Only get records within 24-hour edit window
-        # twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
-        # recent_records = base_query.filter(
-        #     InsightsData.date >= twenty_four_hours_ago.date()
-        # ).all()
-        six_days_ago = datetime.now() - timedelta(days=6)
+        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
         recent_records = base_query.filter(
-            InsightsData.date >= six_days_ago.date()
+            InsightsData.date >= twenty_four_hours_ago.date()
         ).all()
         
         # Filter records that need completion
