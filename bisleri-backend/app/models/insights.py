@@ -52,8 +52,11 @@ class InsightsData(Base):
         time_elapsed = datetime.now() - record_datetime
         
         # Check if 24-hour window has passed
-        if time_elapsed > timedelta(hours=24):
-            return 'expired'  # BLACK button
+        # if time_elapsed > timedelta(hours=24):
+        #     return 'expired'  # BLACK button
+        
+        if time_elapsed > timedelta(days=6):
+            return 'expired'
         
         # Check if operational data is complete
         if not self.is_operational_data_complete():
@@ -71,7 +74,9 @@ class InsightsData(Base):
             
         record_datetime = datetime.combine(self.date, self.time)
         time_elapsed = datetime.now() - record_datetime
-        time_remaining = timedelta(hours=24) - time_elapsed
+        # time_remaining = timedelta(hours=24) - time_elapsed
+        time_remaining = timedelta(days=6) - time_elapsed
+
         
         if time_remaining.total_seconds() <= 0:
             return None
@@ -122,7 +127,8 @@ class InsightsData(Base):
                 'text': '⚫ Expired',
                 'enabled': False,
                 'priority': 'none',
-                'message': 'Edit window expired (24+ hours)',
+                # 'message': 'Edit window expired (24+ hours)',
+                'message': 'Edit window expired (6+ days)',
                 'action': 'view_only'
             }
         

@@ -323,11 +323,32 @@ def get_dashboard_stats(
         total_movements = base_query.count()
         unique_vehicles = len(set([r.vehicle_no for r in base_query.all() if r.vehicle_no]))
         
-        gate_in_today = today_query.filter(InsightsData.movement_type == "Gate-In").count()
-        gate_out_today = today_query.filter(InsightsData.movement_type == "Gate-Out").count()
+        # gate_in_today = today_query.filter(InsightsData.movement_type == "Gate-In").count()
+        # gate_out_today = today_query.filter(InsightsData.movement_type == "Gate-Out").count()
         
-        gate_in_total = base_query.filter(InsightsData.movement_type == "Gate-In").count()
-        gate_out_total = base_query.filter(InsightsData.movement_type == "Gate-Out").count()
+        # gate_in_total = base_query.filter(InsightsData.movement_type == "Gate-In").count()
+        # gate_out_total = base_query.filter(InsightsData.movement_type == "Gate-Out").count()
+
+        # Count UNIQUE gate_entry_no for Gate-In
+        gate_in_today = len(set([
+            r.gate_entry_no for r in today_query.all() 
+            if r.movement_type == "Gate-In" and r.gate_entry_no
+        ]))
+
+        gate_out_today = len(set([
+            r.gate_entry_no for r in today_query.all() 
+            if r.movement_type == "Gate-Out" and r.gate_entry_no
+        ]))
+
+        gate_in_total = len(set([
+            r.gate_entry_no for r in base_query.all() 
+            if r.movement_type == "Gate-In" and r.gate_entry_no
+        ]))
+
+        gate_out_total = len(set([
+            r.gate_entry_no for r in base_query.all() 
+            if r.movement_type == "Gate-Out" and r.gate_entry_no
+        ]))
         
         return {
             "total_movements": total_movements,

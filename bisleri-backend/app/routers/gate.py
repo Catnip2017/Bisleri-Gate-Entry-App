@@ -35,10 +35,16 @@ def search_recent_documents(
     clean_vehicle_no = vehicle_no.strip().upper()
     
     try:
+        # query = text("""
+        #     SELECT * FROM document_data
+        #     WHERE vehicle_no = :vehicle_no
+        #     AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
+        #     ORDER BY document_date DESC
+        # """)
         query = text("""
             SELECT * FROM document_data
             WHERE vehicle_no = :vehicle_no
-            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
+            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '6 days'
             ORDER BY document_date DESC
         """)
         
@@ -330,7 +336,8 @@ def create_enhanced_batch_gate_entry(
                     field for field in ['driver_name', 'km_reading', 'loader_names']
                     if not operational_data.get(field)
                 ],
-                "edit_window_expires": (now + timedelta(hours=24)).isoformat()
+                # "edit_window_expires": (now + timedelta(hours=24)).isoformat()
+                "edit_window_expires": (now + timedelta(days=6)).isoformat()
             }
         else:
             db.rollback()
@@ -722,9 +729,16 @@ def create_manual_gate_entry(
 
 # NEW: Get unassigned documents for vehicle
 @router.get("/unassigned-documents/{vehicle_no}")
+# def get_unassigned_documents_for_vehicle(
+#     vehicle_no: str,
+#     hours_back: int = 24,  # Default 24 hour, can be made configurable
+#     db: Session = Depends(get_db),
+#     current_user: UsersMaster = Depends(get_current_user)
+# ):
+
 def get_unassigned_documents_for_vehicle(
     vehicle_no: str,
-    hours_back: int = 24,  # Default 24 hour, can be made configurable
+    hours_back: int = 144,  # Default 24 hour, can be made configurable
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
