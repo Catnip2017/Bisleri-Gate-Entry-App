@@ -10,12 +10,12 @@ const getApiUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
       if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; // Local network for mobile development
+        return 'http://192.168.1.56:8001'; // Local network for mobile development
       } else {
-        return 'http://192.168.1.56:8000'; // Emulator
+        return 'http://192.168.1.56:8001'; // Emulator
       }
     } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000'; // iOS development
+      return 'http://192.168.51.151:8001'; // iOS development
     }
     // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
     return 'https://123.63.20.237:19000/api';
@@ -136,13 +136,20 @@ export const gateAPI = {
     return response.data;
   },
 
-  getUnassignedDocuments: async (vehicleNo, hoursBack = 8) => {
-    if (!vehicleNo?.trim()) {
-      throw new Error('Vehicle number is required');
-    }
-    const response = await api.get(`/unassigned-documents/${vehicleNo.trim()}?hours_back=${hoursBack}`);
-    return response.data;
-  },
+  // getUnassignedDocuments: async (vehicleNo, hoursBack = 8) => {
+  //   if (!vehicleNo?.trim()) {
+  //     throw new Error('Vehicle number is required');
+  //   }
+  //   const response = await api.get(`/unassigned-documents/${vehicleNo.trim()}?hours_back=${hoursBack}`);
+  //   return response.data;
+  // },
+  getUnassignedDocuments: async (vehicleNo, hoursBack = 144) => {  // ✅ CHANGED: 8 → 144
+  if (!vehicleNo?.trim()) {
+    throw new Error('Vehicle number is required');
+  }
+  const response = await api.get(`/unassigned-documents/${vehicleNo.trim()}?hours_back=${hoursBack}`);
+  return response.data;
+},
 
   assignDocumentToManualEntry: async (assignmentData) => {
     if (!assignmentData.insights_id || !assignmentData.document_no) {

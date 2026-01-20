@@ -46,7 +46,6 @@ app.add_middleware(
         "https://123.63.20.237:19000",
         "https://srvhofortiems.bisleri.com",
         "https://123.63.20.237",
-        "*"  # Keep this for development, remove in production if needed
     ],
     allow_credentials=True,
     allow_methods=["*"],

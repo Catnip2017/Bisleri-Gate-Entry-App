@@ -409,6 +409,7 @@ inputBoxWide: {
     fontSize: 14,
     color: "#666",
   },
+ 
 });
 
 export default styles;

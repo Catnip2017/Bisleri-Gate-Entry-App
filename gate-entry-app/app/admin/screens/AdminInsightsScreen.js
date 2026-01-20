@@ -104,6 +104,11 @@ const AdminInsightsScreen = () => {
   const [filteredWarehouses, setFilteredWarehouses] = useState([]);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
 
+  const [siteSearchText, setSiteSearchText] = useState("");
+  const [filteredSites, setFilteredSites] = useState([]);
+  const [showSiteDropdown, setShowSiteDropdown] = useState(false);
+  const [uniqueSites, setUniqueSites] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
@@ -113,6 +118,13 @@ const AdminInsightsScreen = () => {
   const [showToDatePicker, setShowToDatePicker] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(20);
+
+  // 🆕 Helper function to check if user is IT Admin
+  const isITAdmin = () => {
+    if (!user) return false;
+    const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+    return roleNormalized.includes("itadmin");
+  };
 
   // Add this helper function
   const isSecurityAdmin = () => {
@@ -524,7 +536,7 @@ const AdminInsightsScreen = () => {
         "Quantity",
         "Date",
         "Time",
-        "Warehouse",  // <-- ADD THIS
+        "Warehouse",
         "Security Guard",
         "Edit Count",
         "Time Remaining",
@@ -747,28 +759,61 @@ const AdminInsightsScreen = () => {
     setFilteredWarehouses([]);
   };
 
+ const clearSiteSelection = () => {
+    setSiteCode("");
+    setSiteSearchText("");
+    setShowSiteDropdown(false);
+    setFilteredSites([]);
+  };
+
   const selectWarehouse = (warehouse) => {
     setWhCode(warehouse.warehouse_code);
     setSiteCode(warehouse.site_code);
     setWarehouseSearchText(warehouse.warehouse_code);
     setShowWarehouseDropdown(false);
     setFilteredWarehouses([]);
+    setSiteSearchText(warehouse.site_code);
     console.log("Selected warehouse:", warehouse);
     console.log("Set whCode to:", warehouse.warehouse_code);
     console.log("Set siteCode to:", warehouse.site_code);
   };
 
-  const loadWarehouses = async () => {
+  // 🆕 Select Site Function
+  const selectSite = (site) => {
+    setSiteCode(site.site_code);
+    setSiteSearchText(site.site_code);
+    setShowSiteDropdown(false);
+    setFilteredSites([]);
+    console.log("Selected site:", site);
+    console.log("Set siteCode to:", site.site_code);
+  };
+
+ const loadWarehouses = async () => {
     try {
       const warehouseData = await adminAPI.getWarehouses();
       setWarehouses(warehouseData);
+     
+      // 🆕 Extract unique sites from warehouses
+      const sitesMap = new Map();
+      warehouseData.forEach(wh => {
+        if (wh.site_code && !sitesMap.has(wh.site_code)) {
+          sitesMap.set(wh.site_code, {
+            site_code: wh.site_code,
+            site_name: wh.site_name || wh.site_code
+          });
+        }
+      });
+      const uniqueSitesArray = Array.from(sitesMap.values());
+      setUniqueSites(uniqueSitesArray);
+     
       console.log("Warehouses loaded:", warehouseData.length);
+      console.log("Unique sites loaded:", uniqueSitesArray.length);
     } catch (error) {
       console.error("Error loading warehouses:", error);
       showAlert("Error", "Failed to load warehouse data");
     }
   };
-
+ 
   useEffect(() => {
     const fetchUser = async () => {
       const u = await getCurrentUser();
@@ -801,6 +846,7 @@ const AdminInsightsScreen = () => {
       }
       if (user.siteCode) {
         setSiteCode(user.siteCode);
+        setSiteSearchText(user.sitecode);
         console.log("✅ Set siteCode to:", user.siteCode);
       }
     }
@@ -813,8 +859,7 @@ const AdminInsightsScreen = () => {
 
     if (!text.trim()) {
       console.log("➡️ Empty text, clearing everything");
-      setWhCode(""); // Clear whCode when text is empty
-      setSiteCode("");
+      setWhCode("");
       setFilteredWarehouses([]);
       setShowWarehouseDropdown(false);
       return;
@@ -837,6 +882,38 @@ const AdminInsightsScreen = () => {
 
     setFilteredWarehouses(filtered);
     setShowWarehouseDropdown(filtered.length > 0);
+  };
+
+// 🆕 Handle Site Code Change
+  const handleSiteCodeChange = (text) => {
+    console.log("🔍 handleSiteCodeChange called with:", text);
+ 
+    setSiteSearchText(text);
+ 
+    if (!text.trim()) {
+      console.log("➡️ Empty text, clearing site selection");
+      setSiteCode("");
+      setFilteredSites([]);
+      setShowSiteDropdown(false);
+      return;
+    }
+ 
+    const searchTerm = text.toLowerCase();
+    console.log("🔎 Site search term:", searchTerm);
+ 
+    const filtered = uniqueSites.filter((site) => {
+      const code = site.site_code?.toLowerCase() || "";
+      const name = site.site_name?.toLowerCase() || "";
+      return code.includes(searchTerm) || name.includes(searchTerm);
+    });
+ 
+    console.log("✅ Filtered sites count:", filtered.length);
+    if (filtered.length > 0) {
+      console.log("📋 Filtered sites:", filtered);
+    }
+ 
+    setFilteredSites(filtered);
+    setShowSiteDropdown(filtered.length > 0);
   };
 
   const loadDashboardStats = async () => {
@@ -879,6 +956,7 @@ const AdminInsightsScreen = () => {
     console.log("whCode:", whCode);
     console.log("siteCode:", siteCode);
     console.log("warehouseSearchText:", warehouseSearchText);
+    console.log("siteSearchText:", siteSearchText);
     console.log("fromDate:", formatDateForAPI(fromDate));
     console.log("toDate:", formatDateForAPI(toDate));
 
@@ -908,7 +986,7 @@ const AdminInsightsScreen = () => {
         );
         console.log("✅ Results received:", data.count, "records");
         setInsights(data);
-        setCurrentPage(1); // Reset to first page when new data loads
+        setCurrentPage(1); 
 
         await loadDashboardStats();
       } else {
@@ -932,7 +1010,7 @@ const AdminInsightsScreen = () => {
         console.log("✅ RM First Record:", JSON.stringify(data.results[0], null, 2));
         console.log("✅ RM First Record Keys:", Object.keys(data.results[0]));
         setInsights(data);
-        setCurrentPage(1); // Reset to first page when new data loads
+        setCurrentPage(1); 
         await loadDashboardStats();
       }
     } catch (error) {
@@ -1013,40 +1091,59 @@ const AdminInsightsScreen = () => {
     }
   };
 
- 
+  // if (user) {
+  //   const roleNormalized = user.role?.toLowerCase().replace(/\s+/g, "");
+  //   if (
+  //     !roleNormalized.includes("securityadmin") &&
+  //     !roleNormalized.includes("itadmin")
+  //   ) {
+  //     return (
+  //       <View
+  //         style={[
+  //           styles.container,
+  //           { justifyContent: "center", alignItems: "center" },
+  //         ]}
+  //       >
+  //         <Text style={{ fontSize: 16, fontWeight: "bold", color: "red" }}>
+  //           Access Denied - You don't have permission to view Admin Insights
+  //         </Text>
+  //       </View>
+  //     );
+  //   }
+  // }
 
-  const renderStats = () => {
+ const renderStats = () => {
     if (!stats) return null;
-
-if (insightType === "FG") {
-  return (
-    <View style={styles.summaryBox}>
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryCount}>
-          {(stats.gate_in || 0) + (stats.gate_out || 0)}
-        </Text>
-        <Text>Total Movements</Text>
-      </View>
-
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryCount}>
-          {stats.unique_vehicles || 0}
-        </Text>
-        <Text>Unique Vehicles</Text>
-      </View>
-
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryCount}>{stats.gate_in || 0}</Text>
-        <Text>Total Gate-In</Text>
-      </View>
-
-      <View style={styles.summaryItem}>
-        <Text style={styles.summaryCount}>{stats.gate_out || 0}</Text>
-        <Text>Total Gate-Out</Text>
-      </View>
-    </View>
-  );
-}
+ 
+    if (insightType === "FG") {
+      return (
+        <View style={styles.summaryBox}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryCount}>
+              {(stats.gate_in || 0) + (stats.gate_out || 0)}
+            </Text>
+            <Text>Total Movements</Text>
+          </View>
+ 
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryCount}>
+              {stats.unique_vehicles || 0}
+            </Text>
+            <Text>Unique Vehicles</Text>
+          </View>
+ 
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryCount}>{stats.gate_in || 0}</Text>
+            <Text>Total Gate-In</Text>
+          </View>
+ 
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryCount}>{stats.gate_out || 0}</Text>
+            <Text>Total Gate-Out</Text>
+          </View>
+        </View>
+      );
+    }
 
     else {
       return (
@@ -1093,9 +1190,13 @@ const renderFGTable = () => (
     )}
 
     {/* ✅ Horizontal + Vertical Scroll Enabled */}
-    <View style={{ maxHeight: 400 }}> {/* Adjust height as needed */}
+    <View style={{ maxHeight: 400 }}> 
       <ScrollView horizontal nestedScrollEnabled>
-        <ScrollView nestedScrollEnabled>
+        <ScrollView 
+        nestedScrollEnabled 
+        style={{ maxHeight: 400 }}
+        contentContainerStyle={{ flexGrow: 1 }}
+        >
           <View>
             <View style={styles.tableHeader}>
               <Text style={styles.headerCell}>Date</Text>
@@ -1171,7 +1272,11 @@ const renderRMTable = () => (
     {/* ✅ Horizontal + Vertical Scroll Enabled */}
     <View style={{ maxHeight: 400 }}>
       <ScrollView horizontal nestedScrollEnabled>
-        <ScrollView nestedScrollEnabled>
+        <ScrollView 
+          nestedScrollEnabled 
+          style={{ maxHeight: 400 }}
+          contentContainerStyle={{ flexGrow: 1 }}
+        >
           <View>
             <View style={styles.tableHeader}>
               <Text style={styles.headerCell}>Gate Entry No</Text>
@@ -1221,7 +1326,11 @@ const renderRMTable = () => (
 
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView 
+      contentContainerStyle={styles.container}
+      nestedScrollEnabled={true}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.card}>
         {/* Insight Type Toggle */}
         <View style={styles.insightTypeContainer}>
@@ -1408,21 +1517,124 @@ const renderRMTable = () => (
                 </View>
               </View>
 
-              {/* Site Code */}
-
-              <View style={styles.inputBox}>
+             {/* 🆕 Site Code with Dropdown - ONLY for IT Admin */}
+              <View
+                style={[styles.inputBox, { overflow: "visible", zIndex: 9998 }]}
+              >
                 <Text>Site Code</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    siteCode && styles.inputFilled,
-                    isSecurityAdmin() && styles.inputDisabled,
-                  ]}
-                  value={siteCode}
-                  onChangeText={setSiteCode}
-                  placeholder="Auto-filled or manual"
-                  editable={!isSecurityAdmin()}
-                />
+                <View style={{ position: "relative" }}>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      siteCode && styles.inputFilled,
+                      (!isITAdmin() || isSecurityAdmin()) && styles.inputDisabled,
+                    ]}
+                    value={siteSearchText}
+                    onChangeText={isITAdmin() && !isSecurityAdmin() ? handleSiteCodeChange : undefined}
+                    placeholder={isITAdmin() && !isSecurityAdmin() ? "Type to search..." : "Auto-filled"}
+                    editable={isITAdmin() && !isSecurityAdmin()}
+                    onFocus={() => {
+                      if (siteSearchText && isITAdmin() && !isSecurityAdmin()) {
+                        handleSiteCodeChange(siteSearchText);
+                      }
+                    }}
+                    autoCapitalize="characters"
+                  />
+ 
+                  {/* Clear Button - only for IT Admin */}
+                  {siteSearchText && isITAdmin() && !isSecurityAdmin() ? (
+                    <TouchableOpacity
+                      style={{
+                        position: "absolute",
+                        right: 10,
+                        top: "50%",
+                        transform: [{ translateY: -10 }],
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        backgroundColor: "#999",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 2,
+                      }}
+                      onPress={clearSiteSelection}
+                    >
+                      <Text
+                        style={{
+                          color: "white",
+                          fontWeight: "bold",
+                          fontSize: 14,
+                        }}
+                      >
+                        ×
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+ 
+                  {/* Site Dropdown - only for IT Admin */}
+                  {showSiteDropdown && filteredSites.length > 0 && isITAdmin() && !isSecurityAdmin() && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 35,
+                        left: 0,
+                        right: 0,
+                        backgroundColor: "#fff",
+                        borderWidth: 1,
+                        borderColor: "#ddd",
+                        borderTopWidth: 0,
+                        borderRadius: 4,
+                        borderTopLeftRadius: 0,
+                        borderTopRightRadius: 0,
+                        maxHeight: 200,
+                        zIndex: 999998,
+                        elevation: 998,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 4 },
+                        shadowOpacity: 0.3,
+                        shadowRadius: 5,
+                      }}
+                    >
+                      <ScrollView
+                        style={{ maxHeight: 200 }}
+                        nestedScrollEnabled={true}
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {filteredSites.map((site, index) => (
+                          <TouchableOpacity
+                            key={`${site.site_code}-${index}`}
+                            style={{
+                              padding: 12,
+                              borderBottomWidth: 1,
+                              borderBottomColor: "#eee",
+                              backgroundColor: "#fff",
+                            }}
+                            onPress={() => selectSite(site)}
+                          >
+                            <Text
+                              style={{
+                                fontSize: 14,
+                                fontWeight: "bold",
+                                color: "#1976d2",
+                                marginBottom: 2,
+                              }}
+                            >
+                              {site.site_code}
+                            </Text>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                color: "#666",
+                              }}
+                            >
+                              {site.site_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
               </View>
 
               <TouchableOpacity

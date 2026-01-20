@@ -114,9 +114,14 @@ def get_filtered_rm_entries(
         result_list = []
         for entry in entries:
             # Check if entry can be edited (24-hour window)
+            # time_since_creation = datetime.now() - entry.date_time
+            # can_edit = (
+            #     time_since_creation <= timedelta(hours=24) and
+            #     (current_user.role == "Admin" or entry.security_username == current_user.username)
+            # )
             time_since_creation = datetime.now() - entry.date_time
             can_edit = (
-                time_since_creation <= timedelta(hours=24) and
+                time_since_creation <= timedelta(days=6) and
                 (current_user.role == "Admin" or entry.security_username == current_user.username)
             )
             
@@ -176,12 +181,18 @@ def update_rm_entry(
         
         # Check 24-hour edit window
         time_since_creation = datetime.now() - rm_entry.date_time
-        if time_since_creation.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
+        # if time_since_creation.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
+        #     raise HTTPException(
+        #         status_code=403, 
+        #         detail="Edit window expired. Records can only be edited within 24 hours."
+        #     )
+        
+        if time_since_creation.total_seconds() > 6 * 24 * 60 * 60:  # 6 days in seconds
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 24 hours."
+                detail="Edit window expired. Records can only be edited within 6 days."
             )
-        
+
         # Check permissions (creator or admin)
         if current_user.role != "Admin" and rm_entry.security_username != current_user.username:
             raise HTTPException(
@@ -355,16 +366,24 @@ def get_admin_filtered_rm_entries(
         result_list = []
         for entry in entries:
             # Check if entry can be edited (24-hour window)
+            # time_since_creation = datetime.now() - entry.date_time
+            # can_edit = (
+            #     time_since_creation <= timedelta(hours=24) and
+            #     (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
+            # )
+            
             time_since_creation = datetime.now() - entry.date_time
             can_edit = (
-                time_since_creation <= timedelta(hours=24) and
-                (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
+                time_since_creation <= timedelta(days=6) and
+                (current_user.role == "Admin" or entry.security_username == current_user.username)
             )
-            
+
             # Calculate time remaining
             time_remaining = None
-            if time_since_creation <= timedelta(hours=24):
-                remaining_seconds = (timedelta(hours=24) - time_since_creation).total_seconds()
+            # if time_since_creation <= timedelta(hours=24):
+            #     remaining_seconds = (timedelta(hours=24) - time_since_creation).total_seconds()
+            if time_since_creation <= timedelta(days=6):
+                remaining_seconds = (timedelta(days=6) - time_since_creation).total_seconds()
                 hours = int(remaining_seconds // 3600)
                 minutes = int((remaining_seconds % 3600) // 60)
                 time_remaining = f"{hours}h {minutes}m"

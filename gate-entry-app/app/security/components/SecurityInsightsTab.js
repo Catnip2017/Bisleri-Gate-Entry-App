@@ -276,13 +276,17 @@ const SecurityInsightsTab = ({
   const loadAvailableDocuments = async (vehicleNo) => {
     setLoadingDocuments(true);
     try {
-      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 24); // 24 hour window
+      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 144); // 24 hour window
       setAvailableDocuments(response.documents || []);
       
       if (response.available_count === 0) {
+        // showAlert(
+        //   'No Documents Found', 
+        //   `No unassigned documents found for vehicle ${vehicleNo} in the last 24 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
+        // );
         showAlert(
-          'No Documents Found', 
-          `No unassigned documents found for vehicle ${vehicleNo} in the last 24 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
+        'No Documents Found', 
+        `No unassigned documents found for vehicle ${vehicleNo} in the last 6 Days.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
         );
       }
     } catch (error) {
@@ -386,8 +390,22 @@ const SecurityInsightsTab = ({
         };
       }
       
-      const gateInCount = movements.filter(m => m.movement_type === 'Gate-In').length;
-      const gateOutCount = movements.filter(m => m.movement_type === 'Gate-Out').length;
+      // const gateInCount = movements.filter(m => m.movement_type === 'Gate-In').length;
+      // const gateOutCount = movements.filter(m => m.movement_type === 'Gate-Out').length;
+      const uniqueGateInEntries = new Set();
+      const uniqueGateOutEntries = new Set();
+
+      for (const m of movements) {
+        if (m.movement_type === 'Gate-In') {
+          uniqueGateInEntries.add(m.gate_entry_no);
+        } else if (m.movement_type === 'Gate-Out') {
+          uniqueGateOutEntries.add(m.gate_entry_no);
+        }
+      }
+
+      const gateInCount = uniqueGateInEntries.size;
+      const gateOutCount = uniqueGateOutEntries.size;
+
       const uniqueVehicles = [...new Set(movements.map(m => m.vehicle_no))].length;
       const needsCompletion = movements.filter(m => 
         editStatusUtils.getButtonConfig(m).action === 'complete_required'
@@ -906,7 +924,8 @@ const SecurityInsightsTab = ({
             
             {/* Document Selection */}
             <Text style={styles.assignmentSectionTitle}>
-              Available Documents (Last 24 Hour):
+              {/* Available Documents (Last 24 Hour): */}
+              Available Documents (Last 6 day):
             </Text>
             
             {loadingDocuments ? (
