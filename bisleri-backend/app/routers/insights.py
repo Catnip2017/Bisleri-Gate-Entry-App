@@ -128,7 +128,7 @@ def update_operational_data(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
-    """Update operational fields with enhanced 24-hour window logic"""
+    """Update operational fields with enhanced 48-hour window logic"""
     try:
         # Find the insights record
         insights_record = db.query(InsightsData).filter(
@@ -138,14 +138,14 @@ def update_operational_data(
         if not insights_record:
             raise HTTPException(status_code=404, detail="Gate entry not found")
         
-        # ✅ NEW: Check 24-hour edit window (extended from 12)
+        # ✅ NEW: Check 48-hour edit window 
         entry_datetime = datetime.combine(insights_record.date, insights_record.time)
         time_elapsed = datetime.now() - entry_datetime
         
-        if time_elapsed.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
+        if time_elapsed.total_seconds() > 48 * 60 * 60:  # 48 hours in seconds
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 24 hours."
+                detail="Edit window expired. Records can only be edited within 48 hours."
             )
             
             # Check permissions (creator or admin)
@@ -404,8 +404,8 @@ def get_records_needing_completion(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )
         
-        # Only get records within 24-hour edit window
-        twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+        # Only get records within 48-hour edit window
+        twenty_four_hours_ago = datetime.now() - timedelta(hours=48)
         recent_records = base_query.filter(
             InsightsData.date >= twenty_four_hours_ago.date()
         ).all()

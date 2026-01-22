@@ -276,13 +276,13 @@ const SecurityInsightsTab = ({
   const loadAvailableDocuments = async (vehicleNo) => {
     setLoadingDocuments(true);
     try {
-      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 144); // 24 hour window
+      const response = await gateAPI.getUnassignedDocuments(vehicleNo, 48); // 48 hour window
       setAvailableDocuments(response.documents || []);
       
       if (response.available_count === 0) {
         showAlert(
           'No Documents Found', 
-          `No unassigned documents found for vehicle ${vehicleNo} in the last 24 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
+          `No unassigned documents found for vehicle ${vehicleNo} in the last 48 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
         );
       }
     } catch (error) {
@@ -920,7 +920,7 @@ const SecurityInsightsTab = ({
             
             {/* Document Selection */}
             <Text style={styles.assignmentSectionTitle}>
-              Available Documents (Last 24 Hour):
+              Available Documents (Last 48 Hour):
             </Text>
             
             {loadingDocuments ? (

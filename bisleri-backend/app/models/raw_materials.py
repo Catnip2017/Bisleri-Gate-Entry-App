@@ -19,7 +19,7 @@ class RawMaterialsData(Base):
     warehouse_code = Column(String(50), nullable=False)
     site_code = Column(String(50), nullable=False)
     
-    # Edit tracking fields (24-hour edit window)
+    # Edit tracking fields (48-hour edit window)
     last_edited_at = Column(DateTime)
     edit_count = Column(Integer, default=0)
     
