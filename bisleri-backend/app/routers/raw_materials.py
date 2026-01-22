@@ -113,17 +113,17 @@ def get_filtered_rm_entries(
         # Format response with edit status
         result_list = []
         for entry in entries:
-            # Check if entry can be edited (24-hour window)
+            # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
             can_edit = (
-                time_since_creation <= timedelta(hours=24) and
+                time_since_creation <= timedelta(hours=48) and
                 (current_user.role == "Admin" or entry.security_username == current_user.username)
             )
  
             # Calculate time remaining
             time_remaining = None
-            if time_since_creation <= timedelta(hours=24):
-                remaining_seconds = (timedelta(hours=24) - time_since_creation).total_seconds()
+            if time_since_creation <= timedelta(hours=48):
+                remaining_seconds = (timedelta(hours=48) - time_since_creation).total_seconds()
                 hours = int(remaining_seconds // 3600)
                 minutes = int((remaining_seconds % 3600) // 60)
                 time_remaining = f"{hours}h {minutes}m"
@@ -164,7 +164,7 @@ def update_rm_entry(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
-    """Update raw materials entry within 24-hour window"""
+    """Update raw materials entry within 48-hour window"""
     try:
         # Find the entry
         rm_entry = db.query(RawMaterialsData).filter(
@@ -174,12 +174,12 @@ def update_rm_entry(
         if not rm_entry:
             raise HTTPException(status_code=404, detail="Raw materials entry not found")
         
-        # Check 24-hour edit window
+        # Check 48-hour edit window
         time_since_creation = datetime.now() - rm_entry.date_time
-        if time_since_creation.total_seconds() > 24 * 60 * 60:  # 24 hours in seconds
+        if time_since_creation.total_seconds() > 48 * 60 * 60:  # 48 hours in seconds
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 24 hours."
+                detail="Edit window expired. Records can only be edited within 48 hours."
             )
 
         # Check permissions (creator or admin)
@@ -354,17 +354,17 @@ def get_admin_filtered_rm_entries(
         # Format response with edit status
         result_list = []
         for entry in entries:
-            # Check if entry can be edited (24-hour window)
+            # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
             can_edit = (
-                time_since_creation <= timedelta(hours=24) and
+                time_since_creation <= timedelta(hours=48) and
                 (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
             )
 
             # Calculate time remaining
             time_remaining = None
-            if time_since_creation <= timedelta(hours=24):
-                remaining_seconds = (timedelta(hours=24) - time_since_creation).total_seconds()
+            if time_since_creation <= timedelta(hours=48):
+                remaining_seconds = (timedelta(hours=48) - time_since_creation).total_seconds()
                 hours = int(remaining_seconds // 3600)
                 minutes = int((remaining_seconds % 3600) // 60)
                 time_remaining = f"{hours}h {minutes}m"

@@ -422,10 +422,10 @@ export const editStatusUtils = {
 
   calculateButtonConfig: (record) => {
     const timeSinceCreation = editStatusUtils.getTimeSinceCreation(record);
-    const isWithin24Hours = timeSinceCreation <= 24 * 60 * 60 * 1000;
+    const isWithin48Hours = timeSinceCreation <= 48 * 60 * 60 * 1000;
     const isOperationalComplete = editStatusUtils.isOperationalDataComplete(record);
 
-    if (!isWithin24Hours) {
+    if (!isWithin48Hours) {
       return {
         color: 'black',
         text: '⚫ Expired',
@@ -520,7 +520,7 @@ export const handleAPIError = (error) => {
         break;
       case 403:
         if (data?.detail && data.detail.includes('Edit window expired')) {
-          errorMessage = "Edit window expired. Records can only be edited within 24 hours.";
+          errorMessage = "Edit window expired. Records can only be edited within 48 hours.";
         } else {
           errorMessage = "Access denied. Insufficient permissions.";
         }

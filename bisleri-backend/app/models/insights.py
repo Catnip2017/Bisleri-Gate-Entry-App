@@ -51,8 +51,8 @@ class InsightsData(Base):
         record_datetime = datetime.combine(self.date, self.time)
         time_elapsed = datetime.now() - record_datetime
         
-        # Check if 24-hour window has passed
-        if time_elapsed > timedelta(hours=24):
+        # Check if 48-hour window has passed
+        if time_elapsed > timedelta(hours=48):
             return 'expired'  # BLACK button
         
         # Check if operational data is complete
@@ -63,7 +63,7 @@ class InsightsData(Base):
         return 'editable'  # GREEN button
     
     def get_time_remaining(self):
-        """Get remaining time in the 24-hour edit window"""
+        """Get remaining time in the 48-hour edit window"""
         from datetime import datetime, timedelta
         
         if not self.date or not self.time:
@@ -71,7 +71,7 @@ class InsightsData(Base):
             
         record_datetime = datetime.combine(self.date, self.time)
         time_elapsed = datetime.now() - record_datetime
-        time_remaining = timedelta(hours=24) - time_elapsed
+        time_remaining = timedelta(hours=48) - time_elapsed
         
         if time_remaining.total_seconds() <= 0:
             return None
@@ -83,7 +83,7 @@ class InsightsData(Base):
     
     def can_be_edited(self, current_user_username, current_user_role):
         """Check if record can be edited by the given user"""
-        # Must be within 24-hour window
+        # Must be within 48-hour window
         if self.get_edit_status() == 'expired':
             return False
         
@@ -122,7 +122,7 @@ class InsightsData(Base):
                 'text': '⚫ Expired',
                 'enabled': False,
                 'priority': 'none',
-                'message': 'Edit window expired (24+ hours)',
+                'message': 'Edit window expired (48+ hours)',
                 'action': 'view_only'
             }
         

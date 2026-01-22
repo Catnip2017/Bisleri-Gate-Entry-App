@@ -330,7 +330,7 @@ def create_enhanced_batch_gate_entry(
                     field for field in ['driver_name', 'km_reading', 'loader_names']
                     if not operational_data.get(field)
                 ],
-                "edit_window_expires": (now + timedelta(hours=24)).isoformat()
+                "edit_window_expires": (now + timedelta(hours=48)).isoformat()
             }
         else:
             db.rollback()
@@ -722,19 +722,13 @@ def create_manual_gate_entry(
 
 # NEW: Get unassigned documents for vehicle
 @router.get("/unassigned-documents/{vehicle_no}")
-# def get_unassigned_documents_for_vehicle(
-#     vehicle_no: str,
-#     hours_back: int = 24,  # Default 24 hour, can be made configurable
-#     db: Session = Depends(get_db),
-#     current_user: UsersMaster = Depends(get_current_user)
-# ):
-
 def get_unassigned_documents_for_vehicle(
     vehicle_no: str,
-    hours_back: int = 144,  # Default 24 hour, can be made configurable
+    hours_back: int = 48,  # Default 48 hour, can be made configurable
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
+
     """Get unassigned documents for a vehicle within specified time window"""
     
     if not vehicle_no.strip():
