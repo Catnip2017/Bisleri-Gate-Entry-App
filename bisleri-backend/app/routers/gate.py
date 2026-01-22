@@ -36,10 +36,40 @@ def search_recent_documents(
     
     try:
         query = text("""
-            SELECT * FROM document_data
-            WHERE vehicle_no = :vehicle_no
-            AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours'
-            ORDER BY document_date DESC
+WITH classified_docs AS (
+    SELECT
+        d.*,
+        CASE
+            /* NO INTERVAL */
+            WHEN d.document_type = 'Credit Note'
+              OR (d.document_type = 'Transfer Order' AND d.sub_document_type = 'RGP')
+              OR (d.document_type = 'Stock Transfer' AND d.sub_document_type = 'RGP')
+            THEN 'NO_INTERVAL'
+
+            /* 72 HOURS */
+            WHEN (
+                (d.document_type = 'Stock Transfer' AND d.sub_document_type IN ('EDA','Normal Transfer','VanSale'))
+                OR
+                (d.document_type = 'Transfer Order' AND d.sub_document_type IN ('EDA','Normal Transfer','VanSale'))
+            )
+            THEN 'H72'
+
+            /* DEFAULT 48 HOURS */
+            ELSE 'H48'
+        END AS rule_applied
+    FROM document_data d
+    WHERE d.vehicle_no = :vehicle_no
+)
+SELECT *
+FROM classified_docs
+WHERE
+    rule_applied = 'NO_INTERVAL'
+    OR (rule_applied = 'H72'
+        AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '72 hours')
+    OR (rule_applied = 'H48'
+        AND document_date >= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') - INTERVAL '48 hours')
+ORDER BY document_date DESC;
+
         """)
         
         result = db.execute(query, {"vehicle_no": clean_vehicle_no})
