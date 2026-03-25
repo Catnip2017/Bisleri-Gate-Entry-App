@@ -27,6 +27,8 @@ const ManualEntryForm = ({ userData }) => {
   const preFilledDriverName = searchParams.driverName || '';
   const preFilledKMReading = searchParams.kmReading || '';
   const preFilledLoaderNames = searchParams.loaderNames || '';
+  const preFilledLoaderCount = searchParams.loaderCount || '';  // ✅ ADD
+
   
   // ✅ UPDATED: Form state with new no_of_documents field (default 0 for empty vehicle)
   const [formData, setFormData] = useState({
@@ -37,6 +39,8 @@ const ManualEntryForm = ({ userData }) => {
     driverName: preFilledDriverName,      // ✅ ADD
     kmReading: preFilledKMReading,        // ✅ ADD
     loaderNames: preFilledLoaderNames,
+    loaderCount: preFilledLoaderCount,   // ✅ ADD
+
     });
 
 
@@ -102,6 +106,7 @@ const ManualEntryForm = ({ userData }) => {
         remarks: formData.remarks || null,
         driver_name: formData.driverName || null,
         km_reading: formData.kmReading || null,
+        loader_count: formData.loaderCount ? parseInt(formData.loaderCount) : null,  // ✅ ADD
         loader_names: formData.loaderNames || null,
       };
 
@@ -298,6 +303,28 @@ const ManualEntryForm = ({ userData }) => {
         </View>
       </View>
 
+            {/* Loader Count Field */}
+      <View style={styles.row}>
+        <View style={styles.fieldFull}>
+          <Text style={styles.label}>Loader Count *</Text>
+          <TextInput 
+            style={[
+              styles.input,
+              preFilledLoaderCount ? styles.inputDisabled : null
+            ]} 
+            value={formData.loaderCount}
+            onChangeText={(text) => updateField('loaderCount', text.replace(/[^0-9]/g, ''))}
+            placeholder="Enter number of loaders"
+            keyboardType="numeric"
+            maxLength={2}
+            editable={!isSubmitting && !preFilledLoaderCount}
+          />
+          {preFilledLoaderCount ? (
+            <Text style={styles.hintText}>✓ Pre-filled from Gate Entry</Text>
+          ) : null}
+        </View>
+      </View> 
+      
       {/* Loader Names Field */}
       <View style={styles.row}>
         <View style={styles.fieldFull}>

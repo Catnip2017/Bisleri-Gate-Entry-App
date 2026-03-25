@@ -729,6 +729,7 @@ const SecurityInsightsTab = ({
               {/* Operational Data Columns */}
               <Text style={[styles.tableHeaderCell, styles.colDriverName]}>Driver Name</Text>
               <Text style={[styles.tableHeaderCell, styles.colKMReading]}>KM Reading</Text>
+              <Text style={[styles.tableHeaderCell, styles.colLoaderCount]}>Loader Count</Text>  {/* ✅ ADD */}
               <Text style={[styles.tableHeaderCell, styles.colLoaderNames]}>Loader Names</Text>
               
               <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>To Warehouse</Text>              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
@@ -790,6 +791,13 @@ const SecurityInsightsTab = ({
                       <View style={[styles.tableCell, styles.colKMReading]}>
                         {renderOperationalCell(movement, 'km_reading')}
                       </View>
+                                            {/* ✅ ADD: Loader Count Cell */}
+                      <View style={[styles.tableCell, styles.colLoaderCount]}>
+                        <Text style={styles.tableCell}>
+                          {movement.loader_count ?? '--'}
+                        </Text>
+                      </View>
+                      
                       <View style={[styles.tableCell, styles.colLoaderNames]}>
                         {renderOperationalCell(movement, 'loader_names')}
                       </View>
