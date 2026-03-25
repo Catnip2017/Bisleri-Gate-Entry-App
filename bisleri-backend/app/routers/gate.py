@@ -246,6 +246,9 @@ def create_enhanced_batch_gate_entry(
             if len(names) > 10:
                 raise HTTPException(status_code=400, detail="Maximum 10 loader names allowed")
             operational_data['loader_names'] = ', '.join(names)
+
+        if entry.loader_count:
+            operational_data['loader_count'] = entry.loader_count
         
         # Process documents if provided
         if entry.document_nos:
@@ -282,6 +285,7 @@ def create_enhanced_batch_gate_entry(
                         # NEW: Include operational data if provided
                         driver_name=operational_data.get('driver_name'),
                         km_reading=operational_data.get('km_reading'),
+                        loader_count=operational_data.get('loader_count'),   # ADD
                         loader_names=operational_data.get('loader_names'),
                         edit_count=0,
                         last_edited_at=now if operational_data else None
@@ -619,6 +623,7 @@ def create_enhanced_manual_gate_entry(
             # NEW: Include operational data
             driver_name=operational_data.get('driver_name'),
             km_reading=operational_data.get('km_reading'),
+            loader_count=entry.loader_count,   # ADD
             loader_names=operational_data.get('loader_names'),
             edit_count=0,
             last_edited_at=now if operational_data else None
@@ -1019,6 +1024,7 @@ def get_vehicle_history(
                 # NEW: Include operational data in history
                 "driver_name": move.driver_name,
                 "km_reading": move.km_reading,
+                "loader_count": move.loader_count,
                 "loader_names": move.loader_names,
                 "edit_count": move.edit_count or 0
             }
@@ -1185,6 +1191,7 @@ def create_multi_document_manual_entry(
                 # Empty vehicles don't need document assignment
                 driver_name=entry.driver_name,
                 km_reading=entry.km_reading,
+                loader_count=entry.loader_count,   # ✅ ADD
                 loader_names=entry.loader_names,
             )
             
@@ -1224,6 +1231,7 @@ def create_multi_document_manual_entry(
                     # Mark as unassigned - these need document assignment
                     driver_name=entry.driver_name,
                     km_reading=entry.km_reading,
+                    loader_count=entry.loader_count,   # ✅ IMPORTANT
                     loader_names=entry.loader_names,
                 )
                 

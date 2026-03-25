@@ -24,6 +24,7 @@ class InsightsData(Base):
     # ✅ NEW: Operational fields for the 3-color edit system
     driver_name = Column(String(100))           # Required for completion
     km_reading = Column(String(10))             # Required for completion (KM IN/OUT)
+    loader_count = Column(Integer)        # NEW COLUMN
     loader_names = Column(String(200))          # Required for completion (comma-separated)
     last_edited_at = Column(DateTime)           # Track edit timestamps
     edit_count = Column(Integer, default=0)     # Track number of edits

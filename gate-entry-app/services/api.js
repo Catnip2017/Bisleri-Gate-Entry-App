@@ -121,6 +121,10 @@ export const gateAPI = {
     if (!enhancedBatchData.document_nos || enhancedBatchData.document_nos.length === 0) {
       throw new Error('At least one document must be selected');
     }
+          // ✅ ADD: loader_count to integer if present
+  if (enhancedBatchData.loader_count) {
+    enhancedBatchData.loader_count = parseInt(enhancedBatchData.loader_count) || null;
+  }
     const response = await api.post('/enhanced-batch-gate-entry', enhancedBatchData);
     return response.data;
   },
@@ -132,6 +136,10 @@ export const gateAPI = {
     if (multiEntryData.no_of_documents < 0) {
       throw new Error('Number of documents must be at least 0');
     }
+          // ✅ ADD: Convert loader_count to integer
+  if (multiEntryData.loader_count) {
+    multiEntryData.loader_count = parseInt(multiEntryData.loader_count) || null;
+  }
     const response = await api.post('/multi-document-manual-entry', multiEntryData);
     return response.data;
   },
