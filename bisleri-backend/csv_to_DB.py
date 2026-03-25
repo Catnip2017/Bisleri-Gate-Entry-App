@@ -13,7 +13,7 @@ DB_PORT = os.getenv("DB_PORT")
 DB_NAME = os.getenv("DB_NAME")
 
 # BIS Item Pattern - Items that should have paired PPJRTWMRT containers
-BIS_ITEM_PATTERN = 'BIS-20LTR01'
+BIS_ITEM_PATTERN = ['BIS-20LTR01', 'BISW-20LTR01']
 
 # Setup logging
 log_file = "upload_log.txt"
@@ -161,7 +161,7 @@ def push_to_document_data():
         logging.info("    → Skip PPJRTWMRT only when paired with BIS items (same quantity)")
         logging.info("    → Keep unpaired PPJRTWMRT lines (extra containers/packaging)")
         logging.info("    → Keep all PPJRTWMRT when no BIS items present")
-        logging.info(f"  - BIS Items: Pattern matching '{BIS_ITEM_PATTERN}%'")
+        logging.info(f"  - BIS Items: Pattern matching {[p + '%' for p in BIS_ITEM_PATTERN]}")
         logging.info("  - Deduplicate: Keep only one row per document_no and linenum")
         logging.info("  - Aggregate: SUM total_quantity for remaining records")
         logging.info("  - Transporter: Use first non-NULL transporter_name")
@@ -197,7 +197,7 @@ def push_to_document_data():
                                     ORDER BY linenum
                                 ) as bis_rn
                             FROM source_data
-                            WHERE itemid LIKE 'BIS-20LTR01%'
+                            WHERE itemid LIKE 'BIS-20LTR01%' OR itemid LIKE 'BISW-20LTR01%'
                         ),
                         matched_ppjrtwmrt AS (
                             SELECT 
@@ -329,7 +329,7 @@ def push_to_document_data():
                                     ORDER BY linenum
                                 ) as bis_rn
                             FROM source_data
-                            WHERE itemid LIKE 'BIS-20LTR01%'
+                            WHERE itemid LIKE 'BIS-20LTR01%' OR itemid LIKE 'BISW-20LTR01%'
                         ),
                         matched_ppjrtwmrt AS (
                             SELECT 
@@ -460,7 +460,7 @@ def push_to_document_data():
                                     ORDER BY linenum
                                 ) as bis_rn
                             FROM source_data
-                            WHERE itemid LIKE 'BIS-20LTR01%'
+                            WHERE itemid LIKE 'BIS-20LTR01%' OR itemid LIKE 'BISW-20LTR01%'
                         ),
                         matched_ppjrtwmrt AS (
                             SELECT 
