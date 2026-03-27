@@ -1,6 +1,6 @@
 
 // app/LoginScreen.js - MERGED with Custom Alert
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 import styles from './LoginScreen_Styles';
 import { useRouter } from 'expo-router';
 import { storage } from '../utils/storage';
-import { authAPI } from '../services/api';
+import { authAPI, handleAPIError } from '../services/api';
 import { showAlert } from '../utils/customModal';
 
 export default function LoginScreen() {
@@ -20,6 +20,25 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // Check if user was redirected here due to session expiry
+  useEffect(() => {
+    const checkSessionExpiry = async () => {
+      try {
+        const expired = await storage.getItem('session_expired');
+        if (expired === 'true') {
+          await storage.removeItem('session_expired');
+          showAlert(
+            'Session Expired',
+            'Your session has expired. Please login again to continue.'
+          );
+        }
+      } catch (e) {
+        // Ignore storage errors on this check
+      }
+    };
+    checkSessionExpiry();
+  }, []);
 
   const handleLogin = async () => {
     if (!username.trim() || !password.trim()) {
@@ -51,32 +70,7 @@ export default function LoginScreen() {
       
     } catch (error) {
       console.error("Login failed", error);
-      
-      let errorMessage = "An error occurred during login";
-      
-      if (error.response) {
-        // Server responded with error
-        const status = error.response.status;
-        const data = error.response.data;
-        
-        if (status === 401) {
-          errorMessage = "Invalid username or password";
-        } else if (status === 422) {
-          errorMessage = "Please check your input format";
-        } else if (status === 404) {
-          errorMessage = "Login service not found. Please check server connection.";
-        } else if (data?.detail) {
-          errorMessage = data.detail;
-        } else {
-          errorMessage = `Server error (${status})`;
-        }
-      } else if (error.request) {
-        // Network error
-        errorMessage = "Network error. Please check your connection and try again.";
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
+      const errorMessage = handleAPIError(error);
       showAlert("Login Failed", errorMessage);
     } finally {
       setIsLoading(false);

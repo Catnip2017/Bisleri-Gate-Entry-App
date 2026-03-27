@@ -916,7 +916,7 @@ VALUES (
     NULL,
     NULL,
     NULL,
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj5oSQ4yEhm.',
+    '$2b$12$BpxXu2a/a6bSzYih/ta8YeihI6YvhWvJEkgKGIqsx/UQZAbfVijMK',
     NULL,
     NULL
 )

@@ -4,6 +4,7 @@ import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { getCurrentUser } from '../utils/jwtUtils';
+import { router } from 'expo-router';
 
 // API URL is set in .env as EXPO_PUBLIC_API_URL
 // Server  : EXPO_PUBLIC_API_URL=https://123.63.20.237:19000/api  (through Nginx)
@@ -43,11 +44,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    // Handle 401 (session expired) — but NOT for the login endpoint itself
+    if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
       try {
         await storage.removeItem('access_token');
+        // Set a flag so LoginScreen can show the "session expired" message
+        await storage.setItem('session_expired', 'true');
       } catch (storageError) {
         console.warn('Failed to clear auth token:', storageError);
+      }
+      // Redirect to login screen
+      try {
+        router.replace('/');
+      } catch (navError) {
+        console.warn('Navigation failed:', navError);
       }
     }
     return Promise.reject(error);
@@ -497,49 +507,104 @@ export const gateHelpers = {
 };
 
 export const handleAPIError = (error) => {
-  let errorMessage = "An unexpected error occurred";
-  
+  // ── Network / connectivity errors ──────────────────────────────────────────
+  if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return "Request timed out. The server is taking too long — please try again.";
+  }
+  if (!error.response && error.request) {
+    return "Cannot reach the server. Please check your internet connection.";
+  }
+
+  // ── Client/local errors (thrown before the request) ───────────────────────
+  if (!error.response && !error.request && error.message) {
+    return error.message;
+  }
+
   if (error.response) {
     const status = error.response.status;
-    const data = error.response.data;
-    
+    const detail = error.response.data?.detail || "";
+
     switch (status) {
+      // ── 400 Bad Request ────────────────────────────────────────────────────
       case 400:
-        if (data?.detail && data.detail.includes('already has Gate')) {
-          errorMessage = data.detail;
-        } else {
-          errorMessage = data?.detail || "Invalid request data";
+        if (detail.toLowerCase().includes('already has gate')) {
+          return detail; // Gate sequence error — return backend message as-is
         }
-        break;
+        if (detail.toLowerCase().includes('already registered') ||
+            detail.toLowerCase().includes('already exists') ||
+            detail.toLowerCase().includes('duplicate')) {
+          return detail || "This entry already exists. Please check for duplicates.";
+        }
+        if (detail.toLowerCase().includes('passwords do not match')) {
+          return "Passwords do not match. Please re-enter your new password.";
+        }
+        return detail || "Invalid request. Please check your input and try again.";
+
+      // ── 401 Unauthorised ──────────────────────────────────────────────────
       case 401:
-        errorMessage = "Authentication failed. Please login again.";
-        break;
-      case 403:
-        if (data?.detail && data.detail.includes('Edit window expired')) {
-          errorMessage = "Edit window expired. Records can only be edited within 48 hours.";
-        } else {
-          errorMessage = "Access denied. Insufficient permissions.";
+        // Login-specific: server returns "Incorrect username or password"
+        if (detail.toLowerCase().includes('incorrect') ||
+            detail.toLowerCase().includes('username') ||
+            detail.toLowerCase().includes('password')) {
+          return "Incorrect username or password. Please try again.";
         }
-        break;
+        // User not found during login
+        if (detail.toLowerCase().includes('user not found') ||
+            detail.toLowerCase().includes('does not exist')) {
+          return "Username not found. Please check your username.";
+        }
+        // Session / token expired (reached from authenticated routes)
+        return "Session expired. Please login again.";
+
+      // ── 403 Forbidden ────────────────────────────────────────────────────
+      case 403:
+        if (detail.toLowerCase().includes('edit window') ||
+            detail.toLowerCase().includes('48 hour')) {
+          return "Edit window expired. Records can only be edited within 48 hours of creation.";
+        }
+        if (detail.toLowerCase().includes('warehouse') ||
+            detail.toLowerCase().includes('outside your')) {
+          return "Access denied. You can only manage records for your assigned warehouse.";
+        }
+        return "Access denied. You do not have permission to perform this action.";
+
+      // ── 404 Not Found ────────────────────────────────────────────────────
       case 404:
-        errorMessage = data?.detail || "No recent documents found";
-        break;
+        if (detail.toLowerCase().includes('user')) {
+          return "User not found. Please check the username and try again.";
+        }
+        if (detail.toLowerCase().includes('warehouse')) {
+          return "Warehouse not found. Please check the warehouse code.";
+        }
+        if (detail.toLowerCase().includes('document')) {
+          return "No matching documents found for this vehicle.";
+        }
+        return detail || "Record not found.";
+
+      // ── 409 Conflict ─────────────────────────────────────────────────────
+      case 409:
+        return detail || "Duplicate entry. A record with these details already exists.";
+
+      // ── 422 Unprocessable Entity ──────────────────────────────────────────
       case 422:
-        errorMessage = "Validation error. Please check your input.";
-        break;
+        return "Invalid input format. Please check all fields and try again.";
+
+      // ── 500 Internal Server Error ─────────────────────────────────────────
       case 500:
-        errorMessage = "Server error. Please try again later.";
-        break;
+        if (detail.toLowerCase().includes('database') ||
+            detail.toLowerCase().includes('migration') ||
+            detail.toLowerCase().includes('column')) {
+          return "Database setup incomplete. Please contact IT support to run migrations.";
+        }
+        return "Server error. Please try again. If this persists, contact IT support.";
+
+      // ── Other ─────────────────────────────────────────────────────────────
       default:
-        errorMessage = data?.detail || `Server error (${status})`;
+        return detail || `Unexpected server response (${status}). Please try again.`;
     }
-  } else if (error.request) {
-    errorMessage = "Network error. Please check your connection.";
-  } else if (error.message) {
-    errorMessage = error.message;
   }
-  
-  return errorMessage;
+
+  return "An unexpected error occurred. Please try again.";
 };
 
 console.log('API Configuration:', {
