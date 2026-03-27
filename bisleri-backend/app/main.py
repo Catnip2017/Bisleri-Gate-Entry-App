@@ -37,8 +37,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8081",
-        "http://127.0.0.1:8081", 
-        "http://192.168.1.5:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:8082", 
+        "http://127.0.0.1:8082",
         "http://123.63.20.237:8081",
         "http://192.168.1.56:8081",
         # Add nginx proxy URLs
