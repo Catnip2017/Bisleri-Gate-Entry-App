@@ -203,8 +203,7 @@ const SecurityInsightsTab = ({
       
     } catch (error) {
       console.error('Error loading movements:', error);
-      const errorMessage = handleAPIError(error);
-      showAlert('Error', `Failed to load movements: ${errorMessage}`);
+      showAlert('Error', handleAPIError(error));
     } finally {
       setLoading(false);
     }

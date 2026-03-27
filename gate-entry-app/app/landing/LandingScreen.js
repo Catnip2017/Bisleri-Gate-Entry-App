@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Pressable,
   SafeAreaView,
-  Alert,
   ActivityIndicator,
   Platform,
 } from "react-native";
@@ -17,6 +16,7 @@ import styles from "./LandingScreenStyles";
 import { storage } from "../../utils/storage";
 import { getCurrentUser } from "../../utils/jwtUtils";
 import { authAPI } from "../../services/api";
+import { showAlert } from "../../utils/customModal";
 
 export default function LandingScreen() {
   const router = useRouter();
@@ -60,7 +60,7 @@ export default function LandingScreen() {
     if (hasRole("securityadmin") || hasRole("itadmin")) {
       router.push("/admin/AdminDashboard");
     } else {
-      Alert.alert("Access Denied", "You don't have Admin privileges.");
+      showAlert("Access Denied", "You do not have Admin privileges.");
     }
   };
 
@@ -68,19 +68,15 @@ export default function LandingScreen() {
     if (hasRole("securityguard") || hasRole("itadmin")) {
       router.push("/security");
     } else {
-      Alert.alert("Access Denied", "You don't have Security privileges.");
+      showAlert("Access Denied", "You do not have Security Guard privileges.");
     }
   };
 
   const handleLogout = () => {
-    if (Platform.OS === "web") {
-      performLogout();
-    } else {
-      Alert.alert("Logout", "Are you sure you want to logout?", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Logout", style: "destructive", onPress: performLogout },
-      ]);
-    }
+    showAlert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: performLogout },
+    ]);
   };
 
   const performLogout = async () => {

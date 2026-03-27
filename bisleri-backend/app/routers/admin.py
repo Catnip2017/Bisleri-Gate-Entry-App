@@ -39,15 +39,15 @@ def register_user(
 
         # ✅ Duplicate username check
         if db.query(UsersMaster).filter(UsersMaster.username == user.username).first():
-            raise HTTPException(status_code=400, detail="Username already registered")
+            raise HTTPException(status_code=409, detail="Username already exists. Please choose a different username.")
 
         # ✅ Optional duplicate email check
         if user.email and db.query(UsersMaster).filter(UsersMaster.email == user.email).first():
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=409, detail="Email already exists. Please use a different email address.")
 
         # ✅ Optional duplicate phone number check
         if user.phone_number and db.query(UsersMaster).filter(UsersMaster.phone_number == user.phone_number).first():
-            raise HTTPException(status_code=400, detail="Phone number already registered")
+            raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
         needs_warehouse = any(
@@ -100,13 +100,13 @@ def register_user(
         db.rollback()
         err = str(e.orig).lower()
         if "username" in err:
-            raise HTTPException(status_code=400, detail="Username already exists")
+            raise HTTPException(status_code=409, detail="Username already exists. Please choose a different username.")
         elif "email" in err:
-            raise HTTPException(status_code=400, detail="Email already exists")
+            raise HTTPException(status_code=409, detail="Email already exists. Please use a different email address.")
         elif "phone" in err:
-            raise HTTPException(status_code=400, detail="Phone number already exists")
+            raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
         else:
-            raise HTTPException(status_code=400, detail="Duplicate entry")
+            raise HTTPException(status_code=409, detail="Duplicate entry. A record with these details already exists.")
 
     except HTTPException:
         raise  # keep original 400 / 403 errors intact

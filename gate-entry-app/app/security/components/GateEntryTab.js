@@ -285,15 +285,7 @@ const GateEntryTab = ({
       );
     } catch (error) {
       console.error("RM entry submission failed:", error);
-
-      let errorMessage = "Failed to create raw materials entry";
-      if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      showAlert("Error", errorMessage);
+      showAlert("Error", handleAPIError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -1271,7 +1263,7 @@ const GateEntryTab = ({
   ]}
   onPress={
     isITAdmin
-      ? () => Alert.alert('Restricted Access', 'IT Admin cannot create manual entries.')
+      ? () => showAlert('Restricted Access', 'IT Admin cannot create manual entries.')
       : handleRMSubmit  // ✅ FIXED
   }
   disabled={isSubmitting || isITAdmin}

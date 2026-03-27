@@ -14,6 +14,7 @@ import { Platform } from 'react-native';
 import styles from '../styles/insightsStyles';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
+import { handleAPIError } from '../../../services/api';
 
 const RMInsightsTab = () => {
   // State management
@@ -175,9 +176,7 @@ const RMInsightsTab = () => {
       
     } catch (error) {
       console.error('Error loading RM entries:', error);
-      const { handleAPIError } = await import('../../../services/api');
-      const errorMessage = handleAPIError(error);
-      showAlert('Error', `Failed to load entries: ${errorMessage}`, [
+      showAlert('Error', handleAPIError(error), [
         { text: 'OK', onPress: () => {} }
       ]);
     } finally {
@@ -326,7 +325,6 @@ const RMInsightsTab = () => {
       
     } catch (error) {
       console.error('Error updating RM entry:', error);
-      const { handleAPIError } = await import('../../../services/api');
       const errorMessage = handleAPIError(error);
       showAlert('Update Failed', errorMessage, [
         { text: 'OK', onPress: () => {} }
