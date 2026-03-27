@@ -21,7 +21,7 @@ def main():
 
     # 1. Python packages (backend)
     backend_path = os.path.join(BASE_DIR, "bisleri-backend")
-    deps_file    = os.path.join(backend_path, "app", "dependencies.txt")
+    deps_file    = os.path.join(backend_path, "requirements.txt")
 
     print("\n[1/3] Installing Python packages ...")
     if os.path.isfile(deps_file):
@@ -31,7 +31,7 @@ def main():
             sys.exit(result)
         print("      Done.")
     else:
-        print("      dependencies.txt not found — skipping.")
+        print("      requirements.txt not found — skipping.")
 
     # 2. Alembic migrations
     print("\n[2/3] Running database migrations (Alembic) ...")
@@ -61,8 +61,23 @@ def main():
     print("\n" + DIVIDER)
     print("  Setup complete!")
     print()
-    print("  Start backend  : cd bisleri-backend && uvicorn app.main:app --reload")
-    print("  Start frontend : cd gate-entry-app  && npx expo start -c")
+    print("  ── LOCAL DEVELOPMENT ──────────────────────────────")
+    print("  Backend  : cd bisleri-backend")
+    print("             uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload")
+    print()
+    print("  Frontend : cd gate-entry-app")
+    print("             npx expo start --port 8082 -c")
+    print()
+    print("  .env     : EXPO_PUBLIC_API_URL=http://<YOUR_LOCAL_IP>:8001")
+    print()
+    print("  ── PRODUCTION (SERVER) ────────────────────────────")
+    print("  Backend  : cd bisleri-backend")
+    print("             uvicorn app.main:app --host 127.0.0.1 --port 8000")
+    print()
+    print("  Frontend : cd gate-entry-app")
+    print("             npx expo start --port 8081")
+    print()
+    print("  .env     : EXPO_PUBLIC_API_URL=https://123.63.20.237:19000/api")
     print(DIVIDER + "\n")
 
 if __name__ == "__main__":
