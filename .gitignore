@@ -7,7 +7,6 @@ dist/
 web-build/
 .expo/
 expo-env.d.ts
- 
 # Expo Native / Mobile
 .kotlin/
 *.orig.*

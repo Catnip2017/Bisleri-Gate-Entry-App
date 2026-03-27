@@ -5,23 +5,11 @@ import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { getCurrentUser } from '../utils/jwtUtils';
 
-// Get the appropriate API URL based on platform
+// API URL is set in .env as EXPO_PUBLIC_API_URL
+// Server  : EXPO_PUBLIC_API_URL=https://123.63.20.237:19000/api  (through Nginx)
+// Local   : EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000        (direct to backend)
 const getApiUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; // Local network for mobile development
-      } else {
-        return 'http://192.168.1.56:8000'; // Emulator
-      }
-    } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000'; // iOS development
-    }
-    // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-    return 'https://123.63.20.237:19000/api';
-  }
-  // Production - USE IP ADDRESS
-  return 'https://123.63.20.237:19000/api';
+  return process.env.EXPO_PUBLIC_API_URL;
 };
 
 export const API_BASE_URL = getApiUrl();
