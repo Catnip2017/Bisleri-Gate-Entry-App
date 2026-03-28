@@ -47,9 +47,9 @@ def get_enhanced_filtered_movements(
         if filters.get('movement_type'):
             query = query.filter(InsightsData.movement_type == filters['movement_type'])
         
-        # Security filter for non-admins
-        user_roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
-        if not any(role in ["admin", "itadmin"] for role in user_roles):
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
+        user_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in user_roles:
             query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
         
         
@@ -74,8 +74,9 @@ def get_enhanced_filtered_movements(
             
             # ✅ NEW: Get edit status and button configuration
             edit_button_config = movement.get_edit_button_config(
-                current_user.username, 
-                current_user.role
+                current_user.username,
+                current_user.role,
+                current_user.warehouse_code
             )
             
             result_list.append({
@@ -109,7 +110,7 @@ def get_enhanced_filtered_movements(
                 "time_remaining": movement.get_time_remaining(),
                 "is_operational_complete": movement.is_operational_data_complete(),
                 "missing_fields": movement.get_missing_operational_fields(),
-                "can_edit": movement.can_be_edited(current_user.username, current_user.role),
+                "can_edit": movement.can_be_edited(current_user.username, current_user.role, current_user.warehouse_code),
                 "edit_button_config": edit_button_config
             })
         
@@ -149,11 +150,11 @@ def update_operational_data(
                 detail="Edit window expired. Records can only be edited within 48 hours."
             )
             
-            # Check permissions (creator or admin)
-        if not insights_record.can_be_edited(current_user.username, current_user.role):
+        # Check permissions (same warehouse or admin)
+        if not insights_record.can_be_edited(current_user.username, current_user.role, current_user.warehouse_code):
             raise HTTPException(
                 status_code=403,
-                detail="You can only edit your own gate entries (or admin access required)"
+                detail="Only staff from this warehouse or Admin can edit this entry."
             )
         
         # ✅ NEW: Update operational fields
@@ -188,8 +189,9 @@ def update_operational_data(
         
         # ✅ NEW: Get updated edit status
         updated_button_config = insights_record.get_edit_button_config(
-            current_user.username, 
-            current_user.role
+            current_user.username,
+            current_user.role,
+            current_user.warehouse_code
         )
         
         return {
@@ -228,13 +230,14 @@ def get_edit_statistics(
     """Get statistics about record completion and edit status"""
     try:
         base_query = db.query(InsightsData)
-        
-        # Filter by warehouse for non-admins
-        if current_user.role != "Admin":
+
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
+        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )
-        
+
         # Get all records from last 30 days
         thirty_days_ago = datetime.now() - timedelta(days=30)
         records = base_query.filter(InsightsData.date >= thirty_days_ago.date()).all()
@@ -404,13 +407,14 @@ def get_records_needing_completion(
     """Get all records that need operational data completion (YELLOW button candidates)"""
     try:
         base_query = db.query(InsightsData)
-        
-        # Filter by warehouse for non-admins
-        if current_user.role != "Admin":
+
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
+        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )
-        
+
         # Only get records within 48-hour edit window
         twenty_four_hours_ago = datetime.now() - timedelta(hours=48)
         recent_records = base_query.filter(

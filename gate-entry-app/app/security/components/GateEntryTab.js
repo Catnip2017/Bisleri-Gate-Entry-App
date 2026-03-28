@@ -388,6 +388,14 @@ const GateEntryTab = ({
   };
 
   const handleEnhancedSubmit = async () => {
+    if (isITAdmin) {
+      showAlert(
+        '🚫 Restricted Access',
+        'IT Admins can only view this page. Manual Entry creation is disabled.'
+      );
+      return;
+    }
+
     const vehicleNo = gateEntryData.vehicleNo?.trim();
 
     if (isSubmitting) {

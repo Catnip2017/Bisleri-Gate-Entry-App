@@ -82,17 +82,24 @@ class InsightsData(Base):
         
         return f"{hours}h {minutes}m"
     
-    def can_be_edited(self, current_user_username, current_user_role):
+    def can_be_edited(self, current_user_username, current_user_role, current_user_warehouse_code=None):
         """Check if record can be edited by the given user"""
         # Must be within 48-hour window
         if self.get_edit_status() == 'expired':
             return False
-        
-        # Admin can edit any record
-        if current_user_role == 'Admin':
+
+        # Normalize role for comparison
+        normalized_role = current_user_role.strip().lower().replace(" ", "") if current_user_role else ""
+
+        # IT Admin: view-only, cannot edit anything
+        if normalized_role == 'itadmin':
+            return False
+
+        # Security Guard / Security Admin: can edit any entry from their own warehouse
+        if current_user_warehouse_code and self.warehouse_code == current_user_warehouse_code:
             return True
-        
-        # Creator can edit their own record
+
+        # Fallback: creator can always edit their own entry regardless of warehouse
         return self.security_username == current_user_username
     
     def get_missing_operational_fields(self):
@@ -110,10 +117,10 @@ class InsightsData(Base):
         
         return missing
     
-    def get_edit_button_config(self, current_user_username, current_user_role):
+    def get_edit_button_config(self, current_user_username, current_user_role, current_user_warehouse_code=None):
         """Get the complete button configuration for frontend"""
         edit_status = self.get_edit_status()
-        can_edit = self.can_be_edited(current_user_username, current_user_role)
+        can_edit = self.can_be_edited(current_user_username, current_user_role, current_user_warehouse_code)
         time_remaining = self.get_time_remaining()
         missing_fields = self.get_missing_operational_fields()
         
@@ -133,7 +140,7 @@ class InsightsData(Base):
                 'text': '🚫 No Access',
                 'enabled': False,
                 'priority': 'none',
-                'message': 'Only creator or admin can edit',
+                'message': 'Only staff from this warehouse or Admin can edit',
                 'action': 'no_access'
             }
         
