@@ -1,7 +1,7 @@
 # app/routers/raw_materials.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from app.database import get_db
 from app.schemas.raw_materials_schemas import RawMaterialsCreate, RawMaterialsResponse, RawMaterialsEdit
 from app.models import RawMaterialsData, UsersMaster
@@ -11,6 +11,41 @@ from datetime import datetime, timedelta
 from typing import List
 
 router = APIRouter(prefix="/rm", tags=["Raw Materials"])
+
+
+def check_rm_document_movement_allowed(db: Session, document_no: str, gate_type: str):
+    """
+    Net-state gate lock for RM documents.
+    Gate-In is blocked if a prior Gate-In has no matching Gate-Out yet.
+    Gate-Out is blocked if there is no active Gate-In to close.
+    Repeated Gate-In → Gate-Out → Gate-In ... cycles are allowed.
+    """
+    gate_in_count = db.query(func.count(RawMaterialsData.id)).filter(
+        RawMaterialsData.document_no == document_no,
+        RawMaterialsData.gate_type == "Gate-In"
+    ).scalar() or 0
+
+    gate_out_count = db.query(func.count(RawMaterialsData.id)).filter(
+        RawMaterialsData.document_no == document_no,
+        RawMaterialsData.gate_type == "Gate-Out"
+    ).scalar() or 0
+
+    net_state = gate_in_count - gate_out_count
+
+    if gate_type == "Gate-In":
+        if net_state > 0:
+            return False, (
+                f"Document {document_no} already has an active Gate-In. "
+                f"Complete Gate-Out first before recording another Gate-In."
+            )
+    elif gate_type == "Gate-Out":
+        if net_state <= 0:
+            return False, (
+                f"Document {document_no} has no active Gate-In. "
+                f"Cannot record Gate-Out without a prior Gate-In."
+            )
+    return True, ""
+
 
 @router.post("/create-entry", response_model=RawMaterialsResponse)
 def create_raw_materials_entry(
@@ -26,7 +61,13 @@ def create_raw_materials_entry(
                 status_code=400,
                 detail="Invalid vehicle number format"
             )
-        
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_no:
+            allowed, reason = check_rm_document_movement_allowed(db, entry.document_no, entry.gate_type)
+            if not allowed:
+                raise HTTPException(status_code=409, detail=reason)
+
         # Generate gate entry number
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         if not gate_entry_no:
