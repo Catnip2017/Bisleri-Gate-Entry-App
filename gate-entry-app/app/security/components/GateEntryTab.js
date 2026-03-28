@@ -145,10 +145,10 @@ const GateEntryTab = ({
       case "loader_count":
         cleanValue = value.replace(/[^0-9]/g, "");
 
-        if (!cleanValue) {
+        if (cleanValue === "") {
           validation = { isValid: false, error: "Loader count is required" };
-        } else if (parseInt(cleanValue) < 1 || parseInt(cleanValue) > 20) {
-          validation = { isValid: false, error: "Loader count must be between 1-20" };
+        } else if (parseInt(cleanValue) < 0 || parseInt(cleanValue) > 20) {
+          validation = { isValid: false, error: "Loader count must be between 0-20" };
         } else {
           validation = { isValid: true, error: "" };
         }
