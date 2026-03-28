@@ -119,9 +119,10 @@ export const gateAPI = {
     if (!enhancedBatchData.document_nos || enhancedBatchData.document_nos.length === 0) {
       throw new Error('At least one document must be selected');
     }
-          // ✅ ADD: loader_count to integer if present
-  if (enhancedBatchData.loader_count) {
-    enhancedBatchData.loader_count = parseInt(enhancedBatchData.loader_count) || null;
+          // ✅ ADD: loader_count to integer if present (use isNaN check so 0 is preserved, not converted to null)
+  if (enhancedBatchData.loader_count !== undefined && enhancedBatchData.loader_count !== null && enhancedBatchData.loader_count !== '') {
+    const parsed = parseInt(enhancedBatchData.loader_count);
+    enhancedBatchData.loader_count = isNaN(parsed) ? null : parsed;
   }
     const response = await api.post('/enhanced-batch-gate-entry', enhancedBatchData);
     return response.data;
@@ -134,9 +135,10 @@ export const gateAPI = {
     if (multiEntryData.no_of_documents < 0) {
       throw new Error('Number of documents must be at least 0');
     }
-          // ✅ ADD: Convert loader_count to integer
-  if (multiEntryData.loader_count) {
-    multiEntryData.loader_count = parseInt(multiEntryData.loader_count) || null;
+          // ✅ ADD: Convert loader_count to integer (use isNaN check so 0 is preserved, not converted to null)
+  if (multiEntryData.loader_count !== undefined && multiEntryData.loader_count !== null && multiEntryData.loader_count !== '') {
+    const parsed = parseInt(multiEntryData.loader_count);
+    multiEntryData.loader_count = isNaN(parsed) ? null : parsed;
   }
     const response = await api.post('/multi-document-manual-entry', multiEntryData);
     return response.data;
