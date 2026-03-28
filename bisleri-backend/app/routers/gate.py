@@ -1040,8 +1040,10 @@ def get_operational_data_summary(
     """Get summary of operational data completion rates"""
     try:
         # Base query with warehouse filter
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
         base_query = db.query(InsightsData)
-        if current_user.role != "Admin":
+        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )

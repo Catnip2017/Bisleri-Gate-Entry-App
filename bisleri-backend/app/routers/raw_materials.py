@@ -115,11 +115,14 @@ def get_filtered_rm_entries(
         for entry in entries:
             # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
+            normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
+            # IT Admin: view-only. Security Admin / Security Guard: same warehouse only.
             can_edit = (
                 time_since_creation <= timedelta(hours=48) and
-                (current_user.role == "Admin" or entry.security_username == current_user.username)
+                normalized_role != 'itadmin' and
+                entry.warehouse_code == current_user.warehouse_code
             )
- 
+
             # Calculate time remaining
             time_remaining = None
             if time_since_creation <= timedelta(hours=48):
@@ -182,11 +185,17 @@ def update_rm_entry(
                 detail="Edit window expired. Records can only be edited within 48 hours."
             )
 
-        # Check permissions (creator or admin)
-        if current_user.role != "Admin" and rm_entry.security_username != current_user.username:
+        # Check permissions — warehouse-based
+        normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
+        if normalized_role == 'itadmin':
             raise HTTPException(
                 status_code=403,
-                detail="You can only edit your own entries"
+                detail="IT Admins can only view entries. Editing is disabled."
+            )
+        if rm_entry.warehouse_code != current_user.warehouse_code:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only edit entries from your own warehouse."
             )
         
         # Update fields
@@ -244,27 +253,34 @@ def get_rm_statistics(
 ):
     """Get raw materials statistics"""
     try:
-        # ✅ FIX: Normalize roles like you do everywhere else
-        def normalize_roles(role_string: str) -> List[str]:
-            if not role_string:
-                return []
-            return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
-        
-        current_roles = normalize_roles(current_user.role)
-        
+        normalized_roles = [
+            r.strip().lower().replace(" ", "")
+            for r in (current_user.role or "").split(",")
+            if r.strip()
+        ]
+
         base_query = db.query(RawMaterialsData)
-        
-        # ✅ FIX: Check for normalized admin roles
-        if not any(r in ["securityadmin", "itadmin"] for r in current_roles):
-            # Non-admin: filter by warehouse
+
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 RawMaterialsData.warehouse_code == current_user.warehouse_code
             )
-        
+
         # Get records from last 30 days
         thirty_days_ago = datetime.now() - timedelta(days=30)
-        recent_records = base_query.filter(RawMaterialsData.date_time >= thirty_days_ago).all()
-        
+
+        try:
+            recent_records = base_query.filter(
+                RawMaterialsData.date_time >= thirty_days_ago
+            ).all()
+        except Exception as db_err:
+            print(f"DB query error in RM statistics: {str(db_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database query failed. Ensure migrations are up to date. ({str(db_err)})"
+            )
+
         if not recent_records:
             return {
                 "total_entries": 0,
@@ -274,14 +290,14 @@ def get_rm_statistics(
                 "edited_entries": 0,
                 "period": "Last 30 days"
             }
-        
+
         # Calculate statistics
         total_entries = len(recent_records)
-        gate_in_count = len([r for r in recent_records if r.gate_type == "Gate-In"])
-        gate_out_count = len([r for r in recent_records if r.gate_type == "Gate-Out"])
-        unique_vehicles = len(set(r.vehicle_no for r in recent_records))
-        edited_entries = len([r for r in recent_records if (r.edit_count or 0) > 0])
-        
+        gate_in_count = sum(1 for r in recent_records if r.gate_type == "Gate-In")
+        gate_out_count = sum(1 for r in recent_records if r.gate_type == "Gate-Out")
+        unique_vehicles = len(set(r.vehicle_no for r in recent_records if r.vehicle_no))
+        edited_entries = sum(1 for r in recent_records if (r.edit_count or 0) > 0)
+
         return {
             "total_entries": total_entries,
             "gate_in_count": gate_in_count,
@@ -290,9 +306,11 @@ def get_rm_statistics(
             "edited_entries": edited_entries,
             "period": "Last 30 days"
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting RM statistics: {str(e)}")
+        print(f"Error getting RM statistics — role={current_user.role} warehouse={current_user.warehouse_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
        
 # ✅ ENHANCED: Admin filtered RM entries
@@ -356,9 +374,11 @@ def get_admin_filtered_rm_entries(
         for entry in entries:
             # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
+            # IT Admin: view-only. Security Admin: same warehouse only.
             can_edit = (
                 time_since_creation <= timedelta(hours=48) and
-                (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
+                "itadmin" not in roles and
+                entry.warehouse_code == current_user.warehouse_code
             )
 
             # Calculate time remaining

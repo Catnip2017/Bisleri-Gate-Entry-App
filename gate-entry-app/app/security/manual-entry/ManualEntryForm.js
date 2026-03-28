@@ -125,14 +125,7 @@ const ManualEntryForm = ({ userData }) => {
           {
             text: 'Go Back',
             onPress: () => {
-              router.push('/security/?tab=insights');
-            }
-          },
-          {
-            text: 'Create Another',
-            onPress: () => {
-              // Clear form for new entry
-              router.push('/security/?tab=fgentry'); 
+              router.replace('/security/?tab=fgentry');
             }
           }
         ]
