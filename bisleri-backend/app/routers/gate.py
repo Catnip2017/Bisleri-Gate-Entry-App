@@ -1,7 +1,7 @@
 # app/routers/gate.py - COMPLETE ENHANCED VERSION WITH MULTI-DOCUMENT MANUAL ENTRY
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from app.database import get_db
 from app.schemas import (
     GateEntryCreate, 
@@ -20,6 +20,45 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Gate Operations"])
+
+
+def check_document_movement_allowed(db: Session, document_no: str, movement_type: str):
+    """
+    Document-level gate entry lock.
+
+    Tracks: net_state = gate_in_count - gate_out_count for each document_no.
+      net_state > 0  → active Gate-In exists  → Gate-In blocked, Gate-Out OK
+      net_state == 0 → cycle complete          → Gate-In OK, Gate-Out blocked
+
+    Returns (allowed: bool, reason: str)
+    """
+    gate_in_count = db.query(func.count(InsightsData.id)).filter(
+        InsightsData.document_no == document_no,
+        InsightsData.movement_type == "Gate-In"
+    ).scalar() or 0
+
+    gate_out_count = db.query(func.count(InsightsData.id)).filter(
+        InsightsData.document_no == document_no,
+        InsightsData.movement_type == "Gate-Out"
+    ).scalar() or 0
+
+    net_state = gate_in_count - gate_out_count  # >0 = open, 0 = closed
+
+    if movement_type == "Gate-In":
+        if net_state > 0:
+            return False, (
+                f"Document {document_no} already has an active Gate-In. "
+                f"Complete Gate-Out first before recording another Gate-In."
+            )
+    elif movement_type == "Gate-Out":
+        if net_state <= 0:
+            return False, (
+                f"Document {document_no} already has a Gate-Out recorded. "
+                f"Cannot record Gate-Out again for this document."
+            )
+
+    return True, ""
+
 
 @router.get("/search-recent-documents/{vehicle_no}")
 def search_recent_documents(
@@ -204,7 +243,24 @@ def create_enhanced_batch_gate_entry(
                         status_code=400,
                         detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
-                
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_nos:
+            # 1. No duplicate document_nos within the same batch
+            seen_docs = set()
+            for doc_no in entry.document_nos:
+                if doc_no in seen_docs:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Document {doc_no} appears more than once in this submission. Each document can only be included once."
+                    )
+                seen_docs.add(doc_no)
+            # 2. Each document must be available for this movement type
+            for doc_no in entry.document_nos:
+                allowed, reason = check_document_movement_allowed(db, doc_no, entry.gate_type)
+                if not allowed:
+                    raise HTTPException(status_code=409, detail=reason)
+
         # Generate gate entry number
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         
@@ -394,9 +450,9 @@ def create_batch_gate_entry(
     try:
         if not entry.document_nos:
             raise HTTPException(status_code=400, detail="Please select at least one document")
-        
+
         vehicle_no = entry.vehicle_no.strip().upper()
-        
+
         # Check GATE IN/OUT SEQUENCE VALIDATION
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
@@ -424,7 +480,24 @@ def create_batch_gate_entry(
                         status_code=400,
                         detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
-        
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_nos:
+            # 1. No duplicate document_nos within the same batch
+            seen_docs = set()
+            for doc_no in entry.document_nos:
+                if doc_no in seen_docs:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Document {doc_no} appears more than once in this submission. Each document can only be included once."
+                    )
+                seen_docs.add(doc_no)
+            # 2. Each document must be available for this movement type
+            for doc_no in entry.document_nos:
+                allowed, reason = check_document_movement_allowed(db, doc_no, entry.gate_type)
+                if not allowed:
+                    raise HTTPException(status_code=409, detail=reason)
+
         # RAW SQL: Generate gate entry number using fresh database data
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         
@@ -890,10 +963,16 @@ def assign_document_to_manual_entry(
         # 3. Check if document is already assigned
         if document_record.gate_entry_no:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Document {document_no} is already assigned to gate entry {document_record.gate_entry_no}"
             )
-        
+
+        # 3b. ✅ Document duplicate lock — check movement type availability
+        movement_type = insights_record.movement_type
+        allowed, reason = check_document_movement_allowed(db, document_no, movement_type)
+        if not allowed:
+            raise HTTPException(status_code=409, detail=reason)
+
         # 4. Check if insights record is already assigned
         if insights_record.document_type != "Manual Entry - Pending Assignment":
             raise HTTPException(
