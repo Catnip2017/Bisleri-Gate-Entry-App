@@ -15,10 +15,14 @@ router = APIRouter(prefix="/rm", tags=["Raw Materials"])
 
 def check_rm_document_movement_allowed(db: Session, document_no: str, gate_type: str):
     """
-    Net-state gate lock for RM documents.
-    Gate-In is blocked if a prior Gate-In has no matching Gate-Out yet.
-    Gate-Out is blocked if there is no active Gate-In to close.
-    Repeated Gate-In → Gate-Out → Gate-In ... cycles are allowed.
+    Document-level gate lock for RM entries.
+
+    Allows a document to appear on Gate-Out even if it has never had a Gate-In
+    (e.g. empty-vehicle Gate-In, then Gate-Out with documents).
+
+    Blocks only genuine duplicates:
+      gate_in_count > gate_out_count  → unmatched Gate-In exists  → block another Gate-In
+      gate_out_count > gate_in_count  → unmatched Gate-Out exists → block another Gate-Out
     """
     gate_in_count = db.query(func.count(RawMaterialsData.id)).filter(
         RawMaterialsData.document_no == document_no,
@@ -30,19 +34,17 @@ def check_rm_document_movement_allowed(db: Session, document_no: str, gate_type:
         RawMaterialsData.gate_type == "Gate-Out"
     ).scalar() or 0
 
-    net_state = gate_in_count - gate_out_count
-
     if gate_type == "Gate-In":
-        if net_state > 0:
+        if gate_in_count > gate_out_count:
             return False, (
                 f"Document {document_no} already has an active Gate-In. "
                 f"Complete Gate-Out first before recording another Gate-In."
             )
     elif gate_type == "Gate-Out":
-        if net_state <= 0:
+        if gate_out_count > gate_in_count:
             return False, (
-                f"Document {document_no} has no active Gate-In. "
-                f"Cannot record Gate-Out without a prior Gate-In."
+                f"Document {document_no} already has an unmatched Gate-Out. "
+                f"Complete Gate-In first before recording another Gate-Out."
             )
     return True, ""
 
