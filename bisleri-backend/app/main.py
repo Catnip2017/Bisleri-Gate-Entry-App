@@ -7,6 +7,9 @@ from app.routers import auth, documents, gate, insights, ping, admin, sync , raw
  
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Suppress passlib/bcrypt version-mismatch warning (bcrypt 4.x removed __about__)
+logging.getLogger('passlib').setLevel(logging.ERROR)
  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
