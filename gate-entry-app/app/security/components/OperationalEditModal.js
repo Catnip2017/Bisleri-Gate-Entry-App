@@ -103,7 +103,7 @@ const OperationalEditModal = ({
       );
       
     } catch (error) {
-      console.error('Error updating operational data:', error);
+      console.log('Error updating operational data:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Update Failed', errorMessage);
     } finally {

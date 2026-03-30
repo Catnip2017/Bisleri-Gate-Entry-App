@@ -131,7 +131,7 @@ const ManualEntryForm = ({ userData }) => {
         ]
       );
     } catch (error) {
-      console.error('Multi-document manual entry failed:', error);
+      console.log('Multi-document manual entry failed:', error);
       
       const errorMessage = handleAPIError(error);
       showAlert('Error', errorMessage);

@@ -142,7 +142,7 @@ const SecurityInsightsTab = ({
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 
@@ -151,7 +151,7 @@ const SecurityInsightsTab = ({
       const stats = await insightsAPI.getEditStatistics();
       setEditStatistics(stats);
     } catch (error) {
-      console.error('Error loading edit statistics:', error);
+      console.log('Error loading edit statistics:', error);
     }
   };
 
@@ -174,7 +174,7 @@ const SecurityInsightsTab = ({
   //     setCurrentPage(1); // Reset to first page when data loads
       
   //   } catch (error) {
-  //     console.error('Error loading movements:', error);
+  //     console.log('Error loading movements:', error);
   //     const errorMessage = handleAPIError(error);
   //     showAlert('Error', `Failed to load movements: ${errorMessage}`);
   //   } finally {
@@ -202,7 +202,7 @@ const SecurityInsightsTab = ({
       setCurrentPage(1);
       
     } catch (error) {
-      console.error('Error loading movements:', error);
+      console.log('Error loading movements:', error);
       showAlert('Error', handleAPIError(error));
     } finally {
       setLoading(false);
@@ -285,7 +285,7 @@ const SecurityInsightsTab = ({
         );
       }
     } catch (error) {
-      console.error('Error loading available documents:', error);
+      console.log('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Error', `Failed to load documents: ${errorMessage}`);
     } finally {
@@ -336,7 +336,7 @@ const SecurityInsightsTab = ({
       );
       
     } catch (error) {
-      console.error('Error assigning document:', error);
+      console.log('Error assigning document:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Assignment Failed', errorMessage);
     } finally {

@@ -132,7 +132,7 @@ const RMInsightsTab = () => {
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 
@@ -142,7 +142,7 @@ const RMInsightsTab = () => {
       const stats = await rmAPI.getRMStatistics();
       setStatistics(stats);
     } catch (error) {
-      console.error('Error loading RM statistics:', error);
+      console.log('Error loading RM statistics:', error);
     }
   };
 
@@ -175,7 +175,7 @@ const RMInsightsTab = () => {
       setCurrentPage(1); // Reset to first page when data loads
       
     } catch (error) {
-      console.error('Error loading RM entries:', error);
+      console.log('Error loading RM entries:', error);
       showAlert('Error', handleAPIError(error), [
         { text: 'OK', onPress: () => {} }
       ]);
@@ -324,7 +324,7 @@ const RMInsightsTab = () => {
       );
       
     } catch (error) {
-      console.error('Error updating RM entry:', error);
+      console.log('Error updating RM entry:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Update Failed', errorMessage, [
         { text: 'OK', onPress: () => {} }

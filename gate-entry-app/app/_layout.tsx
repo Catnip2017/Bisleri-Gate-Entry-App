@@ -43,6 +43,10 @@ import React, { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import * as SecureStore from 'expo-secure-store';
 import { CustomAlertProvider } from '../utils/customModal';
+import { LogBox } from 'react-native';
+
+// Suppress all LogBox popups — errors are handled via custom Alert popups only
+LogBox.ignoreAllLogs();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
