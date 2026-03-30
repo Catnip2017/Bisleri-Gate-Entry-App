@@ -110,7 +110,7 @@ const RMEntryTab = ({ userData }) => {
       );
       
     } catch (error) {
-      console.error('RM entry submission failed:', error);
+      console.log('RM entry submission failed:', error);
       
       let errorMessage = 'Failed to create raw materials entry';
       if (error.response?.data?.detail) {

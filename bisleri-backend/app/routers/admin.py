@@ -375,7 +375,7 @@ def get_dashboard_stats(
 
 
 # ✅ NEW: Admin RM Statistics with Filtering
-@router.get("/rm/statistics")
+@router.get("/admin-rm-statistics")
 def get_admin_rm_statistics(
     site_code: Optional[str] = None,
     warehouse_code: Optional[str] = None,
@@ -415,7 +415,7 @@ def get_admin_rm_statistics(
         )
         
         recent_records = base_query.all()
-        
+
         if not recent_records:
             return {
                 "total_entries": 0,
@@ -429,13 +429,13 @@ def get_admin_rm_statistics(
                     "warehouse_code": warehouse_code
                 }
             }
-        
+
         total_entries = len(recent_records)
         gate_in_count = len([r for r in recent_records if r.gate_type == "Gate-In"])
         gate_out_count = len([r for r in recent_records if r.gate_type == "Gate-Out"])
         unique_vehicles = len(set(r.vehicle_no for r in recent_records))
         edited_entries = len([r for r in recent_records if (r.edit_count or 0) > 0])
-        
+
         return {
             "total_entries": total_entries,
             "gate_in_count": gate_in_count,
@@ -448,7 +448,9 @@ def get_admin_rm_statistics(
                 "warehouse_code": warehouse_code
             }
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error getting admin RM statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")

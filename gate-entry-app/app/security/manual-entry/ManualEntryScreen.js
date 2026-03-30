@@ -21,7 +21,7 @@ const ManualEntryScreen = () => {
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 

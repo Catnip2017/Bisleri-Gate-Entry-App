@@ -269,8 +269,7 @@ getAdminDashboardStats: async (filters = {}) => {
     if (filters.from_date) params.append('from_date', filters.from_date);
     if (filters.to_date) params.append('to_date', filters.to_date);
     
-    // const url = params.toString() ? `/admin-rm-statistics?${params}` : '/rm/statistics';
-    const url = params.toString() ? `/rm/statistics?${params}` : '/rm/statistics';
+    const url = params.toString() ? `/admin-rm-statistics?${params}` : '/admin-rm-statistics';
 
     const response = await api.get(url);
     return response.data;

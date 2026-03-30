@@ -284,7 +284,7 @@ const GateEntryTab = ({
         ]
       );
     } catch (error) {
-      console.error("RM entry submission failed:", error);
+      console.log("RM entry submission failed:", error);
       showAlert("Error", handleAPIError(error));
     } finally {
       setIsSubmitting(false);
@@ -371,7 +371,7 @@ const GateEntryTab = ({
         }
       }
     } catch (error) {
-      console.error("Vehicle search error:", error);
+      console.log("Vehicle search error:", error);
 
       if (
         error.response?.status === 400 &&
@@ -553,7 +553,7 @@ const GateEntryTab = ({
         loader_names: { isValid: false, touched: false },
       });
     } catch (error) {
-      console.error("Batch gate entry submission failed:", error);
+      console.log("Batch gate entry submission failed:", error);
 
       if (
         error.response?.status === 400 &&
