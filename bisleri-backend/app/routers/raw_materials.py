@@ -14,16 +14,6 @@ router = APIRouter(prefix="/rm", tags=["Raw Materials"])
 
 
 def check_rm_document_movement_allowed(db: Session, document_no: str, gate_type: str):
-    """
-    Document-level gate lock for RM entries.
-
-    Allows a document to appear on Gate-Out even if it has never had a Gate-In
-    (e.g. empty-vehicle Gate-In, then Gate-Out with documents).
-
-    Blocks only genuine duplicates:
-      gate_in_count > gate_out_count  → unmatched Gate-In exists  → block another Gate-In
-      gate_out_count > gate_in_count  → unmatched Gate-Out exists → block another Gate-Out
-    """
     gate_in_count = db.query(func.count(RawMaterialsData.id)).filter(
         RawMaterialsData.document_no == document_no,
         RawMaterialsData.gate_type == "Gate-In"
@@ -55,7 +45,6 @@ def create_raw_materials_entry(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
-    """Create raw materials gate entry"""
     try:
         # Validate vehicle number format
         if not validate_vehicle_number(entry.vehicle_no):
@@ -64,9 +53,13 @@ def create_raw_materials_entry(
                 detail="Invalid vehicle number format"
             )
 
-        # ✅ Document duplicate lock — check before any DB writes
-        if entry.document_no:
-            allowed, reason = check_rm_document_movement_allowed(db, entry.document_no, entry.gate_type)
+        # 🔹 Normalize document_no
+        doc_no = entry.document_no.strip() if entry.document_no else ""
+        doc_no_normalized = doc_no.lower()
+
+        # ✅ Skip validation for empty vehicle values ("0", "na", "")
+        if doc_no and doc_no_normalized not in ["0", "na"]:
+            allowed, reason = check_rm_document_movement_allowed(db, doc_no, entry.gate_type)
             if not allowed:
                 raise HTTPException(status_code=409, detail=reason)
 
@@ -81,12 +74,11 @@ def create_raw_materials_entry(
         now = datetime.now()
         security_name = f"{current_user.first_name} {current_user.last_name}"
         
-        # Create raw materials entry
         rm_entry = RawMaterialsData(
             gate_entry_no=gate_entry_no,
             gate_type=entry.gate_type,
             vehicle_no=entry.vehicle_no.upper(),
-            document_no=entry.document_no,
+            document_no=doc_no,  # ✅ normalized value saved
             name_of_party=entry.name_of_party,
             description_of_material=entry.description_of_material,
             quantity=entry.quantity,
