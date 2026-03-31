@@ -14,6 +14,7 @@ import { Platform } from 'react-native';
 import styles from '../styles/insightsStyles';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
+import { handleAPIError } from '../../../services/api';
 
 const RMInsightsTab = () => {
   // State management
@@ -131,7 +132,7 @@ const RMInsightsTab = () => {
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 
@@ -141,7 +142,7 @@ const RMInsightsTab = () => {
       const stats = await rmAPI.getRMStatistics();
       setStatistics(stats);
     } catch (error) {
-      console.error('Error loading RM statistics:', error);
+      console.log('Error loading RM statistics:', error);
     }
   };
 
@@ -174,10 +175,8 @@ const RMInsightsTab = () => {
       setCurrentPage(1); // Reset to first page when data loads
       
     } catch (error) {
-      console.error('Error loading RM entries:', error);
-      const { handleAPIError } = await import('../../../services/api');
-      const errorMessage = handleAPIError(error);
-      showAlert('Error', `Failed to load entries: ${errorMessage}`, [
+      console.log('Error loading RM entries:', error);
+      showAlert('Error', handleAPIError(error), [
         { text: 'OK', onPress: () => {} }
       ]);
     } finally {
@@ -325,8 +324,7 @@ const RMInsightsTab = () => {
       );
       
     } catch (error) {
-      console.error('Error updating RM entry:', error);
-      const { handleAPIError } = await import('../../../services/api');
+      console.log('Error updating RM entry:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Update Failed', errorMessage, [
         { text: 'OK', onPress: () => {} }

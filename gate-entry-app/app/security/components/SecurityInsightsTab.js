@@ -142,7 +142,7 @@ const SecurityInsightsTab = ({
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 
@@ -151,7 +151,7 @@ const SecurityInsightsTab = ({
       const stats = await insightsAPI.getEditStatistics();
       setEditStatistics(stats);
     } catch (error) {
-      console.error('Error loading edit statistics:', error);
+      console.log('Error loading edit statistics:', error);
     }
   };
 
@@ -174,7 +174,7 @@ const SecurityInsightsTab = ({
   //     setCurrentPage(1); // Reset to first page when data loads
       
   //   } catch (error) {
-  //     console.error('Error loading movements:', error);
+  //     console.log('Error loading movements:', error);
   //     const errorMessage = handleAPIError(error);
   //     showAlert('Error', `Failed to load movements: ${errorMessage}`);
   //   } finally {
@@ -202,9 +202,8 @@ const SecurityInsightsTab = ({
       setCurrentPage(1);
       
     } catch (error) {
-      console.error('Error loading movements:', error);
-      const errorMessage = handleAPIError(error);
-      showAlert('Error', `Failed to load movements: ${errorMessage}`);
+      console.log('Error loading movements:', error);
+      showAlert('Error', handleAPIError(error));
     } finally {
       setLoading(false);
     }
@@ -286,7 +285,7 @@ const SecurityInsightsTab = ({
         );
       }
     } catch (error) {
-      console.error('Error loading available documents:', error);
+      console.log('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Error', `Failed to load documents: ${errorMessage}`);
     } finally {
@@ -337,7 +336,7 @@ const SecurityInsightsTab = ({
       );
       
     } catch (error) {
-      console.error('Error assigning document:', error);
+      console.log('Error assigning document:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Assignment Failed', errorMessage);
     } finally {
@@ -729,6 +728,7 @@ const SecurityInsightsTab = ({
               {/* Operational Data Columns */}
               <Text style={[styles.tableHeaderCell, styles.colDriverName]}>Driver Name</Text>
               <Text style={[styles.tableHeaderCell, styles.colKMReading]}>KM Reading</Text>
+              <Text style={[styles.tableHeaderCell, styles.colLoaderCount]}>Loader Count</Text>  {/* ✅ ADD */}
               <Text style={[styles.tableHeaderCell, styles.colLoaderNames]}>Loader Names</Text>
               
               <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>To Warehouse</Text>              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
@@ -790,6 +790,13 @@ const SecurityInsightsTab = ({
                       <View style={[styles.tableCell, styles.colKMReading]}>
                         {renderOperationalCell(movement, 'km_reading')}
                       </View>
+                                            {/* ✅ ADD: Loader Count Cell */}
+                      <View style={[styles.tableCell, styles.colLoaderCount]}>
+                        <Text style={styles.tableCell}>
+                          {movement.loader_count ?? '--'}
+                        </Text>
+                      </View>
+                      
                       <View style={[styles.tableCell, styles.colLoaderNames]}>
                         {renderOperationalCell(movement, 'loader_names')}
                       </View>

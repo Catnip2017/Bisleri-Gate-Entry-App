@@ -4,24 +4,13 @@ import { storage } from '../utils/storage';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import { getCurrentUser } from '../utils/jwtUtils';
+import { router } from 'expo-router';
 
-// Get the appropriate API URL based on platform
+// API URL is set in .env as EXPO_PUBLIC_API_URL
+// Server  : EXPO_PUBLIC_API_URL=https://123.63.20.237:19000/api  (through Nginx)
+// Local   : EXPO_PUBLIC_API_URL=http://YOUR_LOCAL_IP:8000        (direct to backend)
 const getApiUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      if (Device.isDevice) {
-        return 'http://192.168.1.56:8000'; // Local network for mobile development
-      } else {
-        return 'http://192.168.1.56:8000'; // Emulator
-      }
-    } else if (Platform.OS === 'ios') {
-      return 'http://192.168.51.151:8000'; // iOS development
-    }
-    // Web platform - USE IP SINCE DOMAIN:19000 DOESN'T WORK
-    return 'https://123.63.20.237:19000/api';
-  }
-  // Production - USE IP ADDRESS
-  return 'https://123.63.20.237:19000/api';
+  return process.env.EXPO_PUBLIC_API_URL;
 };
 
 export const API_BASE_URL = getApiUrl();
@@ -55,11 +44,20 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    // Handle 401 (session expired) — but NOT for the login endpoint itself
+    if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
       try {
         await storage.removeItem('access_token');
+        // Set a flag so LoginScreen can show the "session expired" message
+        await storage.setItem('session_expired', 'true');
       } catch (storageError) {
         console.warn('Failed to clear auth token:', storageError);
+      }
+      // Redirect to login screen
+      try {
+        router.replace('/');
+      } catch (navError) {
+        console.warn('Navigation failed:', navError);
       }
     }
     return Promise.reject(error);
@@ -121,6 +119,11 @@ export const gateAPI = {
     if (!enhancedBatchData.document_nos || enhancedBatchData.document_nos.length === 0) {
       throw new Error('At least one document must be selected');
     }
+          // ✅ ADD: loader_count to integer if present (use isNaN check so 0 is preserved, not converted to null)
+  if (enhancedBatchData.loader_count !== undefined && enhancedBatchData.loader_count !== null && enhancedBatchData.loader_count !== '') {
+    const parsed = parseInt(enhancedBatchData.loader_count);
+    enhancedBatchData.loader_count = isNaN(parsed) ? null : parsed;
+  }
     const response = await api.post('/enhanced-batch-gate-entry', enhancedBatchData);
     return response.data;
   },
@@ -132,6 +135,11 @@ export const gateAPI = {
     if (multiEntryData.no_of_documents < 0) {
       throw new Error('Number of documents must be at least 0');
     }
+          // ✅ ADD: Convert loader_count to integer (use isNaN check so 0 is preserved, not converted to null)
+  if (multiEntryData.loader_count !== undefined && multiEntryData.loader_count !== null && multiEntryData.loader_count !== '') {
+    const parsed = parseInt(multiEntryData.loader_count);
+    multiEntryData.loader_count = isNaN(parsed) ? null : parsed;
+  }
     const response = await api.post('/multi-document-manual-entry', multiEntryData);
     return response.data;
   },
@@ -261,8 +269,7 @@ getAdminDashboardStats: async (filters = {}) => {
     if (filters.from_date) params.append('from_date', filters.from_date);
     if (filters.to_date) params.append('to_date', filters.to_date);
     
-    // const url = params.toString() ? `/admin-rm-statistics?${params}` : '/rm/statistics';
-    const url = params.toString() ? `/rm/statistics?${params}` : '/rm/statistics';
+    const url = params.toString() ? `/admin-rm-statistics?${params}` : '/admin-rm-statistics';
 
     const response = await api.get(url);
     return response.data;
@@ -501,49 +508,104 @@ export const gateHelpers = {
 };
 
 export const handleAPIError = (error) => {
-  let errorMessage = "An unexpected error occurred";
-  
+  // ── Network / connectivity errors ──────────────────────────────────────────
+  if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+    return "Request timed out. The server is taking too long — please try again.";
+  }
+  if (!error.response && error.request) {
+    return "Cannot reach the server. Please check your internet connection.";
+  }
+
+  // ── Client/local errors (thrown before the request) ───────────────────────
+  if (!error.response && !error.request && error.message) {
+    return error.message;
+  }
+
   if (error.response) {
     const status = error.response.status;
-    const data = error.response.data;
-    
+    const detail = error.response.data?.detail || "";
+
     switch (status) {
+      // ── 400 Bad Request ────────────────────────────────────────────────────
       case 400:
-        if (data?.detail && data.detail.includes('already has Gate')) {
-          errorMessage = data.detail;
-        } else {
-          errorMessage = data?.detail || "Invalid request data";
+        if (detail.toLowerCase().includes('already has gate')) {
+          return detail; // Gate sequence error — return backend message as-is
         }
-        break;
+        if (detail.toLowerCase().includes('already registered') ||
+            detail.toLowerCase().includes('already exists') ||
+            detail.toLowerCase().includes('duplicate')) {
+          return detail || "This entry already exists. Please check for duplicates.";
+        }
+        if (detail.toLowerCase().includes('passwords do not match')) {
+          return "Passwords do not match. Please re-enter your new password.";
+        }
+        return detail || "Invalid request. Please check your input and try again.";
+
+      // ── 401 Unauthorised ──────────────────────────────────────────────────
       case 401:
-        errorMessage = "Authentication failed. Please login again.";
-        break;
-      case 403:
-        if (data?.detail && data.detail.includes('Edit window expired')) {
-          errorMessage = "Edit window expired. Records can only be edited within 48 hours.";
-        } else {
-          errorMessage = "Access denied. Insufficient permissions.";
+        // Login-specific: server returns "Incorrect username or password"
+        if (detail.toLowerCase().includes('incorrect') ||
+            detail.toLowerCase().includes('username') ||
+            detail.toLowerCase().includes('password')) {
+          return "Incorrect username or password. Please try again.";
         }
-        break;
+        // User not found during login
+        if (detail.toLowerCase().includes('user not found') ||
+            detail.toLowerCase().includes('does not exist')) {
+          return "Username not found. Please check your username.";
+        }
+        // Session / token expired (reached from authenticated routes)
+        return "Session expired. Please login again.";
+
+      // ── 403 Forbidden ────────────────────────────────────────────────────
+      case 403:
+        if (detail.toLowerCase().includes('edit window') ||
+            detail.toLowerCase().includes('48 hour')) {
+          return "Edit window expired. Records can only be edited within 48 hours of creation.";
+        }
+        if (detail.toLowerCase().includes('warehouse') ||
+            detail.toLowerCase().includes('outside your')) {
+          return "Access denied. You can only manage records for your assigned warehouse.";
+        }
+        return "Access denied. You do not have permission to perform this action.";
+
+      // ── 404 Not Found ────────────────────────────────────────────────────
       case 404:
-        errorMessage = data?.detail || "No recent documents found";
-        break;
+        if (detail.toLowerCase().includes('user')) {
+          return "User not found. Please check the username and try again.";
+        }
+        if (detail.toLowerCase().includes('warehouse')) {
+          return "Warehouse not found. Please check the warehouse code.";
+        }
+        if (detail.toLowerCase().includes('document')) {
+          return "No matching documents found for this vehicle.";
+        }
+        return detail || "Record not found.";
+
+      // ── 409 Conflict ─────────────────────────────────────────────────────
+      case 409:
+        return detail || "Duplicate entry. A record with these details already exists.";
+
+      // ── 422 Unprocessable Entity ──────────────────────────────────────────
       case 422:
-        errorMessage = "Validation error. Please check your input.";
-        break;
+        return "Invalid input format. Please check all fields and try again.";
+
+      // ── 500 Internal Server Error ─────────────────────────────────────────
       case 500:
-        errorMessage = "Server error. Please try again later.";
-        break;
+        if (detail.toLowerCase().includes('database') ||
+            detail.toLowerCase().includes('migration') ||
+            detail.toLowerCase().includes('column')) {
+          return "Database setup incomplete. Please contact IT support to run migrations.";
+        }
+        return "Server error. Please try again. If this persists, contact IT support.";
+
+      // ── Other ─────────────────────────────────────────────────────────────
       default:
-        errorMessage = data?.detail || `Server error (${status})`;
+        return detail || `Unexpected server response (${status}). Please try again.`;
     }
-  } else if (error.request) {
-    errorMessage = "Network error. Please check your connection.";
-  } else if (error.message) {
-    errorMessage = error.message;
   }
-  
-  return errorMessage;
+
+  return "An unexpected error occurred. Please try again.";
 };
 
 console.log('API Configuration:', {

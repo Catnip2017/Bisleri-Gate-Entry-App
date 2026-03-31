@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
-import { adminAPI, rmAPI, insightsAPI } from "../../../services/api";
+import { adminAPI, rmAPI, insightsAPI, handleAPIError } from "../../../services/api";
 import styles from "../styles/AdminInsightsStyle";
 import { getCurrentUser } from "../../../utils/jwtUtils";
 import { showAlert } from "../../../utils/customModal";
@@ -810,7 +810,7 @@ const AdminInsightsScreen = () => {
       console.log("Unique sites loaded:", uniqueSitesArray.length);
     } catch (error) {
       console.error("Error loading warehouses:", error);
-      showAlert("Error", "Failed to load warehouse data");
+      showAlert("Error", handleAPIError(error));
     }
   };
  
@@ -1015,7 +1015,7 @@ const AdminInsightsScreen = () => {
       }
     } catch (error) {
       console.error("Error fetching insights:", error);
-      showAlert("No data", `No Data available for these Dates`);
+      showAlert("Error", handleAPIError(error));
     } finally {
       setLoading(false);
     }

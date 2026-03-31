@@ -1,7 +1,7 @@
 # app/routers/gate.py - COMPLETE ENHANCED VERSION WITH MULTI-DOCUMENT MANUAL ENTRY
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from app.database import get_db
 from app.schemas import (
     GateEntryCreate, 
@@ -20,6 +20,46 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 router = APIRouter(tags=["Gate Operations"])
+
+
+def check_document_movement_allowed(db: Session, document_no: str, movement_type: str):
+    """
+    Document-level gate entry lock.
+
+    Allows a document to appear on Gate-Out even if it has never had a Gate-In
+    (e.g. empty-vehicle Gate-In, then Gate-Out with documents).
+
+    Blocks only genuine duplicates:
+      gate_in_count > gate_out_count  → unmatched Gate-In exists  → block another Gate-In
+      gate_out_count > gate_in_count  → unmatched Gate-Out exists → block another Gate-Out
+
+    Returns (allowed: bool, reason: str)
+    """
+    gate_in_count = db.query(func.count(InsightsData.id)).filter(
+        InsightsData.document_no == document_no,
+        InsightsData.movement_type == "Gate-In"
+    ).scalar() or 0
+
+    gate_out_count = db.query(func.count(InsightsData.id)).filter(
+        InsightsData.document_no == document_no,
+        InsightsData.movement_type == "Gate-Out"
+    ).scalar() or 0
+
+    if movement_type == "Gate-In":
+        if gate_in_count > gate_out_count:
+            return False, (
+                f"Document {document_no} already has an active Gate-In. "
+                f"Complete Gate-Out first before recording another Gate-In."
+            )
+    elif movement_type == "Gate-Out":
+        if gate_out_count > gate_in_count:
+            return False, (
+                f"Document {document_no} already has an unmatched Gate-Out. "
+                f"Complete Gate-In first before recording another Gate-Out."
+            )
+
+    return True, ""
+
 
 @router.get("/search-recent-documents/{vehicle_no}")
 def search_recent_documents(
@@ -204,7 +244,24 @@ def create_enhanced_batch_gate_entry(
                         status_code=400,
                         detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
-                
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_nos:
+            # 1. No duplicate document_nos within the same batch
+            seen_docs = set()
+            for doc_no in entry.document_nos:
+                if doc_no in seen_docs:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Document {doc_no} appears more than once in this submission. Each document can only be included once."
+                    )
+                seen_docs.add(doc_no)
+            # 2. Each document must be available for this movement type
+            for doc_no in entry.document_nos:
+                allowed, reason = check_document_movement_allowed(db, doc_no, entry.gate_type)
+                if not allowed:
+                    raise HTTPException(status_code=409, detail=reason)
+
         # Generate gate entry number
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         
@@ -246,6 +303,9 @@ def create_enhanced_batch_gate_entry(
             if len(names) > 10:
                 raise HTTPException(status_code=400, detail="Maximum 10 loader names allowed")
             operational_data['loader_names'] = ', '.join(names)
+
+        if entry.loader_count:
+            operational_data['loader_count'] = entry.loader_count
         
         # Process documents if provided
         if entry.document_nos:
@@ -282,6 +342,7 @@ def create_enhanced_batch_gate_entry(
                         # NEW: Include operational data if provided
                         driver_name=operational_data.get('driver_name'),
                         km_reading=operational_data.get('km_reading'),
+                        loader_count=operational_data.get('loader_count'),   # ADD
                         loader_names=operational_data.get('loader_names'),
                         edit_count=0,
                         last_edited_at=now if operational_data else None
@@ -390,9 +451,9 @@ def create_batch_gate_entry(
     try:
         if not entry.document_nos:
             raise HTTPException(status_code=400, detail="Please select at least one document")
-        
+
         vehicle_no = entry.vehicle_no.strip().upper()
-        
+
         # Check GATE IN/OUT SEQUENCE VALIDATION
         last_entry = db.query(InsightsData).filter(
             InsightsData.vehicle_no == vehicle_no
@@ -420,7 +481,24 @@ def create_batch_gate_entry(
                         status_code=400,
                         detail=f"Vehicle {vehicle_no} already has Gate-Out on {last_entry.date}. Must do Gate-In first."
                     )
-        
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_nos:
+            # 1. No duplicate document_nos within the same batch
+            seen_docs = set()
+            for doc_no in entry.document_nos:
+                if doc_no in seen_docs:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Document {doc_no} appears more than once in this submission. Each document can only be included once."
+                    )
+                seen_docs.add(doc_no)
+            # 2. Each document must be available for this movement type
+            for doc_no in entry.document_nos:
+                allowed, reason = check_document_movement_allowed(db, doc_no, entry.gate_type)
+                if not allowed:
+                    raise HTTPException(status_code=409, detail=reason)
+
         # RAW SQL: Generate gate entry number using fresh database data
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         
@@ -619,6 +697,7 @@ def create_enhanced_manual_gate_entry(
             # NEW: Include operational data
             driver_name=operational_data.get('driver_name'),
             km_reading=operational_data.get('km_reading'),
+            loader_count=entry.loader_count,   # ADD
             loader_names=operational_data.get('loader_names'),
             edit_count=0,
             last_edited_at=now if operational_data else None
@@ -885,10 +964,16 @@ def assign_document_to_manual_entry(
         # 3. Check if document is already assigned
         if document_record.gate_entry_no:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail=f"Document {document_no} is already assigned to gate entry {document_record.gate_entry_no}"
             )
-        
+
+        # 3b. ✅ Document duplicate lock — check movement type availability
+        movement_type = insights_record.movement_type
+        allowed, reason = check_document_movement_allowed(db, document_no, movement_type)
+        if not allowed:
+            raise HTTPException(status_code=409, detail=reason)
+
         # 4. Check if insights record is already assigned
         if insights_record.document_type != "Manual Entry - Pending Assignment":
             raise HTTPException(
@@ -1019,6 +1104,7 @@ def get_vehicle_history(
                 # NEW: Include operational data in history
                 "driver_name": move.driver_name,
                 "km_reading": move.km_reading,
+                "loader_count": move.loader_count,
                 "loader_names": move.loader_names,
                 "edit_count": move.edit_count or 0
             }
@@ -1034,8 +1120,10 @@ def get_operational_data_summary(
     """Get summary of operational data completion rates"""
     try:
         # Base query with warehouse filter
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
         base_query = db.query(InsightsData)
-        if current_user.role != "Admin":
+        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )
@@ -1185,6 +1273,7 @@ def create_multi_document_manual_entry(
                 # Empty vehicles don't need document assignment
                 driver_name=entry.driver_name,
                 km_reading=entry.km_reading,
+                loader_count=entry.loader_count,   # ✅ ADD
                 loader_names=entry.loader_names,
             )
             
@@ -1224,6 +1313,7 @@ def create_multi_document_manual_entry(
                     # Mark as unassigned - these need document assignment
                     driver_name=entry.driver_name,
                     km_reading=entry.km_reading,
+                    loader_count=entry.loader_count,   # ✅ IMPORTANT
                     loader_names=entry.loader_names,
                 )
                 

@@ -7,8 +7,9 @@ router = APIRouter(tags=["Document Management"])
 
 @router.post("/consolidate-documents", summary="Manually consolidate base tables into document_data")
 def consolidate_document_data(current_user: UsersMaster = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can trigger consolidation")
+    normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+    if "itadmin" not in normalized_roles:
+        raise HTTPException(status_code=403, detail="Only IT Admins can trigger consolidation")
 
     db_service = DBService()
     success = db_service.push_to_document_data()

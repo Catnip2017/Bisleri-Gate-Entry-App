@@ -1,7 +1,7 @@
 # app/routers/raw_materials.py
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from app.database import get_db
 from app.schemas.raw_materials_schemas import RawMaterialsCreate, RawMaterialsResponse, RawMaterialsEdit
 from app.models import RawMaterialsData, UsersMaster
@@ -11,6 +11,43 @@ from datetime import datetime, timedelta
 from typing import List
 
 router = APIRouter(prefix="/rm", tags=["Raw Materials"])
+
+
+def check_rm_document_movement_allowed(db: Session, document_no: str, gate_type: str):
+    """
+    Document-level gate lock for RM entries.
+
+    Allows a document to appear on Gate-Out even if it has never had a Gate-In
+    (e.g. empty-vehicle Gate-In, then Gate-Out with documents).
+
+    Blocks only genuine duplicates:
+      gate_in_count > gate_out_count  → unmatched Gate-In exists  → block another Gate-In
+      gate_out_count > gate_in_count  → unmatched Gate-Out exists → block another Gate-Out
+    """
+    gate_in_count = db.query(func.count(RawMaterialsData.id)).filter(
+        RawMaterialsData.document_no == document_no,
+        RawMaterialsData.gate_type == "Gate-In"
+    ).scalar() or 0
+
+    gate_out_count = db.query(func.count(RawMaterialsData.id)).filter(
+        RawMaterialsData.document_no == document_no,
+        RawMaterialsData.gate_type == "Gate-Out"
+    ).scalar() or 0
+
+    if gate_type == "Gate-In":
+        if gate_in_count > gate_out_count:
+            return False, (
+                f"Document {document_no} already has an active Gate-In. "
+                f"Complete Gate-Out first before recording another Gate-In."
+            )
+    elif gate_type == "Gate-Out":
+        if gate_out_count > gate_in_count:
+            return False, (
+                f"Document {document_no} already has an unmatched Gate-Out. "
+                f"Complete Gate-In first before recording another Gate-Out."
+            )
+    return True, ""
+
 
 @router.post("/create-entry", response_model=RawMaterialsResponse)
 def create_raw_materials_entry(
@@ -26,7 +63,13 @@ def create_raw_materials_entry(
                 status_code=400,
                 detail="Invalid vehicle number format"
             )
-        
+
+        # ✅ Document duplicate lock — check before any DB writes
+        if entry.document_no:
+            allowed, reason = check_rm_document_movement_allowed(db, entry.document_no, entry.gate_type)
+            if not allowed:
+                raise HTTPException(status_code=409, detail=reason)
+
         # Generate gate entry number
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         if not gate_entry_no:
@@ -115,11 +158,14 @@ def get_filtered_rm_entries(
         for entry in entries:
             # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
+            normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
+            # IT Admin: view-only. Security Admin / Security Guard: same warehouse only.
             can_edit = (
                 time_since_creation <= timedelta(hours=48) and
-                (current_user.role == "Admin" or entry.security_username == current_user.username)
+                normalized_role != 'itadmin' and
+                entry.warehouse_code == current_user.warehouse_code
             )
- 
+
             # Calculate time remaining
             time_remaining = None
             if time_since_creation <= timedelta(hours=48):
@@ -182,11 +228,17 @@ def update_rm_entry(
                 detail="Edit window expired. Records can only be edited within 48 hours."
             )
 
-        # Check permissions (creator or admin)
-        if current_user.role != "Admin" and rm_entry.security_username != current_user.username:
+        # Check permissions — warehouse-based
+        normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
+        if normalized_role == 'itadmin':
             raise HTTPException(
                 status_code=403,
-                detail="You can only edit your own entries"
+                detail="IT Admins can only view entries. Editing is disabled."
+            )
+        if rm_entry.warehouse_code != current_user.warehouse_code:
+            raise HTTPException(
+                status_code=403,
+                detail="You can only edit entries from your own warehouse."
             )
         
         # Update fields
@@ -244,27 +296,34 @@ def get_rm_statistics(
 ):
     """Get raw materials statistics"""
     try:
-        # ✅ FIX: Normalize roles like you do everywhere else
-        def normalize_roles(role_string: str) -> List[str]:
-            if not role_string:
-                return []
-            return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
-        
-        current_roles = normalize_roles(current_user.role)
-        
+        normalized_roles = [
+            r.strip().lower().replace(" ", "")
+            for r in (current_user.role or "").split(",")
+            if r.strip()
+        ]
+
         base_query = db.query(RawMaterialsData)
-        
-        # ✅ FIX: Check for normalized admin roles
-        if not any(r in ["securityadmin", "itadmin"] for r in current_roles):
-            # Non-admin: filter by warehouse
+
+        # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
+        if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 RawMaterialsData.warehouse_code == current_user.warehouse_code
             )
-        
+
         # Get records from last 30 days
         thirty_days_ago = datetime.now() - timedelta(days=30)
-        recent_records = base_query.filter(RawMaterialsData.date_time >= thirty_days_ago).all()
-        
+
+        try:
+            recent_records = base_query.filter(
+                RawMaterialsData.date_time >= thirty_days_ago
+            ).all()
+        except Exception as db_err:
+            print(f"DB query error in RM statistics: {str(db_err)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database query failed. Ensure migrations are up to date. ({str(db_err)})"
+            )
+
         if not recent_records:
             return {
                 "total_entries": 0,
@@ -274,14 +333,14 @@ def get_rm_statistics(
                 "edited_entries": 0,
                 "period": "Last 30 days"
             }
-        
+
         # Calculate statistics
         total_entries = len(recent_records)
-        gate_in_count = len([r for r in recent_records if r.gate_type == "Gate-In"])
-        gate_out_count = len([r for r in recent_records if r.gate_type == "Gate-Out"])
-        unique_vehicles = len(set(r.vehicle_no for r in recent_records))
-        edited_entries = len([r for r in recent_records if (r.edit_count or 0) > 0])
-        
+        gate_in_count = sum(1 for r in recent_records if r.gate_type == "Gate-In")
+        gate_out_count = sum(1 for r in recent_records if r.gate_type == "Gate-Out")
+        unique_vehicles = len(set(r.vehicle_no for r in recent_records if r.vehicle_no))
+        edited_entries = sum(1 for r in recent_records if (r.edit_count or 0) > 0)
+
         return {
             "total_entries": total_entries,
             "gate_in_count": gate_in_count,
@@ -290,9 +349,11 @@ def get_rm_statistics(
             "edited_entries": edited_entries,
             "period": "Last 30 days"
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting RM statistics: {str(e)}")
+        print(f"Error getting RM statistics — role={current_user.role} warehouse={current_user.warehouse_code}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
        
 # ✅ ENHANCED: Admin filtered RM entries
@@ -356,9 +417,11 @@ def get_admin_filtered_rm_entries(
         for entry in entries:
             # Check if entry can be edited (48-hour window)
             time_since_creation = datetime.now() - entry.date_time
+            # IT Admin: view-only. Security Admin: same warehouse only.
             can_edit = (
                 time_since_creation <= timedelta(hours=48) and
-                (current_user.role == "Admin" or "itadmin" in roles or entry.security_username == current_user.username)
+                "itadmin" not in roles and
+                entry.warehouse_code == current_user.warehouse_code
             )
 
             # Calculate time remaining

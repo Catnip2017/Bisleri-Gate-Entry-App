@@ -53,7 +53,7 @@ const SecurityDashboard = () => {
       const user = await getCurrentUser();
       setUserData(user);
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.log('Error loading user data:', error);
     }
   };
 
@@ -118,7 +118,7 @@ const SecurityDashboard = () => {
         ]
       );
     } catch (error) {
-      console.error('Gate entry submission failed:', error);
+      console.log('Gate entry submission failed:', error);
       
       let errorMessage = 'Failed to create gate entry';
       if (error.response?.data?.detail) {
