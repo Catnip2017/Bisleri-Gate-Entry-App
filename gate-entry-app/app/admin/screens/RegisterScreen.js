@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI } from '../../../services/api';
+import { adminAPI, handleAPIError } from '../../../services/api';
 import styles from '../styles/RegisterScreenStyle';
 import {
   validateUsername,
@@ -47,8 +47,8 @@ const RegisterScreen = () => {
       const warehouseData = await adminAPI.getWarehouses();
       setWarehouses(warehouseData);
     } catch (error) {
-      // console.error('Error loading warehouses:', error);
-      showAlert('Error', 'Failed to load warehouse data');
+      console.error('Error loading warehouses:', error);
+      showAlert('Error', handleAPIError(error));
     }
   };
 
@@ -200,36 +200,8 @@ const handleRegister = async () => {
       },
     ]);
   } catch (error) {
-    // console.error('Registration Error:', error);
-
-    let errorMessage = "Registration failed";
-
-    // 🔹 Handle known backend validation errors
-    if (error.response?.status === 422) {
-      errorMessage = "Validation error. Please check input fields.";
-    } 
-    else if (error.response?.status === 403) {
-      errorMessage = "Only IT Admins can register users.";
-    } 
-    else if (error.response?.status === 400) {
-      const detail = error.response.data?.detail || "";
-
-      // 🔸 Custom duplicate checks
-      if (detail.toLowerCase().includes("username")) {
-        errorMessage = "Username already exists.";
-      } 
-      else if (detail.toLowerCase().includes("email")) {
-        errorMessage = "Email ID already exists.";
-      } 
-      else if (detail.toLowerCase().includes("phone")) {
-        errorMessage = "Mobile number already exists.";
-      } 
-      else {
-        errorMessage = detail || "Invalid input data.";
-      }
-    }
-
-    showAlert('Registration Error', errorMessage);
+    console.error('Registration Error:', error);
+    showAlert('Registration Error', handleAPIError(error));
   } finally {
     setLoading(false);
   }

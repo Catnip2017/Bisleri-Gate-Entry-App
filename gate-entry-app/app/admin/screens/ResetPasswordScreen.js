@@ -8,7 +8,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI } from '../../../services/api';
+import { adminAPI, handleAPIError } from '../../../services/api';
 import styles from '../styles/ResetPasswordScreenStyle';
 import { showAlert } from '../../../utils/customModal';
 
@@ -136,8 +136,7 @@ const ResetPasswordScreen = () => {
       );
     } catch (error) {
       console.error('Error resetting password:', error);
-      const errorMessage = error.response?.data?.detail || 'Failed to reset password';
-      showAlert('Error', errorMessage);
+      showAlert('Error', handleAPIError(error));
     } finally {
       setLoading(false);
     }

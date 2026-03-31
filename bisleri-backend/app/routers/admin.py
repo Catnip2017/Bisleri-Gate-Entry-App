@@ -39,15 +39,15 @@ def register_user(
 
         # ✅ Duplicate username check
         if db.query(UsersMaster).filter(UsersMaster.username == user.username).first():
-            raise HTTPException(status_code=400, detail="Username already registered")
+            raise HTTPException(status_code=409, detail="Username already exists. Please choose a different username.")
 
         # ✅ Optional duplicate email check
         if user.email and db.query(UsersMaster).filter(UsersMaster.email == user.email).first():
-            raise HTTPException(status_code=400, detail="Email already registered")
+            raise HTTPException(status_code=409, detail="Email already exists. Please use a different email address.")
 
         # ✅ Optional duplicate phone number check
         if user.phone_number and db.query(UsersMaster).filter(UsersMaster.phone_number == user.phone_number).first():
-            raise HTTPException(status_code=400, detail="Phone number already registered")
+            raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
         needs_warehouse = any(
@@ -100,13 +100,13 @@ def register_user(
         db.rollback()
         err = str(e.orig).lower()
         if "username" in err:
-            raise HTTPException(status_code=400, detail="Username already exists")
+            raise HTTPException(status_code=409, detail="Username already exists. Please choose a different username.")
         elif "email" in err:
-            raise HTTPException(status_code=400, detail="Email already exists")
+            raise HTTPException(status_code=409, detail="Email already exists. Please use a different email address.")
         elif "phone" in err:
-            raise HTTPException(status_code=400, detail="Phone number already exists")
+            raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
         else:
-            raise HTTPException(status_code=400, detail="Duplicate entry")
+            raise HTTPException(status_code=409, detail="Duplicate entry. A record with these details already exists.")
 
     except HTTPException:
         raise  # keep original 400 / 403 errors intact
@@ -375,7 +375,7 @@ def get_dashboard_stats(
 
 
 # ✅ NEW: Admin RM Statistics with Filtering
-@router.get("/rm/statistics")
+@router.get("/admin-rm-statistics")
 def get_admin_rm_statistics(
     site_code: Optional[str] = None,
     warehouse_code: Optional[str] = None,
@@ -415,7 +415,7 @@ def get_admin_rm_statistics(
         )
         
         recent_records = base_query.all()
-        
+
         if not recent_records:
             return {
                 "total_entries": 0,
@@ -429,13 +429,13 @@ def get_admin_rm_statistics(
                     "warehouse_code": warehouse_code
                 }
             }
-        
+
         total_entries = len(recent_records)
         gate_in_count = len([r for r in recent_records if r.gate_type == "Gate-In"])
         gate_out_count = len([r for r in recent_records if r.gate_type == "Gate-Out"])
         unique_vehicles = len(set(r.vehicle_no for r in recent_records))
         edited_entries = len([r for r in recent_records if (r.edit_count or 0) > 0])
-        
+
         return {
             "total_entries": total_entries,
             "gate_in_count": gate_in_count,
@@ -448,7 +448,9 @@ def get_admin_rm_statistics(
                 "warehouse_code": warehouse_code
             }
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error getting admin RM statistics: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")

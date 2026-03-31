@@ -35,6 +35,7 @@ class EnhancedGateEntryCreate(BaseModel):
     # NEW: Optional operational data that can be captured during gate entry
     driver_name: Optional[str] = None
     km_reading: Optional[str] = None
+    loader_count: Optional[int] = None   # ✅ ADD THIS
     loader_names: Optional[str] = None
 
 class EnhancedManualGateEntryCreate(BaseModel):
@@ -56,6 +57,7 @@ class EnhancedManualGateEntryCreate(BaseModel):
     # NEW: Operational data fields
     driver_name: Optional[str] = None
     km_reading: Optional[str] = None
+    loader_count: Optional[int] = None   # ✅ ADD THIS
     loader_names: Optional[str] = None
 
 # Schema for Manual Gate Entry
@@ -90,6 +92,7 @@ class MultiDocumentManualEntryCreate(BaseModel):
     remarks: Optional[str] = None
     driver_name: Optional[str] = None
     km_reading: Optional[str] = None
+    loader_count: Optional[int] = None   # ✅ ADD
     loader_names: Optional[str] = None
     
     # ✅ UPDATED: Validation for no_of_documents - now allows 0 for empty vehicles
@@ -112,6 +115,7 @@ class OperationalDataEdit(BaseModel):
     # ✅ Operational fields (required for completion)
     driver_name: Optional[str] = None
     km_reading: Optional[str] = None  
+    loader_count: Optional[int] = None   # ✅ ADD
     loader_names: Optional[str] = None
     
     # ✅ Optional fields
@@ -179,6 +183,7 @@ class EnhancedMovementResponse(BaseModel):
     driver_name: Optional[str]
     km_reading: Optional[str]
     loader_names: Optional[str]
+    loader_count: Optional[int] = None   # ✅ ADD
     last_edited_at: Optional[str]
     edit_count: int
     

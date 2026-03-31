@@ -7,6 +7,9 @@ from app.routers import auth, documents, gate, insights, ping, admin, sync , raw
  
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Suppress passlib/bcrypt version-mismatch warning (bcrypt 4.x removed __about__)
+logging.getLogger('passlib').setLevel(logging.ERROR)
  
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,15 +35,17 @@ app = FastAPI(
     version="1.0.0"
 )
  
-# CORS - Allow localhost:8081 to access backend:8000
+# CORS - Allowed origins (dev: 8082, prod: 8081, server: nginx)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8081",
-        "http://127.0.0.1:8081", 
-        "http://192.168.1.5:8081",
-        "http://123.63.20.237:8081",
+        "http://127.0.0.1:8081",
+        "http://localhost:8082",
+        "http://127.0.0.1:8082",
         "http://192.168.1.56:8081",
+        "http://192.168.1.56:8082",   
+        "http://123.63.20.237:8081",
         # Add nginx proxy URLs
         "https://srvhofortiems.bisleri.com:19000",
         "https://123.63.20.237:19000",
@@ -68,5 +73,4 @@ async def root():
  
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
- 
+    return {"status": "ok"}

@@ -46,18 +46,21 @@ const GateEntryTab = ({
   const [operationalData, setOperationalData] = useState({
     driver_name: "",
     km_reading: "",
+    loader_count: "",   // ✅ ADD THIS
     loader_names: "",
   });
 
   const [validationErrors, setValidationErrors] = useState({
     driver_name: "",
     km_reading: "",
+    loader_count: "",   // ✅ ADD THIS
     loader_names: "",
   });
 
   const [fieldValidation, setFieldValidation] = useState({
     driver_name: { isValid: false, touched: false },
     km_reading: { isValid: false, touched: false },
+    loader_count: { isValid: false, touched: false },  // ✅ ADD
     loader_names: { isValid: false, touched: false },
   });
 
@@ -139,6 +142,17 @@ const GateEntryTab = ({
         cleanValue = value.replace(/[^0-9]/g, "");
         validation = validateKMReading(cleanValue);
         break;
+      case "loader_count":
+        cleanValue = value.replace(/[^0-9]/g, "");
+
+        if (cleanValue === "") {
+          validation = { isValid: false, error: "Loader count is required" };
+        } else if (parseInt(cleanValue) < 0 || parseInt(cleanValue) > 20) {
+          validation = { isValid: false, error: "Loader count must be between 0-20" };
+        } else {
+          validation = { isValid: true, error: "" };
+        }
+      break;
       case "loader_names":
         validation = validateLoaderNames(value);
         break;
@@ -270,16 +284,8 @@ const GateEntryTab = ({
         ]
       );
     } catch (error) {
-      console.error("RM entry submission failed:", error);
-
-      let errorMessage = "Failed to create raw materials entry";
-      if (error.response?.data?.detail) {
-        errorMessage = error.response.data.detail;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      showAlert("Error", errorMessage);
+      console.log("RM entry submission failed:", error);
+      showAlert("Error", handleAPIError(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -365,7 +371,7 @@ const GateEntryTab = ({
         }
       }
     } catch (error) {
-      console.error("Vehicle search error:", error);
+      console.log("Vehicle search error:", error);
 
       if (
         error.response?.status === 400 &&
@@ -382,6 +388,14 @@ const GateEntryTab = ({
   };
 
   const handleEnhancedSubmit = async () => {
+    if (isITAdmin) {
+      showAlert(
+        '🚫 Restricted Access',
+        'IT Admins can only view this page. Manual Entry creation is disabled.'
+      );
+      return;
+    }
+
     const vehicleNo = gateEntryData.vehicleNo?.trim();
 
     if (isSubmitting) {
@@ -419,6 +433,10 @@ const GateEntryTab = ({
       return;
     }
     
+    if (!operationalData.loader_count?.trim()) {
+      showAlert('Validation Error', 'Loader count is required');
+      return;
+    }
     if (!operationalData.loader_names?.trim()) {
       showAlert('Validation Error', 'Loader names are required');
       return;
@@ -487,6 +505,8 @@ const GateEntryTab = ({
         driver_name: operationalData.driver_name.trim(),
         km_reading: operationalData.km_reading,
         loader_names: operationalData.loader_names.trim(),
+        loader_count: operationalData.loader_count,   // ✅ ADD
+
       };
 
       const result = await gateAPI.createEnhancedBatchGateEntry(batchData);
@@ -516,21 +536,24 @@ const GateEntryTab = ({
         driver_name: "",
         km_reading: "",
         loader_names: "",
+        loader_count: "",
       });
 
       setValidationErrors({
         driver_name: "",
         km_reading: "",
         loader_names: "",
+        loader_count: "",
       });
 
       setFieldValidation({
         driver_name: { isValid: false, touched: false },
         km_reading: { isValid: false, touched: false },
+        loader_count: { isValid: false, touched: false },
         loader_names: { isValid: false, touched: false },
       });
     } catch (error) {
-      console.error("Batch gate entry submission failed:", error);
+      console.log("Batch gate entry submission failed:", error);
 
       if (
         error.response?.status === 400 &&
@@ -963,7 +986,7 @@ const GateEntryTab = ({
           </View>
 
           <View style={styles.row}>
-            <View style={styles.field75}>
+            <View style={styles.field33}>
               <Text style={styles.label}>Remarks</Text>
               <TextInput
                 style={styles.input}
@@ -972,6 +995,34 @@ const GateEntryTab = ({
                 onChangeText={(text) => updateField("remarks", text)}
                 editable={!isSubmitting && !isSearching}
               />
+            </View>
+
+           <View style={[styles.field10, { marginHorizontal: 4 }]}>
+              <Text style={styles.label}>Loader Count *</Text>
+
+              <TextInput
+                style={[
+                  styles.input,
+                  fieldValidation.loader_count.touched &&
+                    !fieldValidation.loader_count.isValid &&
+                    styles.inputError
+                ]}
+                placeholder="Count"
+                value={operationalData.loader_count}
+                onChangeText={(text) =>
+                  updateOperationalField("loader_count", text)
+                }
+                keyboardType="numeric"
+                maxLength={2}
+                editable={!isSubmitting && !isSearching}
+              />
+
+              {fieldValidation.loader_count.touched &&
+              validationErrors.loader_count ? (
+                <Text style={styles.errorText}>
+                  {validationErrors.loader_count}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.field25}>
@@ -985,9 +1036,10 @@ const GateEntryTab = ({
                 ]}
                 placeholder="Enter Loader Names (comma-separated)"
                 value={operationalData.loader_names}
-                onChangeText={(text) =>
-                  updateOperationalField("loader_names", text)
-                }
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^a-zA-Z\s,]/g, '');
+                  updateOperationalField("loader_names", cleaned);
+                }}
                 editable={!isSubmitting && !isSearching}
                 maxLength={200}
               />
@@ -1077,6 +1129,11 @@ const GateEntryTab = ({
                   return;
                 }
                 
+                                  // ✅ ADD HERE:
+                if (!operationalData.loader_count?.trim()) {
+                  showAlert('Validation Error', 'Loader count is required');
+                  return;
+                }
                 if (!operationalData.loader_names?.trim()) {
                   showAlert('Validation Error', 'Loader names are required');
                   return;
@@ -1084,7 +1141,7 @@ const GateEntryTab = ({
 
                 // If all validations pass, navigate to manual entry
                 router.push(
-                  `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`
+                    `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderCount=${encodeURIComponent(operationalData.loader_count || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`
                 );
               }}
               disabled={isSubmitting || isSearching}
@@ -1214,7 +1271,7 @@ const GateEntryTab = ({
   ]}
   onPress={
     isITAdmin
-      ? () => Alert.alert('Restricted Access', 'IT Admin cannot create manual entries.')
+      ? () => showAlert('Restricted Access', 'IT Admin cannot create manual entries.')
       : handleRMSubmit  // ✅ FIXED
   }
   disabled={isSubmitting || isITAdmin}

@@ -23,6 +23,7 @@ const OperationalEditModal = ({
     driver_name: '',
     km_reading: '',
     loader_names: '',
+    loader_count: '',   // ✅ ADD
     remarks: ''
   });
   
@@ -36,6 +37,7 @@ const OperationalEditModal = ({
       setFormData({
         driver_name: record.driver_name || '',
         km_reading: record.km_reading || '',
+        loader_count: record.loader_count ? String(record.loader_count) : '',  // ✅ ADD
         loader_names: record.loader_names || '',
         remarks: record.remarks || ''
       });
@@ -77,6 +79,7 @@ const OperationalEditModal = ({
         gate_entry_no: record.gate_entry_no,
         driver_name: formData.driver_name.trim(),
         km_reading: formData.km_reading.trim(),
+        loader_count: formData.loader_count ? parseInt(formData.loader_count) : null,  // ✅ ADD
         loader_names: formData.loader_names.trim(),
         remarks: formData.remarks.trim() || null
       };
@@ -100,7 +103,7 @@ const OperationalEditModal = ({
       );
       
     } catch (error) {
-      console.error('Error updating operational data:', error);
+      console.log('Error updating operational data:', error);
       const errorMessage = handleAPIError(error);
       showAlert('Update Failed', errorMessage);
     } finally {
@@ -280,6 +283,34 @@ const OperationalEditModal = ({
               </Text>
             </View>
 
+            {/* Loader Count Field */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                marginBottom: 8,
+                color: '#333',
+              }}>
+                🔢 Loader Count
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 2,
+                  borderColor: '#ced4da',
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: '#fff',
+                  minHeight: 48,
+                }}
+                placeholder="Enter number of loaders"
+                value={formData.loader_count}
+                onChangeText={(text) => updateField('loader_count', text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={2}
+              />
+            </View>
+            
             {/* Remarks Field */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{

@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   },
 
   tableContainer: {
-    minWidth: 1900, // ✅ INCREASED for document assignment columns
+    minWidth: 2000, // ✅ INCREASED for document assignment columns
   },
 
   tableHeader: {
@@ -255,6 +255,8 @@ const styles = StyleSheet.create({
   colLoaderNames: { width: 160 },
   colEditCount: { width: 80 },
   colTimeRemaining: { width: 120 },
+  colLoaderCount: { width: 90 },   // ✅ ADD
+
   
   // ✅ NEW: Document Assignment Column Widths
   colDocumentNo: { width: 160 },              // NEW: Document assignment column
@@ -1208,6 +1210,7 @@ const styles = StyleSheet.create({
     
     colDriverName: { width: 120 },
     colKMReading: { width: 80 },
+    colLoaderCount: { width: 70 },   // ✅ ADD HERE
     colLoaderNames: { width: 140 },
     colTimeRemaining: { width: 100 },
     colDocumentNo: { width: 140 },
