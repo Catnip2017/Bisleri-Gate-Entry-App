@@ -37,7 +37,7 @@ class RawMaterialsCreate(BaseModel):
             return ""
         return v.strip()
 
-    @root_validator
+    @root_validator(skip_on_failure=True)
     def validate_required_fields(cls, values):
         entry_type = values.get('entry_type', 'with_document')
 
