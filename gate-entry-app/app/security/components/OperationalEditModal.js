@@ -37,7 +37,7 @@ const OperationalEditModal = ({
       setFormData({
         driver_name: record.driver_name || '',
         km_reading: record.km_reading || '',
-        loader_count: record.loader_count ? String(record.loader_count) : '',  // ✅ ADD
+        loader_count: record.loader_count != null ? String(record.loader_count) : '',
         loader_names: record.loader_names || '',
         remarks: record.remarks || ''
       });
@@ -69,6 +69,11 @@ const OperationalEditModal = ({
     
     if (!formData.loader_names.trim()) {
       showAlert('Error', 'Loader names are required');
+      return;
+    }
+
+    if (!formData.loader_count.trim()) {
+      showAlert('Error', 'Loader count is required');
       return;
     }
 

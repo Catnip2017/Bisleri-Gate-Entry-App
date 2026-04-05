@@ -63,7 +63,12 @@ const ManualEntryForm = ({ userData }) => {
       showAlert('Validation Error', 'Number of documents must be between 0 and 20');
       return false;
     }
-    
+
+    if (!formData.loaderCount?.trim()) {
+      showAlert('Validation Error', 'Loader count is required');
+      return false;
+    }
+
     return true;
   };
 

@@ -304,7 +304,7 @@ def create_enhanced_batch_gate_entry(
                 raise HTTPException(status_code=400, detail="Maximum 10 loader names allowed")
             operational_data['loader_names'] = ', '.join(names)
 
-        if entry.loader_count:
+        if entry.loader_count is not None:
             operational_data['loader_count'] = entry.loader_count
         
         # Process documents if provided
