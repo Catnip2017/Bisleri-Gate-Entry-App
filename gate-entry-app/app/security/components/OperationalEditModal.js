@@ -72,6 +72,11 @@ const OperationalEditModal = ({
       return;
     }
 
+    if (!formData.loader_count.trim()) {
+      showAlert('Error', 'Loader count is required');
+      return;
+    }
+
     setIsSubmitting(true);
     
     try {

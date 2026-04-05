@@ -487,6 +487,7 @@ const GateEntryTab = ({
       const allFieldsValid =
         fieldValidation.driver_name.isValid &&
         fieldValidation.km_reading.isValid &&
+        fieldValidation.loader_count.isValid &&
         fieldValidation.loader_names.isValid;
 
       if (!allFieldsValid) {
