@@ -53,35 +53,44 @@ def create_raw_materials_entry(
                 detail="Invalid vehicle number format"
             )
 
-        # 🔹 Normalize document_no
-        doc_no = entry.document_no.strip() if entry.document_no else ""
-        doc_no_normalized = doc_no.lower()
+        is_empty_vehicle = (entry.entry_type or "with_document") == "empty_vehicle"
 
-        # ✅ Skip validation for empty vehicle values ("0", "na", "")
-        if doc_no and doc_no_normalized not in ["0", "na"]:
-            allowed, reason = check_rm_document_movement_allowed(db, doc_no, entry.gate_type)
-            if not allowed:
-                raise HTTPException(status_code=409, detail=reason)
-
-        # Generate gate entry number
+        # Generate gate entry number first (needed for unique empty vehicle doc_no)
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)
         if not gate_entry_no:
             raise HTTPException(
                 status_code=500,
                 detail="Failed to generate gate entry number"
             )
-        
+
+        if is_empty_vehicle:
+            # ✅ Empty vehicle: auto-generate a unique document_no so it never conflicts
+            doc_no = f"EMPTY-{gate_entry_no}"
+        else:
+            # 🔹 Normalize document_no for regular entries
+            doc_no = entry.document_no.strip() if entry.document_no else ""
+
+            # Run duplicate-movement check
+            allowed, reason = check_rm_document_movement_allowed(db, doc_no, entry.gate_type)
+            if not allowed:
+                raise HTTPException(status_code=409, detail=reason)
+
+        # Name of party, description, quantity are always provided by the user
+        name_of_party = entry.name_of_party.strip()
+        description_of_material = entry.description_of_material.strip()
+        quantity = entry.quantity.strip()
+
         now = datetime.now()
         security_name = f"{current_user.first_name} {current_user.last_name}"
-        
+
         rm_entry = RawMaterialsData(
             gate_entry_no=gate_entry_no,
             gate_type=entry.gate_type,
             vehicle_no=entry.vehicle_no.upper(),
-            document_no=doc_no,  # ✅ normalized value saved
-            name_of_party=entry.name_of_party,
-            description_of_material=entry.description_of_material,
-            quantity=entry.quantity,
+            document_no=doc_no,
+            name_of_party=name_of_party,
+            description_of_material=description_of_material,
+            quantity=quantity,
             date_time=now,
             security_name=security_name,
             security_username=current_user.username,
@@ -89,13 +98,13 @@ def create_raw_materials_entry(
             site_code=current_user.site_code,
             edit_count=0
         )
-        
+
         db.add(rm_entry)
         db.commit()
         db.refresh(rm_entry)
-        
+
         return rm_entry
-        
+
     except HTTPException:
         raise
     except Exception as e:

@@ -258,36 +258,39 @@ const RMInsightsTab = () => {
       ]);
       return false;
     }
-    
+
     if (editFormData.vehicle_no.trim().length < 8) {
       showAlert('Error', 'Vehicle number must be at least 8 characters', [
         { text: 'OK', onPress: () => {} }
       ]);
       return false;
     }
-    
-    if (!editFormData.document_no.trim()) {
+
+    const isEmptyVehicle = isEmptyVehicleEntry(editFormData.document_no);
+
+    // document_no is auto-generated for empty vehicle — skip validation
+    if (!isEmptyVehicle && !editFormData.document_no.trim()) {
       showAlert('Error', 'Document number is required', [
         { text: 'OK', onPress: () => {} }
       ]);
       return false;
     }
-    
-    if (!editFormData.name_of_party.trim()) {
+
+    if (!isEmptyVehicle && !editFormData.name_of_party.trim()) {
       showAlert('Error', 'Name of Party is required', [
         { text: 'OK', onPress: () => {} }
       ]);
       return false;
     }
-    
-    if (!editFormData.description_of_material.trim()) {
+
+    if (!isEmptyVehicle && !editFormData.description_of_material.trim()) {
       showAlert('Error', 'Description of Material is required', [
         { text: 'OK', onPress: () => {} }
       ]);
       return false;
     }
-    
-    if (!editFormData.quantity.trim()) {
+
+    if (!isEmptyVehicle && !editFormData.quantity.trim()) {
       showAlert('Error', 'Quantity is required', [
         { text: 'OK', onPress: () => {} }
       ]);
@@ -333,6 +336,10 @@ const RMInsightsTab = () => {
       setIsSubmittingEdit(false);
     }
   };
+
+  // Helper: detect empty vehicle entries (document_no starts with "EMPTY-")
+  const isEmptyVehicleEntry = (doc_no) =>
+    typeof doc_no === 'string' && doc_no.toUpperCase().startsWith('EMPTY-');
 
   // Render edit button
   const renderEditButton = (record) => {
@@ -519,7 +526,26 @@ const stats = React.useMemo(() => {
                       <Text style={[styles.tableCell, styles.colGateEntry]}>{entry.gate_entry_no}</Text>
                       <Text style={[styles.tableCell, styles.colMovement]}>{entry.gate_type}</Text>
                       <Text style={[styles.tableCell, styles.colVehicle]}>{entry.vehicle_no}</Text>
-                      <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.document_no}</Text>
+                      {/* Document No — show badge for empty vehicle entries */}
+                      <View style={[styles.tableCell, styles.colDocumentNo, { justifyContent: 'center' }]}>
+                        {isEmptyVehicleEntry(entry.document_no) ? (
+                          <View style={{
+                            backgroundColor: '#fff3cd',
+                            borderRadius: 4,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            borderWidth: 1,
+                            borderColor: '#ffc107',
+                            alignSelf: 'flex-start'
+                          }}>
+                            <Text style={{ color: '#856404', fontSize: 11, fontWeight: 'bold' }}>
+                              EMPTY VEHICLE
+                            </Text>
+                          </View>
+                        ) : (
+                          <Text style={{ fontSize: 13 }}>{entry.document_no}</Text>
+                        )}
+                      </View>
                       <Text style={[styles.tableCell, styles.colWarehouse]}>{entry.name_of_party}</Text>
                       <Text style={[styles.tableCell, styles.colWarehouse]} numberOfLines={2}>{entry.description_of_material}</Text>
                       <Text style={[styles.tableCell, styles.colDocumentNo]}>{entry.quantity}</Text>
@@ -679,22 +705,39 @@ const stats = React.useMemo(() => {
               {/* Document Number Field */}
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, color: '#333' }}>
-                  Document Number *
+                  Document Number {isEmptyVehicleEntry(editFormData.document_no) ? '' : '*'}
                 </Text>
-                <TextInput
-                  style={{
+                {isEmptyVehicleEntry(editFormData.document_no) ? (
+                  /* Empty vehicle: show read-only badge — document_no is system-generated */
+                  <View style={{
                     borderWidth: 2,
-                    borderColor: '#ced4da',
+                    borderColor: '#ffc107',
                     borderRadius: 8,
                     padding: 12,
-                    fontSize: 16,
-                    backgroundColor: '#fff',
+                    backgroundColor: '#fff3cd',
                     minHeight: 48,
-                  }}
-                  value={editFormData.document_no}
-                  onChangeText={(text) => setEditFormData(prev => ({ ...prev, document_no: text }))}
-                  placeholder="Enter Document Number"
-                />
+                    justifyContent: 'center',
+                  }}>
+                    <Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 15 }}>
+                      EMPTY VEHICLE (auto-generated)
+                    </Text>
+                  </View>
+                ) : (
+                  <TextInput
+                    style={{
+                      borderWidth: 2,
+                      borderColor: '#ced4da',
+                      borderRadius: 8,
+                      padding: 12,
+                      fontSize: 16,
+                      backgroundColor: '#fff',
+                      minHeight: 48,
+                    }}
+                    value={editFormData.document_no}
+                    onChangeText={(text) => setEditFormData(prev => ({ ...prev, document_no: text }))}
+                    placeholder="Enter Document Number"
+                  />
+                )}
               </View>
 
               {/* Name of Party Field */}
