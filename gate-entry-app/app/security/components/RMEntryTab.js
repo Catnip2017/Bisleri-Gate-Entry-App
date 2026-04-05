@@ -15,7 +15,11 @@ const RMEntryTab = ({ userData }) => {
     quantity: ''
   });
 
+  // Entry type: 'with_document' or 'empty_vehicle'
+  const [entryType, setEntryType] = useState('with_document');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isEmptyVehicle = entryType === 'empty_vehicle';
 
   const updateField = (field, value) => {
     setFormData({
@@ -24,32 +28,41 @@ const RMEntryTab = ({ userData }) => {
     });
   };
 
+  const handleEntryTypeChange = (type) => {
+    setEntryType(type);
+    // Clear only the document number when switching to empty vehicle
+    if (type === 'empty_vehicle') {
+      setFormData(prev => ({ ...prev, documentNo: '' }));
+    }
+  };
+
   const validateForm = () => {
     if (!formData.vehicleNo.trim()) {
       showAlert('Error', 'Vehicle number is required');
       return false;
     }
-    
+
     if (formData.vehicleNo.trim().length < 8) {
       showAlert('Error', 'Vehicle number must be at least 8 characters');
       return false;
     }
-    
-    if (!formData.documentNo.trim()) {
+
+    // Document number only required when not Empty Vehicle
+    if (!isEmptyVehicle && !formData.documentNo.trim()) {
       showAlert('Error', 'Document number is required');
       return false;
     }
-    
+
     if (!formData.nameOfParty.trim()) {
       showAlert('Error', 'Name of Party is required');
       return false;
     }
-    
+
     if (!formData.descriptionOfMaterial.trim()) {
       showAlert('Error', 'Description of Material is required');
       return false;
     }
-    
+
     if (!formData.quantity.trim()) {
       showAlert('Error', 'Quantity is required');
       return false;
@@ -71,54 +84,52 @@ const RMEntryTab = ({ userData }) => {
     );
   };
 
+  const resetForm = () => {
+    setEntryType('with_document');
+    setFormData({
+      gateType: 'Gate-In',
+      vehicleNo: '',
+      documentNo: '',
+      nameOfParty: '',
+      descriptionOfMaterial: '',
+      quantity: ''
+    });
+  };
+
   const performSubmit = async () => {
     setIsSubmitting(true);
-    
+
     try {
       const { rmAPI } = await import('../../../services/api');
-      
+
       const entryData = {
         gate_type: formData.gateType,
         vehicle_no: formData.vehicleNo.trim(),
-        document_no: formData.documentNo.trim(),
+        entry_type: entryType,
+        document_no: isEmptyVehicle ? '' : formData.documentNo.trim(),
         name_of_party: formData.nameOfParty.trim(),
         description_of_material: formData.descriptionOfMaterial.trim(),
         quantity: formData.quantity.trim()
       };
 
       const response = await rmAPI.createRMEntry(entryData);
-      
+
       showAlert(
-        'Success', 
+        'Success',
         `Raw Materials ${formData.gateType} created successfully!\n\nGate Entry No: ${response.gate_entry_no}\nVehicle: ${response.vehicle_no}\nDateTime: ${new Date(response.date_time).toLocaleString()}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Clear form after successful submission
-              setFormData({
-                gateType: 'Gate-In',
-                vehicleNo: '',
-                documentNo: '',
-                nameOfParty: '',
-                descriptionOfMaterial: '',
-                quantity: ''
-              });
-            }
-          }
-        ]
+        [{ text: 'OK', onPress: resetForm }]
       );
-      
+
     } catch (error) {
       console.log('RM entry submission failed:', error);
-      
+
       let errorMessage = 'Failed to create raw materials entry';
       if (error.response?.data?.detail) {
         errorMessage = error.response.data.detail;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       showAlert('Error', errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -131,20 +142,7 @@ const RMEntryTab = ({ userData }) => {
       'Are you sure you want to clear all fields?',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: () => {
-            setFormData({
-              gateType: 'Gate-In',
-              vehicleNo: '',
-              documentNo: '',
-              nameOfParty: '',
-              descriptionOfMaterial: '',
-              quantity: ''
-            });
-          }
-        }
+        { text: 'Clear', style: 'destructive', onPress: resetForm }
       ]
     );
   };
@@ -182,10 +180,10 @@ const RMEntryTab = ({ userData }) => {
       <View style={styles.row}>
         <View style={styles.fieldFull}>
           <Text style={styles.label}>Vehicle Number *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Vehicle Number" 
-            value={formData.vehicleNo} 
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Vehicle Number"
+            value={formData.vehicleNo}
             onChangeText={(text) => updateField('vehicleNo', text.toUpperCase())}
             autoCapitalize="characters"
             editable={!isSubmitting}
@@ -193,17 +191,82 @@ const RMEntryTab = ({ userData }) => {
         </View>
       </View>
 
-      {/* Row 3 - Document Number */}
+      {/* Row 3 - Document Number (with built-in Empty Vehicle toggle) */}
       <View style={styles.row}>
         <View style={styles.fieldFull}>
           <Text style={styles.label}>Document Number *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Document Number" 
-            value={formData.documentNo} 
-            onChangeText={(text) => updateField('documentNo', text)}
-            editable={!isSubmitting}
-          />
+
+          {/* Inline dropdown-style toggle: Enter Doc No | Empty Vehicle */}
+          <View style={{
+            flexDirection: 'row',
+            borderWidth: 1,
+            borderColor: '#ced4da',
+            borderRadius: 8,
+            overflow: 'hidden',
+            marginBottom: 8,
+          }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                alignItems: 'center',
+                backgroundColor: !isEmptyVehicle ? '#007bff' : '#f8f9fa',
+              }}
+              onPress={() => handleEntryTypeChange('with_document')}
+              disabled={isSubmitting}
+            >
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: !isEmptyVehicle ? '#fff' : '#555',
+              }}>
+                Enter Doc No
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                paddingVertical: 8,
+                alignItems: 'center',
+                backgroundColor: isEmptyVehicle ? '#ffc107' : '#f8f9fa',
+              }}
+              onPress={() => handleEntryTypeChange('empty_vehicle')}
+              disabled={isSubmitting}
+            >
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: isEmptyVehicle ? '#5a3e00' : '#555',
+              }}>
+                Empty Vehicle
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Show text input or Empty Vehicle badge depending on selection */}
+          {!isEmptyVehicle ? (
+            <TextInput
+              style={styles.input}
+              placeholder="Enter Document Number"
+              value={formData.documentNo}
+              onChangeText={(text) => updateField('documentNo', text)}
+              editable={!isSubmitting}
+            />
+          ) : (
+            <View style={{
+              borderWidth: 1,
+              borderColor: '#ffc107',
+              borderRadius: 8,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              backgroundColor: '#fff3cd',
+            }}>
+              <Text style={{ color: '#856404', fontWeight: 'bold', fontSize: 14 }}>
+                EMPTY VEHICLE — No document required
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -211,10 +274,10 @@ const RMEntryTab = ({ userData }) => {
       <View style={styles.row}>
         <View style={styles.fieldFull}>
           <Text style={styles.label}>Name of Party *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Name of Party" 
-            value={formData.nameOfParty} 
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Name of Party"
+            value={formData.nameOfParty}
             onChangeText={(text) => updateField('nameOfParty', text)}
             editable={!isSubmitting}
           />
@@ -225,10 +288,10 @@ const RMEntryTab = ({ userData }) => {
       <View style={styles.row}>
         <View style={styles.fieldFull}>
           <Text style={styles.label}>Description of Material *</Text>
-          <TextInput 
-            style={[styles.input, { height: 80, textAlignVertical: 'top' }]} 
-            placeholder="Enter Description of Material" 
-            value={formData.descriptionOfMaterial} 
+          <TextInput
+            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+            placeholder="Enter Description of Material"
+            value={formData.descriptionOfMaterial}
             onChangeText={(text) => updateField('descriptionOfMaterial', text)}
             multiline
             numberOfLines={3}
@@ -241,10 +304,10 @@ const RMEntryTab = ({ userData }) => {
       <View style={styles.row}>
         <View style={styles.fieldFull}>
           <Text style={styles.label}>Quantity *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Enter Quantity" 
-            value={formData.quantity} 
+          <TextInput
+            style={styles.input}
+            placeholder="Enter Quantity"
+            value={formData.quantity}
             onChangeText={(text) => updateField('quantity', text)}
             editable={!isSubmitting}
           />
