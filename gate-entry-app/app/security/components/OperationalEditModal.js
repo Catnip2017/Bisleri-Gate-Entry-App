@@ -37,7 +37,7 @@ const OperationalEditModal = ({
       setFormData({
         driver_name: record.driver_name || '',
         km_reading: record.km_reading || '',
-        loader_count: record.loader_count ? String(record.loader_count) : '',  // ✅ ADD
+        loader_count: record.loader_count != null ? String(record.loader_count) : '',
         loader_names: record.loader_names || '',
         remarks: record.remarks || ''
       });
