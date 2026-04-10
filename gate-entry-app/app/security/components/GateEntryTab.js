@@ -186,6 +186,7 @@ const GateEntryTab = ({
     quantity: "",
   });
 
+  const [isEmptyVehicle, setIsEmptyVehicle] = useState(false);
   // ✅ MERGED: RM form handlers
   const updateRMField = (field, value) => {
     setRMFormData({
@@ -205,7 +206,8 @@ const GateEntryTab = ({
       return false;
     }
 
-    if (!rmFormData.documentNo.trim()) {
+    // Document number is only required when NOT an empty vehicle
+    if (!isEmptyVehicle && !rmFormData.documentNo.trim()) {
       showAlert("Error", "Document number is required");
       return false;
     }
@@ -226,8 +228,6 @@ const GateEntryTab = ({
     }
 
     return true;
-
-     
   };
 
   const handleRMSubmit = async () => {
@@ -250,10 +250,11 @@ const GateEntryTab = ({
       const entryData = {
         gate_type: rmFormData.gateType,
         vehicle_no: rmFormData.vehicleNo.trim(),
-        document_no: rmFormData.documentNo.trim(),
+        document_no: isEmptyVehicle ? "" : rmFormData.documentNo.trim(),
         name_of_party: rmFormData.nameOfParty.trim(),
         description_of_material: rmFormData.descriptionOfMaterial.trim(),
         quantity: rmFormData.quantity.trim(),
+        is_empty_vehicle: isEmptyVehicle,
       };
 
       const response = await rmAPI.createRMEntry(entryData);
@@ -279,6 +280,7 @@ const GateEntryTab = ({
                 descriptionOfMaterial: "",
                 quantity: "",
               });
+              setIsEmptyVehicle(false);
             },
           },
         ]
@@ -306,6 +308,7 @@ const GateEntryTab = ({
             descriptionOfMaterial: "",
             quantity: "",
           });
+          setIsEmptyVehicle(false);
         },
       },
     ]);
@@ -1207,15 +1210,39 @@ const GateEntryTab = ({
             </View>
           </View>
 
+          {/* Empty Vehicle Checkbox */}
+          <View style={[styles.row, { alignItems: "center", marginBottom: 8 }]}>
+            <Checkbox
+              value={isEmptyVehicle}
+              onValueChange={(newValue) => {
+                setIsEmptyVehicle(newValue);
+                if (newValue) {
+                  updateRMField("documentNo", ""); // clear the field when checked
+                }
+              }}
+              disabled={isSubmitting}
+              color={isEmptyVehicle ? "#007bff" : undefined}
+            />
+            <Text style={[styles.label, { marginLeft: 8, marginBottom: 0 }]}>
+              Empty Vehicle (No Document)
+            </Text>
+          </View>
+
+          {/* Document Number — greyed out when empty vehicle */}
           <View style={styles.row}>
             <View style={styles.fieldFull}>
-              <Text style={styles.label}>Document Number *</Text>
+              <Text style={[styles.label, isEmptyVehicle && { color: "#aaa" }]}>
+                Document Number {isEmptyVehicle ? "(Not Required)" : "*"}
+              </Text>
               <TextInput
-                style={styles.input}
-                placeholder="Enter Document Number"
+                style={[
+                  styles.input,
+                  isEmptyVehicle && { backgroundColor: "#f0f0f0", color: "#aaa" },
+                ]}
+                placeholder={isEmptyVehicle ? "N/A — Empty Vehicle" : "Enter Document Number"}
                 value={rmFormData.documentNo}
                 onChangeText={(text) => updateRMField("documentNo", text)}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isEmptyVehicle}
               />
             </View>
           </View>

@@ -1,16 +1,19 @@
 # app/schemas/raw_materials_schemas.py
+# app/schemas/raw_materials_schemas.py
 from pydantic import BaseModel, validator, root_validator
 from datetime import datetime
 from typing import Optional
 
 class RawMaterialsCreate(BaseModel):
-    gate_type: str = "Gate-In"  # Gate-In or Gate-Out
+    gate_type: str = "Gate-In"
     vehicle_no: str
     document_no: Optional[str] = ""
     name_of_party: Optional[str] = ""
     description_of_material: Optional[str] = ""
     quantity: Optional[str] = ""
-    entry_type: Optional[str] = "with_document"  # "with_document" or "empty_vehicle"
+    
+    # ✅ CHANGED: Replaced 'entry_type' string with boolean checkbox state
+    is_empty_vehicle: bool = False  
 
     @validator('gate_type')
     def validate_gate_type(cls, v):
@@ -24,12 +27,7 @@ class RawMaterialsCreate(BaseModel):
             raise ValueError('Vehicle number is required')
         return v.strip().upper()
 
-    @validator('entry_type')
-    def validate_entry_type(cls, v):
-        allowed = ['with_document', 'empty_vehicle']
-        if v not in allowed:
-            raise ValueError(f'entry_type must be one of: {allowed}')
-        return v
+    # (Removed validate_entry_type)
 
     @validator('document_no', 'name_of_party', 'description_of_material', 'quantity', pre=True, always=True)
     def strip_optional_fields(cls, v):
@@ -39,14 +37,15 @@ class RawMaterialsCreate(BaseModel):
 
     @root_validator(skip_on_failure=True)
     def validate_required_fields(cls, values):
-        entry_type = values.get('entry_type', 'with_document')
+        # ✅ UPDATED: Use the boolean instead of checking string
+        is_empty = values.get('is_empty_vehicle', False)
 
-        # document_no is only required when not an empty vehicle
-        if entry_type == 'with_document':
+        # document_no is only required when the checkbox is NOT checked
+        if not is_empty:
             if not values.get('document_no', '').strip():
                 raise ValueError('Document number is required')
 
-        # These fields are always required regardless of entry type
+        # These fields are always required regardless of checkbox state
         always_required = {
             'name_of_party': 'Name of party',
             'description_of_material': 'Description of material',
