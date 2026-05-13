@@ -32,7 +32,7 @@ def _build_payload(image_b64: str, mime_type: str = "image/jpeg") -> dict:
     The model_id and project_id are passed as query/body parameters.
     """
     return {
-        "model_id": "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
+        "model_id": settings.WATSONX_MODEL,
         "project_id": settings.WATSONX_PROJECT_ID,
         "messages": [
             {
