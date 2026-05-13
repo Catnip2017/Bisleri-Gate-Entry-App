@@ -43,15 +43,13 @@ export default function LandingScreen() {
         setUser({ ...userData, roles: rolesArray });
         console.log("✅ Normalized user roles:", rolesArray);
 
-        // Check Co Packer feature flag (only matters if user has copacker role)
-        if (rolesArray.includes("copacker")) {
-          try {
-            const featureStatus = await copackerAPI.featureStatus();
-            setCopackerFeatureEnabled(featureStatus.enabled === true);
-          } catch (e) {
-            console.warn("Could not fetch copacker feature status:", e);
-            setCopackerFeatureEnabled(false);
-          }
+        // Check Co Packer feature flag
+        try {
+          const featureStatus = await copackerAPI.featureStatus();
+          setCopackerFeatureEnabled(featureStatus.enabled === true);
+        } catch (e) {
+          console.warn("Could not fetch copacker feature status:", e);
+          setCopackerFeatureEnabled(false);
         }
       } catch (e) {
         console.error("Error loading user data:", e);
@@ -72,7 +70,7 @@ export default function LandingScreen() {
     if (hasRole("securityadmin") || hasRole("itadmin")) {
       router.push("/admin/AdminDashboard");
     } else {
-      showAlert("Access Denied", "You do not have Admin privileges.");
+      showAlert("Access Denied", "This section is for Administrators only. Your role does not have access.");
     }
   };
 
@@ -80,15 +78,19 @@ export default function LandingScreen() {
     if (hasRole("securityguard") || hasRole("itadmin")) {
       router.push("/security");
     } else {
-      showAlert("Access Denied", "You do not have Security Guard privileges.");
+      showAlert("Access Denied", "This section is for Security Guards only. Your role does not have access.");
     }
   };
 
   const handleCopackerCardPress = () => {
+    if (!copackerFeatureEnabled) {
+      showAlert("Unavailable", "The Co Packer feature is currently disabled.");
+      return;
+    }
     if (hasRole("copacker")) {
       router.push("/copacker");
     } else {
-      showAlert("Access Denied", "You do not have Co Packer privileges.");
+      showAlert("Access Denied", "This section is for Co Packer users only. Your role does not have access.");
     }
   };
 
@@ -132,10 +134,8 @@ export default function LandingScreen() {
     ?.map(r => roleDisplayName[r] || r)
     .join(", ");
 
-  // Show Co Packer card if: feature is enabled AND user has copacker role
-  const showCopackerCard =
-    copackerFeatureEnabled &&
-    hasRole("copacker");
+  // Co Packer card is always visible — access is enforced on press
+  const showCopackerCard = true;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -160,10 +160,7 @@ export default function LandingScreen() {
       <View style={styles.content}>
         <Text style={styles.heading}>Bisleri Gate Entry Management System</Text>
 
-        <View style={[
-          styles.cardContainer,
-          showCopackerCard && styles.cardContainerThree
-        ]}>
+        <View style={[styles.cardContainer, styles.cardContainerThree]}>
           {/* Admin Card */}
           <TouchableOpacity
             style={[styles.card, styles.adminCard]}
@@ -188,19 +185,17 @@ export default function LandingScreen() {
             <Text style={styles.cardText}>Security Guard</Text>
           </TouchableOpacity>
 
-          {/* Co Packer Card — visible only when feature enabled + role matches */}
-          {showCopackerCard && (
-            <TouchableOpacity
-              style={[styles.card, styles.copackerCard]}
-              onPress={handleCopackerCardPress}
-              activeOpacity={0.7}
-            >
-              <View style={styles.cardIconContainer}>
-                <Text style={styles.copackerEmoji}>📦</Text>
-              </View>
-              <Text style={styles.cardText}>Co Packer</Text>
-            </TouchableOpacity>
-          )}
+          {/* Co Packer Card — always visible, access enforced on press */}
+          <TouchableOpacity
+            style={[styles.card, styles.copackerCard]}
+            onPress={handleCopackerCardPress}
+            activeOpacity={0.7}
+          >
+            <View style={styles.cardIconContainer}>
+              <Text style={styles.copackerEmoji}>📦</Text>
+            </View>
+            <Text style={styles.cardText}>Co Packer</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Logout */}

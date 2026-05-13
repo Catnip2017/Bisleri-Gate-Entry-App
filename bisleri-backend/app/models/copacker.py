@@ -72,8 +72,9 @@ class ItemMaster(Base):
     """Read-only reference to existing item_master table in Bisleri_01"""
     __tablename__ = "item_master"
 
-    Item_number = Column(String(255), primary_key=True)
-    Product_name = Column(String(255))
-    Product_type = Column(String(255))
-    Product_Subtype = Column(String(255))
-    net_weight = Column(String(255))
+    # Use explicit lowercase DB column names — PostgreSQL lowercases unquoted identifiers
+    Item_number   = Column("item_number",    String(255), primary_key=True)
+    Product_name  = Column("product_name",   String(255))
+    Product_type  = Column("product_type",   String(255))
+    Product_Subtype = Column("product_subtype", String(255))
+    net_weight    = Column("net_weight",     String(255))
