@@ -44,7 +44,7 @@ export default function LandingScreen() {
         console.log("✅ Normalized user roles:", rolesArray);
 
         // Check Co Packer feature flag (only matters if user has copacker role)
-        if (rolesArray.includes("copacker") || rolesArray.includes("itadmin")) {
+        if (rolesArray.includes("copacker")) {
           try {
             const featureStatus = await copackerAPI.featureStatus();
             setCopackerFeatureEnabled(featureStatus.enabled === true);
@@ -85,7 +85,7 @@ export default function LandingScreen() {
   };
 
   const handleCopackerCardPress = () => {
-    if (hasRole("copacker") || hasRole("itadmin")) {
+    if (hasRole("copacker")) {
       router.push("/copacker");
     } else {
       showAlert("Access Denied", "You do not have Co Packer privileges.");
@@ -132,10 +132,10 @@ export default function LandingScreen() {
     ?.map(r => roleDisplayName[r] || r)
     .join(", ");
 
-  // Show Co Packer card if: feature is enabled AND user has copacker or itadmin role
+  // Show Co Packer card if: feature is enabled AND user has copacker role
   const showCopackerCard =
     copackerFeatureEnabled &&
-    (hasRole("copacker") || hasRole("itadmin"));
+    hasRole("copacker");
 
   return (
     <SafeAreaView style={styles.container}>
