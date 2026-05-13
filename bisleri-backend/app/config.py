@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     COPACKER_IMAGE_PATH: str = Field(default="/copacker_images", env="COPACKER_IMAGE_PATH")
 
     # WatsonX OCR
-    WATSONX_MODEL: str = Field(default="placeholder", env="WATSONX_MODEL")
+    WATSONX_MODEL: str = Field(default="meta-llama/llama-4-maverick-17b-128e-instruct-fp8", env="WATSONX_MODEL")
     WATSONX_API_URL: str = Field(default="placeholder", env="WATSONX_API_URL")
     WATSONX_API_KEY: str = Field(default="placeholder", env="WATSONX_API_KEY")
     WATSONX_PROJECT_ID: str = Field(default="placeholder", env="WATSONX_PROJECT_ID")

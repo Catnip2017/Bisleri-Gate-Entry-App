@@ -65,11 +65,14 @@ const CoPackerDashboard = () => {
   const [capturedImage, setCapturedImage] = useState(null); // { uri, file }
 
   // Dropdowns
-  const [lineDropdownVisible, setLineDropdownVisible] = useState(false);
   const [skuNameOptions, setSkuNameOptions] = useState([]);
   const [skuNameDropdownVisible, setSkuNameDropdownVisible] = useState(false);
   const [skuIdOptions, setSkuIdOptions] = useState([]);
   const [skuIdDropdownVisible, setSkuIdDropdownVisible] = useState(false);
+
+  // Asset Model ID duplicate-on-different-line popup
+  const [assetExistsPopupVisible, setAssetExistsPopupVisible] = useState(false);
+  const [assetExistsMessage, setAssetExistsMessage] = useState('');
 
   // Confirm edit popup
   const [editPopupVisible, setEditPopupVisible] = useState(false);
@@ -148,35 +151,76 @@ const CoPackerDashboard = () => {
     setCapturedImage(null);
     setSkuNameOptions([]);
     setSkuIdOptions([]);
-    setLineDropdownVisible(false);
     setSkuNameDropdownVisible(false);
     setSkuIdDropdownVisible(false);
     setModalVisible(true);
   };
 
-  // ── Line no selection ──────────────────────────────────────────────────────
-  const selectLine = (asset) => {
-    setLineNo(String(asset.line_no));
-    setAssetModelId(asset.asset_model_id);
-    setAssetModelIdManual(false);
-    setLineDropdownVisible(false);
+  // ── Line No — free integer input with auto-lookup ──────────────────────────
+  const handleLineNoChange = (val) => {
+    // Only allow digits
+    const cleaned = val.replace(/[^0-9]/g, '');
+    setLineNo(cleaned);
+
+    if (!cleaned) {
+      setAssetModelId('');
+      setAssetModelIdManual(false);
+      return;
+    }
+
+    const num = parseInt(cleaned, 10);
+    const existingAsset = assets.find(a => a.line_no === num);
+    if (existingAsset) {
+      // Auto-fill Asset Model ID from registered mapping
+      setAssetModelId(existingAsset.asset_model_id);
+      setAssetModelIdManual(false);
+    } else {
+      // New line — clear asset model ID so user can type one
+      setAssetModelId('');
+      setAssetModelIdManual(false);
+    }
   };
 
-  // ── Asset model ID manual edit ─────────────────────────────────────────────
+  // ── Asset Model ID — change + blur validation ──────────────────────────────
   const handleAssetModelChange = (val) => {
     setAssetModelId(val);
     setAssetModelIdManual(true);
   };
 
   const handleAssetModelBlur = () => {
-    if (!assetModelIdManual || !assetModelId.trim()) return;
-    // Check if the typed value matches an existing asset for this line
-    const existingAsset = assets.find(
-      a => a.line_no === parseInt(lineNo) && a.asset_model_id === assetModelId.trim()
+    if (!assetModelId.trim()) return;
+
+    const lineNum = parseInt(lineNo, 10);
+    const trimmedAsset = assetModelId.trim();
+
+    // 1. Exact match for this line → already registered, nothing to do
+    const exactMatch = assets.find(
+      a => a.line_no === lineNum && a.asset_model_id === trimmedAsset
     );
-    if (!existingAsset) {
-      // Ask to register
-      setPendingNewAsset({ location: userData.copackerLocation, lineNo: parseInt(lineNo), assetModelId: assetModelId.trim() });
+    if (exactMatch) {
+      setAssetModelIdManual(false);
+      return;
+    }
+
+    // 2. Asset Model ID exists but on a DIFFERENT line → warn user
+    const differentLineMatch = assets.find(
+      a => a.asset_model_id === trimmedAsset && a.line_no !== lineNum
+    );
+    if (differentLineMatch) {
+      setAssetExistsMessage(
+        `Asset Model ID "${trimmedAsset}" is already registered for Line ${differentLineMatch.line_no} at this location. Please use a different Asset Model ID or select Line ${differentLineMatch.line_no}.`
+      );
+      setAssetExistsPopupVisible(true);
+      return;
+    }
+
+    // 3. Completely new Asset Model ID for this line → ask to register
+    if (!isNaN(lineNum) && lineNo.trim()) {
+      setPendingNewAsset({
+        location: userData.copackerLocation,
+        lineNo: lineNum,
+        assetModelId: trimmedAsset,
+      });
       setRegisterAssetPopupVisible(true);
     }
   };
@@ -198,12 +242,19 @@ const CoPackerDashboard = () => {
     setPendingNewAsset(null);
   };
 
-  // ── SKU search (name) ──────────────────────────────────────────────────────
+  // ── SKU search (name) — substring search, auto-populates Item ID ──────────
   const handleSkuNameChange = async (val) => {
     setSkuName(val);
-    setSkuItemId('');
-    if (!val || val.length < 2) { setSkuNameOptions([]); setSkuNameDropdownVisible(false); return; }
+    // Only clear the paired field if user is actively clearing/retyping
+    if (!val || val.length === 0) {
+      setSkuItemId('');
+      setSkuNameOptions([]);
+      setSkuNameDropdownVisible(false);
+      return;
+    }
+    if (val.length < 2) { setSkuNameOptions([]); setSkuNameDropdownVisible(false); return; }
     try {
+      // Backend uses ILIKE %val% so "20Ltr" matches "Bis-20Ltr-567"
       const results = await copackerAPI.skuSearch(val, 'name');
       setSkuNameOptions(results);
       setSkuNameDropdownVisible(results.length > 0);
@@ -211,18 +262,25 @@ const CoPackerDashboard = () => {
   };
 
   const selectSkuByName = (item) => {
+    // Selecting from dropdown populates BOTH fields — they stay in sync
     setSkuName(item.product_name);
     setSkuItemId(item.item_number);
     setSkuNameOptions([]);
     setSkuNameDropdownVisible(false);
   };
 
-  // ── SKU search (itemid) ────────────────────────────────────────────────────
+  // ── SKU search (itemid) — substring search, auto-populates Name ───────────
   const handleSkuIdChange = async (val) => {
     setSkuItemId(val);
-    setSkuName('');
-    if (!val || val.length < 2) { setSkuIdOptions([]); setSkuIdDropdownVisible(false); return; }
+    if (!val || val.length === 0) {
+      setSkuName('');
+      setSkuIdOptions([]);
+      setSkuIdDropdownVisible(false);
+      return;
+    }
+    if (val.length < 2) { setSkuIdOptions([]); setSkuIdDropdownVisible(false); return; }
     try {
+      // Backend uses ILIKE %val% so partial item numbers are matched
       const results = await copackerAPI.skuSearch(val, 'itemid');
       setSkuIdOptions(results);
       setSkuIdDropdownVisible(results.length > 0);
@@ -230,6 +288,7 @@ const CoPackerDashboard = () => {
   };
 
   const selectSkuById = (item) => {
+    // Selecting from dropdown populates BOTH fields — they stay in sync
     setSkuItemId(item.item_number);
     setSkuName(item.product_name);
     setSkuIdOptions([]);
@@ -272,7 +331,7 @@ const CoPackerDashboard = () => {
 
   // ── Submit entry ───────────────────────────────────────────────────────────
   const handleSubmit = async () => {
-    if (!lineNo) { showAlert('Validation', 'Please select a Line No.'); return; }
+    if (!lineNo) { showAlert('Validation', 'Please enter a Line No.'); return; }
     if (!assetModelId.trim()) { showAlert('Validation', 'Asset Model ID is required.'); return; }
     if (!capturedImage) { showAlert('Validation', 'Please capture an image.'); return; }
     if (!skuName.trim() && !skuItemId.trim()) { showAlert('Validation', 'Please select a SKU.'); return; }
@@ -529,49 +588,31 @@ const CoPackerDashboard = () => {
 
             <ScrollView style={styles.modalScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
 
-              {/* Line No dropdown */}
+              {/* Line No — free integer input with auto-lookup */}
               <Text style={styles.fieldLabel}>Line No *</Text>
-              <View style={styles.dropdownContainer}>
-                <TouchableOpacity
-                  style={styles.fieldInput}
-                  onPress={() => setLineDropdownVisible(v => !v)}
-                >
-                  <Text style={{ color: lineNo ? '#2d3748' : '#a0aec0' }}>
-                    {lineNo ? `Line ${lineNo}` : 'Select Line No...'}
-                  </Text>
-                </TouchableOpacity>
-                {lineDropdownVisible && (
-                  <View style={styles.dropdown}>
-                    <ScrollView nestedScrollEnabled style={{ maxHeight: 150 }}>
-                      {assets.length === 0 ? (
-                        <Text style={[styles.dropdownItemText, { padding: 12, color: '#a0aec0' }]}>
-                          No lines registered for this location
-                        </Text>
-                      ) : (
-                        assets.map(a => (
-                          <TouchableOpacity
-                            key={a.id}
-                            style={styles.dropdownItem}
-                            onPress={() => selectLine(a)}
-                          >
-                            <Text style={styles.dropdownItemText}>Line {a.line_no}</Text>
-                            <Text style={styles.dropdownItemSub}>{a.asset_model_id}</Text>
-                          </TouchableOpacity>
-                        ))
-                      )}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Enter line number (e.g. 1, 2, 3...)"
+                value={lineNo}
+                onChangeText={handleLineNoChange}
+                keyboardType="number-pad"
+              />
+              {/* Hint: show existing lines for reference */}
+              {assets.length > 0 && (
+                <Text style={{ fontSize: 11, color: '#718096', marginTop: 3, marginBottom: 2 }}>
+                  Registered lines: {assets.map(a => `${a.line_no} (${a.asset_model_id})`).join('  ·  ')}
+                </Text>
+              )}
 
-              {/* Asset Model ID — auto-filled, editable */}
+              {/* Asset Model ID — auto-filled when line matched, editable for new */}
               <Text style={styles.fieldLabel}>Asset Model ID *</Text>
               <TextInput
                 style={styles.fieldInput}
-                placeholder="Auto-filled or type new..."
+                placeholder={lineNo ? 'Auto-filled or type new asset model ID...' : 'Enter Line No first'}
                 value={assetModelId}
                 onChangeText={handleAssetModelChange}
                 onBlur={handleAssetModelBlur}
+                editable={!!lineNo}
               />
 
               {/* Date picker */}
@@ -779,6 +820,35 @@ const CoPackerDashboard = () => {
                 onPress={() => handleRegisterNewAsset(true)}
               >
                 <Text style={styles.submitButtonText}>YES</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Asset Model ID Already Exists on Different Line Popup ── */}
+      <Modal
+        visible={assetExistsPopupVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setAssetExistsPopupVisible(false);
+          setAssetModelId('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Asset Model ID Exists</Text>
+            <Text style={styles.confirmRemark}>{assetExistsMessage}</Text>
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={() => {
+                  setAssetExistsPopupVisible(false);
+                  setAssetModelId('');
+                }}
+              >
+                <Text style={styles.submitButtonText}>OK</Text>
               </TouchableOpacity>
             </View>
           </View>
