@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Platform,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
@@ -19,7 +20,7 @@ import { copackerAPI, authAPI, handleAPIError } from '../../services/api';
 import { showAlert } from '../../utils/customModal';
 import { storage } from '../../utils/storage';
 import { API_BASE_URL } from '../../services/api';
-import styles from './styles/copackerStyles';
+import { useCopackerStyles } from './styles/copackerStyles';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const toDisplayDate = (isoDate) => {
@@ -46,6 +47,10 @@ const nowTimeISO = () => {
 // ── Main component ─────────────────────────────────────────────────────────────
 const CoPackerDashboard = () => {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isSmall = width < 600;
+  const styles = useCopackerStyles();
+
   const [userData, setUserData] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
@@ -417,16 +422,22 @@ const CoPackerDashboard = () => {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isEntryOwner = (entry) => entry.username === userData?.username;
-  // Check if the entry was SUBMITTED today (created_at), not if entry_date is today.
-  // entry_date can be manually set to a past date; edit window is based on submission time.
-  const isSubmittedToday = (entry) => {
-    if (!entry.created_at) return false;
-    const created = new Date(entry.created_at);
-    const y = created.getFullYear();
-    const m = String(created.getMonth() + 1).padStart(2, '0');
-    const d = String(created.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}` === todayISO();
+
+  // Convert a UTC datetime string to IST (UTC+5:30) date string YYYY-MM-DD
+  const toISTDateStr = (utcStr) => {
+    if (!utcStr) return '';
+    const utcMs = new Date(utcStr).getTime();
+    const istMs = utcMs + (5 * 60 + 30) * 60 * 1000; // add 5h30m
+    const ist = new Date(istMs);
+    const y = ist.getUTCFullYear();
+    const m = String(ist.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(ist.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
+
+  // Check if the entry was SUBMITTED today in IST.
+  // created_at is stored as UTC on the server — convert before comparing.
+  const isSubmittedToday = (entry) => toISTDateStr(entry.created_at) === todayISO();
   const canEdit = (entry) => isEntryOwner(entry) && isSubmittedToday(entry);
 
   const getImageUrl = (relativePath) => {
@@ -519,20 +530,33 @@ const CoPackerDashboard = () => {
       <View style={styles.body}>
         {/* ── Sidebar ── */}
         {isSidebarVisible && (
-          <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>User Info</Text>
-            <Text style={styles.sidebarLabel}>Username</Text>
-            <Text style={styles.sidebarValue}>{userData?.username || '—'}</Text>
-            <Text style={styles.sidebarLabel}>Full Name</Text>
-            <Text style={styles.sidebarValue}>{userData?.fullName || '—'}</Text>
-            <Text style={styles.sidebarLabel}>Role</Text>
-            <Text style={styles.sidebarValue}>Co Packer</Text>
-            <Text style={styles.sidebarLabel}>Location</Text>
-            <Text style={styles.sidebarValue}>{userData?.copackerLocation || '—'}</Text>
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
+          <>
+            {/* On small screens, tap the backdrop to close sidebar */}
+            {isSmall && (
+              <TouchableOpacity
+                onPress={() => setIsSidebarVisible(false)}
+                style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: 'rgba(0,0,0,0.35)', zIndex: 99,
+                }}
+                activeOpacity={1}
+              />
+            )}
+            <View style={styles.sidebar}>
+              <Text style={styles.sidebarTitle}>User Info</Text>
+              <Text style={styles.sidebarLabel}>Username</Text>
+              <Text style={styles.sidebarValue}>{userData?.username || '—'}</Text>
+              <Text style={styles.sidebarLabel}>Full Name</Text>
+              <Text style={styles.sidebarValue}>{userData?.fullName || '—'}</Text>
+              <Text style={styles.sidebarLabel}>Role</Text>
+              <Text style={styles.sidebarValue}>Co Packer</Text>
+              <Text style={styles.sidebarLabel}>Location</Text>
+              <Text style={styles.sidebarValue}>{userData?.copackerLocation || '—'}</Text>
+              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+                <Text style={styles.logoutButtonText}>Logout</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
 
         {/* ── Main content ── */}

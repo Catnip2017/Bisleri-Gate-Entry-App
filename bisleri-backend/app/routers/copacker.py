@@ -6,8 +6,24 @@ Protected by JWT (get_current_user) unless explicitly noted.
 import os
 import re
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone, timedelta
 from typing import List, Optional
+
+# Indian Standard Time = UTC + 5:30
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+def today_ist() -> date:
+    """Return the current calendar date in IST (UTC+5:30)."""
+    return datetime.now(_IST).date()
+
+def created_at_to_ist_date(created_at: datetime) -> date:
+    """Convert a naive UTC created_at timestamp to IST calendar date."""
+    if created_at.tzinfo is None:
+        # DB stores naive UTC datetimes
+        utc_dt = created_at.replace(tzinfo=timezone.utc)
+    else:
+        utc_dt = created_at
+    return utc_dt.astimezone(_IST).date()
 
 from fastapi import (
     APIRouter, Depends, File, Form, HTTPException,
@@ -247,7 +263,7 @@ async def submit_entry(
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid date or time format.")
 
-    if parsed_date > date.today():
+    if parsed_date > today_ist():
         raise HTTPException(status_code=400, detail="Entry date cannot be in the future.")
 
     # ── Build image save path ────────────────────────────────────────────────
@@ -325,7 +341,7 @@ def get_entries(
                 detail="CoPacker can only view entries for their own location."
             )
 
-    parsed_date = date.today()
+    parsed_date = today_ist()   # default to IST today if no date provided
     if date_str:
         try:
             parsed_date = date.fromisoformat(date_str)
@@ -362,9 +378,10 @@ def edit_quantity(
             detail="Only the user who created this entry can edit the quantity."
         )
 
-    # Only same calendar day — check created_at (submission time), not entry_date
-    # (entry_date can be manually set to a past date, but edit window is based on when submitted)
-    if entry.created_at.date() != date.today():
+    # Only same calendar day — check created_at in IST (submission time), not entry_date.
+    # entry_date can be manually set to a past date; edit window is based on when submitted.
+    # created_at is stored as naive UTC in DB — convert to IST before comparing.
+    if created_at_to_ist_date(entry.created_at) != today_ist():
         raise HTTPException(
             status_code=403,
             detail="Quantity can only be edited on the day the entry was submitted."
