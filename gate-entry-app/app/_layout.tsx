@@ -78,9 +78,18 @@ export default function RootLayout() {
             }}
           />
           
+          {/* ✅ Co Packer Route */}
+          <Stack.Screen
+            name="copacker/index"
+            options={{
+              title: 'Co Packer Dashboard',
+              headerShown: false,
+            }}
+          />
+
           {/* ✅ MERGED: Security Routes */}
-          <Stack.Screen 
-            name="security/index" 
+          <Stack.Screen
+            name="security/index"
             options={{
               title: 'Security Dashboard',
               headerShown: false,

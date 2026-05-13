@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
     phone_number: Optional[str] = None    # ADDED - was missing
     warehouse_code: Optional[str] = None  # CHANGED - was required, now optional
     site_code: Optional[str] = None       # CHANGED - was required, now optional
+    copacker_location: Optional[str] = None  # Co Packer location assignment
 
 class UserResponse(BaseModel):  # FIXED - removed inheritance to avoid conflicts
     username: str

@@ -50,10 +50,13 @@ def register_user(
             raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
+        normalized_roles = [r.lower().replace(" ", "") for r in roles_requested]
+
         needs_warehouse = any(
-            r.lower().replace(" ", "") in ["securityadmin", "securityguard"] 
-            for r in roles_requested
+            r in ["securityadmin", "securityguard"]
+            for r in normalized_roles
         )
+        needs_copacker_location = "copacker" in normalized_roles
 
         # ✅ Warehouse handling
         warehouse_name, final_site_code = None, None
@@ -66,6 +69,26 @@ def register_user(
             warehouse_name = warehouse.warehouse_name
             final_site_code = warehouse.site_code
 
+        # ✅ Co Packer location handling
+        final_copacker_location = None
+        if needs_copacker_location:
+            if not user.copacker_location or not user.copacker_location.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="CoPacker Location is required when registering a Co Packer user."
+                )
+            # Validate the location exists
+            from app.models.copacker import CopackerLocation
+            loc = db.query(CopackerLocation).filter(
+                CopackerLocation.location_name.ilike(user.copacker_location.strip())
+            ).first()
+            if not loc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"CoPacker location '{user.copacker_location}' does not exist. Please register it first."
+                )
+            final_copacker_location = loc.location_name  # Use exact stored name
+
         # ✅ Create user
         new_user = UsersMaster(
             username=user.username.strip(),
@@ -77,7 +100,8 @@ def register_user(
             site_code=final_site_code,
             password=get_password_hash(user.password),
             email=user.email.strip() if user.email else None,
-            phone_number=user.phone_number.strip() if user.phone_number else None
+            phone_number=user.phone_number.strip() if user.phone_number else None,
+            copacker_location=final_copacker_location,
         )
         db.add(new_user)
         db.commit()

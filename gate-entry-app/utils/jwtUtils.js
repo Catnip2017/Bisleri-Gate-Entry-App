@@ -167,12 +167,13 @@ export const getCurrentUser = async () => {
     
     return {
       username: payload.sub,
-      role, // Primary role: securityadmin / securityguard / itadmin
+      role, // Primary role: securityadmin / securityguard / itadmin / copacker
       roles, // Array of all roles
       firstName: payload.first_name,
       lastName: payload.last_name,
       warehouseCode: payload.warehouse_code,
       siteCode: payload.site_code,
+      copackerLocation: payload.copacker_location || null, // Co Packer assigned location
       fullName: `${payload.first_name || ""} ${payload.last_name || ""}`.trim(),
       exp: payload.exp
     };

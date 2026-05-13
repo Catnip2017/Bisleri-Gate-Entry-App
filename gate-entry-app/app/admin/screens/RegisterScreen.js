@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, copackerAPI, handleAPIError } from '../../../services/api';
 import styles from '../styles/RegisterScreenStyle';
 import {
   validateUsername,
@@ -30,6 +30,7 @@ const RegisterScreen = () => {
     siteCode: '',
     email: '',
     phone_number: '',
+    copackerLocation: '',
   });
 
   const [warehouses, setWarehouses] = useState([]);
@@ -37,6 +38,11 @@ const RegisterScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [filteredWarehouses, setFilteredWarehouses] = useState([]);
+
+  // Co Packer location search state
+  const [copackerLocationSearch, setCopackerLocationSearch] = useState('');
+  const [copackerLocationOptions, setCopackerLocationOptions] = useState([]);
+  const [showCopackerDropdown, setShowCopackerDropdown] = useState(false);
 
   useEffect(() => {
     loadWarehouses();
@@ -88,6 +94,30 @@ const RegisterScreen = () => {
     setSearchText(warehouse.warehouse_code);
     setShowDropdown(false);
     setFilteredWarehouses([]);
+  };
+
+  const handleCopackerLocationSearch = async (text) => {
+    setCopackerLocationSearch(text);
+    setFormData(prev => ({ ...prev, copackerLocation: text }));
+    if (!text.trim() || text.length < 1) {
+      setCopackerLocationOptions([]);
+      setShowCopackerDropdown(false);
+      return;
+    }
+    try {
+      const results = await copackerAPI.searchLocations(text);
+      setCopackerLocationOptions(results);
+      setShowCopackerDropdown(results.length > 0);
+    } catch (e) {
+      console.warn('Copacker location search error:', e);
+    }
+  };
+
+  const selectCopackerLocation = (loc) => {
+    setCopackerLocationSearch(loc.location_name);
+    setFormData(prev => ({ ...prev, copackerLocation: loc.location_name }));
+    setCopackerLocationOptions([]);
+    setShowCopackerDropdown(false);
   };
 
   const validateForm = () => {
@@ -143,6 +173,13 @@ const RegisterScreen = () => {
       }
     }
 
+    // CoPacker location required for Co Packer role
+    if (formData.role === 'Co Packer') {
+      if (!formData.copackerLocation.trim()) {
+        errors.copackerLocation = 'CoPacker Location is required for Co Packer role';
+      }
+    }
+
     const errorKeys = Object.keys(errors);
     if (errorKeys.length > 0) {
       showAlert('Validation Error', errors[errorKeys[0]]);
@@ -173,6 +210,10 @@ const handleRegister = async () => {
     if (formData.phone_number?.trim()) {
       userData.phone_number = formData.phone_number.trim();
     }
+    // 🔹 Co Packer location
+    if (formData.role === 'Co Packer' && formData.copackerLocation?.trim()) {
+      userData.copacker_location = formData.copackerLocation.trim();
+    }
 
     console.log('Register Payload:', userData);
 
@@ -194,8 +235,12 @@ const handleRegister = async () => {
             siteCode: '',
             email: '',
             phone_number: '',
+            copackerLocation: '',
           });
           setSearchText('');
+          setCopackerLocationSearch('');
+          setCopackerLocationOptions([]);
+          setShowCopackerDropdown(false);
         },
       },
     ]);
@@ -217,7 +262,7 @@ const handleRegister = async () => {
         {/* Role Selection */}
         <Text style={styles.label}>Role</Text>
         <View style={styles.roleContainer}>
-          {['Security Guard', 'Security Admin', 'IT Admin'].map(role => (
+          {['Security Guard', 'Security Admin', 'IT Admin', 'Co Packer'].map(role => (
             <TouchableOpacity
               key={role}
               style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
@@ -229,6 +274,37 @@ const handleRegister = async () => {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* CoPacker Location field — only when Co Packer role selected */}
+        {formData.role === 'Co Packer' && (
+          <>
+            <Text style={styles.label}>CoPacker Location *</Text>
+            <View style={{ position: 'relative', zIndex: 999 }}>
+              <TextInput
+                style={styles.input}
+                placeholder="Search and select location..."
+                value={copackerLocationSearch}
+                onChangeText={handleCopackerLocationSearch}
+                onFocus={() => copackerLocationOptions.length > 0 && setShowCopackerDropdown(true)}
+              />
+              {showCopackerDropdown && (
+                <View style={styles.dropdown}>
+                  <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
+                    {copackerLocationOptions.map(loc => (
+                      <TouchableOpacity
+                        key={loc.id}
+                        style={styles.dropdownItem}
+                        onPress={() => selectCopackerLocation(loc)}
+                      >
+                        <Text style={styles.dropdownItemCode}>{loc.location_name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          </>
+        )}
 
         {/* Warehouse fields for Security roles */}
         {["Security Guard", "Security Admin"].includes(formData.role) && (

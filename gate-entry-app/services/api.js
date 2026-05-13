@@ -507,6 +507,72 @@ export const gateHelpers = {
   }
 };
 
+// ✅ Co Packer APIs
+export const copackerAPI = {
+  featureStatus: async () => {
+    const response = await api.get('/copacker/feature-status');
+    return response.data;
+  },
+
+  registerLocation: async (locationName) => {
+    const response = await api.post('/copacker/register-location', { location_name: locationName });
+    return response.data;
+  },
+
+  searchLocations: async (q = '') => {
+    const response = await api.get('/copacker/locations', { params: { q } });
+    return response.data;
+  },
+
+  registerAsset: async (locationName, lineNo, assetModelId) => {
+    const response = await api.post('/copacker/register-asset', {
+      location_name: locationName,
+      line_no: lineNo,
+      asset_model_id: assetModelId,
+    });
+    return response.data;
+  },
+
+  getAssets: async (locationName) => {
+    const response = await api.get(`/copacker/assets/${encodeURIComponent(locationName)}`);
+    return response.data;
+  },
+
+  skuSearch: async (q, field = 'name') => {
+    const response = await api.get('/copacker/sku-search', { params: { q, field } });
+    return response.data;
+  },
+
+  submitEntry: async (formData) => {
+    // formData is a FormData object (multipart)
+    const response = await api.post('/copacker/submit-entry', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000, // OCR can take up to 60s
+    });
+    return response.data;
+  },
+
+  getEntries: async (location, dateStr) => {
+    const params = { location };
+    if (dateStr) params.date = dateStr;
+    const response = await api.get('/copacker/entries', { params });
+    return response.data;
+  },
+
+  editQuantity: async (entryId, newQuantity) => {
+    const response = await api.put('/copacker/edit-quantity', {
+      entry_id: entryId,
+      new_quantity: newQuantity,
+    });
+    return response.data;
+  },
+
+  getEditLogs: async () => {
+    const response = await api.get('/copacker/edit-logs');
+    return response.data;
+  },
+};
+
 export const handleAPIError = (error) => {
   // ── Network / connectivity errors ──────────────────────────────────────────
   if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {

@@ -1,0 +1,106 @@
+# app/schemas/copacker_schemas.py
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import date, time, datetime
+
+
+# ── Feature status ──────────────────────────────────────────────────────────
+class FeatureStatusResponse(BaseModel):
+    enabled: bool
+
+
+# ── Locations ───────────────────────────────────────────────────────────────
+class RegisterLocationRequest(BaseModel):
+    location_name: str
+
+
+class LocationResponse(BaseModel):
+    id: int
+    location_name: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Assets ──────────────────────────────────────────────────────────────────
+class RegisterAssetRequest(BaseModel):
+    location_name: str
+    line_no: int
+    asset_model_id: str
+
+
+class AssetResponse(BaseModel):
+    id: int
+    location_id: int
+    line_no: int
+    asset_model_id: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── SKU search ──────────────────────────────────────────────────────────────
+class SKUItem(BaseModel):
+    item_number: str
+    product_name: str
+
+    class Config:
+        from_attributes = True
+
+
+# ── Entries ─────────────────────────────────────────────────────────────────
+class EntryResponse(BaseModel):
+    id: int
+    copacker_location: str
+    line_no: int
+    asset_model_id: str
+    entry_date: date
+    entry_time: time
+    image_path: Optional[str] = None
+    sku_name: Optional[str] = None
+    sku_itemid: Optional[str] = None
+    username: str
+    extracted_quantity: Optional[int] = None
+    extracted_quantity_raw: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Edit quantity ────────────────────────────────────────────────────────────
+class EditQuantityRequest(BaseModel):
+    entry_id: int
+    new_quantity: int
+
+
+class EditQuantityResponse(BaseModel):
+    entry_id: int
+    original_value: Optional[int]
+    new_value: int
+    auto_remarks: str
+    edited_by: str
+    edited_at: datetime
+
+
+# ── Edit logs (admin view) ───────────────────────────────────────────────────
+class EditLogResponse(BaseModel):
+    id: int
+    entry_id: int
+    original_value: Optional[int]
+    edited_value: int
+    edited_by: str
+    edited_at: Optional[datetime]
+    auto_remarks: Optional[str]
+
+    # Joined entry details
+    copacker_location: Optional[str] = None
+    line_no: Optional[int] = None
+    asset_model_id: Optional[str] = None
+    entry_date: Optional[date] = None
+    entry_username: Optional[str] = None
+
+    class Config:
+        from_attributes = True
