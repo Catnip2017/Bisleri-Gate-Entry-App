@@ -16,11 +16,11 @@ class Settings(BaseSettings):
     COPACKER_FEATURE_ENABLED: bool = Field(default=True, env="COPACKER_FEATURE_ENABLED")
     COPACKER_IMAGE_PATH: str = Field(default="/copacker_images", env="COPACKER_IMAGE_PATH")
 
-    # WatsonX OCR
+    # IBM WatsonX OCR
     WATSONX_MODEL: str = Field(default="meta-llama/llama-4-maverick-17b-128e-instruct-fp8", env="WATSONX_MODEL")
-    WATSONX_API_URL: str = Field(default="placeholder", env="WATSONX_API_URL")
-    WATSONX_API_KEY: str = Field(default="placeholder", env="WATSONX_API_KEY")
-    WATSONX_PROJECT_ID: str = Field(default="placeholder", env="WATSONX_PROJECT_ID")
+    IBM_API_KEY: str = Field(default="placeholder", env="IBM_API_KEY")
+    IBM_SERVICE_URL: str = Field(default="placeholder", env="IBM_SERVICE_URL")
+    IBM_PROJECT_ID: str = Field(default="placeholder", env="IBM_PROJECT_ID")
 
     class Config:
         env_file = ".env"

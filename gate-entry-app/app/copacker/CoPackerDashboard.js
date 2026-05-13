@@ -30,7 +30,12 @@ const toDisplayDate = (isoDate) => {
 
 const todayISO = () => {
   const now = new Date();
-  return now.toISOString().split('T')[0];
+  // Use local date (not UTC) to avoid timezone mismatch — toISOString() returns UTC
+  // which can be a different calendar date in IST (UTC+5:30)
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 };
 
 const nowTimeISO = () => {
@@ -412,8 +417,17 @@ const CoPackerDashboard = () => {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isEntryOwner = (entry) => entry.username === userData?.username;
-  const isToday = (entry) => entry.entry_date === todayISO();
-  const canEdit = (entry) => isEntryOwner(entry) && isToday(entry);
+  // Check if the entry was SUBMITTED today (created_at), not if entry_date is today.
+  // entry_date can be manually set to a past date; edit window is based on submission time.
+  const isSubmittedToday = (entry) => {
+    if (!entry.created_at) return false;
+    const created = new Date(entry.created_at);
+    const y = created.getFullYear();
+    const m = String(created.getMonth() + 1).padStart(2, '0');
+    const d = String(created.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}` === todayISO();
+  };
+  const canEdit = (entry) => isEntryOwner(entry) && isSubmittedToday(entry);
 
   const getImageUrl = (relativePath) => {
     if (!relativePath) return null;

@@ -1,7 +1,8 @@
 # app/services/watsonx_ocr.py
 """
-WatsonX OCR Service — sends image to llama-4-maverick and extracts
-the numeric integer displayed on a production machine counter.
+IBM WatsonX OCR Service — exchanges IBM API key for an IAM bearer token,
+then sends the image to llama-4-maverick and extracts the numeric integer
+displayed on a production machine counter.
 """
 import base64
 import logging
@@ -11,6 +12,8 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token"
+
 OCR_PROMPT = (
     "This image shows a numeric counter display on a production machine. "
     "Extract only the numeric integer value shown on the display. "
@@ -18,22 +21,30 @@ OCR_PROMPT = (
 )
 
 
-def _build_headers() -> dict:
-    return {
-        "Authorization": f"Bearer {settings.WATSONX_API_KEY}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
+def _get_iam_token() -> str | None:
+    """Exchange IBM Cloud API key for a short-lived IAM bearer token."""
+    try:
+        with httpx.Client(timeout=15) as client:
+            resp = client.post(
+                IAM_TOKEN_URL,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                data={
+                    "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
+                    "apikey": settings.IBM_API_KEY,
+                },
+            )
+            resp.raise_for_status()
+            return resp.json()["access_token"]
+    except Exception as e:
+        logger.error(f"Failed to get IAM token: {e}")
+        return None
 
 
 def _build_payload(image_b64: str, mime_type: str = "image/jpeg") -> dict:
-    """
-    IBM WatsonX AI text/chat inference payload for llama-4-maverick.
-    The model_id and project_id are passed as query/body parameters.
-    """
+    """Build WatsonX chat inference payload with the image."""
     return {
         "model_id": settings.WATSONX_MODEL,
-        "project_id": settings.WATSONX_PROJECT_ID,
+        "project_id": settings.IBM_PROJECT_ID,
         "messages": [
             {
                 "role": "user",
@@ -42,19 +53,19 @@ def _build_payload(image_b64: str, mime_type: str = "image/jpeg") -> dict:
                         "type": "image_url",
                         "image_url": {
                             "url": f"data:{mime_type};base64,{image_b64}"
-                        }
+                        },
                     },
                     {
                         "type": "text",
-                        "text": OCR_PROMPT
-                    }
-                ]
+                        "text": OCR_PROMPT,
+                    },
+                ],
             }
         ],
         "parameters": {
             "max_new_tokens": 20,
-            "temperature": 0
-        }
+            "temperature": 0,
+        },
     }
 
 
@@ -64,11 +75,20 @@ def extract_quantity_from_image(image_bytes: bytes, mime_type: str = "image/jpeg
 
     Returns:
         int  — the extracted counter value
-        None — if OCR fails, API is unreachable, or response cannot be parsed
+        None — if credentials are placeholders, OCR fails, or response cannot be parsed
     """
-    if settings.WATSONX_API_URL == "placeholder" or settings.WATSONX_API_KEY == "placeholder":
-        logger.warning("WatsonX credentials are placeholders — OCR skipped, returning None")
+    if settings.IBM_API_KEY == "placeholder" or settings.IBM_SERVICE_URL == "placeholder":
+        logger.warning("IBM credentials are placeholders — OCR skipped, returning None")
         return None
+
+    # Step 1: get IAM bearer token from IBM Cloud
+    token = _get_iam_token()
+    if not token:
+        logger.error("Could not obtain IAM token — OCR skipped")
+        return None
+
+    # Step 2: call WatsonX chat/vision endpoint
+    api_url = f"{settings.IBM_SERVICE_URL.rstrip('/')}/ml/v1/text/chat?version=2024-05-01"
 
     try:
         image_b64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -76,9 +96,13 @@ def extract_quantity_from_image(image_bytes: bytes, mime_type: str = "image/jpeg
 
         with httpx.Client(timeout=30) as client:
             response = client.post(
-                settings.WATSONX_API_URL,
-                headers=_build_headers(),
-                json=payload
+                api_url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json=payload,
             )
             response.raise_for_status()
 
@@ -90,14 +114,13 @@ def extract_quantity_from_image(image_bytes: bytes, mime_type: str = "image/jpeg
                 .get("message", {})
                 .get("content", "")
             or
-            # Fallback: WatsonX text generation style
+            # Fallback: text generation style
             data.get("results", [{}])[0].get("generated_text", "")
         )
 
         raw_text = raw_text.strip()
         logger.info(f"WatsonX OCR raw response: '{raw_text}'")
 
-        # Extract first integer found in response
         match = re.search(r"\d+", raw_text)
         if match:
             return int(match.group())

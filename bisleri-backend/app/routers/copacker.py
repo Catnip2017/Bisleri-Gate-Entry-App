@@ -362,11 +362,12 @@ def edit_quantity(
             detail="Only the user who created this entry can edit the quantity."
         )
 
-    # Only same calendar day
-    if entry.entry_date != date.today():
+    # Only same calendar day — check created_at (submission time), not entry_date
+    # (entry_date can be manually set to a past date, but edit window is based on when submitted)
+    if entry.created_at.date() != date.today():
         raise HTTPException(
             status_code=403,
-            detail="Quantity can only be edited on the same day the entry was created."
+            detail="Quantity can only be edited on the day the entry was submitted."
         )
 
     original_value = entry.extracted_quantity
