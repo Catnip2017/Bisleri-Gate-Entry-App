@@ -13,6 +13,7 @@ from fastapi import (
     APIRouter, Depends, File, Form, HTTPException,
     Query, UploadFile, status
 )
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -181,24 +182,29 @@ def sku_search(
         return []
 
     search = f"%{q.strip()}%"
+
+    # Use raw SQL to avoid SQLAlchemy quoting mixed-case column names incorrectly.
+    # The actual DB columns are lowercase: item_number, product_name.
     if field == "itemid":
-        items = (
-            db.query(ItemMaster)
-            .filter(ItemMaster.Item_number.ilike(search))
-            .limit(20)
-            .all()
-        )
+        rows = db.execute(
+            text(
+                "SELECT item_number, product_name FROM item_master "
+                "WHERE item_number ILIKE :q LIMIT 20"
+            ),
+            {"q": search},
+        ).fetchall()
     else:
-        items = (
-            db.query(ItemMaster)
-            .filter(ItemMaster.Product_name.ilike(search))
-            .limit(20)
-            .all()
-        )
+        rows = db.execute(
+            text(
+                "SELECT item_number, product_name FROM item_master "
+                "WHERE product_name ILIKE :q LIMIT 20"
+            ),
+            {"q": search},
+        ).fetchall()
 
     return [
-        SKUItem(item_number=i.Item_number, product_name=i.Product_name or "")
-        for i in items
+        SKUItem(item_number=row[0], product_name=row[1] or "")
+        for row in rows
     ]
 
 
@@ -268,10 +274,10 @@ async def submit_entry(
         logger.error(f"Failed to save image: {e}")
         raise HTTPException(status_code=500, detail="Failed to save image to server.")
 
-    # Relative path for DB storage (relative to COPACKER_IMAGE_PATH)
-    relative_path = os.path.join(
-        loc_safe, year, month, day, asset_safe, sku_safe, image_filename
-    )
+    # Relative path for DB storage — always use forward slashes so the path
+    # works as a URL segment regardless of the server OS (Windows uses \ but
+    # browsers interpret \NNNN as escape sequences, corrupting the URL).
+    relative_path = "/".join([loc_safe, year, month, day, asset_safe, sku_safe, image_filename])
 
     # ── OCR ──────────────────────────────────────────────────────────────────
     mime = "image/jpeg"
