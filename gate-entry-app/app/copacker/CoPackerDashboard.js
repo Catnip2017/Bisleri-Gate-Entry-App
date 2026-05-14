@@ -53,6 +53,7 @@ const CoPackerDashboard = () => {
 
   const [userData, setUserData] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const [tableContainerWidth, setTableContainerWidth] = useState(0);
 
   // Table state
   const [entries, setEntries] = useState([]);
@@ -440,6 +441,33 @@ const CoPackerDashboard = () => {
   const isSubmittedToday = (entry) => toISTDateStr(entry.created_at) === todayISO();
   const canEdit = (entry) => isEntryOwner(entry) && isSubmittedToday(entry);
 
+  // ── Dynamic column widths ─────────────────────────────────────────────────
+  // Fixed cols (never grow): Sr, Line No, Date, Time, Image
+  const FIXED_W  = { sr: 40, line: 60, date: 90, time: 70, img: 70 }; // 330 total
+  // Flex cols grow proportionally when there is extra space
+  const FLEX_BASE = { asset: 120, sku: 150, skuId: 130, qty: 100, user: 110 }; // 610 total
+  const FLEX_TOTAL = Object.values(FLEX_BASE).reduce((a, b) => a + b, 0);
+  const FIXED_TOTAL = Object.values(FIXED_W).reduce((a, b) => a + b, 0);
+
+  const colW = (() => {
+    if (tableContainerWidth < FIXED_TOTAL + FLEX_TOTAL) {
+      // Not enough space yet (or first render) — use base sizes, let horizontal scroll handle it
+      return { ...FIXED_W, ...FLEX_BASE };
+    }
+    const available = tableContainerWidth - FIXED_TOTAL;
+    const scale = available / FLEX_TOTAL;
+    return {
+      ...FIXED_W,
+      asset: Math.floor(FLEX_BASE.asset * scale),
+      sku:   Math.floor(FLEX_BASE.sku   * scale),
+      skuId: Math.floor(FLEX_BASE.skuId * scale),
+      qty:   Math.floor(FLEX_BASE.qty   * scale),
+      user:  Math.floor(FLEX_BASE.user  * scale),
+    };
+  })();
+
+  const tableMinWidth = FIXED_TOTAL + FLEX_TOTAL; // minimum before scroll kicks in
+
   const getImageUrl = (relativePath) => {
     if (!relativePath) return null;
     return `${API_BASE_URL}/copacker-images/${relativePath}`;
@@ -453,14 +481,14 @@ const CoPackerDashboard = () => {
 
     return (
       <View key={entry.id} style={rowStyle}>
-        <Text style={[styles.tableCell, styles.colSr]}>{index + 1}</Text>
-        <Text style={[styles.tableCell, styles.colLine]}>{entry.line_no}</Text>
-        <Text style={[styles.tableCell, styles.colAsset]}>{entry.asset_model_id}</Text>
-        <Text style={[styles.tableCell, styles.colDate]}>{toDisplayDate(String(entry.entry_date))}</Text>
-        <Text style={[styles.tableCell, styles.colTime]}>{String(entry.entry_time).substring(0, 5)}</Text>
+        <Text style={[styles.tableCell, { width: colW.sr }]}>{index + 1}</Text>
+        <Text style={[styles.tableCell, { width: colW.line }]}>{entry.line_no}</Text>
+        <Text style={[styles.tableCell, { width: colW.asset }]}>{entry.asset_model_id}</Text>
+        <Text style={[styles.tableCell, { width: colW.date }]}>{toDisplayDate(String(entry.entry_date))}</Text>
+        <Text style={[styles.tableCell, { width: colW.time }]}>{String(entry.entry_time).substring(0, 5)}</Text>
 
         {/* Image thumbnail */}
-        <View style={[styles.colImage, { alignItems: 'center' }]}>
+        <View style={[{ width: colW.img }, { alignItems: 'center' }]}>
           {imageUrl ? (
             <Image source={{ uri: imageUrl }} style={styles.thumbnail} resizeMode="cover" />
           ) : (
@@ -470,32 +498,54 @@ const CoPackerDashboard = () => {
           )}
         </View>
 
-        <Text style={[styles.tableCell, styles.colSku]} numberOfLines={2}>{entry.sku_name || '—'}</Text>
-        <Text style={[styles.tableCell, styles.colSkuId]} numberOfLines={1}>{entry.sku_itemid || '—'}</Text>
+        <Text style={[styles.tableCell, { width: colW.sku }]} numberOfLines={2}>{entry.sku_name || '—'}</Text>
+        <Text style={[styles.tableCell, { width: colW.skuId }]} numberOfLines={1}>{entry.sku_itemid || '—'}</Text>
 
         {/* Extracted quantity — editable for owner same day */}
-        <View style={[styles.colQty, { alignItems: 'center' }]}>
+        <View style={[{ width: colW.qty }, { alignItems: 'center', justifyContent: 'center' }]}>
           {isEditing ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <TextInput
-                style={[styles.fieldInput, { width: 55, textAlign: 'center', paddingVertical: 2, fontSize: 12 }]}
+                style={[styles.fieldInput, { width: 52, textAlign: 'center', paddingVertical: 3, fontSize: 13 }]}
                 value={editInputValue}
                 onChangeText={setEditInputValue}
                 keyboardType="number-pad"
                 autoFocus
               />
-              <TouchableOpacity onPress={() => confirmEditQty(entry)}>
-                <Text style={{ color: '#38a169', fontSize: 16 }}>✓</Text>
+              {/* Confirm — green pill button */}
+              <TouchableOpacity
+                onPress={() => confirmEditQty(entry)}
+                style={{
+                  backgroundColor: '#38a169',
+                  borderRadius: 5,
+                  paddingHorizontal: 8,
+                  paddingVertical: 5,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, lineHeight: 16 }}>✓</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={cancelEditQty}>
-                <Text style={{ color: '#e53e3e', fontSize: 16 }}>✕</Text>
+              {/* Cancel — red pill button */}
+              <TouchableOpacity
+                onPress={cancelEditQty}
+                style={{
+                  backgroundColor: '#e53e3e',
+                  borderRadius: 5,
+                  paddingHorizontal: 8,
+                  paddingVertical: 5,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, lineHeight: 16 }}>✕</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.qtyRow}>
               <Text style={styles.qtyText}>{entry.extracted_quantity ?? '—'}</Text>
               {canEdit(entry) && (
-                <TouchableOpacity onPress={() => startEditQty(entry)}>
+                <TouchableOpacity onPress={() => startEditQty(entry)} style={{ marginLeft: 4 }}>
                   <Text style={styles.editIcon}>✏️</Text>
                 </TouchableOpacity>
               )}
@@ -503,7 +553,7 @@ const CoPackerDashboard = () => {
           )}
         </View>
 
-        <Text style={[styles.tableCell, styles.colUser]} numberOfLines={1}>{entry.username}</Text>
+        <Text style={[styles.tableCell, { width: colW.user }]} numberOfLines={1}>{entry.username}</Text>
       </View>
     );
   };
@@ -560,7 +610,10 @@ const CoPackerDashboard = () => {
         )}
 
         {/* ── Main content ── */}
-        <View style={styles.mainContent}>
+        <View
+          style={styles.mainContent}
+          onLayout={(e) => setTableContainerWidth(e.nativeEvent.layout.width)}
+        >
           <ScrollView contentContainerStyle={styles.scrollContent}>
             {/* Title row */}
             <View style={styles.titleRow}>
@@ -577,21 +630,26 @@ const CoPackerDashboard = () => {
               </Text>
             </View>
 
-            {/* Table (horizontally scrollable) */}
-            <ScrollView horizontal showsHorizontalScrollIndicator>
-              <View style={styles.tableWrapper}>
+            {/* Table — scrolls horizontally only when content is wider than container */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={tableContainerWidth > 0 && tableContainerWidth < tableMinWidth}
+              scrollEnabled={tableContainerWidth > 0 && tableContainerWidth < tableMinWidth}
+              contentContainerStyle={{ minWidth: tableContainerWidth > 0 ? tableContainerWidth : undefined }}
+            >
+              <View style={[styles.tableWrapper, { width: tableContainerWidth > 0 ? tableContainerWidth : undefined }]}>
                 {/* Header */}
                 <View style={styles.tableHeader}>
-                  <Text style={[styles.tableHeaderCell, styles.colSr]}>Sr.</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colLine]}>Line No</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colAsset]}>Asset Model ID</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colDate]}>Date</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colTime]}>Time</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colImage]}>Image</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colSku]}>SKU Name</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colSkuId]}>SKU Item ID</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colQty]}>Ext. Qty</Text>
-                  <Text style={[styles.tableHeaderCell, styles.colUser]}>Username</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.sr }]}>Sr.</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.line }]}>Line No</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.asset }]}>Asset Model ID</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.date }]}>Date</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.time }]}>Time</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.img }]}>Image</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.sku }]}>SKU Name</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.skuId }]}>SKU Item ID</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.qty }]}>Ext. Qty</Text>
+                  <Text style={[styles.tableHeaderCell, { width: colW.user }]}>Username</Text>
                 </View>
 
                 {/* Rows */}
