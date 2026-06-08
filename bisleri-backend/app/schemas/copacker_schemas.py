@@ -7,6 +7,7 @@ from datetime import date, time, datetime
 # ── Feature status ──────────────────────────────────────────────────────────
 class FeatureStatusResponse(BaseModel):
     enabled: bool
+    field_edit_enabled: bool = False
 
 
 # ── Locations ───────────────────────────────────────────────────────────────
@@ -62,15 +63,24 @@ class EntryResponse(BaseModel):
     sku_name: Optional[str] = None
     sku_itemid: Optional[str] = None
     username: str
+    # Legacy
     extracted_quantity: Optional[int] = None
     extracted_quantity_raw: Optional[int] = None
+    # Multi-field OCR
+    preform_total:   Optional[int] = None
+    preform_shift:   Optional[int] = None
+    bottles_total:   Optional[int] = None
+    bottles_shift:   Optional[int] = None
+    operating_hours: Optional[int] = None
+    recipe:          Optional[str] = None
+    asset_model_no:  Optional[str] = None
     created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
 
 
-# ── Edit quantity ────────────────────────────────────────────────────────────
+# ── Edit quantity (legacy) ───────────────────────────────────────────────────
 class EditQuantityRequest(BaseModel):
     entry_id: int
     new_quantity: int
@@ -80,6 +90,23 @@ class EditQuantityResponse(BaseModel):
     entry_id: int
     original_value: Optional[int]
     new_value: int
+    auto_remarks: str
+    edited_by: str
+    edited_at: datetime
+
+
+# ── Edit field (new multi-field) ─────────────────────────────────────────────
+class EditFieldRequest(BaseModel):
+    entry_id: int
+    field_name: str   # e.g. "preform_total", "recipe", "asset_model_no"
+    new_value: str    # always string; backend converts to int where needed
+
+
+class EditFieldResponse(BaseModel):
+    entry_id: int
+    field_name: str
+    original_value: Optional[str]
+    new_value: str
     auto_remarks: str
     edited_by: str
     edited_at: datetime
@@ -104,3 +131,74 @@ class EditLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Phase 2: Session-based capture system ────────────────────────────────────
+
+class CreateSessionRequest(BaseModel):
+    copacker_location: str
+    line_no: int
+    sku_name: Optional[str] = None
+    sku_item_id: Optional[str] = None
+
+
+class CaptureResponse(BaseModel):
+    id: int
+    session_id: int
+    step_order: int
+    capture_type: str
+    asset_model_id: Optional[str] = None
+    image_path: Optional[str] = None
+    # Blow Molder
+    bottle_recipe:   Optional[str] = None
+    preform_total:   Optional[int] = None
+    preform_shift:   Optional[int] = None
+    bottles_total:   Optional[int] = None
+    bottles_shift:   Optional[int] = None
+    operating_hours: Optional[int] = None
+    # Bottling
+    production_speed_bph: Optional[int] = None
+    # Labelling
+    labels_count:  Optional[int] = None
+    label_format:  Optional[str] = None
+    # Case Counter
+    packs_counter: Optional[int] = None
+    pack_format:   Optional[str] = None
+    captured_at:   Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class SessionResponse(BaseModel):
+    id: int
+    copacker_location: str
+    line_no: int
+    sku_name:    Optional[str] = None
+    sku_item_id: Optional[str] = None
+    status:       str
+    submitted_by: str
+    created_at:   Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    captures: List[CaptureResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class EditAssetRequest(BaseModel):
+    capture_id: int
+    new_asset_model_id: str
+
+
+class EditAssetResponse(BaseModel):
+    capture_id: int
+    original_value: Optional[str]
+    new_value: str
+    edited_by: str
+    edited_at: datetime
+
+
+class AssetHistoryItem(BaseModel):
+    asset_model_id: str
+    last_used: Optional[datetime] = None

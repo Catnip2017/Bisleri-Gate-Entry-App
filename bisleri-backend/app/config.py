@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     IBM_SERVICE_URL: str = Field(default="placeholder", env="IBM_SERVICE_URL")
     IBM_PROJECT_ID: str = Field(default="placeholder", env="IBM_PROJECT_ID")
 
+    # Co Packer field editing toggle (set to true to show edit icons to stakeholders)
+    ENABLE_FIELD_EDIT: bool = Field(default=False, env="ENABLE_FIELD_EDIT")
+
     class Config:
         env_file = ".env"
 

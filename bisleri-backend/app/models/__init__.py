@@ -2,4 +2,8 @@ from .documents import DocumentData, MfabricDeliveryChallanData, MfabricInvoiceD
 from .users import UsersMaster, LocationMaster
 from .insights import InsightsData
 from .raw_materials import RawMaterialsData
-from .copacker import CopackerLocation, CopackerAsset, CopackerEntry, CopackerQuantityEditLog, ItemMaster
+from .copacker import (
+    CopackerLocation, CopackerAsset, CopackerEntry,
+    CopackerQuantityEditLog, ItemMaster,
+    CopackerSession, CopackerCapture, CopackerCaptureEditLog,
+)

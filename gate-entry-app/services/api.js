@@ -567,8 +567,73 @@ export const copackerAPI = {
     return response.data;
   },
 
+  // New multi-field edit — fieldName is one of:
+  // preform_total, preform_shift, bottles_total, bottles_shift,
+  // operating_hours, recipe, asset_model_no
+  editField: async (entryId, fieldName, newValue) => {
+    const response = await api.put('/copacker/edit-field', {
+      entry_id: entryId,
+      field_name: fieldName,
+      new_value: String(newValue),
+    });
+    return response.data;
+  },
+
   getEditLogs: async () => {
     const response = await api.get('/copacker/edit-logs');
+    return response.data;
+  },
+
+  // ── Phase 2: Session-based capture API ──────────────────────────────────
+
+  // Create a new production session (returns session with id)
+  createSession: async (copacker_location, line_no, sku_name, sku_item_id) => {
+    const response = await api.post('/copacker/session/create', {
+      copacker_location,
+      line_no,
+      sku_name:    sku_name    || null,
+      sku_item_id: sku_item_id || null,
+    });
+    return response.data;
+  },
+
+  // Submit one capture step (multipart — includes image)
+  // formData must contain: asset_model_id (str), image (File)
+  submitCapture: async (sessionId, formData) => {
+    const response = await api.post(
+      `/copacker/session/${sessionId}/capture`,
+      formData,
+      {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 90000, // OCR can take up to 90s
+      }
+    );
+    return response.data;
+  },
+
+  // Get sessions for a location + date (date = 'YYYY-MM-DD', defaults to today)
+  getSessions: async (location, dateStr) => {
+    const params = {};
+    if (location) params.location = location;
+    if (dateStr)  params.date     = dateStr;
+    const response = await api.get('/copacker/sessions', { params });
+    return response.data;
+  },
+
+  // Asset ID proximity search — returns previously used asset IDs at this location
+  getAssetHistory: async (location, q = '') => {
+    const response = await api.get('/copacker/asset-history', {
+      params: { location, q },
+    });
+    return response.data;
+  },
+
+  // Edit asset_model_id on a capture (always allowed, same-day, own session)
+  editCaptureAsset: async (captureId, newAssetModelId) => {
+    const response = await api.put('/copacker/capture/edit-asset', {
+      capture_id:          captureId,
+      new_asset_model_id:  newAssetModelId,
+    });
     return response.data;
   },
 };

@@ -15,10 +15,6 @@ export const useCopackerStyles = () => {
   // ── Sidebar ──────────────────────────────────────────────────────────────
   const sidebarWidth = isSmall ? width * 0.75 : isMedium ? 200 : 230;
 
-  // ── Table column widths — scale on wider screens ─────────────────────────
-  const scale = isLarge ? 1.1 : isMedium ? 1.0 : 0.85;
-  const col = (base) => Math.round(base * scale);
-
   // ── Modal dimensions ──────────────────────────────────────────────────────
   const modalMaxWidth  = isSmall ? width - 32 : isMedium ? 460 : 520;
   const modalScrollH   = Math.min(height * 0.55, 520);
@@ -185,18 +181,6 @@ export const useCopackerStyles = () => {
       textAlign: 'center',
     },
 
-    // Column widths (scale with screen size)
-    colSr:    { width: col(40) },
-    colLine:  { width: col(60) },
-    colAsset: { width: col(120) },
-    colDate:  { width: col(90) },
-    colTime:  { width: col(70) },
-    colImage: { width: col(70) },
-    colSku:   { width: col(140) },
-    colSkuId: { width: col(120) },
-    colQty:   { width: col(100) },
-    colUser:  { width: col(100) },
-
     // Thumbnail
     thumbnail: {
       width: isSmall ? 42 : 50,
@@ -214,11 +198,6 @@ export const useCopackerStyles = () => {
       alignSelf: 'center',
     },
     thumbnailPlaceholderText: { fontSize: isSmall ? 14 : 18 },
-
-    // Qty edit
-    qtyRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    qtyText: { fontSize: isSmall ? 11 : 12, color: '#2d3748', marginRight: 4 },
-    editIcon: { fontSize: isSmall ? 12 : 14 },
 
     // Empty / loading states
     emptyContainer:  { alignItems: 'center', paddingVertical: 40 },

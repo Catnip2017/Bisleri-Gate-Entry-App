@@ -3,6 +3,7 @@
 Co Packer feature router — all endpoints under /copacker prefix.
 Protected by JWT (get_current_user) unless explicitly noted.
 """
+import json
 import os
 import re
 import logging
@@ -37,14 +38,22 @@ from app.config import settings
 from app.database import get_db
 from app.models import UsersMaster
 from app.models.copacker import (
-    CopackerAsset, CopackerEntry, CopackerLocation, CopackerQuantityEditLog, ItemMaster
+    CopackerAsset, CopackerEntry, CopackerLocation, CopackerQuantityEditLog, ItemMaster,
+    CopackerSession, CopackerCapture, CopackerCaptureEditLog,
 )
 from app.schemas.copacker_schemas import (
-    AssetResponse, EditLogResponse, EditQuantityRequest,
-    EditQuantityResponse, EntryResponse, FeatureStatusResponse,
-    LocationResponse, RegisterAssetRequest, RegisterLocationRequest, SKUItem
+    AssetResponse, EditFieldRequest, EditFieldResponse,
+    EditLogResponse, EditQuantityRequest, EditQuantityResponse,
+    EntryResponse, FeatureStatusResponse,
+    LocationResponse, RegisterAssetRequest, RegisterLocationRequest, SKUItem,
+    CreateSessionRequest, SessionResponse, CaptureResponse,
+    EditAssetRequest, EditAssetResponse, AssetHistoryItem,
 )
-from app.services.watsonx_ocr import extract_quantity_from_image
+from app.services.watsonx_ocr import (
+    extract_quantity_from_image,
+    extract_machine_data_from_image,
+    extract_machine_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +87,10 @@ def sanitize_path_segment(value: str) -> str:
 # ── 1. Feature status ────────────────────────────────────────────────────────
 @router.get("/feature-status", response_model=FeatureStatusResponse)
 def feature_status(current_user: UsersMaster = Depends(get_current_user)):
-    return {"enabled": settings.COPACKER_FEATURE_ENABLED}
+    return {
+        "enabled": settings.COPACKER_FEATURE_ENABLED,
+        "field_edit_enabled": settings.ENABLE_FIELD_EDIT,
+    }
 
 
 # ── 2. Register location (IT Admin only) ─────────────────────────────────────
@@ -295,11 +307,11 @@ async def submit_entry(
     # browsers interpret \NNNN as escape sequences, corrupting the URL).
     relative_path = "/".join([loc_safe, year, month, day, asset_safe, sku_safe, image_filename])
 
-    # ── OCR ──────────────────────────────────────────────────────────────────
+    # ── OCR — multi-field extraction ─────────────────────────────────────────
     mime = "image/jpeg"
     if file_ext == ".png" or content_type == "image/png":
         mime = "image/png"
-    extracted_qty = extract_quantity_from_image(image_bytes, mime)
+    ocr_data = extract_machine_data_from_image(image_bytes, mime)
 
     # ── Save entry ────────────────────────────────────────────────────────────
     entry = CopackerEntry(
@@ -312,8 +324,17 @@ async def submit_entry(
         sku_name=sku_name.strip() if sku_name else None,
         sku_itemid=sku_itemid.strip() if sku_itemid else None,
         username=current_user.username,
-        extracted_quantity=extracted_qty,
-        extracted_quantity_raw=extracted_qty,
+        # Legacy qty — set to bottles_total for backward compat
+        extracted_quantity=ocr_data.get("bottles_total"),
+        extracted_quantity_raw=ocr_data.get("bottles_total"),
+        # New multi-field OCR values
+        preform_total=ocr_data.get("preform_total"),
+        preform_shift=ocr_data.get("preform_shift"),
+        bottles_total=ocr_data.get("bottles_total"),
+        bottles_shift=ocr_data.get("bottles_shift"),
+        operating_hours=ocr_data.get("operating_hours"),
+        recipe=ocr_data.get("recipe"),
+        asset_model_no=ocr_data.get("asset_model_no"),
     )
     db.add(entry)
     db.commit()
@@ -419,7 +440,97 @@ def edit_quantity(
     )
 
 
-# ── 10. Edit logs (IT Admin only) ─────────────────────────────────────────────
+# ── 10. Edit a single OCR field (entry owner, same calendar day) ─────────────
+_INT_FIELDS  = {"preform_total", "preform_shift", "bottles_total",
+                "bottles_shift", "operating_hours"}
+_TEXT_FIELDS = {"recipe", "asset_model_no"}
+_ALLOWED_EDIT_FIELDS = _INT_FIELDS | _TEXT_FIELDS
+
+
+@router.put("/edit-field", response_model=EditFieldResponse)
+def edit_field(
+    payload: EditFieldRequest,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    if payload.field_name not in _ALLOWED_EDIT_FIELDS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid field_name. Allowed: {sorted(_ALLOWED_EDIT_FIELDS)}"
+        )
+
+    entry = db.query(CopackerEntry).filter(CopackerEntry.id == payload.entry_id).first()
+    if not entry:
+        raise HTTPException(status_code=404, detail="Entry not found.")
+
+    if entry.username != current_user.username:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the user who created this entry can edit it."
+        )
+
+    if created_at_to_ist_date(entry.created_at) != today_ist():
+        raise HTTPException(
+            status_code=403,
+            detail="Fields can only be edited on the day the entry was submitted."
+        )
+
+    # Current value
+    original_raw = getattr(entry, payload.field_name, None)
+    original_text = str(original_raw) if original_raw is not None else None
+
+    # Parse and validate new value
+    if payload.field_name in _INT_FIELDS:
+        try:
+            new_val = int(str(payload.new_value).replace(",", "").strip())
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"'{payload.field_name}' must be a valid integer."
+            )
+    else:
+        new_val = payload.new_value.strip()
+
+    auto_remark = (
+        f"Field '{payload.field_name}' changed from '{original_text}' "
+        f"to '{new_val}' by {current_user.username}."
+    )
+
+    # Audit log
+    log = CopackerQuantityEditLog(
+        entry_id=entry.id,
+        original_value=None,
+        edited_value=None,
+        edited_by=current_user.username,
+        auto_remarks=auto_remark,
+        field_name=payload.field_name,
+        original_text_value=original_text,
+        edited_text_value=str(new_val),
+    )
+    db.add(log)
+
+    # Update entry
+    setattr(entry, payload.field_name, new_val)
+
+    # Keep bottles_total in sync with legacy extracted_quantity
+    if payload.field_name == "bottles_total":
+        entry.extracted_quantity = new_val
+
+    db.commit()
+    db.refresh(log)
+
+    return EditFieldResponse(
+        entry_id=entry.id,
+        field_name=payload.field_name,
+        original_value=original_text,
+        new_value=str(new_val),
+        auto_remarks=auto_remark,
+        edited_by=current_user.username,
+        edited_at=log.edited_at,
+    )
+
+
+# ── 11. Edit logs (IT Admin only) ─────────────────────────────────────────────
 @router.get("/edit-logs", response_model=List[EditLogResponse])
 def get_edit_logs(
     db: Session = Depends(get_db),
@@ -451,3 +562,294 @@ def get_edit_logs(
             entry_username=entry.username,
         ))
     return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Phase 2 — Session-based 4-machine capture system
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Step order → capture type mapping (fixed, cannot be skipped or reordered)
+_STEP_CAPTURE_TYPES = {
+    1: "blow_molder",
+    2: "bottling",
+    3: "labelling",
+    4: "case_counter",
+}
+
+
+# ── 12. Create session ─────────────────────────────────────────────────────────
+@router.post("/session/create", response_model=SessionResponse, status_code=201)
+def create_session(
+    payload: CreateSessionRequest,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if not any(r in ["itadmin", "copacker"] for r in roles):
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    session = CopackerSession(
+        copacker_location=payload.copacker_location.strip(),
+        line_no=payload.line_no,
+        sku_name=payload.sku_name.strip() if payload.sku_name else None,
+        sku_item_id=payload.sku_item_id.strip() if payload.sku_item_id else None,
+        submitted_by=current_user.username,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+# ── 13. Submit capture (one of 4 steps) ───────────────────────────────────────
+@router.post("/session/{session_id}/capture", response_model=CaptureResponse, status_code=201)
+async def submit_capture(
+    session_id: int,
+    asset_model_id: str = Form(default=""),
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if not any(r in ["itadmin", "copacker"] for r in roles):
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    # ── Validate session ────────────────────────────────────────────────────
+    session = db.query(CopackerSession).filter(CopackerSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    if session.submitted_by != current_user.username:
+        raise HTTPException(status_code=403, detail="Not your session.")
+    if session.status == "completed":
+        raise HTTPException(status_code=400, detail="Session already completed.")
+
+    # ── Determine step from existing captures ───────────────────────────────
+    existing_count = (
+        db.query(CopackerCapture)
+        .filter(CopackerCapture.session_id == session_id)
+        .count()
+    )
+    step_order = existing_count + 1
+    if step_order > 4:
+        raise HTTPException(status_code=400, detail="All 4 captures already submitted.")
+
+    capture_type = _STEP_CAPTURE_TYPES[step_order]
+
+    # ── Validate image ──────────────────────────────────────────────────────
+    content_type = (image.content_type or "").lower()
+    file_ext = os.path.splitext(image.filename or "")[1].lower()
+    if content_type not in ALLOWED_IMAGE_TYPES and file_ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Only JPEG, JPG, PNG accepted."
+        )
+
+    image_bytes = await image.read()
+
+    # ── Save image ──────────────────────────────────────────────────────────
+    now_ist    = datetime.now(_IST)
+    loc_safe   = sanitize_path_segment(session.copacker_location)
+    year       = now_ist.strftime("%Y")
+    month      = now_ist.strftime("%m")
+    day        = now_ist.strftime("%d")
+    ts         = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    img_name   = f"step{step_order}_{current_user.username}_{ts}.jpg"
+
+    save_dir = os.path.join(
+        settings.COPACKER_IMAGE_PATH,
+        "sessions", loc_safe, year, month, day, str(session_id)
+    )
+    os.makedirs(save_dir, exist_ok=True)
+    save_path = os.path.join(save_dir, img_name)
+    try:
+        with open(save_path, "wb") as f:
+            f.write(image_bytes)
+    except Exception as e:
+        logger.error(f"Failed to save capture image: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save image to server.")
+
+    # Always forward slashes for DB (Windows backslash → URL corruption)
+    relative_path = "/".join(
+        ["sessions", loc_safe, year, month, day, str(session_id), img_name]
+    )
+
+    # ── OCR ────────────────────────────────────────────────────────────────
+    mime = "image/png" if (file_ext == ".png" or content_type == "image/png") else "image/jpeg"
+    ocr_data = extract_machine_data(image_bytes, mime, capture_type)
+    ocr_raw  = json.dumps(ocr_data)
+
+    # Asset ID: user-provided form value takes priority over OCR
+    asset_from_ocr  = ocr_data.get("asset_number")
+    final_asset_id  = asset_model_id.strip() or asset_from_ocr or None
+
+    # ── Build capture record ────────────────────────────────────────────────
+    cap = CopackerCapture(
+        session_id     = session_id,
+        step_order     = step_order,
+        capture_type   = capture_type,
+        asset_model_id = final_asset_id,
+        image_path     = relative_path,
+        ocr_raw        = ocr_raw,
+        captured_by    = current_user.username,
+    )
+
+    if capture_type == "blow_molder":
+        cap.bottle_recipe   = ocr_data.get("bottle_recipe")
+        cap.preform_total   = ocr_data.get("total_preforms")
+        cap.preform_shift   = ocr_data.get("shift_preforms")
+        cap.bottles_total   = ocr_data.get("total_bottles")
+        cap.bottles_shift   = ocr_data.get("shift_bottles")
+        cap.operating_hours = ocr_data.get("operating_hours")
+    elif capture_type == "bottling":
+        cap.bottles_total        = ocr_data.get("total_bottles")
+        cap.production_speed_bph = ocr_data.get("production_speed_bph")
+    elif capture_type == "labelling":
+        cap.labels_count = ocr_data.get("labels_count")
+        cap.label_format = ocr_data.get("format")
+    elif capture_type == "case_counter":
+        cap.packs_counter = ocr_data.get("packs_counter")
+        cap.pack_format   = ocr_data.get("format")
+
+    db.add(cap)
+
+    # Complete session on step 4
+    if step_order == 4:
+        session.status       = "completed"
+        session.completed_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(cap)
+    return cap
+
+
+# ── 14. Get sessions for a location + date ─────────────────────────────────────
+@router.get("/sessions", response_model=List[SessionResponse])
+def get_sessions(
+    location: Optional[str] = Query(default=None),
+    date_str: Optional[str] = Query(default=None, alias="date"),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if not any(r in ["itadmin", "copacker"] for r in roles):
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    # CoPacker → own location only
+    if "copacker" in roles and "itadmin" not in roles:
+        loc = current_user.copacker_location
+    else:
+        loc = location
+
+    if not loc:
+        raise HTTPException(status_code=400, detail="Location is required.")
+
+    # Parse target date (default: today IST)
+    if date_str:
+        try:
+            target_date = date.fromisoformat(date_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date. Use YYYY-MM-DD.")
+    else:
+        target_date = today_ist()
+
+    # Convert IST date range to UTC for the DB query
+    _IST_TZ = timezone(timedelta(hours=5, minutes=30))
+    ist_start = datetime(
+        target_date.year, target_date.month, target_date.day, 0, 0, 0,
+        tzinfo=_IST_TZ
+    )
+    ist_end = datetime(
+        target_date.year, target_date.month, target_date.day, 23, 59, 59,
+        tzinfo=_IST_TZ
+    )
+    utc_start = ist_start.astimezone(timezone.utc)
+    utc_end   = ist_end.astimezone(timezone.utc)
+
+    sessions = (
+        db.query(CopackerSession)
+        .filter(
+            CopackerSession.copacker_location.ilike(loc.strip()),
+            CopackerSession.created_at >= utc_start,
+            CopackerSession.created_at <= utc_end,
+        )
+        .order_by(CopackerSession.created_at.desc())
+        .all()
+    )
+    return sessions
+
+
+# ── 15. Asset ID history search (proximity search) ────────────────────────────
+@router.get("/asset-history")
+def get_asset_history(
+    location: str = Query(...),
+    q: str = Query(default=""),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if not any(r in ["itadmin", "copacker"] for r in roles):
+        raise HTTPException(status_code=403, detail="Access denied.")
+
+    search = f"%{q.strip()}%" if q.strip() else "%"
+    rows = db.execute(
+        text("""
+            SELECT DISTINCT ON (c.asset_model_id)
+                c.asset_model_id,
+                c.captured_at AS last_used
+            FROM copacker_captures c
+            JOIN copacker_sessions s ON s.id = c.session_id
+            WHERE s.copacker_location ILIKE :location
+              AND c.asset_model_id IS NOT NULL
+              AND c.asset_model_id != ''
+              AND c.asset_model_id ILIKE :q
+            ORDER BY c.asset_model_id, c.captured_at DESC
+            LIMIT 20
+        """),
+        {"location": f"%{location.strip()}%", "q": search},
+    ).fetchall()
+
+    return [{"asset_model_id": r[0], "last_used": str(r[1])} for r in rows]
+
+
+# ── 16. Edit capture asset ID (always allowed, same-day, own session) ──────────
+@router.put("/capture/edit-asset", response_model=EditAssetResponse)
+def edit_capture_asset(
+    payload: EditAssetRequest,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    cap = db.query(CopackerCapture).filter(CopackerCapture.id == payload.capture_id).first()
+    if not cap:
+        raise HTTPException(status_code=404, detail="Capture not found.")
+
+    session = db.query(CopackerSession).filter(CopackerSession.id == cap.session_id).first()
+    if session.submitted_by != current_user.username:
+        raise HTTPException(status_code=403, detail="Not your session.")
+
+    if created_at_to_ist_date(cap.captured_at) != today_ist():
+        raise HTTPException(
+            status_code=403,
+            detail="Asset ID can only be edited on the day of capture."
+        )
+
+    original = cap.asset_model_id
+    cap.asset_model_id = payload.new_asset_model_id.strip()
+
+    log = CopackerCaptureEditLog(
+        capture_id     = cap.id,
+        field_name     = "asset_model_id",
+        original_value = original,
+        edited_value   = cap.asset_model_id,
+        edited_by      = current_user.username,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    return EditAssetResponse(
+        capture_id     = cap.id,
+        original_value = original,
+        new_value      = cap.asset_model_id,
+        edited_by      = current_user.username,
+        edited_at      = log.edited_at,
+    )
