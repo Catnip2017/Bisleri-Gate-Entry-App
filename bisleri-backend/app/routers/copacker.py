@@ -593,6 +593,9 @@ def create_session(
         line_no=payload.line_no,
         sku_name=payload.sku_name.strip() if payload.sku_name else None,
         sku_item_id=payload.sku_item_id.strip() if payload.sku_item_id else None,
+        shift_no=payload.shift_no,
+        shift_start_time=payload.shift_start_time.strip() if payload.shift_start_time else None,
+        shift_end_time=payload.shift_end_time.strip() if payload.shift_end_time else None,
         submitted_by=current_user.username,
     )
     db.add(session)

@@ -138,8 +138,11 @@ class EditLogResponse(BaseModel):
 class CreateSessionRequest(BaseModel):
     copacker_location: str
     line_no: int
-    sku_name: Optional[str] = None
-    sku_item_id: Optional[str] = None
+    sku_name:         Optional[str] = None
+    sku_item_id:      Optional[str] = None
+    shift_no:         Optional[int] = None   # 1 / 2 / 3
+    shift_start_time: Optional[str] = None   # "HH:MM" 24-hr
+    shift_end_time:   Optional[str] = None   # "HH:MM" 24-hr
 
 
 class CaptureResponse(BaseModel):
@@ -174,12 +177,15 @@ class SessionResponse(BaseModel):
     id: int
     copacker_location: str
     line_no: int
-    sku_name:    Optional[str] = None
-    sku_item_id: Optional[str] = None
-    status:       str
-    submitted_by: str
-    created_at:   Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    sku_name:         Optional[str] = None
+    sku_item_id:      Optional[str] = None
+    status:           str
+    submitted_by:     str
+    shift_no:         Optional[int] = None
+    shift_start_time: Optional[str] = None
+    shift_end_time:   Optional[str] = None
+    created_at:       Optional[datetime] = None
+    completed_at:     Optional[datetime] = None
     captures: List[CaptureResponse] = []
 
     class Config:

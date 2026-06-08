@@ -587,12 +587,15 @@ export const copackerAPI = {
   // ── Phase 2: Session-based capture API ──────────────────────────────────
 
   // Create a new production session (returns session with id)
-  createSession: async (copacker_location, line_no, sku_name, sku_item_id) => {
+  createSession: async (copacker_location, line_no, sku_name, sku_item_id, shift_no, shift_start_time, shift_end_time) => {
     const response = await api.post('/copacker/session/create', {
       copacker_location,
       line_no,
-      sku_name:    sku_name    || null,
-      sku_item_id: sku_item_id || null,
+      sku_name:         sku_name         || null,
+      sku_item_id:      sku_item_id      || null,
+      shift_no:         shift_no         || null,
+      shift_start_time: shift_start_time || null,
+      shift_end_time:   shift_end_time   || null,
     });
     return response.data;
   },

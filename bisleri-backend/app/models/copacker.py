@@ -109,6 +109,10 @@ class CopackerSession(Base):
     status            = Column(String(20), nullable=False, default="in_progress")
     # 'in_progress' | 'completed'
     submitted_by      = Column(String(100), nullable=False)
+    # Shift details — stored as 24-hr strings ("HH:MM"), displayed as AM/PM on frontend
+    shift_no          = Column(Integer, nullable=True)      # 1 / 2 / 3
+    shift_start_time  = Column(String(10), nullable=True)   # e.g. "08:00"
+    shift_end_time    = Column(String(10), nullable=True)   # e.g. "16:00"
     created_at        = Column(DateTime(timezone=True), server_default=func.now())
     completed_at      = Column(DateTime(timezone=True), nullable=True)
 

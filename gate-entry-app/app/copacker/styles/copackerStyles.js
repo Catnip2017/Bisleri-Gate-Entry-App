@@ -83,9 +83,9 @@ export const useCopackerStyles = () => {
       marginBottom: 14,
       color: '#1a365d',
     },
-    sidebarLabel: { fontSize: isSmall ? 11 : 12, color: '#718096', marginBottom: 2 },
+    sidebarLabel: { fontSize: isSmall ? 12 : 13, color: '#718096', marginBottom: 2 },
     sidebarValue: {
-      fontSize: isSmall ? 12 : 14,
+      fontSize: isSmall ? 13 : 15,
       color: '#2d3748',
       fontWeight: '600',
       marginBottom: 10,
@@ -136,7 +136,7 @@ export const useCopackerStyles = () => {
     // ── Date label ──────────────────────────────────────────────────────────
     dateRow: { marginBottom: 8 },
     dateLabel: {
-      fontSize: isSmall ? 11 : 13,
+      fontSize: isSmall ? 12 : 14,
       color: '#718096',
       fontStyle: 'italic',
     },
@@ -156,7 +156,7 @@ export const useCopackerStyles = () => {
     tableHeaderCell: {
       color: '#fff',
       fontWeight: 'bold',
-      fontSize: isSmall ? 11 : 12,
+      fontSize: isSmall ? 12 : 14,
       textAlign: 'center',
       paddingHorizontal: 4,
     },
@@ -170,13 +170,13 @@ export const useCopackerStyles = () => {
     tableRowEven: { backgroundColor: '#f7fafc' },
     tableRowOdd:  { backgroundColor: '#fff' },
     tableCell: {
-      fontSize: isSmall ? 11 : 12,
+      fontSize: isSmall ? 12 : 14,
       color: '#2d3748',
       textAlign: 'center',
       paddingHorizontal: 4,
     },
     tableCellMuted: {
-      fontSize: isSmall ? 11 : 12,
+      fontSize: isSmall ? 12 : 14,
       color: '#a0aec0',
       textAlign: 'center',
     },
@@ -239,7 +239,7 @@ export const useCopackerStyles = () => {
 
     // Form fields
     fieldLabel: {
-      fontSize: isSmall ? 12 : 13,
+      fontSize: isSmall ? 13 : 14,
       fontWeight: '600',
       color: '#4a5568',
       marginBottom: 4,
@@ -251,7 +251,7 @@ export const useCopackerStyles = () => {
       borderRadius: 6,
       paddingHorizontal: 10,
       paddingVertical: isSmall ? 6 : 8,
-      fontSize: isSmall ? 13 : 14,
+      fontSize: isSmall ? 14 : 15,
       color: '#2d3748',
       backgroundColor: '#fff',
     },
@@ -281,8 +281,8 @@ export const useCopackerStyles = () => {
       borderBottomWidth: 1,
       borderBottomColor: '#f0f0f0',
     },
-    dropdownItemText: { fontSize: isSmall ? 13 : 14, color: '#2d3748' },
-    dropdownItemSub:  { fontSize: isSmall ? 10 : 11, color: '#718096' },
+    dropdownItemText: { fontSize: isSmall ? 14 : 15, color: '#2d3748' },
+    dropdownItemSub:  { fontSize: isSmall ? 11 : 12, color: '#718096' },
 
     // Date picker
     datePickerRow: {
@@ -357,19 +357,19 @@ export const useCopackerStyles = () => {
       }),
     },
     confirmTitle: {
-      fontSize: isSmall ? 14 : 16,
+      fontSize: isSmall ? 15 : 17,
       fontWeight: 'bold',
       color: '#1a365d',
       marginBottom: 10,
     },
     confirmRemark: {
-      fontSize: isSmall ? 12 : 13,
+      fontSize: isSmall ? 13 : 14,
       color: '#4a5568',
       backgroundColor: '#f7fafc',
       padding: 10,
       borderRadius: 6,
       marginBottom: 16,
-      lineHeight: isSmall ? 18 : 20,
+      lineHeight: isSmall ? 19 : 21,
     },
   });
 };

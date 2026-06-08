@@ -89,6 +89,36 @@ const isCapturedToday = (capturedAt) => {
   return capDate === todayISTDateStr();
 };
 
+// ── Shift helpers ─────────────────────────────────────────────────────────────
+const SHIFT_DEFAULTS = {
+  1: { start: '00:00', end: '08:00' },
+  2: { start: '08:00', end: '16:00' },
+  3: { start: '16:00', end: '00:00' },
+};
+
+/** Convert "HH:MM" (24-hr) → "12:00 AM" style display */
+const to12hr = (time24) => {
+  if (!time24) return '—';
+  const parts = time24.split(':');
+  if (parts.length < 2) return time24;
+  let h = parseInt(parts[0], 10);
+  const m = (parts[1] || '00').padStart(2, '0');
+  if (isNaN(h)) return time24;
+  if (h === 0)  return `12:${m} AM`;
+  if (h < 12)  return `${h}:${m} AM`;
+  if (h === 12) return `12:${m} PM`;
+  return `${h - 12}:${m} PM`;
+};
+
+/** Format shift column text for the sessions table */
+const fmtShiftCol = (session, compact) => {
+  if (!session.shift_no) return '—';
+  const s = to12hr(session.shift_start_time);
+  const e = to12hr(session.shift_end_time);
+  if (compact) return `Sh ${session.shift_no}\n${s}–${e}`;
+  return `Shift ${session.shift_no} | ${s} – ${e}`;
+};
+
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 const CoPackerDashboard = () => {
@@ -113,9 +143,13 @@ const CoPackerDashboard = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Step 0 setup
-  const [sessionLineNo, setSessionLineNo]     = useState('');
-  const [sessionSkuName, setSessionSkuName]   = useState('');
+  const [sessionLineNo, setSessionLineNo]       = useState('');
+  const [sessionSkuName, setSessionSkuName]     = useState('');
   const [sessionSkuItemId, setSessionSkuItemId] = useState('');
+  // Shift
+  const [sessionShiftNo, setSessionShiftNo]         = useState(null);
+  const [sessionShiftStart, setSessionShiftStart]   = useState('');
+  const [sessionShiftEnd, setSessionShiftEnd]       = useState('');
 
   // Created session
   const [activeSessionId, setActiveSessionId] = useState(null);
@@ -212,6 +246,9 @@ const CoPackerDashboard = () => {
     setSessionLineNo('');
     setSessionSkuName('');
     setSessionSkuItemId('');
+    setSessionShiftNo(null);
+    setSessionShiftStart('');
+    setSessionShiftEnd('');
     setActiveSessionId(null);
     setCapturedImage(null);
     setCurrentAssetId('');
@@ -313,6 +350,9 @@ const CoPackerDashboard = () => {
         lineNum,
         sessionSkuName.trim() || null,
         sessionSkuItemId.trim() || null,
+        sessionShiftNo || null,
+        sessionShiftStart.trim() || null,
+        sessionShiftEnd.trim() || null,
       );
       setActiveSessionId(session.id);
       // Reset capture state for step 1
@@ -464,7 +504,7 @@ const CoPackerDashboard = () => {
             width: 8, height: 8, borderRadius: 4,
             backgroundColor: color, marginRight: 6,
           }} />
-          <Text style={{ fontWeight: 'bold', fontSize: 12, color, flex: 1 }}>
+          <Text style={{ fontWeight: 'bold', fontSize: 14, color, flex: 1 }}>
             {label}
           </Text>
           {/* Thumbnail */}
@@ -490,14 +530,14 @@ const CoPackerDashboard = () => {
         <View style={{ padding: 10 }}>
           {/* Asset ID row */}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Text style={{ fontSize: 11, color: '#718096', width: 60 }}>Asset ID</Text>
+            <Text style={{ fontSize: 13, color: '#718096', width: 68 }}>Asset ID</Text>
             {isEditingThis ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
                 <TextInput
                   style={{
                     flex: 1, borderWidth: 1, borderColor: '#3182ce',
                     borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3,
-                    fontSize: 12, color: '#1a365d', backgroundColor: '#ebf8ff',
+                    fontSize: 14, color: '#1a365d', backgroundColor: '#ebf8ff',
                   }}
                   value={editAssetValue}
                   onChangeText={setEditAssetValue}
@@ -537,12 +577,12 @@ const CoPackerDashboard = () => {
           {/* Machine-specific fields */}
           {capture.capture_type === 'blow_molder' && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-              <FieldChip label="Recipe" value={capture.bottle_recipe} wide />
-              <FieldChip label="Pf Total"  value={fmtNum(capture.preform_total)} />
-              <FieldChip label="Pf Shift"  value={fmtNum(capture.preform_shift)} />
-              <FieldChip label="Bt Total"  value={fmtNum(capture.bottles_total)} />
-              <FieldChip label="Bt Shift"  value={fmtNum(capture.bottles_shift)} />
-              <FieldChip label="Op Hours"  value={capture.operating_hours != null ? `${fmtNum(capture.operating_hours)} h` : '—'} />
+              <FieldChip label="Recipe"             value={capture.bottle_recipe} wide />
+              <FieldChip label="Preform Total"     value={fmtNum(capture.preform_total)} />
+              <FieldChip label="Preform Shift"     value={fmtNum(capture.preform_shift)} />
+              <FieldChip label="Bottle Total"      value={fmtNum(capture.bottles_total)} />
+              <FieldChip label="Bottle Shift"      value={fmtNum(capture.bottles_shift)} />
+              <FieldChip label="Operational Hours" value={capture.operating_hours != null ? `${fmtNum(capture.operating_hours)} h` : '—'} wide />
             </View>
           )}
 
@@ -590,25 +630,38 @@ const CoPackerDashboard = () => {
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8 }}>
             {/* Sr */}
-            <Text style={{ width: 36, fontSize: 12, color: '#718096', textAlign: 'center' }}>{index + 1}</Text>
+            <Text style={{ width: 36, fontSize: 13, color: '#718096', textAlign: 'center' }}>{index + 1}</Text>
 
             {/* Date + Time */}
             <View style={{ width: 130, alignItems: 'flex-start', paddingHorizontal: 4 }}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#2d3748' }}>{dtDate}</Text>
-              <Text style={{ fontSize: 11, color: '#718096' }}>{dtTime}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#2d3748' }}>{dtDate}</Text>
+              <Text style={{ fontSize: 12, color: '#718096' }}>{dtTime}</Text>
             </View>
 
             {/* Line No */}
-            <Text style={{ width: 44, fontSize: 12, color: '#2d3748', textAlign: 'center' }}>
+            <Text style={{ width: 44, fontSize: 14, color: '#2d3748', textAlign: 'center' }}>
               {session.line_no}
             </Text>
 
             {/* SKU */}
             <Text
-              style={{ flex: 1, fontSize: 12, color: '#2d3748', paddingHorizontal: 4 }}
+              style={{ flex: 1, minWidth: 50, fontSize: 13, color: '#2d3748', paddingHorizontal: 4 }}
               numberOfLines={1}
             >
               {session.sku_name || '—'}
+            </Text>
+
+            {/* Shift */}
+            <Text
+              style={{
+                width: isSmall ? 90 : 160,
+                fontSize: isSmall ? 11 : 13,
+                color: session.shift_no ? '#2d3748' : '#a0aec0',
+                paddingHorizontal: 4,
+              }}
+              numberOfLines={isSmall ? 2 : 1}
+            >
+              {fmtShiftCol(session, isSmall)}
             </Text>
 
             {/* Status badge */}
@@ -619,7 +672,7 @@ const CoPackerDashboard = () => {
               alignItems: 'center', marginHorizontal: 4,
             }}>
               <Text style={{
-                fontSize: 10, fontWeight: '700',
+                fontSize: 11, fontWeight: '700',
                 color: isComplete ? '#276749' : '#c05621',
               }}>
                 {isComplete ? `✓ Complete` : `⏳ ${captureCount}/4`}
@@ -627,7 +680,7 @@ const CoPackerDashboard = () => {
             </View>
 
             {/* Expand toggle */}
-            <Text style={{ width: 28, fontSize: 14, textAlign: 'center', color: '#4a5568' }}>
+            <Text style={{ width: 28, fontSize: 15, textAlign: 'center', color: '#4a5568' }}>
               {isExpanded ? '▼' : '▶'}
             </Text>
           </View>
@@ -639,7 +692,7 @@ const CoPackerDashboard = () => {
             {session.captures && session.captures.length > 0 ? (
               session.captures.map(cap => renderCaptureCard(cap, session.submitted_by))
             ) : (
-              <Text style={{ fontSize: 12, color: '#a0aec0', textAlign: 'center', padding: 12 }}>
+              <Text style={{ fontSize: 14, color: '#a0aec0', textAlign: 'center', padding: 12 }}>
                 No captures yet for this session.
               </Text>
             )}
@@ -660,11 +713,11 @@ const CoPackerDashboard = () => {
               backgroundColor: s < currentStep ? '#38a169' : s === currentStep ? STEP_COLORS[s] : '#e2e8f0',
               alignItems: 'center', justifyContent: 'center',
             }}>
-              <Text style={{ color: s < currentStep || s === currentStep ? '#fff' : '#a0aec0', fontSize: 11, fontWeight: 'bold' }}>
+              <Text style={{ color: s < currentStep || s === currentStep ? '#fff' : '#a0aec0', fontSize: 12, fontWeight: 'bold' }}>
                 {s < currentStep ? '✓' : s}
               </Text>
             </View>
-            <Text style={{ fontSize: 9, color: s === currentStep ? STEP_COLORS[s] : '#718096', marginTop: 2, textAlign: 'center' }}>
+            <Text style={{ fontSize: 10, color: s === currentStep ? STEP_COLORS[s] : '#718096', marginTop: 2, textAlign: 'center' }}>
               {STEP_LABELS[s]}
             </Text>
           </View>
@@ -690,7 +743,7 @@ const CoPackerDashboard = () => {
       lines.push(['Preform Shift', fmtNum(result.preform_shift)]);
       lines.push(['Bottles Total', fmtNum(result.bottles_total)]);
       lines.push(['Bottles Shift', fmtNum(result.bottles_shift)]);
-      lines.push(['Op Hours', result.operating_hours != null ? `${fmtNum(result.operating_hours)} h` : '—']);
+      lines.push(['Operational Hours', result.operating_hours != null ? `${fmtNum(result.operating_hours)} h` : '—']);
     } else if (result.capture_type === 'bottling') {
       lines.push(['Bottles Total', fmtNum(result.bottles_total)]);
       lines.push(['Speed (BPH)', fmtNum(result.production_speed_bph)]);
@@ -707,14 +760,14 @@ const CoPackerDashboard = () => {
         backgroundColor: '#f0fff4', borderRadius: 8, padding: 10,
         borderWidth: 1, borderColor: '#c6f6d5', marginTop: 8,
       }}>
-        <Text style={{ fontSize: 11, fontWeight: '700', color: '#276749', marginBottom: 6 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: '#276749', marginBottom: 6 }}>
           ✓ OCR Extracted — Step {result.step_order} of 4
         </Text>
-        <Text style={{ fontSize: 11, color: '#4a5568', marginBottom: 4 }}>
+        <Text style={{ fontSize: 13, color: '#4a5568', marginBottom: 4 }}>
           Asset ID: <Text style={{ fontWeight: '700' }}>{result.asset_model_id || '—'}</Text>
         </Text>
         {lines.map(([label, val], i) => (
-          <Text key={i} style={{ fontSize: 11, color: '#4a5568' }}>
+          <Text key={i} style={{ fontSize: 13, color: '#4a5568' }}>
             {label}: <Text style={{ fontWeight: '600' }}>{val ?? '—'}</Text>
           </Text>
         ))}
@@ -731,7 +784,7 @@ const CoPackerDashboard = () => {
 
     return (
       <View>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: stepColor, marginBottom: 12 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: stepColor, marginBottom: 12 }}>
           Step {modalStep} of 4 — {stepLabel}
         </Text>
 
@@ -762,7 +815,7 @@ const CoPackerDashboard = () => {
             </View>
           )}
         </View>
-        <Text style={{ fontSize: 10, color: '#718096', marginTop: 3, marginBottom: 10 }}>
+        <Text style={{ fontSize: 12, color: '#718096', marginTop: 3, marginBottom: 10 }}>
           {modalStep <= 3 && carryAssetId && modalStep > 1
             ? `💡 Carried forward from Blow Molder: ${carryAssetId}`
             : 'Leave blank to use OCR-extracted value.'}
@@ -907,7 +960,8 @@ const CoPackerDashboard = () => {
                 <Text style={[styles.tableHeaderCell, { width: 36 }]}>Sr.</Text>
                 <Text style={[styles.tableHeaderCell, { width: 130 }]}>Date / Time</Text>
                 <Text style={[styles.tableHeaderCell, { width: 44 }]}>Line</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1 }]}>SKU</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1, minWidth: 50 }]}>SKU</Text>
+                <Text style={[styles.tableHeaderCell, { width: isSmall ? 90 : 160 }]}>Shift</Text>
                 <Text style={[styles.tableHeaderCell, { width: 90 }]}>Status</Text>
                 <Text style={[styles.tableHeaderCell, { width: 28 }]}> </Text>
               </View>
@@ -1023,7 +1077,73 @@ const CoPackerDashboard = () => {
                     )}
                   </View>
 
-                  <Text style={{ fontSize: 11, color: '#718096', marginTop: 8 }}>
+                  {/* ── Shift selector ── */}
+                  <Text style={styles.fieldLabel}>Shift</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                    {[1, 2, 3].map(n => (
+                      <TouchableOpacity
+                        key={n}
+                        onPress={() => {
+                          setSessionShiftNo(n);
+                          setSessionShiftStart(SHIFT_DEFAULTS[n].start);
+                          setSessionShiftEnd(SHIFT_DEFAULTS[n].end);
+                        }}
+                        style={{
+                          flex: 1, paddingVertical: 9, borderRadius: 7,
+                          borderWidth: 2,
+                          borderColor: sessionShiftNo === n ? STEP_COLORS[1] : '#cbd5e0',
+                          backgroundColor: sessionShiftNo === n ? '#ebf8ff' : '#fff',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{
+                          fontWeight: 'bold', fontSize: isSmall ? 13 : 14,
+                          color: sessionShiftNo === n ? STEP_COLORS[1] : '#4a5568',
+                        }}>
+                          Shift {n}
+                        </Text>
+                        <Text style={{ fontSize: isSmall ? 10 : 11, color: '#718096', marginTop: 2 }}>
+                          {to12hr(SHIFT_DEFAULTS[n].start)} –{'\n'}{to12hr(SHIFT_DEFAULTS[n].end)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Editable shift times (shown once a shift is selected) */}
+                  {sessionShiftNo !== null && (
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.fieldLabel}>Start Time</Text>
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={sessionShiftStart}
+                          onChangeText={setSessionShiftStart}
+                          placeholder="HH:MM"
+                          maxLength={5}
+                          keyboardType="numbers-and-punctuation"
+                        />
+                        <Text style={{ fontSize: 11, color: '#718096', marginTop: 2 }}>
+                          {to12hr(sessionShiftStart)}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.fieldLabel}>End Time</Text>
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={sessionShiftEnd}
+                          onChangeText={setSessionShiftEnd}
+                          placeholder="HH:MM"
+                          maxLength={5}
+                          keyboardType="numbers-and-punctuation"
+                        />
+                        <Text style={{ fontSize: 11, color: '#718096', marginTop: 2 }}>
+                          {to12hr(sessionShiftEnd)}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  <Text style={{ fontSize: 12, color: '#718096', marginTop: 12 }}>
                     You will capture 4 machine images in sequence after this.
                   </Text>
                   <View style={{ height: 16 }} />
@@ -1156,8 +1276,8 @@ const FieldChip = ({ label, value, wide }) => (
     paddingVertical: 4,
     ...(wide ? { width: '100%', marginBottom: 2 } : { minWidth: 100 }),
   }}>
-    <Text style={{ fontSize: 9, color: '#718096', marginBottom: 1 }}>{label}</Text>
-    <Text style={{ fontSize: 11, fontWeight: '600', color: '#2d3748' }} numberOfLines={wide ? 2 : 1}>
+    <Text style={{ fontSize: 11, color: '#718096', marginBottom: 1 }}>{label}</Text>
+    <Text style={{ fontSize: 13, fontWeight: '600', color: '#2d3748' }} numberOfLines={wide ? 2 : 1}>
       {value ?? '—'}
     </Text>
   </View>
