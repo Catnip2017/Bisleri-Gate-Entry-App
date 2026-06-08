@@ -645,7 +645,7 @@ const CoPackerDashboard = () => {
 
             {/* SKU */}
             <Text
-              style={{ flex: 1, minWidth: 50, fontSize: 13, color: '#2d3748', paddingHorizontal: 4 }}
+              style={{ width: isSmall ? 60 : 100, fontSize: 13, color: '#2d3748', paddingHorizontal: 4 }}
               numberOfLines={1}
             >
               {session.sku_name || '—'}
@@ -654,7 +654,7 @@ const CoPackerDashboard = () => {
             {/* Shift */}
             <Text
               style={{
-                width: isSmall ? 90 : 160,
+                width: isSmall ? 120 : 200,
                 fontSize: isSmall ? 11 : 13,
                 color: session.shift_no ? '#2d3748' : '#a0aec0',
                 paddingHorizontal: 4,
@@ -960,8 +960,8 @@ const CoPackerDashboard = () => {
                 <Text style={[styles.tableHeaderCell, { width: 36 }]}>Sr.</Text>
                 <Text style={[styles.tableHeaderCell, { width: 130 }]}>Date / Time</Text>
                 <Text style={[styles.tableHeaderCell, { width: 44 }]}>Line</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1, minWidth: 50 }]}>SKU</Text>
-                <Text style={[styles.tableHeaderCell, { width: isSmall ? 90 : 160 }]}>Shift</Text>
+                <Text style={[styles.tableHeaderCell, { width: isSmall ? 60 : 100 }]}>SKU</Text>
+                <Text style={[styles.tableHeaderCell, { width: isSmall ? 120 : 200 }]}>Shift</Text>
                 <Text style={[styles.tableHeaderCell, { width: 90 }]}>Status</Text>
                 <Text style={[styles.tableHeaderCell, { width: 28 }]}> </Text>
               </View>
