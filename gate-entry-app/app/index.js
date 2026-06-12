@@ -19,11 +19,13 @@ export default function IndexScreen() {
       
       if (token) {
         try {
-          const { getCurrentUser } = await import('../utils/jwtUtils');
+          const { getCurrentUser, getRoleBasedRoute } = await import('../utils/jwtUtils');
           const userData = await getCurrentUser();
-          
+
           if (userData && userData.username) {
-            router.replace('/landing/');
+            // Route to the correct home based on role (not always /landing)
+            const route = getRoleBasedRoute(userData.roles || []);
+            router.replace(route);
           } else {
             await storage.removeItem('access_token'); // CHANGED
             router.replace('/LoginScreen');

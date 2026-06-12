@@ -220,3 +220,48 @@ export const isSecurityAdmin = async () => {
 export const isITAdmin = async () => {
   return await hasRole('IT Admin');
 };
+
+/**
+ * Determine the correct home route based on a user's normalised roles array.
+ *
+ * Priority rules (agreed with product):
+ *  • itadmin (alone, or + securityadmin)        → /admin-hub
+ *  • itadmin + securityguard (± securityadmin)  → /admin-hub
+ *  • securityguard + securityadmin (no itadmin) → /landing   (dual-access user)
+ *  • securityadmin only                         → /admin     (Admin Insights only)
+ *  • securityguard only / anything else         → /security
+ *
+ * @param {string[]} roles - Normalised roles array from getCurrentUser()
+ * @returns {string} Expo-router path to replace() into
+ */
+export const getRoleBasedRoute = (roles = []) => {
+  // Any user with itadmin always lands on the Admin Hub,
+  // regardless of additional security roles.
+  if (roles.includes('itadmin')) return '/admin-hub';
+
+  // Dual security roles (no itadmin) → landing, with restricted security tab
+  if (roles.includes('securityguard') && roles.includes('securityadmin')) {
+    return '/landing/';
+  }
+
+  // Security Admin only → straight to Admin Insights
+  if (roles.includes('securityadmin')) return '/admin/AdminDashboard';
+
+  // securityguard only, or any unrecognised role → security tab
+  return '/security';
+};
+
+/**
+ * Determine whether the Gate Entry tab should be in restricted
+ * (read-only / vehicle-search-only) mode for this user.
+ *
+ * Any admin role (itadmin or securityadmin) viewing the Gate Entry tab
+ * is restricted — that tab is only their primary workspace if they are
+ * a securityguard with NO admin role.
+ *
+ * @param {string[]} roles - Normalised roles array from getCurrentUser()
+ * @returns {boolean}
+ */
+export const isGateEntryRestricted = (roles = []) => {
+  return roles.includes('itadmin') || roles.includes('securityadmin');
+};

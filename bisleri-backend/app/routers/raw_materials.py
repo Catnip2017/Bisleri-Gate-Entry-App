@@ -53,7 +53,7 @@ def create_raw_materials_entry(
                 detail="Invalid vehicle number format"
             )
 
-        is_empty_vehicle = (entry.entry_type or "with_document") == "empty_vehicle"
+        is_empty_vehicle = entry.is_empty_vehicle
 
         # Generate gate entry number first (needed for unique empty vehicle doc_no)
         gate_entry_no = generate_gate_entry_no_for_user(current_user.username)

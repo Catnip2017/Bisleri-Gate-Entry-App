@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { storage } from '../utils/storage';
 import { authAPI, handleAPIError } from '../services/api';
 import { showAlert } from '../utils/customModal';
+import { getCurrentUser, getRoleBasedRoute } from '../utils/jwtUtils';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -63,10 +64,14 @@ export default function LoginScreen() {
       // Store the token securely using cross-platform storage
       await storage.setItem("access_token", access_token);
 
-      console.log('Login successful, redirecting to landing page...');
-      
-      // Direct redirect to landing page without popup
-      router.replace('/landing/');
+      // Decode role from the new token and route accordingly
+      const userData = await getCurrentUser();
+      const route = userData?.roles
+        ? getRoleBasedRoute(userData.roles)
+        : '/landing/';
+
+      console.log('Login successful, routing to:', route, '| roles:', userData?.roles);
+      router.replace(route);
       
     } catch (error) {
       console.error("Login failed", error);

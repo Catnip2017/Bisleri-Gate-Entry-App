@@ -30,7 +30,14 @@ const GateEntryTab = ({
   userData,
 }) => {
   const router = useRouter();
-  const isITAdmin = userData?.role?.toLowerCase() === 'itadmin';
+
+  // Any admin role (IT Admin or Security Admin) viewing this tab is
+  // restricted to Vehicle Search only — no write access (manual entry,
+  // operational fields, RM entry, or submission).
+  const userRoles = userData?.roles || [];
+  const isRestricted = userRoles.includes('itadmin') || userRoles.includes('securityadmin');
+  const restrictedMessage =
+    '🚫 Restricted Access — you can only search vehicle records. Manual entry and submission are disabled for your role.';
 
   // ✅ MERGED: Entry type toggle (FG or RM)
   const [entryType, setEntryType] = useState("FG");
@@ -187,6 +194,8 @@ const GateEntryTab = ({
   });
 
   const [isEmptyVehicle, setIsEmptyVehicle] = useState(false);
+  const isEmptyVehicleRef = React.useRef(false);
+
   // ✅ MERGED: RM form handlers
   const updateRMField = (field, value) => {
     setRMFormData({
@@ -195,7 +204,7 @@ const GateEntryTab = ({
     });
   };
 
-  const validateRMForm = () => {
+  const validateRMForm = (emptyVehicle = isEmptyVehicle) => {
     if (!rmFormData.vehicleNo.trim()) {
       showAlert("Error", "Vehicle number is required");
       return false;
@@ -207,7 +216,7 @@ const GateEntryTab = ({
     }
 
     // Document number is only required when NOT an empty vehicle
-    if (!isEmptyVehicle && !rmFormData.documentNo.trim()) {
+    if (!isEmptyVehicleRef.current && !rmFormData.documentNo.trim()) {
       showAlert("Error", "Document number is required");
       return false;
     }
@@ -391,11 +400,8 @@ const GateEntryTab = ({
   };
 
   const handleEnhancedSubmit = async () => {
-    if (isITAdmin) {
-      showAlert(
-        '🚫 Restricted Access',
-        'IT Admins can only view this page. Manual Entry creation is disabled.'
-      );
+    if (isRestricted) {
+      showAlert('🚫 Restricted Access', restrictedMessage);
       return;
     }
 
@@ -939,13 +945,14 @@ const GateEntryTab = ({
                   fieldValidation.driver_name.touched &&
                     !fieldValidation.driver_name.isValid &&
                     styles.inputError,
+                  isRestricted && styles.inputDisabled,
                 ]}
                 placeholder="Enter Driver Name"
                 value={operationalData.driver_name}
                 onChangeText={(text) =>
                   updateOperationalField("driver_name", text)
                 }
-                editable={!isSubmitting && !isSearching}
+                editable={!isSubmitting && !isSearching && !isRestricted}
                 autoCapitalize="words"
               />
               {fieldValidation.driver_name.touched &&
@@ -966,6 +973,7 @@ const GateEntryTab = ({
                   fieldValidation.km_reading.touched &&
                     !fieldValidation.km_reading.isValid &&
                     styles.inputError,
+                  isRestricted && styles.inputDisabled,
                 ]}
                 placeholder={
                   gateEntryData.gateType === "Gate-Out"
@@ -977,7 +985,7 @@ const GateEntryTab = ({
                 onChangeText={(text) =>
                   updateOperationalField("km_reading", text)
                 }
-                editable={!isSubmitting && !isSearching}
+                editable={!isSubmitting && !isSearching && !isRestricted}
                 maxLength={6}
               />
               {fieldValidation.km_reading.touched &&
@@ -993,11 +1001,11 @@ const GateEntryTab = ({
             <View style={styles.field33}>
               <Text style={styles.label}>Remarks</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isRestricted && styles.inputDisabled]}
                 placeholder="Optional"
                 value={gateEntryData.remarks || ""}
                 onChangeText={(text) => updateField("remarks", text)}
-                editable={!isSubmitting && !isSearching}
+                editable={!isSubmitting && !isSearching && !isRestricted}
               />
             </View>
 
@@ -1009,7 +1017,8 @@ const GateEntryTab = ({
                   styles.input,
                   fieldValidation.loader_count.touched &&
                     !fieldValidation.loader_count.isValid &&
-                    styles.inputError
+                    styles.inputError,
+                  isRestricted && styles.inputDisabled,
                 ]}
                 placeholder="Count"
                 value={operationalData.loader_count}
@@ -1018,7 +1027,7 @@ const GateEntryTab = ({
                 }
                 keyboardType="numeric"
                 maxLength={2}
-                editable={!isSubmitting && !isSearching}
+                editable={!isSubmitting && !isSearching && !isRestricted}
               />
 
               {fieldValidation.loader_count.touched &&
@@ -1037,6 +1046,7 @@ const GateEntryTab = ({
                   fieldValidation.loader_names.touched &&
                     !fieldValidation.loader_names.isValid &&
                     styles.inputError,
+                  isRestricted && styles.inputDisabled,
                 ]}
                 placeholder="Enter Loader Names (comma-separated)"
                 value={operationalData.loader_names}
@@ -1044,7 +1054,7 @@ const GateEntryTab = ({
                   const cleaned = text.replace(/[^a-zA-Z\s,]/g, '');
                   updateOperationalField("loader_names", cleaned);
                 }}
-                editable={!isSubmitting && !isSearching}
+                editable={!isSubmitting && !isSearching && !isRestricted}
                 maxLength={200}
               />
               {fieldValidation.loader_names.touched &&
@@ -1085,33 +1095,38 @@ const GateEntryTab = ({
           {renderDocumentTable()}
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.button, 
+                styles.button,
                 styles.submitButton,
                 // ✅ ALWAYS disabled if no documents selected OR no search results
-                (!searchResults || selectedDocuments.length === 0) && styles.buttonDisabled
-              ]} 
+                (!searchResults || selectedDocuments.length === 0 || isRestricted) && styles.buttonDisabled
+              ]}
               onPress={handleEnhancedSubmit}
-              disabled={!searchResults || selectedDocuments.length === 0}
+              disabled={!searchResults || selectedDocuments.length === 0 || isRestricted}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
                 <Text style={styles.buttonText}>
-                  {/* ✅ ALWAYS show "Submit" - never changes */}
-                  Submit ({selectedDocuments.length} selected)
+                  {isRestricted
+                    ? '🚫 Restricted Access'
+                    : `Submit (${selectedDocuments.length} selected)`}
                 </Text>
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.button,
                 styles.manualButton,
-                (isSubmitting || isSearching) && styles.buttonDisabled
-              ]} 
+                (isSubmitting || isSearching || isRestricted) && styles.buttonDisabled
+              ]}
               onPress={() => {
+                if (isRestricted) {
+                  showAlert('🚫 Restricted Access', restrictedMessage);
+                  return;
+                }
                 // ✅ ADD VALIDATIONS HERE:
                 if (!operationalData.driver_name?.trim()) {
                   showAlert('Validation Error', 'Driver name is required');
@@ -1148,7 +1163,7 @@ const GateEntryTab = ({
                     `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderCount=${encodeURIComponent(operationalData.loader_count || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`
                 );
               }}
-              disabled={isSubmitting || isSearching}
+              disabled={isSubmitting || isSearching || isRestricted}
             >
               <Text style={styles.buttonText}>Manual Entry</Text>
             </TouchableOpacity>
@@ -1180,7 +1195,7 @@ const GateEntryTab = ({
                     key={type}
                     style={styles.radioButton}
                     onPress={() => updateRMField("gateType", type)}
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || isRestricted}
                   >
                     <View style={styles.radioCircle}>
                       {rmFormData.gateType === type && (
@@ -1198,32 +1213,32 @@ const GateEntryTab = ({
             <View style={styles.fieldFull}>
               <Text style={styles.label}>Vehicle Number *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isRestricted && styles.inputDisabled]}
                 placeholder="Enter Vehicle Number"
                 value={rmFormData.vehicleNo}
                 onChangeText={(text) =>
                   updateRMField("vehicleNo", text.toUpperCase())
                 }
                 autoCapitalize="characters"
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isRestricted}
               />
             </View>
           </View>
 
           {/* Empty Vehicle Checkbox */}
-          <View style={[styles.row, { alignItems: "center", marginBottom: 8 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8, marginTop: 4 }}>
             <Checkbox
               value={isEmptyVehicle}
               onValueChange={(newValue) => {
                 setIsEmptyVehicle(newValue);
                 if (newValue) {
-                  updateRMField("documentNo", ""); // clear the field when checked
+                  setRMFormData((prev) => ({ ...prev, documentNo: "" }));
                 }
               }}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isRestricted}
               color={isEmptyVehicle ? "#007bff" : undefined}
             />
-            <Text style={[styles.label, { marginLeft: 8, marginBottom: 0 }]}>
+            <Text style={{ marginLeft: 8, fontSize: 14, color: "#333" }}>
               Empty Vehicle (No Document)
             </Text>
           </View>
@@ -1238,11 +1253,12 @@ const GateEntryTab = ({
                 style={[
                   styles.input,
                   isEmptyVehicle && { backgroundColor: "#f0f0f0", color: "#aaa" },
+                  isRestricted && styles.inputDisabled,
                 ]}
                 placeholder={isEmptyVehicle ? "N/A — Empty Vehicle" : "Enter Document Number"}
                 value={rmFormData.documentNo}
                 onChangeText={(text) => updateRMField("documentNo", text)}
-                editable={!isSubmitting && !isEmptyVehicle}
+                editable={!isSubmitting && !isEmptyVehicle && !isRestricted}
               />
             </View>
           </View>
@@ -1251,11 +1267,11 @@ const GateEntryTab = ({
             <View style={styles.fieldFull}>
               <Text style={styles.label}>Name of Party *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isRestricted && styles.inputDisabled]}
                 placeholder="Enter Name of Party"
                 value={rmFormData.nameOfParty}
                 onChangeText={(text) => updateRMField("nameOfParty", text)}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isRestricted}
               />
             </View>
           </View>
@@ -1264,7 +1280,11 @@ const GateEntryTab = ({
             <View style={styles.fieldFull}>
               <Text style={styles.label}>Description of Material *</Text>
               <TextInput
-                style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+                style={[
+                  styles.input,
+                  { height: 80, textAlignVertical: "top" },
+                  isRestricted && styles.inputDisabled,
+                ]}
                 placeholder="Enter Description of Material"
                 value={rmFormData.descriptionOfMaterial}
                 onChangeText={(text) =>
@@ -1272,7 +1292,7 @@ const GateEntryTab = ({
                 }
                 multiline
                 numberOfLines={3}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isRestricted}
               />
             </View>
           </View>
@@ -1281,11 +1301,11 @@ const GateEntryTab = ({
             <View style={styles.fieldFull}>
               <Text style={styles.label}>Quantity *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, isRestricted && styles.inputDisabled]}
                 placeholder="Enter Quantity"
                 value={rmFormData.quantity}
                 onChangeText={(text) => updateRMField("quantity", text)}
-                editable={!isSubmitting}
+                editable={!isSubmitting && !isRestricted}
               />
             </View>
           </View>
@@ -1293,22 +1313,22 @@ const GateEntryTab = ({
           <View style={styles.buttonRow}>
 <TouchableOpacity
   style={[
-    styles.button,  // ✅ ADDED
+    styles.button,
     styles.submitButton,
-    (isSubmitting || isITAdmin) && styles.buttonDisabled
+    (isSubmitting || isRestricted) && styles.buttonDisabled
   ]}
   onPress={
-    isITAdmin
-      ? () => showAlert('Restricted Access', 'IT Admin cannot create manual entries.')
-      : handleRMSubmit  // ✅ FIXED
+    isRestricted
+      ? () => showAlert('🚫 Restricted Access', restrictedMessage)
+      : handleRMSubmit
   }
-  disabled={isSubmitting || isITAdmin}
+  disabled={isSubmitting || isRestricted}
 >
   {isSubmitting ? (
     <ActivityIndicator size="small" color="white" />
   ) : (
-    <Text style={styles.buttonText}>  {/* ✅ FIXED */}
-      {isITAdmin ? '🚫 Restricted for IT Admin' : 'Submit RM Entry'}
+    <Text style={styles.buttonText}>
+      {isRestricted ? '🚫 Restricted Access' : 'Submit RM Entry'}
     </Text>
   )}
 </TouchableOpacity>

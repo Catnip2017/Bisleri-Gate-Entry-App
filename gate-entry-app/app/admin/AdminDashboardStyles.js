@@ -55,7 +55,19 @@ export default StyleSheet.create({
   // Layout
   body: {
     flex: 1,
+    flexDirection: "column",
+  },
+  bodyRow: {
+    flex: 1,
     flexDirection: "row",
+  },
+  topLeftRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#f5f5f5",
   },
   sidebar: {
     width: 250,

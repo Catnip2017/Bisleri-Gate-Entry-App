@@ -33,6 +33,23 @@ const styles = StyleSheet.create({
     color: "#4a5568",
     marginTop: 2,
   },
+  topLeftRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  adminHubLink: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#ebf8ff",
+    borderRadius: 6,
+  },
+  adminHubLinkText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#2b6cb0",
+  },
   content: {
     flex: 1,
     paddingHorizontal: 24,

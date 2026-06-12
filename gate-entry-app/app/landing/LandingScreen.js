@@ -72,6 +72,10 @@ export default function LandingScreen() {
     }
   };
 
+  const handleAdminHubPress = () => {
+    router.push('/admin-hub');
+  };
+
   const handleLogout = () => {
     showAlert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
@@ -129,6 +133,15 @@ export default function LandingScreen() {
           </View>
         )}
       </View>
+
+      {/* Top-left back navigation */}
+      {user && hasRole("itadmin") && (
+        <View style={styles.topLeftRow}>
+          <Pressable onPress={handleAdminHubPress} style={styles.adminHubLink}>
+            <Text style={styles.adminHubLinkText}>← Admin Hub</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Main Content */}
       <View style={styles.content}>

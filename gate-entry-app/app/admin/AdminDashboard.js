@@ -1,4 +1,7 @@
-
+// app/admin/AdminDashboard.js
+// Simplified: this screen now ONLY shows Admin Insights.
+// Register Users / Modify Users / Reset Password have moved to
+// app/admin-hub/user-management (IT Admin only, accessed from Admin Hub).
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -8,7 +11,6 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
@@ -16,12 +18,8 @@ import { authAPI } from '../../services/api';
 import * as SecureStore from 'expo-secure-store';
 import { showAlert } from '../../utils/customModal';
 
-
 // Import admin screens
 import AdminInsightsScreen from './screens/AdminInsightsScreen';
-import RegisterScreen from './screens/RegisterScreen';
-import ModifyUserScreen from './screens/ModifyUserScreen';
-import ResetPasswordScreen from './screens/ResetPasswordScreen';
 
 // Import styles
 import styles from './AdminDashboardStyles';
@@ -31,13 +29,11 @@ const roleLabels = {
   securityadmin: "Security Admin",
   securityguard: "Security Guard",
 };
- 
+
 const AdminDashboard = () => {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState('Admin Insights');
-  const [availableTabs, setAvailableTabs] = useState(['Admin Insights']);
 
   useEffect(() => {
     loadUserData();
@@ -61,34 +57,16 @@ const AdminDashboard = () => {
       userData.roles = rolesArray;
       setUser(userData);
 
-      // Determine accessible tabs based on roles
-      // Determine accessible tabs based on roles
-const tabs = [];
-// ✅ Allow IT Admin full access
-if (rolesArray.includes('itadmin')) {
-  tabs.push('Admin Insights', 'Register Users', 'Modify Users', 'Reset Password');
-}
+      // Access check: only itadmin / securityadmin (alone or combined) may view
+      const allowed =
+        rolesArray.includes('itadmin') ||
+        rolesArray.includes('securityadmin');
 
-// ✅ Allow Security Admin (even if also Security Guard)
-else if (rolesArray.includes('securityadmin')) {
-  tabs.push('Admin Insights');
-}
-
-// ✅ NEW: Allow if both Security Guard + Security Admin are assigned
-else if (rolesArray.includes('securityguard') && rolesArray.includes('securityadmin')) {
-  tabs.push('Admin Insights');
-}
-
-// ❌ Everyone else blocked
-else {
-  showAlert('Access Denied', 'You do not have access to this page.');
-  router.replace('/landing/');
-  return;
-}
-
-setAvailableTabs(tabs);
-
-
+      if (!allowed) {
+        showAlert('Access Denied', 'You do not have access to this page.');
+        router.replace('/landing/');
+        return;
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
       router.replace('/LoginScreen');
@@ -121,35 +99,14 @@ setAvailableTabs(tabs);
     router.push('/landing/');
   };
 
-  const renderActiveScreen = () => {
-    const roles = user?.roles || [];
-
-    switch (activeTab) {
-      case 'Admin Insights':
-        return <AdminInsightsScreen />;
-
-      case 'Register Users':
-        if (roles.includes('itadmin')) return <RegisterScreen />;
-        showAlert('Access Denied', 'Only IT Admin can register users.');
-        setActiveTab('Admin Insights');
-        return null;
-
-      case 'Modify Users':
-        if (roles.includes('itadmin')) return <ModifyUserScreen />;
-        showAlert('Access Denied', 'Only IT Admin can modify users.');
-        setActiveTab('Admin Insights');
-        return null;
-
-      case 'Reset Password':
-        if (roles.includes('itadmin')) return <ResetPasswordScreen />;
-        showAlert('Access Denied', 'Only IT Admin can reset passwords.');
-        setActiveTab('Admin Insights');
-        return null;
-
-      default:
-        return <AdminInsightsScreen />;
-    }
+  const handleBackToAdminHub = () => {
+    router.push('/admin-hub');
   };
+
+  const roles = user?.roles || [];
+  const isITAdmin = roles.includes('itadmin');
+  // securityguard + securityadmin combo also passes through /landing
+  const showLandingButton = roles.includes('securityguard');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -165,63 +122,63 @@ setAvailableTabs(tabs);
           resizeMode="contain"
         />
 
-        <View style={styles.headerButtons}>
-          <TouchableOpacity style={styles.homeButton} onPress={handleBackToLanding}>
-            <Text style={styles.homeButtonText}>Home</Text>
-          </TouchableOpacity>
-          
-        </View>
+        <View style={{ width: 24 }} />
       </View>
 
       {/* Body */}
       <View style={styles.body}>
-        {/* Sidebar */}
-        {isSidebarVisible && (
-          <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>User Info</Text>
-            {user && (
-              <>
-                <Text style={styles.sidebarItem}>Username: {user.username}</Text>
-                <Text style={styles.sidebarItem}>
-                  Name: {user.firstName} {user.lastName}
-                </Text> 
-                <Text style={styles.sidebarItem}>
-                  Role: {user.roles
-                    .map(role => roleLabels[role] || (role.charAt(0).toUpperCase() + role.slice(1)))
-                    .join(', ')}
-                </Text>
-                {user.warehouseCode && (
-                  <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
-                )}
-                {user.siteCode && (
-                  <Text style={styles.sidebarItem}>Site Code: {user.siteCode}</Text>
-                )}
-              </>
+        {/* Top-left back navigation */}
+        {(isITAdmin || showLandingButton) && (
+          <View style={styles.topLeftRow}>
+            {/* IT Admins came from Admin Hub — give them a way back */}
+            {isITAdmin && (
+              <TouchableOpacity style={styles.homeButton} onPress={handleBackToAdminHub}>
+                <Text style={styles.homeButtonText}>← Admin Hub</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Security Guard + Security Admin combo came from /landing */}
+            {showLandingButton && (
+              <TouchableOpacity style={styles.homeButton} onPress={handleBackToLanding}>
+                <Text style={styles.homeButtonText}>← Home</Text>
+              </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Main Content */}
-        <View style={styles.mainContent}>
-          {/* Tabs */}
-          <View style={styles.tabContainer}>
-            {availableTabs.map((tab) => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tab, activeTab === tab && styles.activeTab]}
-                onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <View style={styles.bodyRow}>
+          {/* Sidebar */}
+          {isSidebarVisible && (
+            <View style={styles.sidebar}>
+              <Text style={styles.sidebarTitle}>User Info</Text>
+              {user && (
+                <>
+                  <Text style={styles.sidebarItem}>Username: {user.username}</Text>
+                  <Text style={styles.sidebarItem}>
+                    Name: {user.firstName} {user.lastName}
+                  </Text>
+                  <Text style={styles.sidebarItem}>
+                    Role: {user.roles
+                      .map(role => roleLabels[role] || (role.charAt(0).toUpperCase() + role.slice(1)))
+                      .join(', ')}
+                  </Text>
+                  {user.warehouseCode && (
+                    <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
+                  )}
+                  {user.siteCode && (
+                    <Text style={styles.sidebarItem}>Site Code: {user.siteCode}</Text>
+                  )}
+                </>
+              )}
+            </View>
+          )}
 
-          {/* Content */}
-          <ScrollView style={styles.screenContainer}>
-            {renderActiveScreen()}
-          </ScrollView>
+          {/* Main Content — Admin Insights only */}
+          <View style={styles.mainContent}>
+            <ScrollView style={styles.screenContainer}>
+              <AdminInsightsScreen />
+            </ScrollView>
+          </View>
         </View>
       </View>
     </SafeAreaView>
