@@ -22,7 +22,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 // Run Streamlit with:
 //   streamlit run streamlit-dashboards/hello.py \
 //     --server.enableCORS=false --server.enableXsrfProtection=false
-const STREAMLIT_URL = 'http://192.168.1.8:8501';
+const STREAMLIT_URL = 'http://192.168.1.11:8501';
 
 // ── Lazy-load WebView only on native to avoid web bundle issues ───────────────
 let WebView = null;

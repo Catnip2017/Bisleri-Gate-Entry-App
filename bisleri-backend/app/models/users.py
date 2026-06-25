@@ -21,8 +21,9 @@ class UsersMaster(Base):
     warehouse_name = Column(String(255))
     site_code = Column(String(50))
     password = Column(String(255))
-    email = Column(String(255), nullable=True, default=None)        # allow NULL
-    phone_number = Column(String(20), nullable=True, default=None)  # allow NULL
+    email = Column(String(255), nullable=True, default=None)
+    phone_number = Column(String(20), nullable=True, default=None)
     last_login = Column(DateTime)
+    copacker_location = Column(String(255), nullable=True, default=None)
 
     location = relationship("LocationMaster")

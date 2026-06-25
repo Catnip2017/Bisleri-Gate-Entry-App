@@ -87,6 +87,24 @@ const styles = StyleSheet.create({
   roleButtonTextActive: {
     color: '#1976d2',
   },
+  roleButtonDisabled: {
+    borderColor: '#e0e0e0',
+    backgroundColor: '#f0f0f0',
+    opacity: 0.5,
+  },
+  roleButtonTextDisabled: {
+    color: '#aaa',
+  },
+  copackerNote: {
+    fontSize: 12,
+    color: '#dd6b20',
+    backgroundColor: '#fffaf0',
+    borderWidth: 1,
+    borderColor: '#fbd38d',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 14,
+  },
   registerButton: {
     backgroundColor: '#1976d2',
     paddingVertical: 14,

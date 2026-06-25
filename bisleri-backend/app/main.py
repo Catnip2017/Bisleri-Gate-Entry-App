@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync , raw_materials
+from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials
+from app.routers import copacker as copacker_router
+from app.config import settings as _settings
  
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -66,7 +69,13 @@ app.include_router(ping.router)
 app.include_router(admin.router)
 app.include_router(sync.router)
 app.include_router(raw_materials.router)
- 
+app.include_router(copacker_router.router)
+
+# Serve copacker images as static files at /copacker-images/{path}
+_copacker_img_dir = _settings.COPACKER_IMAGE_PATH
+os.makedirs(_copacker_img_dir, exist_ok=True)
+app.mount("/copacker-images", StaticFiles(directory=_copacker_img_dir), name="copacker-images")
+
 @app.get("/")
 async def root():
     return {"message": "Bisleri Backend API is running"}

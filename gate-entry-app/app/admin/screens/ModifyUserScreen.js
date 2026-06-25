@@ -379,12 +379,13 @@ const ModifyUserScreen = () => {
   const [roles, setRoles] = useState([]);
   const [selected, setSelected] = useState('modify');
 
-  const availableRoles = ['Security Admin', 'Security Guard', 'IT Admin'];
+  const availableRoles = ['Security Admin', 'Security Guard', 'IT Admin', 'Co Packer'];
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [copackerLocation, setCopackerLocation] = useState('');
 
   // 🔹 Search users for autocomplete
   const handleSearchUser = async (query) => {
@@ -418,13 +419,25 @@ const ModifyUserScreen = () => {
     setLastName(user.last_name || '');
     setEmail(user.email || '');
     setPhoneNumber(user.phone_number || '');
+    setCopackerLocation(user.copacker_location || '');
 
     setMatchingUsers([]);
   };
 
-  // 🔹 Toggle roles
+  // 🔹 Toggle roles with Co Packer exclusivity
   const toggleRole = (role) => {
-    setRoles(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+    if (role === 'Co Packer') {
+      // Co Packer is exclusive — selecting it clears all other roles
+      setRoles(prev => prev.includes(role) ? [] : ['Co Packer']);
+    } else {
+      // Selecting any other role removes Co Packer
+      setRoles(prev => {
+        const withoutCopacker = prev.filter(r => r !== 'Co Packer');
+        return withoutCopacker.includes(role)
+          ? withoutCopacker.filter(r => r !== role)
+          : [...withoutCopacker, role];
+      });
+    }
   };
 
   // 🔹 Modify roles
@@ -432,9 +445,16 @@ const ModifyUserScreen = () => {
     if (!userFound) return showAlert('Error', 'Please select a user first');
     if (!roles.length) return showAlert('Error', 'Please assign at least one role');
 
+    if (roles.includes('Co Packer') && !copackerLocation.trim()) {
+      return showAlert('Error', 'Copacker Location is required for Co Packer role');
+    }
+
     setLoading(true);
     try {
-      await adminAPI.modifyUser(userFound.username, { role: roles.join(', ') });
+      await adminAPI.modifyUser(userFound.username, {
+        role: roles.join(', '),
+        copacker_location: roles.includes('Co Packer') ? copackerLocation.trim() : null,
+      });
       showAlert('Success', `User "${userFound.username}" roles updated successfully!`, [
         { text: 'OK', onPress: resetForm },
       ]);
@@ -484,6 +504,7 @@ const ModifyUserScreen = () => {
     setLastName('');
     setEmail('');
     setPhoneNumber('');
+    setCopackerLocation('');
   };
 
   // 🔹 Save edited details
@@ -582,18 +603,47 @@ const ModifyUserScreen = () => {
             </View>
 
             <View style={styles.rolesContainer}>
-              {availableRoles.map(role => (
-                <TouchableOpacity
-                  key={role}
-                  style={[styles.roleButton, roles.includes(role) && styles.roleButtonSelected]}
-                  onPress={() => toggleRole(role)}
-                >
-                  <Text style={[styles.roleButtonText, roles.includes(role) && styles.roleButtonTextSelected]}>
-                    {role}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {availableRoles.map(role => {
+                const isCopacker = role === 'Co Packer';
+                const copackerSelected = roles.includes('Co Packer');
+                const isDisabled = (isCopacker && !copackerSelected && roles.some(r => r !== 'Co Packer')) ||
+                                   (!isCopacker && copackerSelected);
+                return (
+                  <TouchableOpacity
+                    key={role}
+                    style={[
+                      styles.roleButton,
+                      roles.includes(role) && styles.roleButtonSelected,
+                      isDisabled && styles.roleButtonDisabled,
+                    ]}
+                    onPress={() => toggleRole(role)}
+                    disabled={isDisabled}
+                  >
+                    <Text style={[
+                      styles.roleButtonText,
+                      roles.includes(role) && styles.roleButtonTextSelected,
+                      isDisabled && styles.roleButtonTextDisabled,
+                    ]}>
+                      {role}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+            {roles.includes('Co Packer') && (
+              <>
+                <Text style={styles.copackerNote}>
+                  Co Packer is an exclusive role — it cannot be combined with any other role.
+                </Text>
+                <Text style={styles.label}>Copacker Location</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter copacker location name..."
+                  value={copackerLocation}
+                  onChangeText={setCopackerLocation}
+                />
+              </>
+            )}
 
             <TouchableOpacity
               style={[styles.modifyButton, loading && styles.modifyButtonDisabled]}

@@ -608,6 +608,99 @@ export const handleAPIError = (error) => {
   return "An unexpected error occurred. Please try again.";
 };
 
+// ── Co Packer APIs ────────────────────────────────────────────────────────────
+export const copackerAPI = {
+  featureStatus: async () => {
+    const response = await api.get('/copacker/feature-status');
+    return response.data;
+  },
+  registerLocation: async (locationName) => {
+    const response = await api.post('/copacker/register-location', { location_name: locationName });
+    return response.data;
+  },
+  searchLocations: async (q = '') => {
+    const response = await api.get('/copacker/locations', { params: { q } });
+    return response.data;
+  },
+  registerAsset: async (locationName, lineNo, assetModelId) => {
+    const response = await api.post('/copacker/register-asset', {
+      location_name: locationName, line_no: lineNo, asset_model_id: assetModelId,
+    });
+    return response.data;
+  },
+  getAssets: async (locationName) => {
+    const response = await api.get(`/copacker/assets/${encodeURIComponent(locationName)}`);
+    return response.data;
+  },
+  skuSearch: async (q, field = 'name') => {
+    const response = await api.get('/copacker/sku-search', { params: { q, field } });
+    return response.data;
+  },
+  submitEntry: async (formData) => {
+    const response = await api.post('/copacker/submit-entry', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return response.data;
+  },
+  getEntries: async (location, dateStr) => {
+    const params = { location };
+    if (dateStr) params.date = dateStr;
+    const response = await api.get('/copacker/entries', { params });
+    return response.data;
+  },
+  editQuantity: async (entryId, newQuantity) => {
+    const response = await api.put('/copacker/edit-quantity', { entry_id: entryId, new_quantity: newQuantity });
+    return response.data;
+  },
+  editField: async (entryId, fieldName, newValue) => {
+    const response = await api.put('/copacker/edit-field', {
+      entry_id: entryId, field_name: fieldName, new_value: String(newValue),
+    });
+    return response.data;
+  },
+  getEditLogs: async () => {
+    const response = await api.get('/copacker/edit-logs');
+    return response.data;
+  },
+  // Phase 2: Session-based capture
+  createSession: async (copacker_location, line_no, sku_name, sku_item_id, shift_no, shift_start_time, shift_end_time) => {
+    const response = await api.post('/copacker/session/create', {
+      copacker_location, line_no,
+      sku_name: sku_name || null,
+      sku_item_id: sku_item_id || null,
+      shift_no: shift_no || null,
+      shift_start_time: shift_start_time || null,
+      shift_end_time: shift_end_time || null,
+    });
+    return response.data;
+  },
+  submitCapture: async (sessionId, formData) => {
+    const response = await api.post(
+      `/copacker/session/${sessionId}/capture`, formData,
+      { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 90000 }
+    );
+    return response.data;
+  },
+  getSessions: async (location, dateStr) => {
+    const params = {};
+    if (location) params.location = location;
+    if (dateStr) params.date = dateStr;
+    const response = await api.get('/copacker/sessions', { params });
+    return response.data;
+  },
+  getAssetHistory: async (location, q = '') => {
+    const response = await api.get('/copacker/asset-history', { params: { location, q } });
+    return response.data;
+  },
+  editCaptureAsset: async (captureId, newAssetModelId) => {
+    const response = await api.put('/copacker/capture/edit-asset', {
+      capture_id: captureId, new_asset_model_id: newAssetModelId,
+    });
+    return response.data;
+  },
+};
+
 console.log('API Configuration:', {
   baseURL: API_BASE_URL,
   platform: Platform.OS,

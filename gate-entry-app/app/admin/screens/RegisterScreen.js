@@ -30,6 +30,7 @@ const RegisterScreen = () => {
     siteCode: '',
     email: '',
     phone_number: '',
+    copackerLocation: '',
   });
 
   const [warehouses, setWarehouses] = useState([]);
@@ -143,6 +144,13 @@ const RegisterScreen = () => {
       }
     }
 
+    // Copacker location required for Co Packer role
+    if (formData.role === 'Co Packer') {
+      if (!formData.copackerLocation.trim()) {
+        errors.copackerLocation = 'Copacker Location is required for Co Packer role';
+      }
+    }
+
     const errorKeys = Object.keys(errors);
     if (errorKeys.length > 0) {
       showAlert('Validation Error', errors[errorKeys[0]]);
@@ -164,6 +172,7 @@ const handleRegister = async () => {
       role: formData.role,
       warehouse_code: formData.warehouseCode?.trim() || undefined,
       site_code: formData.siteCode?.trim() || undefined,
+      copacker_location: formData.role === 'Co Packer' ? formData.copackerLocation.trim() : undefined,
     };
 
     // 🔹 Only add email/phone if user entered
@@ -194,6 +203,7 @@ const handleRegister = async () => {
             siteCode: '',
             email: '',
             phone_number: '',
+            copackerLocation: '',
           });
           setSearchText('');
         },
@@ -217,7 +227,7 @@ const handleRegister = async () => {
         {/* Role Selection */}
         <Text style={styles.label}>Role</Text>
         <View style={styles.roleContainer}>
-          {['Security Guard', 'Security Admin', 'IT Admin'].map(role => (
+          {['Security Guard', 'Security Admin', 'IT Admin', 'Co Packer'].map(role => (
             <TouchableOpacity
               key={role}
               style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
@@ -229,6 +239,24 @@ const handleRegister = async () => {
             </TouchableOpacity>
           ))}
         </View>
+        {formData.role === 'Co Packer' && (
+          <Text style={styles.copackerNote}>
+            Co Packer is an exclusive role — it cannot be combined with any other role.
+          </Text>
+        )}
+
+        {/* Copacker Location field for Co Packer role */}
+        {formData.role === 'Co Packer' && (
+          <>
+            <Text style={styles.label}>Copacker Location</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter copacker location name..."
+              value={formData.copackerLocation}
+              onChangeText={v => handleInputChange('copackerLocation', v)}
+            />
+          </>
+        )}
 
         {/* Warehouse fields for Security roles */}
         {["Security Guard", "Security Admin"].includes(formData.role) && (

@@ -50,10 +50,17 @@ def register_user(
             raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
-        needs_warehouse = any(
-            r.lower().replace(" ", "") in ["securityadmin", "securityguard"] 
-            for r in roles_requested
-        )
+        normalized_roles = [r.lower().replace(" ", "") for r in roles_requested]
+
+        # ✅ Copacker exclusivity: cannot be combined with any other role
+        if "copacker" in normalized_roles and len(normalized_roles) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Co Packer role cannot be combined with any other role."
+            )
+
+        needs_warehouse = any(r in ["securityadmin", "securityguard"] for r in normalized_roles)
+        needs_copacker_location = "copacker" in normalized_roles
 
         # ✅ Warehouse handling
         warehouse_name, final_site_code = None, None
@@ -66,6 +73,25 @@ def register_user(
             warehouse_name = warehouse.warehouse_name
             final_site_code = warehouse.site_code
 
+        # ✅ Copacker location handling
+        final_copacker_location = None
+        if needs_copacker_location:
+            if not user.copacker_location or not user.copacker_location.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="CoPacker Location is required when registering a Co Packer user."
+                )
+            from app.models.copacker import CopackerLocation
+            loc = db.query(CopackerLocation).filter(
+                CopackerLocation.location_name == user.copacker_location.strip()  # ← changed from .ilike() to ==
+            ).first()
+            if not loc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"CoPacker location '{user.copacker_location}' does not exist. Please register it first."
+                )
+            final_copacker_location = loc.location_name
+
         # ✅ Create user
         new_user = UsersMaster(
             username=user.username.strip(),
@@ -75,6 +101,7 @@ def register_user(
             warehouse_code=user.warehouse_code if needs_warehouse else None,
             warehouse_name=warehouse_name,
             site_code=final_site_code,
+            copacker_location=final_copacker_location,
             password=get_password_hash(user.password),
             email=user.email.strip() if user.email else None,
             phone_number=user.phone_number.strip() if user.phone_number else None
@@ -210,7 +237,37 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
 
     if update_data.role:
         roles_cleaned = [r.strip() for r in update_data.role.split(",")]
+        normalized_new_roles = [r.lower().replace(" ", "") for r in roles_cleaned]
+
+        # Copacker exclusivity check
+        if "copacker" in normalized_new_roles and len(normalized_new_roles) > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Co Packer role cannot be combined with any other role."
+            )
+
         user.role = ", ".join(roles_cleaned)
+
+        # Handle copacker_location when assigning Co Packer role
+        if "copacker" in normalized_new_roles:
+            if not update_data.copacker_location or not update_data.copacker_location.strip():
+                raise HTTPException(
+                    status_code=400,
+                    detail="CoPacker Location is required when assigning Co Packer role."
+                )
+            from app.models.copacker import CopackerLocation
+            loc = db.query(CopackerLocation).filter(
+                CopackerLocation.location_name.ilike(update_data.copacker_location.strip())
+            ).first()
+            if not loc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"CoPacker location '{update_data.copacker_location}' does not exist. Please register it first."
+                )
+            user.copacker_location = loc.location_name
+        else:
+            # Clear copacker_location when switching away from Co Packer role
+            user.copacker_location = None
 
     db.commit()
     db.refresh(user)
@@ -223,6 +280,7 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
         warehouse_code=user.warehouse_code or "",
         warehouse_name=user.warehouse_name or "",
         site_code=user.site_code or "",
+        copacker_location=user.copacker_location,
         last_login=getattr(user, "last_login", None)
     )
 

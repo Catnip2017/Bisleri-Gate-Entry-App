@@ -9,25 +9,27 @@ class UserCreate(BaseModel):
     first_name: str
     last_name: str
     role: str
-    email: Optional[str] = None           # ADDED - was missing
-    phone_number: Optional[str] = None    # ADDED - was missing
-    warehouse_code: Optional[str] = None  # CHANGED - was required, now optional
-    site_code: Optional[str] = None       # CHANGED - was required, now optional
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    warehouse_code: Optional[str] = None
+    site_code: Optional[str] = None
+    copacker_location: Optional[str] = None
 
-class UserResponse(BaseModel):  # FIXED - removed inheritance to avoid conflicts
+class UserResponse(BaseModel):
     username: str
     first_name: str
     last_name: str
     role: str
     warehouse_code: Optional[str] = ""
-    warehouse_name: Optional[str] = ""    # ADDED - was missing
+    warehouse_name: Optional[str] = ""
     site_code: Optional[str] = ""
-    email: Optional[str] = None           # ADDED - was missing
-    phone_number: Optional[str] = None    # ADDED - was missing
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    copacker_location: Optional[str] = None
     last_login: Optional[datetime] = None
 
     class Config:
-        from_attributes = True  # FIXED - was orm_mode
+        from_attributes = True
 
 class PasswordReset(BaseModel):
     username: str
@@ -37,6 +39,7 @@ class PasswordReset(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: Optional[str] = None
     warehouse_code: Optional[str] = None
+    copacker_location: Optional[str] = None
 
     class Config:
         from_attributes = True

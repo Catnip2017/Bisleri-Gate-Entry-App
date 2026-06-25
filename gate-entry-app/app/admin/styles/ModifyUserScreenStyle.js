@@ -127,6 +127,23 @@ const styles = StyleSheet.create({
   roleButtonTextSelected: {
     color: '#fff',
   },
+  roleButtonDisabled: {
+    backgroundColor: '#f0f0f0',
+    opacity: 0.5,
+  },
+  roleButtonTextDisabled: {
+    color: '#aaa',
+  },
+  copackerNote: {
+    fontSize: 12,
+    color: '#dd6b20',
+    backgroundColor: '#fffaf0',
+    borderWidth: 1,
+    borderColor: '#fbd38d',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 14,
+  },
   deleteButton: {
     backgroundColor: '#d32f2f',
     paddingVertical: 12,

@@ -10,7 +10,20 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
+
+    # Co Packer Feature
+    COPACKER_FEATURE_ENABLED: bool = Field(default=True, env="COPACKER_FEATURE_ENABLED")
+    COPACKER_IMAGE_PATH: str = Field(default="/copacker_images", env="COPACKER_IMAGE_PATH")
+
+    # IBM WatsonX OCR
+    WATSONX_MODEL: str = Field(default="meta-llama/llama-4-maverick-17b-128e-instruct-fp8", env="WATSONX_MODEL")
+    IBM_API_KEY: str = Field(default="placeholder", env="IBM_API_KEY")
+    IBM_SERVICE_URL: str = Field(default="placeholder", env="IBM_SERVICE_URL")
+    IBM_PROJECT_ID: str = Field(default="placeholder", env="IBM_PROJECT_ID")
+
+    # Co Packer field editing toggle
+    ENABLE_FIELD_EDIT: bool = Field(default=False, env="ENABLE_FIELD_EDIT")
 
     class Config:
         env_file = ".env"

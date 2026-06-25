@@ -167,12 +167,13 @@ export const getCurrentUser = async () => {
     
     return {
       username: payload.sub,
-      role, // Primary role: securityadmin / securityguard / itadmin
+      role, // Primary role: securityadmin / securityguard / itadmin / copacker
       roles, // Array of all roles
       firstName: payload.first_name,
       lastName: payload.last_name,
       warehouseCode: payload.warehouse_code,
       siteCode: payload.site_code,
+      copackerLocation: payload.copacker_location || null,
       fullName: `${payload.first_name || ""} ${payload.last_name || ""}`.trim(),
       exp: payload.exp
     };
@@ -235,6 +236,9 @@ export const isITAdmin = async () => {
  * @returns {string} Expo-router path to replace() into
  */
 export const getRoleBasedRoute = (roles = []) => {
+  // Copacker only → straight to copacker dashboard (exclusive role)
+  if (roles.includes('copacker')) return '/copacker';
+
   // Any user with itadmin always lands on the Admin Hub,
   // regardless of additional security roles.
   if (roles.includes('itadmin')) return '/admin-hub';
