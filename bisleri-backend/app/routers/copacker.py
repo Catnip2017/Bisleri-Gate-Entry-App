@@ -30,6 +30,7 @@ from fastapi import (
     APIRouter, Depends, File, Form, HTTPException,
     Query, UploadFile, status
 )
+from fastapi.responses import FileResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -82,6 +83,37 @@ def require_roles(current_user: UsersMaster, allowed: List[str]):
 def sanitize_path_segment(value: str) -> str:
     """Make a string safe for use as a filesystem path segment."""
     return re.sub(r'[^\w\-.]', '_', value.strip())
+
+
+# ── Authenticated image serving ───────────────────────────────────────────────
+@router.get("/image/{path:path}")
+def serve_copacker_image(
+    path: str,
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """
+    Serve a copacker image file with JWT auth.
+    Replaces the old public StaticFiles mount at /copacker-images/*.
+    Only IT Admins and Copacker users can access images.
+    Path traversal is blocked via os.path.realpath comparison.
+    """
+    require_roles(current_user, ["itadmin", "copacker"])
+
+    # Resolve the base directory to an absolute, canonical path
+    base_dir = os.path.realpath(settings.COPACKER_IMAGE_PATH)
+
+    # Resolve the requested path — os.path.realpath expands all ".." components
+    requested = os.path.realpath(os.path.join(base_dir, path))
+
+    # Ensure the resolved path is still inside the base directory
+    # The trailing os.sep prevents /copacker_images_evil from matching /copacker_images
+    if not requested.startswith(base_dir + os.sep):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if not os.path.isfile(requested):
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    return FileResponse(requested)
 
 
 # ── 1. Feature status ────────────────────────────────────────────────────────

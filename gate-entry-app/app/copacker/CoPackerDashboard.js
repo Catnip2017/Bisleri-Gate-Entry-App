@@ -131,6 +131,7 @@ const CoPackerDashboard = () => {
   const [isITAdmin, setIsITAdmin]               = useState(false);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
   const [fieldEditEnabled, setFieldEditEnabled] = useState(false);
+  const [authToken, setAuthToken]               = useState(null); // for authenticated image requests
 
   // Sessions table
   const [sessions, setSessions]               = useState([]);
@@ -198,6 +199,11 @@ const CoPackerDashboard = () => {
       }
       setIsITAdmin(roles.includes('itadmin'));
       setUserData(user);
+
+      // Load auth token once for authenticated image requests
+      const token = await storage.getItem('access_token');
+      setAuthToken(token);
+
       try {
         const status = await copackerAPI.featureStatus();
         setFieldEditEnabled(status.field_edit_enabled || false);
@@ -478,7 +484,7 @@ const CoPackerDashboard = () => {
   // ── Image preview ──────────────────────────────────────────────────────────
   const openImagePreview = (relativePath) => {
     if (!relativePath) return;
-    setImagePreviewUrl(`${API_BASE_URL}/copacker-images/${relativePath}`);
+    setImagePreviewUrl(`${API_BASE_URL}/copacker/image/${relativePath}`);
     setImagePreviewVisible(true);
   };
 
@@ -524,7 +530,7 @@ const CoPackerDashboard = () => {
           {capture.image_path ? (
             <TouchableOpacity onPress={() => openImagePreview(capture.image_path)}>
               <Image
-                source={{ uri: `${API_BASE_URL}/copacker-images/${capture.image_path}` }}
+                source={{ uri: `${API_BASE_URL}/copacker/image/${capture.image_path}`, headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} }}
                 style={{ width: 40, height: 40, borderRadius: 4 }}
                 resizeMode="cover"
               />
@@ -1274,7 +1280,7 @@ const CoPackerDashboard = () => {
           </TouchableOpacity>
           {imagePreviewUrl && (
             <Image
-              source={{ uri: imagePreviewUrl }}
+              source={{ uri: imagePreviewUrl, headers: authToken ? { Authorization: `Bearer ${authToken}` } : {} }}
               style={{ width: '92%', height: '82%' }}
               resizeMode="contain"
             />

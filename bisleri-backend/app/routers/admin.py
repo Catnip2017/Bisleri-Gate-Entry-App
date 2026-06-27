@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
+from app import redis_client as _rc
 from sqlalchemy import func
 
 # Set up logging
@@ -143,10 +144,6 @@ def register_user(
         print("Unexpected Error:", e)
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/test-admin")
-def test_admin_router():
-    return {"message": "Admin router is working", "status": "success"}
-
 # ✅ Reset Password
 @router.post("/reset-password")
 def reset_password(
@@ -171,6 +168,8 @@ def reset_password(
 
         user.password = get_password_hash(reset_data.new_password)
         db.commit()
+        # Immediately invalidate the affected user's current token
+        _rc.revoke_user_token(user.username)
         return {"message": f"Password updated successfully for user {user.username}"}
     except:
         db.rollback()
@@ -271,6 +270,8 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(user)
+    # Role changed — force re-login so the new token carries updated role claims
+    _rc.revoke_user_token(user.username)
 
     return UserResponse(
         username=user.username,
@@ -297,11 +298,21 @@ def delete_user(username: str, db: Session = Depends(get_db), current_user: User
 
     db.delete(user)
     db.commit()
+    # Kill any live session for the deleted user
+    _rc.revoke_user_token(username)
     return {"message": f"User {username} deleted successfully"}
 
-# ✅ Search Users
+# ✅ Search Users — IT Admin only
 @router.get("/search-users", response_model=List[UserSearchResponse])
-def search_users(q: str, db: Session = Depends(get_db)):
+def search_users(
+    q: str,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail="Only IT Admins can search users")
+
     if not q:
         return []
 
@@ -311,9 +322,18 @@ def search_users(q: str, db: Session = Depends(get_db)):
         .limit(10)
         .all()
     )
-    return users   # ✅ FastAPI will auto-convert ORM to schema
+    return users
+# ✅ Update User Details — IT Admin only
 @router.put("/users/{username}/update")
-def update_user_details(username: str, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user_details(
+    username: str,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail="Only IT Admins can update user details")
     user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
