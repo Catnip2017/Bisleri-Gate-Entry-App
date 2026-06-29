@@ -53,8 +53,19 @@ def _start_redis_if_needed() -> "subprocess.Popen | None":
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    time.sleep(1.5)  # give Redis a moment to bind its port
-    logger.info("[Redis] Redis server started.")
+
+    # Wait until Redis actually accepts connections (up to 10 s)
+    for attempt in range(10):
+        time.sleep(1)
+        try:
+            import redis as _redis_pkg
+            _redis_pkg.Redis(host="localhost", port=6379, socket_connect_timeout=1).ping()
+            logger.info(f"[Redis] Redis ready after {attempt + 1}s.")
+            return proc
+        except Exception:
+            pass
+
+    logger.error("[Redis] Redis did not become ready within 10 s. Token revocation will fail open.")
     return proc
 
 

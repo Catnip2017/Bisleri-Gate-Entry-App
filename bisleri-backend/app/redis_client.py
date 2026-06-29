@@ -3,30 +3,34 @@ app/redis_client.py
 -------------------
 Shared Redis connection and token-blocklist helpers.
 
+The client is created lazily on first use — so if Redis is still starting up
+when the first request arrives, it will connect at that point rather than
+failing at import time.
+
 All public functions are wrapped in try/except and FAIL OPEN — if Redis is
-unavailable (e.g. during a restart), requests are not blocked. The error is
-logged so it is visible in the uvicorn console.
+unavailable, requests are not blocked. The warning is logged so it is visible
+in the uvicorn console.
 """
 import logging
 import redis
 
 logger = logging.getLogger(__name__)
 
-# Single connection shared across the entire app process.
-# decode_responses=True → Redis returns str, not bytes.
-_client: redis.Redis = redis.Redis(
-    host="localhost",
-    port=6379,
-    db=0,
-    decode_responses=True,
-    socket_connect_timeout=1,   # don't hang if Redis is starting up
-    socket_timeout=1,
-)
+_client: redis.Redis | None = None
 
-
-# ── Internal accessor ────────────────────────────────────────────────────────
 
 def _r() -> redis.Redis:
+    """Return the shared Redis client, creating it on first call."""
+    global _client
+    if _client is None:
+        _client = redis.Redis(
+            host="localhost",
+            port=6379,
+            db=0,
+            decode_responses=True,
+            socket_connect_timeout=5,   # wait up to 5 s to establish connection
+            socket_timeout=5,           # wait up to 5 s for command response
+        )
     return _client
 
 
