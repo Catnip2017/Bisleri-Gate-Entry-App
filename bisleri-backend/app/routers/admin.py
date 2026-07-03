@@ -10,7 +10,6 @@ from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
-from app import redis_client as _rc
 from sqlalchemy import func
 
 # Set up logging
@@ -168,8 +167,6 @@ def reset_password(
 
         user.password = get_password_hash(reset_data.new_password)
         db.commit()
-        # Immediately invalidate the affected user's current token
-        _rc.revoke_user_token(user.username)
         return {"message": f"Password updated successfully for user {user.username}"}
     except:
         db.rollback()
@@ -270,8 +267,6 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
 
     db.commit()
     db.refresh(user)
-    # Role changed — force re-login so the new token carries updated role claims
-    _rc.revoke_user_token(user.username)
 
     return UserResponse(
         username=user.username,
@@ -298,8 +293,6 @@ def delete_user(username: str, db: Session = Depends(get_db), current_user: User
 
     db.delete(user)
     db.commit()
-    # Kill any live session for the deleted user
-    _rc.revoke_user_token(username)
     return {"message": f"User {username} deleted successfully"}
 
 # ✅ Search Users — IT Admin only

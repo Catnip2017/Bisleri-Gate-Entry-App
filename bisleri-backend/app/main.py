@@ -5,8 +5,6 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import os
-import subprocess
-import time
 from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
@@ -19,57 +17,6 @@ logging.getLogger('passlib').setLevel(logging.ERROR)
 # Silence APScheduler's own verbose logging
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-
-# ── Redis auto-start ──────────────────────────────────────────────────────────
-
-_REDIS_EXE = r"C:\Automation\Redis-x64-5.0.14.1\redis-server.exe"
-
-def _start_redis_if_needed() -> "subprocess.Popen | None":
-    """
-    Ping Redis. If it's already running (e.g. Windows Service), do nothing.
-    If it's not running and the executable exists, start it as a subprocess.
-    Returns the Popen handle if WE started it (so we can shut it down on exit),
-    or None if Redis was already running / executable not found.
-    """
-    import redis as _redis_pkg
-    try:
-        test = _redis_pkg.Redis(host="localhost", port=6379, socket_connect_timeout=1)
-        test.ping()
-        logger.info("[Redis] Already running — connecting to existing instance.")
-        return None
-    except Exception:
-        pass  # not running yet — try to start it
-
-    if not os.path.exists(_REDIS_EXE):
-        logger.error(
-            f"[Redis] redis-server.exe not found at {_REDIS_EXE}. "
-            "Token revocation will fail open. Place Redis at C:\\Redis\\ to enable it."
-        )
-        return None
-
-    logger.info("[Redis] Starting redis-server.exe ...")
-    proc = subprocess.Popen(
-        [_REDIS_EXE],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-
-    # Wait until Redis actually accepts connections (up to 10 s)
-    for attempt in range(10):
-        time.sleep(1)
-        try:
-            import redis as _redis_pkg
-            _redis_pkg.Redis(host="localhost", port=6379, socket_connect_timeout=1).ping()
-            logger.info(f"[Redis] Redis ready after {attempt + 1}s.")
-            return proc
-        except Exception:
-            pass
-
-    logger.error("[Redis] Redis did not become ready within 10 s. Token revocation will fail open.")
-    return proc
-
-
-# ── mFabric sync job ──────────────────────────────────────────────────────────
 
 def _run_mfabric_sync():
     """Called by APScheduler every 10 minutes. Lazy-imports csv_to_DB so the
@@ -88,10 +35,6 @@ async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
     logger.info("Starting up FastAPI application...")
 
-    # Start Redis (for token revocation blocklist)
-    redis_proc = _start_redis_if_needed()
-
-    # Start background sync scheduler
     scheduler = BackgroundScheduler(timezone="Asia/Kolkata")
     scheduler.add_job(
         _run_mfabric_sync,
@@ -114,12 +57,8 @@ async def lifespan(app: FastAPI):
     # ── Shutdown ─────────────────────────────────────────────────────────────
     logger.info("Shutting down FastAPI application...")
     scheduler.shutdown(wait=False)
-    logger.info("Scheduler stopped.")
-    if redis_proc is not None:
-        redis_proc.terminate()
-        redis_proc.wait()
-        logger.info("[Redis] Redis server stopped.")
-    logger.info("Application shutdown complete.")
+    logger.info("Scheduler stopped. Application shutdown complete.")
+
 
 app = FastAPI(
     title="Bisleri Backend API",

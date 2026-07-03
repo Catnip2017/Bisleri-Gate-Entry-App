@@ -50,30 +50,15 @@ async def get_current_user(
     except JWTError:
         raise credentials_exception
 
-    # ── Token revocation check ────────────────────────────────────────────────
-    jti: str | None = payload.get("jti")
-    if jti:
-        from app import redis_client as _rc
-        if _rc.is_token_revoked(jti):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token has been revoked. Please log in again.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
     user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
     if user is None:
         raise credentials_exception
 
-    # Normalize roles into list
+    # 🔥 Normalize roles into list
     if user.role:
         user.roles = [r.strip().lower().replace(" ", "") for r in user.role.split(",")]
     else:
         user.roles = []
-
-    # Attach jti and token expiry so logout/revocation callers can use them
-    user.jti = jti
-    user.token_exp = payload.get("exp")  # Unix timestamp
 
     return user
 
