@@ -724,6 +724,8 @@ const GateEntryTab = ({
                   }
                   autoCapitalize="characters"
                   editable={!isSubmitting && !isSearching}
+                  returnKeyType="search"
+                  onSubmitEditing={handleVehicleSearch}
                 />
                 <TouchableOpacity
                   style={[
@@ -898,6 +900,23 @@ const GateEntryTab = ({
           )}
 
           {renderDocumentTable()}
+
+          {/* Explain WHY Submit is disabled — a grey button that swallows
+              taps teaches guards nothing */}
+          {!isRestricted && (!searchResults || selectedDocuments.length === 0) && (
+            <Text
+              style={{
+                textAlign: "center",
+                fontSize: 12,
+                color: "#856404",
+                marginTop: 16,
+              }}
+            >
+              {!searchResults
+                ? "Search a vehicle number to load its documents."
+                : "Select at least one document above to enable Submit."}
+            </Text>
+          )}
 
           <View style={styles.buttonRow}>
             <TouchableOpacity

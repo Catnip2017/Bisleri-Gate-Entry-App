@@ -22,7 +22,22 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // ☰ Menu button on left
+  // Icon buttons in the header (menu, home) — 48dp touch targets
+  headerIconButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+
+  headerGreeting: {
+    fontSize: 13,
+    color: '#555',
+    maxWidth: 110,
+  },
+
+  // Legacy (kept for ManualEntryScreen header until it migrates)
   menuButton: {
     paddingHorizontal: 10,
     paddingVertical: 8,

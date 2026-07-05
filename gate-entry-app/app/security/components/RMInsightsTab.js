@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import styles from '../styles/insightsStyles';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
@@ -346,7 +347,7 @@ const RMInsightsTab = () => {
     if (!record.can_edit) {
       return (
         <TouchableOpacity style={[styles.actionButton, styles.expiredButton]} disabled>
-          <Text style={styles.actionButtonText}>⚫ Expired</Text>
+          <Text style={styles.actionButtonText}>Expired</Text>
         </TouchableOpacity>
       );
     }
@@ -356,7 +357,7 @@ const RMInsightsTab = () => {
         style={[styles.actionButton, styles.editDetailsButton]}
         onPress={() => openEditModal(record)}
       >
-        <Text style={styles.actionButtonText}>✏️ Edit</Text>
+        <Text style={styles.actionButtonText}>Edit</Text>
       </TouchableOpacity>
     );
   };
@@ -575,22 +576,24 @@ const stats = React.useMemo(() => {
           </View>
         </ScrollView>
 
-        {/* ✅ NEW: Pagination Controls */}
+        {/* ✅ Pagination Controls (MaterialIcons, matches FG Insights) */}
         <View style={styles.paginationControls}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
             onPress={goToFirstPage}
             disabled={currentPage === 1}
+            accessibilityLabel="First page"
           >
-            <Text style={styles.paginationButtonText}>⏮️</Text>
+            <MaterialIcons name="first-page" size={22} color={currentPage === 1 ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
             onPress={goToPreviousPage}
             disabled={currentPage === 1}
+            accessibilityLabel="Previous page"
           >
-            <Text style={styles.paginationButtonText}>⬅️</Text>
+            <MaterialIcons name="chevron-left" size={22} color={currentPage === 1 ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
 
           <View style={styles.pageInputContainer}>
@@ -603,24 +606,27 @@ const stats = React.useMemo(() => {
               }}
               keyboardType="numeric"
               maxLength={3}
+              accessibilityLabel="Page number"
             />
             <Text style={styles.pageInputLabel}>of {totalPages}</Text>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
             onPress={goToNextPage}
             disabled={currentPage === totalPages}
+            accessibilityLabel="Next page"
           >
-            <Text style={styles.paginationButtonText}>➡️</Text>
+            <MaterialIcons name="chevron-right" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
             onPress={goToLastPage}
             disabled={currentPage === totalPages}
+            accessibilityLabel="Last page"
           >
-            <Text style={styles.paginationButtonText}>⏭️</Text>
+            <MaterialIcons name="last-page" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
         </View>
       </View>

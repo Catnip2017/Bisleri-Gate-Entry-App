@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { insightsAPI, handleAPIError } from '../../../services/api';
-import { showAlert } from '../../../utils/customModal';
+import { showAlert, confirmAction } from '../../../utils/customModal';
 import { validateOperationalData } from '../../../utils/validators';
 
 const OperationalEditModal = ({ 
@@ -97,6 +97,31 @@ const OperationalEditModal = ({
     }
   };
 
+  // Unsaved-changes guard: warn before discarding edits (Cancel or
+  // Android back button). Compares against the record's original values.
+  const isDirty = record ? (
+    formData.driver_name !== (record.driver_name || '') ||
+    formData.km_reading !== (record.km_reading || '') ||
+    formData.loader_count !== (record.loader_count != null ? String(record.loader_count) : '') ||
+    formData.loader_names !== (record.loader_names || '') ||
+    formData.remarks !== (record.remarks || '')
+  ) : false;
+
+  const handleCancel = () => {
+    if (isSubmitting) return;
+    if (isDirty) {
+      confirmAction({
+        title: 'Discard changes?',
+        message: 'You have unsaved changes. Close without saving?',
+        confirmText: 'Discard',
+        destructive: true,
+        onConfirm: onClose,
+      });
+    } else {
+      onClose();
+    }
+  };
+
   if (!record) {
     return null;
   }
@@ -108,7 +133,7 @@ const OperationalEditModal = ({
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleCancel}
     >
       <View style={{
         flex: 1,
@@ -336,7 +361,7 @@ const OperationalEditModal = ({
                 borderRadius: 8,
                 alignItems: 'center',
               }}
-              onPress={onClose}
+              onPress={handleCancel}
               disabled={isSubmitting}
             >
               <Text style={{

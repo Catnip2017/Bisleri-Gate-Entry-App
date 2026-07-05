@@ -148,29 +148,43 @@ export default function LandingScreen() {
         <Text style={styles.heading}>Bisleri Gate Entry Management System</Text>
 
         <View style={styles.cardContainer}>
-          {/* Admin Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.adminCard]}
-            onPress={handleAdminCardPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardIconContainer}>
-              <Image source={require("../../assets/images/admin.png")} style={styles.icon} />
-            </View>
-            <Text style={styles.cardText}>Administrator</Text>
-          </TouchableOpacity>
+          {/* Only render the cards this user can actually open — being told
+              "Access Denied" by your own home screen every day is bad UX. */}
+          {(hasRole("securityadmin") || hasRole("itadmin")) && (
+            <TouchableOpacity
+              style={[styles.card, styles.adminCard]}
+              onPress={handleAdminCardPress}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Open Administrator dashboard"
+            >
+              <View style={styles.cardIconContainer}>
+                <Image source={require("../../assets/images/admin.png")} style={styles.icon} />
+              </View>
+              <Text style={styles.cardText}>Administrator</Text>
+              <Text style={{ fontSize: 12, color: "#666", marginTop: 4, textAlign: "center" }}>
+                Insights, reports and exports
+              </Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Security Card */}
-          <TouchableOpacity
-            style={[styles.card, styles.guardCard]}
-            onPress={handleSecurityCardPress}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardIconContainer}>
-              <Image source={require("../../assets/images/guard.png")} style={styles.icon} />
-            </View>
-            <Text style={styles.cardText}>Security Guard</Text>
-          </TouchableOpacity>
+          {(hasRole("securityguard") || hasRole("itadmin")) && (
+            <TouchableOpacity
+              style={[styles.card, styles.guardCard]}
+              onPress={handleSecurityCardPress}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Open Security Guard dashboard"
+            >
+              <View style={styles.cardIconContainer}>
+                <Image source={require("../../assets/images/guard.png")} style={styles.icon} />
+              </View>
+              <Text style={styles.cardText}>Security Guard</Text>
+              <Text style={{ fontSize: 12, color: "#666", marginTop: 4, textAlign: "center" }}>
+                Gate entries and movements
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Logout */}

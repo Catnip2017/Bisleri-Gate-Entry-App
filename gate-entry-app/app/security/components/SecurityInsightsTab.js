@@ -56,6 +56,10 @@ const SecurityInsightsTab = () => {
   // Vehicle filter state
   const [vehicleFilter, setVehicleFilter] = useState('');
 
+  // When the data on screen was last fetched (ERP sync runs every 10 min,
+  // so guards need to know how fresh the table is)
+  const [lastUpdated, setLastUpdated] = useState(null);
+
   // Load initial data.
   // ✅ FIX: user data must load BEFORE the first movements fetch — previously
   // both ran in parallel, so the first request always went out with
@@ -124,6 +128,7 @@ const SecurityInsightsTab = () => {
       setMovements(sortedMovements);
       setCurrentPage(1);
       setPageInputValue('1');
+      setLastUpdated(new Date());
 
     } catch (error) {
       console.log('Error loading movements:', error);
@@ -589,8 +594,13 @@ const SecurityInsightsTab = () => {
           </View>
         </View>
 
-        {/* Section Title */}
+        {/* Section Title + data freshness */}
         <Text style={styles.sectionTitle}>Gate Movements & Document Assignment</Text>
+        {lastUpdated && (
+          <Text style={{ textAlign: 'center', fontSize: 11, color: '#888', marginBottom: 8 }}>
+            Updated at {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ERP sync runs every 10 minutes
+          </Text>
+        )}
 
         {/* NEW: Pagination Info */}
         <View style={styles.paginationInfo}>

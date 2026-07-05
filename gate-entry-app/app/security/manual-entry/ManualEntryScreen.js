@@ -1,6 +1,7 @@
 // app/security/manual-entry/ManualEntryScreen.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import ManualEntryForm from './ManualEntryForm';
@@ -38,9 +39,14 @@ const ManualEntryScreen = () => {
     <SafeAreaView style={{ flex: 1 }}>
       {/* ✅ Top Navbar */}
       <View style={styles.header}>
-        {/* ☰ Menu Icon - LEFT */}
-        <TouchableOpacity style={styles.menuButton} onPress={toggleSidebar}>
-          <Text style={styles.menuText}>☰</Text>
+        {/* Menu - LEFT */}
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={toggleSidebar}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+        >
+          <MaterialIcons name="menu" size={26} color="#333" />
         </TouchableOpacity>
 
         {/* LOGO - CENTER */}
@@ -50,9 +56,17 @@ const ManualEntryScreen = () => {
           resizeMode="contain" 
         />
 
-        {/* Home - RIGHT */}
-        <TouchableOpacity style={styles.homeButton} onPress={handleHomePress}>
-          <Text style={styles.homeText}>Back</Text>
+        {/* Back - RIGHT */}
+        <TouchableOpacity
+          style={styles.homeButton}
+          onPress={handleHomePress}
+          accessibilityRole="button"
+          accessibilityLabel="Back to gate entry"
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <MaterialIcons name="arrow-back" size={18} color="#333" />
+            <Text style={styles.homeText}>Back</Text>
+          </View>
         </TouchableOpacity>
       </View>
 
