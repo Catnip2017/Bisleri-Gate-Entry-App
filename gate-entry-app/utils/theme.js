@@ -3,10 +3,23 @@
 // from here instead of hardcoding hex values or magic numbers.
 import { PLATFORM_COLORS } from './platformColors';
 
+// Brand green ramp — lightest tint to deepest shade. Use tints for page
+// backgrounds and containers (layered depth), solids for actions/headers,
+// deeps for text and KPI surfaces.
+export const green = {
+  tint1: '#EAF4EE',   // page background (lightest)
+  tint2: '#D8EAE0',   // cards / containers
+  tint3: '#C2DFCE',   // chips, hovers, zebra emphasis
+  mid: '#4CAF7D',     // decorative mid-tone
+  primary: '#00843D', // buttons, active tabs, table headers
+  dark: '#005C2B',    // headings, KPI card background
+  deep: '#03301B',    // strongest text on tints
+};
+
 export const colors = {
   // Brand — Bisleri green palette (chosen July 2026)
   primary: PLATFORM_COLORS.PRIMARY_BLUE,        // #00843D brand green
-  primaryDark: '#005C2B',
+  primaryDark: green.dark,
   accent: PLATFORM_COLORS.INFO_CYAN,            // #00A8CC aqua
 
   // Semantic
@@ -16,10 +29,11 @@ export const colors = {
   info: PLATFORM_COLORS.INFO_CYAN,              // #00A8CC
   secondary: PLATFORM_COLORS.DARK_GRAY,         // #5C6B62
 
-  // Surfaces
-  background: PLATFORM_COLORS.BACKGROUND_PRIMARY,
-  surface: PLATFORM_COLORS.BACKGROUND_SECONDARY, // white cards
-  surfaceMuted: PLATFORM_COLORS.LIGHT_GRAY,      // #f8f9fa
+  // Surfaces — layered green tints instead of flat white
+  background: green.tint1,                       // page
+  surface: PLATFORM_COLORS.BACKGROUND_SECONDARY, // white (inputs only)
+  surfaceTint: green.tint2,                      // cards / containers
+  surfaceMuted: green.tint1,                     // zebra rows, muted panels
 
   // Text
   textPrimary: PLATFORM_COLORS.TEXT_PRIMARY,     // #333

@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
     web: { minHeight: '100vh' }, // Fill the viewport on web
     default: { minHeight: '100%' }
   }),
-  backgroundColor: '#F4F7F5',
+  backgroundColor: '#EAF4EE',
 },
 
   cardContainer: {

@@ -3,10 +3,10 @@ import { StyleSheet } from 'react-native';
 import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
 
 const styles = StyleSheet.create({
-  // Main container
+  // Main container — lightest green tint (page layer)
   container: {
     paddingBottom: 20,
-    backgroundColor: 'white',
+    backgroundColor: '#EAF4EE',
     paddingHorizontal: 12,
   },
 
@@ -91,19 +91,27 @@ const styles = StyleSheet.create({
   },
 
   inactiveButton: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#D8EAE0',
     minHeight: 48,
     paddingHorizontal: 24,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#dee2e6',
+    borderColor: '#B7D8C5',
     minWidth: 140,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
+  // Inactive tab text on green tint
+  buttonTextTinted: {
+    color: '#03301B',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
   buttonText: {
-    color: '#6c757d',
+    color: '#03301B',
     fontWeight: 'bold',
     fontSize: 14,
     textAlign: 'center',

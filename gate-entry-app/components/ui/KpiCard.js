@@ -1,34 +1,33 @@
 // components/ui/KpiCard.js - KPI stat card for insight dashboards.
 //
-// Design (chosen July 2026): white card, tinted icon chip, muted label,
-// large number. Color encodes MEANING only:
-//  - normal cards stay white regardless of value
-//  - emphasized={true} (e.g. "Need completion" > 0) renders the amber
-//    "action needed" treatment — the only colored card on screen
+// Look (revised July 2026): DARK brand-green card — white number, pastel
+// icon chip that pops against the deep background. Color still encodes
+// meaning: the amber emphasized={true} treatment ("action needed", e.g.
+// Need completion > 0) is the only non-green card on screen.
 //
 // onPress is optional; when provided the card behaves as a button
 // (tap-to-filter wiring comes later). Without it, the card is static.
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { colors, radius, spacing, TOUCH_TARGET } from '../../utils/theme';
+import { green, colors, radius, spacing, TOUCH_TARGET } from '../../utils/theme';
 
 const AMBER = {
-  bg: '#FAEEDA',
-  border: '#EF9F27',
+  bg: '#B45309',
+  border: '#F59E0B',
   chipBg: '#FAC775',
   icon: '#633806',
-  label: '#854F0B',
-  value: '#633806',
-  caption: '#854F0B',
+  label: '#FDE8C8',
+  value: '#FFFFFF',
+  caption: '#FAC775',
 };
 
 const KpiCard = ({
   label,
   value,
   icon,               // MaterialIcons name
-  tint = '#E1F5EE',   // icon chip background
-  iconColor = '#0F6E56',
+  tint = '#C2DFCE',   // icon chip background (pastel pops on dark green)
+  iconColor = '#03301B',
   caption,            // small text next to the number (e.g. "tap to view")
   captionColor,
   emphasized = false, // amber "action needed" treatment
@@ -63,7 +62,7 @@ const KpiCard = ({
           <Text
             style={[
               styles.caption,
-              { color: captionColor || (emphasized ? AMBER.caption : colors.textMuted) },
+              { color: captionColor || (emphasized ? AMBER.caption : '#9FDDB9') },
             ]}
           >
             {caption}
@@ -106,12 +105,17 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 150,
     minHeight: TOUCH_TARGET + 32,
-    backgroundColor: colors.surface,
+    backgroundColor: green.dark,       // #005C2B — dark brand surface
     borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderColor: green.deep,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm + 4,
     paddingHorizontal: spacing.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
   cardEmphasized: {
     backgroundColor: AMBER.bg,
@@ -119,7 +123,7 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: colors.accent,        // aqua outline for active filter
   },
   headerRow: {
     flexDirection: 'row',
@@ -137,7 +141,7 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#BFE8CF',                  // light green tint on dark surface
   },
   valueRow: {
     flexDirection: 'row',
@@ -148,7 +152,7 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: colors.textPrimary,
+    color: '#FFFFFF',
   },
   caption: {
     fontSize: 11,

@@ -6,7 +6,7 @@ import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#EAF4EE',
     padding: 12,
   },
 
