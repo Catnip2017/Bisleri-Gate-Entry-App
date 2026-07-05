@@ -892,14 +892,23 @@ const CoPackerDashboard = () => {
           style={styles.logo}
           resizeMode="contain"
         />
-        {isITAdmin ? (
-          <TouchableOpacity style={styles.homeButton} onPress={() => router.push('/admin-hub')}>
+        <View style={{ width: 80 }} />
+      </View>
+
+      {/* Back navigation — standard position: top-left row below the header,
+          matching the Admin Insights ("Gate Entry") screen */}
+      {isITAdmin && (
+        <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingTop: 8 }}>
+          <TouchableOpacity
+            style={styles.homeButton}
+            onPress={() => router.push('/admin-hub')}
+            accessibilityRole="button"
+            accessibilityLabel="Back to Admin Hub"
+          >
             <Text style={styles.homeText}>← Admin Hub</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={{ width: 80 }} />
-        )}
-      </View>
+        </View>
+      )}
 
       {/* ── Body ── */}
       <View style={styles.body}>

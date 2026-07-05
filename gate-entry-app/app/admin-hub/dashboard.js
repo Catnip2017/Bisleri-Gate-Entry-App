@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import BackChip from '../../components/ui/BackChip';
 
 // ── Use your machine's LAN IP — NOT localhost ─────────────────────────────────
 // localhost resolves to the device/browser itself, not your PC.
@@ -45,18 +46,12 @@ export default function DashboardScreen() {
     }
   };
 
-  // ── Shared top bar ──────────────────────────────────────────────────────────
+  // ── Shared top bar — standard grey back chip, top-left ─────────────────────
   const TopBar = () => (
     <View style={styles.topBar}>
-      <Pressable
-        onPress={() => router.back()}
-        style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
-      >
-        <MaterialIcons name="arrow-back" size={22} color="#1a365d" />
-        <Text style={styles.backText}>Admin Hub</Text>
-      </Pressable>
+      <BackChip label="Admin Hub" onPress={() => router.back()} />
       <Text style={styles.topTitle}>Dashboards</Text>
-      <View style={{ width: 90 }} />
+      <View style={{ width: 110 }} />
     </View>
   );
 

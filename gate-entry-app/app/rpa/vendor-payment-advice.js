@@ -29,6 +29,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { rpaAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showAlert } from '../../utils/customModal';
+import BackChip from '../../components/ui/BackChip';
 import KpiCard from '../../components/ui/KpiCard';
 import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
@@ -218,15 +219,9 @@ export default function VendorPaymentAdviceScreen() {
         height: 52, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#BCE5CC',
       }}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 90, minHeight: 48 }, pressed && { opacity: 0.6 }]}
-        >
-          <MaterialIcons name="arrow-back" size={22} color={green.deep} />
-          <Text style={{ fontSize: 14, color: green.deep, fontWeight: '500' }}>Finance</Text>
-        </Pressable>
+        <BackChip label="Finance" onPress={() => router.back()} />
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Vendor Payment Advice</Text>
-        <View style={{ width: 90 }} />
+        <View style={{ width: 110 }} />
       </View>
 
       <View style={{ padding: 14 }}>
@@ -241,8 +236,7 @@ export default function VendorPaymentAdviceScreen() {
           />
           <KpiCard
             label="Failed" value={counts.failed} icon="error-outline"
-            emphasized={counts.failed > 0}
-            tint="#F1EFE8" iconColor="#5F5E5A"
+            emphasized
             selected={statusFilter === 'failed'}
             caption={statusFilter === 'failed' ? 'filtering' : 'tap to filter'}
             onPress={() => handleStatusTap('failed')}
@@ -291,12 +285,13 @@ export default function VendorPaymentAdviceScreen() {
             <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
           </View>
 
-          {/* Payment date range */}
-          <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap' }}>
-            <View style={{ flex: 1, minWidth: 150 }}>
+          {/* Payment date range — fixed widths so fields don't stretch on
+              wide desktop screens */}
+          <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+            <View style={{ width: 210 }}>
               <DateField label="Payment from" value={paymentFrom} onChange={setPaymentFrom} />
             </View>
-            <View style={{ flex: 1, minWidth: 150 }}>
+            <View style={{ width: 210 }}>
               <DateField label="Payment to" value={paymentTo} onChange={setPaymentTo} />
             </View>
           </View>
@@ -311,11 +306,11 @@ export default function VendorPaymentAdviceScreen() {
             <Text style={{ fontSize: 13, color: green.deep }}>Filter by email sent date</Text>
           </View>
           {emailFilterOn && (
-            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
-              <View style={{ flex: 1, minWidth: 150 }}>
+            <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+              <View style={{ width: 210 }}>
                 <DateField label="Email sent from" value={emailFrom} onChange={setEmailFrom} />
               </View>
-              <View style={{ flex: 1, minWidth: 150 }}>
+              <View style={{ width: 210 }}>
                 <DateField label="Email sent to" value={emailTo} onChange={setEmailTo} />
               </View>
             </View>

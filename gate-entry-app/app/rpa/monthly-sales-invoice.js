@@ -3,9 +3,10 @@
 // The process is live; its log dashboard will be converted from Streamlit
 // the same way as Vendor Payment Advice once the code is provided.
 import React from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import BackChip from '../../components/ui/BackChip';
 import KpiCard from '../../components/ui/KpiCard';
 import { green } from '../../utils/theme';
 
@@ -19,15 +20,9 @@ export default function MonthlySalesInvoiceScreen() {
         height: 52, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center',
         justifyContent: 'space-between', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#BCE5CC',
       }}>
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 90, minHeight: 48 }, pressed && { opacity: 0.6 }]}
-        >
-          <MaterialIcons name="arrow-back" size={22} color={green.deep} />
-          <Text style={{ fontSize: 14, color: green.deep, fontWeight: '500' }}>Finance</Text>
-        </Pressable>
+        <BackChip label="Finance" onPress={() => router.back()} />
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Monthly Sales Invoice</Text>
-        <View style={{ width: 90 }} />
+        <View style={{ width: 110 }} />
       </View>
 
       <View style={{ padding: 14 }}>

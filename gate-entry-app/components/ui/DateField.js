@@ -41,15 +41,18 @@ const DateField = ({ label, value, onChange, disabled = false }) => {
             }
           }}
           style={{
-            borderWidth: 1,
-            borderStyle: 'solid',
-            borderColor: colors.border,
-            padding: 10,
-            borderRadius: radius.sm,
-            backgroundColor: disabled ? colors.surfaceMuted : colors.surface,
-            fontSize: 14,
+            boxSizing: 'border-box',
             width: '100%',
-            minHeight: 40,
+            height: 44,
+            border: '1px solid #BCE5CC',
+            borderRadius: 8,
+            padding: '0 12px',
+            fontSize: 14,
+            fontFamily: 'inherit',
+            color: colors.textPrimary,
+            backgroundColor: disabled ? colors.surfaceMuted : '#ffffff',
+            outline: 'none',
+            cursor: disabled ? 'default' : 'pointer',
           }}
         />
       ) : (
