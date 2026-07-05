@@ -16,6 +16,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import BackChip from '../../components/ui/BackChip';
+import AppHeader from '../../components/ui/AppHeader';
 
 // ── Use your machine's LAN IP — NOT localhost ─────────────────────────────────
 // localhost resolves to the device/browser itself, not your PC.
@@ -46,12 +47,14 @@ export default function DashboardScreen() {
     }
   };
 
-  // ── Shared top bar — standard grey back chip, top-left ─────────────────────
+  // ── Standard header + back chip row ────────────────────────────────────────
   const TopBar = () => (
-    <View style={styles.topBar}>
-      <BackChip label="Admin Hub" onPress={() => router.back()} />
-      <Text style={styles.topTitle}>Dashboards</Text>
-      <View style={{ width: 110 }} />
+    <View>
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
+        <BackChip label="Admin Hub" onPress={() => router.back()} />
+        <Text style={styles.topTitle}>Dashboards</Text>
+      </View>
     </View>
   );
 
@@ -200,7 +203,7 @@ const styles = StyleSheet.create({
   // ── Overlay shared by loading + error ─────────────────────────────────────
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    top: 52,
+    top: 122,
     backgroundColor: '#E0F7FA',
     alignItems: 'center',
     justifyContent: 'center',

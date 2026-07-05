@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import BackChip from '../../components/ui/BackChip';
+import AppHeader from '../../components/ui/AppHeader';
 import styles from './RpaStyles';
 
 // NOTE: About content summarised from the Process Solution Documents —
@@ -74,11 +75,11 @@ export default function FinanceProcessesScreen() {
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Top bar — standard grey back chip, top-left ─────────────────── */}
-      <View style={styles.topBar}>
+      {/* ── Standard header + back chip row ─────────────────────────────── */}
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
         <BackChip label="Domains" onPress={() => router.back()} />
         <Text style={styles.topTitle}>Finance Processes</Text>
-        <View style={{ width: 110 }} />
       </View>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}

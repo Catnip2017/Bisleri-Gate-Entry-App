@@ -5,6 +5,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import ManualEntryForm from './ManualEntryForm';
+import AppHeader from '../../../components/ui/AppHeader';
+import BackChip from '../../../components/ui/BackChip';
+import Sidebar from '../components/Sidebar';
 import styles from './ManualEntryStyles';
 
 const ManualEntryScreen = () => {
@@ -37,77 +40,33 @@ const ManualEntryScreen = () => {
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* ✅ Top Navbar */}
-      <View style={styles.header}>
-        {/* Menu - LEFT */}
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={toggleSidebar}
-          accessibilityRole="button"
-          accessibilityLabel="Open menu"
-        >
-          <MaterialIcons name="menu" size={26} color="#333" />
-        </TouchableOpacity>
+      {/* Standard header */}
+      <AppHeader onMenuPress={toggleSidebar} />
 
-        {/* LOGO - CENTER */}
-        <Image 
-          source={require("../../../assets/images/bisleri-logo.png")} 
-          style={styles.logo} 
-          resizeMode="contain" 
-        />
-
-        {/* Back - RIGHT */}
-        <TouchableOpacity
-          style={styles.homeButton}
-          onPress={handleHomePress}
-          accessibilityRole="button"
-          accessibilityLabel="Back to gate entry"
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <MaterialIcons name="arrow-back" size={18} color="#333" />
-            <Text style={styles.homeText}>Back</Text>
-          </View>
-        </TouchableOpacity>
+      {/* Back navigation — standard blue chip, top-left */}
+      <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10 }}>
+        <BackChip label="Gate Entry" onPress={handleHomePress} />
       </View>
 
-      {/* ✅ Sidebar + Content in Row */}
-      <View style={{ flex: 1, flexDirection: 'row' }}>
-        {/* 🧊 Sidebar */}
-        {isSidebarVisible && (
-          <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>User Info</Text>
-            {userData ? (
-              <>
-                <Text style={styles.sidebarItem}>Username: {userData.username}</Text>
-                <Text style={styles.sidebarItem}>Name: {userData.fullName}</Text>
-                <Text style={styles.sidebarItem}>Role: {userData.role}</Text>
-                <Text style={styles.sidebarItem}>WH Code: {userData.warehouseCode || 'N/A'}</Text>
-                <Text style={styles.sidebarItem}>Site Code: {userData.siteCode || 'N/A'}</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.sidebarItem}>Username: Loading...</Text>
-                <Text style={styles.sidebarItem}>WH Name: Loading...</Text>
-                <Text style={styles.sidebarItem}>WH Code: Loading...</Text>
-                <Text style={styles.sidebarItem}>Site Code: Loading...</Text>
-              </>
-            )}
+      {/* Main Content */}
+      <View style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container}>
+          {/* Title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.pageTitle}>Manual Gate Entry</Text>
           </View>
-        )}
 
-        {/* 🌐 Main Content */}
-        <View style={{ flex: 1 }}>
-          <ScrollView contentContainerStyle={styles.container}>
-            {/* Title */}
-            <View style={styles.titleContainer}>
-              <Text style={styles.pageTitle}>Manual Gate Entry</Text>
-            </View>
-
-            {/* Manual Entry Form */}
-            <ManualEntryForm userData={userData} />
-          </ScrollView>
-        </View>
+          {/* Manual Entry Form */}
+          <ManualEntryForm userData={userData} />
+        </ScrollView>
       </View>
+
+      {/* Standard overlay sidebar */}
+      <Sidebar
+        isVisible={isSidebarVisible}
+        onClose={() => setIsSidebarVisible(false)}
+        userData={userData}
+      />
     </SafeAreaView>
   );
 };

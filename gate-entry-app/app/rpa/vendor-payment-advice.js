@@ -30,6 +30,7 @@ import { rpaAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showAlert } from '../../utils/customModal';
 import BackChip from '../../components/ui/BackChip';
+import AppHeader from '../../components/ui/AppHeader';
 import KpiCard from '../../components/ui/KpiCard';
 import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
@@ -214,14 +215,11 @@ export default function VendorPaymentAdviceScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* Top bar */}
-      <View style={{
-        height: 52, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#BCE5CC',
-      }}>
+      {/* Standard header + back chip row */}
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
         <BackChip label="Finance" onPress={() => router.back()} />
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Vendor Payment Advice</Text>
-        <View style={{ width: 110 }} />
       </View>
 
       <View style={{ padding: 14 }}>

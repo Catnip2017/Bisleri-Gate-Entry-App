@@ -11,6 +11,7 @@ import { copackerAPI, authAPI, handleAPIError } from '../../services/api';
 import { showAlert } from '../../utils/customModal';
 import { storage } from '../../utils/storage';
 import { API_BASE_URL } from '../../services/api';
+import BackChip from '../../components/ui/BackChip';
 import { useCopackerStyles } from './styles/copackerStyles';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -895,18 +896,10 @@ const CoPackerDashboard = () => {
         <View style={{ width: 80 }} />
       </View>
 
-      {/* Back navigation — standard position: top-left row below the header,
-          matching the Admin Insights ("Gate Entry") screen */}
+      {/* Back navigation — standard blue chip, top-left row below the header */}
       {isITAdmin && (
-        <View style={{ flexDirection: 'row', paddingHorizontal: 12, paddingTop: 8 }}>
-          <TouchableOpacity
-            style={styles.homeButton}
-            onPress={() => router.push('/admin-hub')}
-            accessibilityRole="button"
-            accessibilityLabel="Back to Admin Hub"
-          >
-            <Text style={styles.homeText}>← Admin Hub</Text>
-          </TouchableOpacity>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10 }}>
+          <BackChip label="Admin Hub" onPress={() => router.push('/admin-hub')} />
         </View>
       )}
 

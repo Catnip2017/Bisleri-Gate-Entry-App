@@ -21,14 +21,13 @@ import { showAlert } from '../../utils/customModal';
 // Import admin screens
 import AdminInsightsScreen from './screens/AdminInsightsScreen';
 
+// Shared UI (standard header, back chip, overlay sidebar)
+import AppHeader from '../../components/ui/AppHeader';
+import BackChip from '../../components/ui/BackChip';
+import Sidebar from '../security/components/Sidebar';
+
 // Import styles
 import styles from './AdminDashboardStyles';
-
-const roleLabels = {
-  itadmin: "IT Admin",
-  securityadmin: "Security Admin",
-  securityguard: "Security Guard",
-};
 
 const AdminDashboard = () => {
   const router = useRouter();
@@ -110,69 +109,24 @@ const AdminDashboard = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => setIsSidebarVisible(!isSidebarVisible)}>
-          <Text style={styles.menuButton}>☰</Text>
-        </TouchableOpacity>
-
-        <Image
-          source={require('../../assets/images/bisleri-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-
-        <View style={{ width: 24 }} />
-      </View>
+      {/* Standard header */}
+      <AppHeader onMenuPress={() => setIsSidebarVisible(!isSidebarVisible)} />
 
       {/* Body */}
       <View style={styles.body}>
-        {/* Top-left back navigation */}
+        {/* Top-left back navigation — standard blue chip */}
         {(isITAdmin || showLandingButton) && (
           <View style={styles.topLeftRow}>
-            {/* IT Admins came from Admin Hub — give them a way back */}
             {isITAdmin && (
-              <TouchableOpacity style={styles.homeButton} onPress={handleBackToAdminHub}>
-                <Text style={styles.homeButtonText}>← Admin Hub</Text>
-              </TouchableOpacity>
+              <BackChip label="Admin Hub" onPress={handleBackToAdminHub} />
             )}
-
-            {/* Security Guard + Security Admin combo came from /landing */}
             {showLandingButton && (
-              <TouchableOpacity style={styles.homeButton} onPress={handleBackToLanding}>
-                <Text style={styles.homeButtonText}>← Home</Text>
-              </TouchableOpacity>
+              <BackChip label="Home" onPress={handleBackToLanding} />
             )}
           </View>
         )}
 
         <View style={styles.bodyRow}>
-          {/* Sidebar */}
-          {isSidebarVisible && (
-            <View style={styles.sidebar}>
-              <Text style={styles.sidebarTitle}>User Info</Text>
-              {user && (
-                <>
-                  <Text style={styles.sidebarItem}>Username: {user.username}</Text>
-                  <Text style={styles.sidebarItem}>
-                    Name: {user.firstName} {user.lastName}
-                  </Text>
-                  <Text style={styles.sidebarItem}>
-                    Role: {user.roles
-                      .map(role => roleLabels[role] || (role.charAt(0).toUpperCase() + role.slice(1)))
-                      .join(', ')}
-                  </Text>
-                  {user.warehouseCode && (
-                    <Text style={styles.sidebarItem}>WH Code: {user.warehouseCode}</Text>
-                  )}
-                  {user.siteCode && (
-                    <Text style={styles.sidebarItem}>Site Code: {user.siteCode}</Text>
-                  )}
-                </>
-              )}
-            </View>
-          )}
-
           {/* Main Content — Admin Insights only */}
           <View style={styles.mainContent}>
             <ScrollView style={styles.screenContainer}>
@@ -181,6 +135,13 @@ const AdminDashboard = () => {
           </View>
         </View>
       </View>
+
+      {/* Standard overlay sidebar (same component as the security dashboard) */}
+      <Sidebar
+        isVisible={isSidebarVisible}
+        onClose={() => setIsSidebarVisible(false)}
+        userData={user}
+      />
     </SafeAreaView>
   );
 };

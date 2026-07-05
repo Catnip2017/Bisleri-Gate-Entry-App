@@ -7,6 +7,7 @@ import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import BackChip from '../../components/ui/BackChip';
+import AppHeader from '../../components/ui/AppHeader';
 import KpiCard from '../../components/ui/KpiCard';
 import { green } from '../../utils/theme';
 
@@ -15,14 +16,11 @@ export default function MonthlySalesInvoiceScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* Top bar */}
-      <View style={{
-        height: 52, backgroundColor: '#ffffff', flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'space-between', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: '#BCE5CC',
-      }}>
+      {/* Standard header + back chip row */}
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
         <BackChip label="Finance" onPress={() => router.back()} />
         <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Monthly Sales Invoice</Text>
-        <View style={{ width: 110 }} />
       </View>
 
       <View style={{ padding: 14 }}>

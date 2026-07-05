@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import BackChip from '../../components/ui/BackChip';
+import AppHeader from '../../components/ui/AppHeader';
 import styles from './RpaStyles';
 
 // ── Domain definitions ────────────────────────────────────────────────────
@@ -59,11 +60,11 @@ export default function RpaScreen() {
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Top bar — standard grey back chip, top-left ─────────────────── */}
-      <View style={styles.topBar}>
+      {/* ── Standard header + back chip row ─────────────────────────────── */}
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
         <BackChip label="Admin Hub" onPress={() => router.back()} />
         <Text style={styles.topTitle}>RPA Processes</Text>
-        <View style={{ width: 110 }} />
       </View>
 
       {/* ── Body ─────────────────────────────────────────────────────────── */}

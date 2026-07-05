@@ -15,6 +15,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
 import BackChip from '../../../components/ui/BackChip';
+import AppHeader from '../../../components/ui/AppHeader';
 
 // Re-use the existing screens from app/admin/screens — relative imports
 // inside those files are resolved relative to their own location, so no
@@ -76,11 +77,11 @@ export default function UserManagementScreen() {
 
   return (
     <View style={styles.container}>
-      {/* ── Top bar — standard grey back chip, top-left ─────────────────── */}
-      <View style={styles.topBar}>
+      {/* ── Standard header + back chip row ─────────────────────────────── */}
+      <AppHeader />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
         <BackChip label="Admin Hub" onPress={() => router.back()} />
         <Text style={styles.topTitle}>User Management</Text>
-        <View style={{ width: 110 }} />
       </View>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
