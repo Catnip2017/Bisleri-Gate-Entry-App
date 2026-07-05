@@ -10,7 +10,6 @@
 #    reused; endpoints are IT Admin only.
 #  - Data comes from the separate RPA_Automation database, configured via
 #    RPA_DB_* environment variables (.env).
-import os
 import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -19,17 +18,20 @@ import psycopg2.extras
 
 from app.auth import get_current_user
 from app.models import UsersMaster
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/rpa", tags=["RPA"])
 
+# Read through the app's single settings mechanism (pydantic-settings reads
+# .env directly — os.getenv would NOT see .env values).
 RPA_DB = {
-    "host": os.getenv("RPA_DB_HOST", "localhost"),
-    "port": int(os.getenv("RPA_DB_PORT", "5432")),
-    "database": os.getenv("RPA_DB_NAME", "RPA_Automation"),
-    "user": os.getenv("RPA_DB_USER", "postgres"),
-    "password": os.getenv("RPA_DB_PASSWORD", ""),
+    "host": settings.RPA_DB_HOST,
+    "port": settings.RPA_DB_PORT,
+    "database": settings.RPA_DB_NAME,
+    "user": settings.RPA_DB_USER,
+    "password": settings.RPA_DB_PASSWORD,
 }
 
 MAX_ROWS = 5000

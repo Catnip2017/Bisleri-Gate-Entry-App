@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # Co Packer field editing toggle
     ENABLE_FIELD_EDIT: bool = Field(default=False, env="ENABLE_FIELD_EDIT")
 
+    # RPA dashboards — separate RPA_Automation database
+    RPA_DB_HOST: str = Field(default="localhost", env="RPA_DB_HOST")
+    RPA_DB_PORT: int = Field(default=5432, env="RPA_DB_PORT")
+    RPA_DB_NAME: str = Field(default="RPA_Automation", env="RPA_DB_NAME")
+    RPA_DB_USER: str = Field(default="postgres", env="RPA_DB_USER")
+    RPA_DB_PASSWORD: str = Field(default="", env="RPA_DB_PASSWORD")
+
     class Config:
         env_file = ".env"
 
