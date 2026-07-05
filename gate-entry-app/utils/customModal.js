@@ -132,6 +132,43 @@ export const showAlert = (title, message, buttons = [], options = {}) => {
   }
 };
 
+// ── Semantic helpers ─────────────────────────────────────────────────────────
+// Use these instead of hand-rolling titles/buttons at every call site so the
+// 50+ popups across the app stay consistent.
+
+/** Success confirmation. Optional onOk callback runs after dismissal. */
+export const showSuccess = (title, message, onOk) => {
+  showAlert(title || 'Success', message, onOk ? [{ text: 'OK', onPress: onOk }] : []);
+};
+
+/** Error popup with a standard title. */
+export const showError = (message, title = 'Error') => {
+  showAlert(title, message);
+};
+
+/** Validation error popup with a standard title. */
+export const showValidationError = (message) => {
+  showAlert('Validation Error', message);
+};
+
+/**
+ * Confirmation dialog. Set destructive: true for irreversible actions
+ * (delete, clear) — the confirm button renders filled red on web.
+ */
+export const confirmAction = ({
+  title = 'Confirm',
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  destructive = false,
+  onConfirm,
+}) => {
+  showAlert(title, message, [
+    { text: cancelText, style: 'cancel' },
+    { text: confirmText, style: destructive ? 'destructive' : 'default', onPress: onConfirm },
+  ]);
+};
+
 // Provider component to include in your app
 export const CustomAlertProvider = ({ children }) => {
   return (
@@ -204,8 +241,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
 
+  // Destructive actions get a filled red button so they never look
+  // identical in weight to Cancel (WCAG: don't rely on text alone).
   destructiveButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#F44336',
   },
 
   buttonText: {
@@ -216,7 +255,7 @@ const styles = StyleSheet.create({
   },
 
   destructiveText: {
-    color: '#F44336',
+    color: '#ffffff',
   },
 });
 

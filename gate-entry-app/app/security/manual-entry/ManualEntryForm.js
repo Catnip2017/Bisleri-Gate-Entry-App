@@ -12,13 +12,23 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { gateAPI, handleAPIError } from '../../../services/api';
 import styles from './ManualEntryFormStyles';
 import { showAlert } from '../../../utils/customModal';
+import { isGateEntryRestricted } from '../../../utils/jwtUtils';
+import {
+  validateDriverName,
+  validateKMReading,
+  validateLoaderCount,
+  validateLoaderNames,
+} from '../../../utils/validators';
 
 
 const ManualEntryForm = ({ userData }) => {
   const router = useRouter();
   const searchParams = useLocalSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isITAdmin = userData?.role?.toLowerCase() === 'itadmin';
+  // ✅ FIX: normalised multi-role check shared with GateEntryTab. The old
+  // check (userData?.role === 'itadmin') missed combined roles like
+  // "itadmin,securityadmin" and didn't restrict securityadmin at all.
+  const isRestricted = isGateEntryRestricted(userData?.roles || []);
 
   // Get vehicle number and gate type from URL parameters
   const preFilledVehicleNo = searchParams.vehicle || '';
@@ -51,22 +61,30 @@ const ManualEntryForm = ({ userData }) => {
     }));
   };
 
-  // ✅ UPDATED: Validation - allow 0-20 range for empty vehicle support
+  // ✅ UPDATED: shared validators — every field marked * is now actually
+  // validated (driver name, KM and loader names previously were not).
   const validateForm = () => {
     if (!formData.vehicleNo?.trim()) {
       showAlert('Validation Error', 'Vehicle number is required');
       return false;
     }
-    
-    
+
     if (formData.noOfDocuments < 0 || formData.noOfDocuments > 20) {
       showAlert('Validation Error', 'Number of documents must be between 0 and 20');
       return false;
     }
 
-    if (!formData.loaderCount?.trim()) {
-      showAlert('Validation Error', 'Loader count is required');
-      return false;
+    const checks = [
+      validateDriverName(formData.driverName),
+      validateKMReading(formData.kmReading),
+      validateLoaderCount(formData.loaderCount),
+      validateLoaderNames(formData.loaderNames),
+    ];
+    for (const check of checks) {
+      if (!check.isValid) {
+        showAlert('Validation Error', check.error);
+        return false;
+      }
     }
 
     return true;
@@ -74,10 +92,10 @@ const ManualEntryForm = ({ userData }) => {
 
   // ✅ UPDATED: Enhanced confirmation dialog for empty vehicle scenario
   const handleSubmit = async () => {
-       if (isITAdmin) {
-     showAlert('Access Denied', 'IT Admin cannot create manual entries.');
-    return;
-   }
+    if (isRestricted) {
+      showAlert('Access Denied', 'Admin roles cannot create manual entries.');
+      return;
+    }
 
     if (!validateForm()) return;
 
@@ -155,11 +173,19 @@ const ManualEntryForm = ({ userData }) => {
           text: 'Clear',
           style: 'destructive',
           onPress: () => {
+            // ✅ FIX: reset EVERY key back to its pre-filled initial state.
+            // The old reset dropped driverName/kmReading/loaderNames/
+            // loaderCount, turning controlled inputs uncontrolled and
+            // losing the Gate Entry pre-fill.
             setFormData({
               vehicleNo: preFilledVehicleNo.toUpperCase(),
               gateType: preFilledGateType,
-              noOfDocuments: 0,  // ✅ Reset to 0
+              noOfDocuments: 0,
               remarks: '',
+              driverName: preFilledDriverName,
+              kmReading: preFilledKMReading,
+              loaderNames: preFilledLoaderNames,
+              loaderCount: preFilledLoaderCount,
             });
           }
         }
@@ -169,12 +195,12 @@ const ManualEntryForm = ({ userData }) => {
 
  return (
   <View style={styles.container}>
-              {/* 🚫 Show Restriction Info for IT Admin */}
-      {isITAdmin && (
+      {/* Restriction banner for admin roles */}
+      {isRestricted && (
         <View style={styles.infoBox}>
-          <Text style={[styles.infoTitle, { color: 'red' }]}>🚫 Restricted Access</Text>
+          <Text style={[styles.infoTitle, { color: 'red' }]}>Restricted Access</Text>
           <Text style={styles.infoText}>
-            IT Admins can only view this page. Manual Entry creation is disabled.
+            Admin roles can view this page. Manual Entry creation is disabled.
           </Text>
         </View>
       )}
@@ -199,7 +225,7 @@ const ManualEntryForm = ({ userData }) => {
             </Text>
           ) : (
             <Text style={styles.warningText}>
-              ⚠️ Vehicle number should be provided from Gate Entry page
+              Vehicle number should be provided from Gate Entry page
             </Text>
           )}
         </View>
@@ -240,13 +266,13 @@ const ManualEntryForm = ({ userData }) => {
             placeholder="Enter 0 for empty vehicle, 1-20 for manual entries"
             keyboardType="numeric"
             maxLength={2}
-            editable={!isSubmitting && !isITAdmin}  // ✅ ADDED: && !isITAdmin
+            editable={!isSubmitting && !isRestricted}
             selectTextOnFocus={true}
           />
           <Text style={styles.hintText}>
-            {formData.noOfDocuments === 0 
-              ? '🚛 Empty Vehicle: This will create 1 "EMPTY VEHICLE" entry to record the vehicle passage.'
-              : `📋 Manual Entries: This will create ${formData.noOfDocuments} manual entries with the same Gate Entry Number. You can assign actual documents later from the Insights tab.`
+            {formData.noOfDocuments === 0
+              ? 'Empty Vehicle: This will create 1 "EMPTY VEHICLE" entry to record the vehicle passage.'
+              : `Manual Entries: This will create ${formData.noOfDocuments} manual entries with the same Gate Entry Number. You can assign actual documents later from the Insights tab.`
             }
           </Text>
         </View>
@@ -355,9 +381,9 @@ const ManualEntryForm = ({ userData }) => {
       {/* ✅ Dynamic visual indicator based on entry type */}
       <View style={styles.documentCountContainer}>
         <Text style={styles.documentCountText}>
-          {formData.noOfDocuments === 0 
-            ? `🚛 Recording empty vehicle ${formData.vehicleNo} passage`
-            : `📋 Creating ${formData.noOfDocuments} identical manual entries for vehicle ${formData.vehicleNo}`
+          {formData.noOfDocuments === 0
+            ? `Recording empty vehicle ${formData.vehicleNo} passage`
+            : `Creating ${formData.noOfDocuments} identical manual entries for vehicle ${formData.vehicleNo}`
           }
         </Text>
       </View>
@@ -378,7 +404,7 @@ const ManualEntryForm = ({ userData }) => {
             multiline
             numberOfLines={3}
             maxLength={200}
-            editable={!isSubmitting && !isITAdmin}  // ✅ ADDED: && !isITAdmin
+            editable={!isSubmitting && !isRestricted}
           />
           <Text style={styles.hintText}>
             Character count: {formData.remarks.length}/200
@@ -390,7 +416,7 @@ const ManualEntryForm = ({ userData }) => {
         {/* ✅ UPDATED: Dynamic information box based on entry type */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>
-            {formData.noOfDocuments === 0 ? 'ℹ️ Empty Vehicle Entry:' : 'ℹ️ How Multi-Document Entry Works:'}
+            {formData.noOfDocuments === 0 ? 'Empty Vehicle Entry:' : 'How Multi-Document Entry Works:'}
           </Text>
           {formData.noOfDocuments === 0 ? (
             <>
@@ -435,33 +461,33 @@ const ManualEntryForm = ({ userData }) => {
             styles.button, 
             styles.submitButton, 
             formData.noOfDocuments === 0 ? styles.emptyVehicleButton : styles.enhancedSubmitButton,
-            (isSubmitting || isITAdmin) && styles.buttonDisabled
-          ]} 
-          onPress={isITAdmin 
-            ? () => showAlert('Access Denied', 'IT Admin cannot create manual entries.') 
+            (isSubmitting || isRestricted) && styles.buttonDisabled
+          ]}
+          onPress={isRestricted
+            ? () => showAlert('Access Denied', 'Admin roles cannot create manual entries.')
             : handleSubmit
           }
-          disabled={isSubmitting || isITAdmin}
+          disabled={isSubmitting || isRestricted}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={[styles.buttonText, styles.enhancedButtonText]}>
-              {isITAdmin
-                ? '🚫 Restricted for IT Admin'
+              {isRestricted
+                ? 'View Only'
                 : formData.noOfDocuments === 0
-                ? '🚛 Record Empty Vehicle'
-                : `📋 Create ${formData.noOfDocuments} ${formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}`
+                ? 'Record Empty Vehicle'
+                : `Create ${formData.noOfDocuments} ${formData.noOfDocuments === 1 ? 'Entry' : 'Entries'}`
               }
             </Text>
           )}
         </TouchableOpacity>
 
 
-          <TouchableOpacity 
-            style={[styles.button, styles.clearButton]} 
+          <TouchableOpacity
+            style={[styles.button, styles.clearButton]}
             onPress={handleClear}
-           disabled={isSubmitting || isITAdmin}
+           disabled={isSubmitting || isRestricted}
 
           >
             <Text style={styles.buttonText}>Clear Form</Text>

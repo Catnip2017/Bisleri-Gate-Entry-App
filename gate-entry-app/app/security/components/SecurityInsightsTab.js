@@ -7,12 +7,10 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
   Modal,
-  FlatList,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import DateField from '../../../components/ui/DateField';
 import styles from '../styles/insightsStyles';
 import { 
   insightsAPI, 
@@ -26,10 +24,7 @@ import { getCurrentUser } from '../../../utils/jwtUtils';
 import OperationalEditModal from './OperationalEditModal';
 import { showAlert } from '@/utils/customModal';
 
-const SecurityInsightsTab = ({ 
-  insightsData, 
-  onDataChange 
-}) => {
+const SecurityInsightsTab = () => {
   // State management
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState([]);
@@ -50,20 +45,27 @@ const SecurityInsightsTab = ({
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [assigningDocument, setAssigningDocument] = useState(false);
 
-  // Date picker states
-  const [showFromDatePicker, setShowFromDatePicker] = useState(false);
-  const [showToDatePicker, setShowToDatePicker] = useState(false);
+  // Date filter states (pickers handled by the shared DateField component)
   const [fromDate, setFromDate] = useState(new Date());
   const [toDate, setToDate] = useState(new Date());
+
+  // Page-number input draft (committed on submit/blur — typing "12" must not
+  // jump to page 1 first)
+  const [pageInputValue, setPageInputValue] = useState('1');
 
   // Vehicle filter state
   const [vehicleFilter, setVehicleFilter] = useState('');
 
-  // Load initial data
+  // Load initial data.
+  // ✅ FIX: user data must load BEFORE the first movements fetch — previously
+  // both ran in parallel, so the first request always went out with
+  // warehouse_code: null and showed unfiltered data.
   useEffect(() => {
-    loadUserData();
-    loadMovements();
-    loadEditStatistics();
+    (async () => {
+      const user = await loadUserData();
+      loadMovements(user);
+      loadEditStatistics();
+    })();
   }, []);
 
   // Helper function to format date as YYYY-MM-DD for API
@@ -82,67 +84,14 @@ const SecurityInsightsTab = ({
     return `${day}-${month}-${year}`;
   };
 
-  // Add this new function after formatDateToDDMMYYYY
-  const renderDatePicker = (value, onChange, show, setShow, label) => {
-    if (Platform.OS === 'web') {
-      // Web: Use HTML5 date input
-      return (
-        <input
-          type="date"
-          value={value.toISOString().split('T')[0]} // Convert to YYYY-MM-DD format
-          onChange={(e) => {
-            const newDate = new Date(e.target.value);
-            onChange(null, newDate);
-          }}
-          style={{
-            borderWidth: 1,
-            borderColor: '#aaa',
-            padding: 10,
-            borderRadius: 4,
-            backgroundColor: 'white',
-            fontSize: 14,
-            width: '100%',
-            minHeight: 40,
-          }}
-        />
-      );
-    }
-    
-    // Mobile: Use existing DateTimePicker
-    return (
-      <>
-        <TouchableOpacity 
-          style={styles.datePickerButton}
-          onPress={() => setShow(true)}
-        >
-          <Text style={styles.datePickerText}>
-            {formatDateToDDMMYYYY(value)}
-          </Text>
-        </TouchableOpacity>
-        
-        {show && (
-          <DateTimePicker
-            value={value}
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={(event, selectedDate) => {
-              setShow(Platform.OS === 'ios');
-              if (selectedDate) {
-                onChange(event, selectedDate);
-              }
-            }}
-          />
-        )}
-      </>
-    );
-  };
-
   const loadUserData = async () => {
     try {
       const user = await getCurrentUser();
       setUserData(user);
+      return user;
     } catch (error) {
       console.log('Error loading user data:', error);
+      return null;
     }
   };
 
@@ -155,52 +104,27 @@ const SecurityInsightsTab = ({
     }
   };
 
-  // const loadMovements = async () => {
-  //   setLoading(true);
-  //   try {
-  //     const filter = {
-  //       from_date: formatDateForAPI(fromDate),
-  //       to_date: formatDateForAPI(toDate),
-  //       warehouse_code: userData?.warehouse_code || null,
-  //       vehicle_no: vehicleFilter.trim() || null,
-  //       movement_type: null
-  //     };
-
-  //     const response = await insightsAPI.getFilteredMovements(filter);
-      
-  //     // Sort by edit priority (Yellow -> Green -> Black)
-  //     const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
-  //     setMovements(sortedMovements);
-  //     setCurrentPage(1); // Reset to first page when data loads
-      
-  //   } catch (error) {
-  //     console.log('Error loading movements:', error);
-  //     const errorMessage = handleAPIError(error);
-  //     showAlert('Error', `Failed to load movements: ${errorMessage}`);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  const loadMovements = async () => {
+  const loadMovements = async (user = userData) => {
     setLoading(true);
     try {
       const filter = {
         from_date: formatDateForAPI(fromDate),
         to_date: formatDateForAPI(toDate),
-        warehouse_code: userData?.warehouse_code || null,
+        // ✅ FIX: getCurrentUser() returns warehouseCode (camelCase) — the old
+        // userData?.warehouse_code key never existed, so the warehouse filter
+        // was silently null on every request.
+        warehouse_code: user?.warehouseCode || null,
         vehicle_no: vehicleFilter.trim() || null,
         movement_type: null
       };
 
-      console.log('Final filter sent to API:', filter); // Add this debug log
-
       const response = await insightsAPI.getFilteredMovements(filter);
-      
+
       const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
       setMovements(sortedMovements);
       setCurrentPage(1);
-      
+      setPageInputValue('1');
+
     } catch (error) {
       console.log('Error loading movements:', error);
       showAlert('Error', handleAPIError(error));
@@ -209,37 +133,8 @@ const SecurityInsightsTab = ({
     }
   };
 
-  // Date picker handlers
-  const onFromDateChange = (event, selectedDate) => {
-    setShowFromDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setFromDate(selectedDate);
-    }
-  };
-
-  const onToDateChange = (event, selectedDate) => {
-    setShowToDatePicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      setToDate(selectedDate);
-    }
-  };
-
   // Apply filters and reload data
-  // const handleApplyFilters = () => {
-  //   loadMovements();
-  //   loadEditStatistics();
-  // };
-
   const handleApplyFilters = () => {
-    console.log('Applying filters - Debug info:', {
-      fromDate: fromDate,
-      toDate: toDate,
-      fromDateFormatted: formatDateForAPI(fromDate),
-      toDateFormatted: formatDateForAPI(toDate),
-      vehicleFilter: vehicleFilter,
-      platform: Platform.OS
-    });
-    
     loadMovements();
     loadEditStatistics();
   };
@@ -254,11 +149,19 @@ const SecurityInsightsTab = ({
   const endItem = Math.min(endIndex, totalItems);
 
   // NEW: Pagination handlers
-  const goToFirstPage = () => setCurrentPage(1);
-  const goToPreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
-  const goToLastPage = () => setCurrentPage(totalPages);
-  const goToPage = (page) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  const setPage = (page) => {
+    const clamped = Math.max(1, Math.min(page, Math.max(totalPages, 1)));
+    setCurrentPage(clamped);
+    setPageInputValue(String(clamped));
+  };
+  const goToFirstPage = () => setPage(1);
+  const goToPreviousPage = () => setPage(currentPage - 1);
+  const goToNextPage = () => setPage(currentPage + 1);
+  const goToLastPage = () => setPage(totalPages);
+  const commitPageInput = () => {
+    const page = parseInt(pageInputValue, 10);
+    setPage(Number.isNaN(page) ? currentPage : page);
+  };
 
   // NEW: Open document assignment modal
   const openDocumentAssignment = async (record) => {
@@ -277,13 +180,8 @@ const SecurityInsightsTab = ({
     try {
       const response = await gateAPI.getUnassignedDocuments(vehicleNo, 48); // 48 hour window
       setAvailableDocuments(response.documents || []);
-      
-      if (response.available_count === 0) {
-        showAlert(
-          'No Documents Found', 
-          `No unassigned documents found for vehicle ${vehicleNo} in the last 48 hour.\n\nDocuments may not have synced yet. Please try again later or contact admin to trigger manual sync.`
-        );
-      }
+      // ✅ FIX: no popup on top of the just-opened modal — the modal's own
+      // empty state now explains the zero-documents case.
     } catch (error) {
       console.log('Error loading available documents:', error);
       const errorMessage = handleAPIError(error);
@@ -323,7 +221,7 @@ const SecurityInsightsTab = ({
       
       showAlert(
         'Success',
-        `Document ${selectedDocument.document_no} assigned successfully!\n\nGate Entry: ${response.gate_entry_no}\nEdit Count: ${response.updated_insights.edit_count}`,
+        `Document ${selectedDocument.document_no} assigned successfully!\n\nGate Entry: ${response.gate_entry_no}`,
         [
           {
             text: 'OK',
@@ -440,9 +338,8 @@ const SecurityInsightsTab = ({
           ? { ...movement, ...response.updated_data }
           : movement
       )
-    );    
+    );
     loadEditStatistics();
-    console.log('Edit successful:', response);
   };
 
   // Render 3-color edit button
@@ -506,7 +403,7 @@ const SecurityInsightsTab = ({
         onPress={() => openDocumentAssignment(record)}
       >
         <Text style={styles.assignmentDropdownText}>
-          📄 Select Document
+          Select Document
         </Text>
       </TouchableOpacity>
     );
@@ -520,7 +417,7 @@ const SecurityInsightsTab = ({
     if (!needsAssignment) {
       return (
         <View style={[styles.tableCell, styles.colAssignmentActions]}>
-          <Text style={styles.assignedStatusText}>✅ Assigned</Text>
+          <Text style={styles.assignedStatusText}>Assigned</Text>
         </View>
       );
     }
@@ -528,7 +425,7 @@ const SecurityInsightsTab = ({
     if (!canAssign) {
       return (
         <View style={[styles.tableCell, styles.colAssignmentActions]}>
-          <Text style={styles.expiredStatusText}>⚫ Expired</Text>
+          <Text style={styles.expiredStatusText}>Expired</Text>
         </View>
       );
     }
@@ -540,7 +437,7 @@ const SecurityInsightsTab = ({
           onPress={() => openDocumentAssignment(record)}
         >
           <Text style={styles.assignmentActionButtonText}>
-            📎 Assign
+            Assign
           </Text>
         </TouchableOpacity>
       </View>
@@ -624,28 +521,22 @@ const SecurityInsightsTab = ({
         
         {/* Enhanced Filters */}
         <View style={styles.filters}>
-          {/* From Date */}
+          {/* From Date — shared DateField component */}
           <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>From Date</Text>
-            {renderDatePicker(
-              fromDate, 
-              onFromDateChange, 
-              showFromDatePicker, 
-              setShowFromDatePicker,
-              'From Date'
-            )}
+            <DateField
+              label="From Date"
+              value={fromDate}
+              onChange={setFromDate}
+            />
           </View>
-          
-          {/* To Date */}
+
+          {/* To Date — shared DateField component */}
           <View style={styles.filterItem}>
-            <Text style={styles.filterLabel}>To Date</Text>
-            {renderDatePicker(
-              toDate, 
-              onToDateChange, 
-              showToDatePicker, 
-              setShowToDatePicker,
-              'To Date'
-            )}
+            <DateField
+              label="To Date"
+              value={toDate}
+              onChange={setToDate}
+            />
           </View>
 
           {/* Vehicle Number Filter */}
@@ -839,52 +730,56 @@ const SecurityInsightsTab = ({
           </View>
         </ScrollView>
 
-        {/* NEW: Pagination Controls */}
+        {/* NEW: Pagination Controls (MaterialIcons, 48dp targets, draft page input) */}
         <View style={styles.paginationControls}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
             onPress={goToFirstPage}
             disabled={currentPage === 1}
+            accessibilityLabel="First page"
           >
-            <Text style={styles.paginationButtonText}>⏮️</Text>
+            <MaterialIcons name="first-page" size={22} color={currentPage === 1 ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
             onPress={goToPreviousPage}
             disabled={currentPage === 1}
+            accessibilityLabel="Previous page"
           >
-            <Text style={styles.paginationButtonText}>⬅️</Text>
+            <MaterialIcons name="chevron-left" size={22} color={currentPage === 1 ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
 
           <View style={styles.pageInputContainer}>
             <TextInput
               style={styles.pageInput}
-              value={currentPage.toString()}
-              onChangeText={(text) => {
-                const page = parseInt(text) || 1;
-                goToPage(page);
-              }}
+              value={pageInputValue}
+              onChangeText={setPageInputValue}
+              onBlur={commitPageInput}
+              onSubmitEditing={commitPageInput}
               keyboardType="numeric"
               maxLength={3}
+              accessibilityLabel="Page number"
             />
             <Text style={styles.pageInputLabel}>of {totalPages}</Text>
           </View>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
             onPress={goToNextPage}
             disabled={currentPage === totalPages}
+            accessibilityLabel="Next page"
           >
-            <Text style={styles.paginationButtonText}>➡️</Text>
+            <MaterialIcons name="chevron-right" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
             onPress={goToLastPage}
             disabled={currentPage === totalPages}
+            accessibilityLabel="Last page"
           >
-            <Text style={styles.paginationButtonText}>⏭️</Text>
+            <MaterialIcons name="last-page" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -909,7 +804,7 @@ const SecurityInsightsTab = ({
             
             {/* Header */}
             <Text style={styles.assignmentModalTitle}>
-              📄 Assign Document to Manual Entry
+              Assign Document to Manual Entry
             </Text>
             
             {/* Record Info */}
@@ -927,7 +822,7 @@ const SecurityInsightsTab = ({
             
             {/* Document Selection */}
             <Text style={styles.assignmentSectionTitle}>
-              Available Documents (Last 48 Hour):
+              Available Documents (Last 48 Hours):
             </Text>
             
             {loadingDocuments ? (
@@ -938,13 +833,15 @@ const SecurityInsightsTab = ({
             ) : availableDocuments.length === 0 ? (
               <View style={styles.noDocumentsContainer}>
                 <Text style={styles.noDocumentsText}>
-                  No unassigned documents found for this vehicle in the last hour.
+                  No unassigned documents found for this vehicle in the last
+                  48 hours. Documents may not have synced yet — try Refresh,
+                  or contact your admin to trigger a manual sync.
                 </Text>
                 <TouchableOpacity 
                   style={styles.refreshButton}
                   onPress={() => loadAvailableDocuments(assigningRecord?.vehicle_no)}
                 >
-                  <Text style={styles.refreshButtonText}>🔄 Refresh</Text>
+                  <Text style={styles.refreshButtonText}>Refresh</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -959,7 +856,7 @@ const SecurityInsightsTab = ({
                     onPress={() => setSelectedDocument(doc)}
                   >
                     <Text style={styles.documentOptionTitle}>
-                      📄 {doc.document_no}
+                      {doc.document_no}
                     </Text>
                     <Text style={styles.documentOptionDetails}>
                       Type: {doc.document_type} | Date: {doc.document_date ? new Date(doc.document_date).toLocaleDateString() : 'N/A'}
@@ -969,7 +866,7 @@ const SecurityInsightsTab = ({
                     </Text>
                     {doc.age_hours && (
                       <Text style={styles.documentOptionAge}>
-                        🕒 {Math.round(doc.age_hours * 10) / 10} hours ago
+                        {Math.round(doc.age_hours * 10) / 10} hours ago
                       </Text>
                     )}
                   </TouchableOpacity>

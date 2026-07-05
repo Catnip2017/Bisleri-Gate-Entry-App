@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { insightsAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
+import { validateOperationalData } from '../../../utils/validators';
 
 const OperationalEditModal = ({ 
   visible, 
@@ -32,8 +33,6 @@ const OperationalEditModal = ({
   // Initialize form when record changes
   useEffect(() => {
     if (record && visible) {
-      console.log('Modal opened with record:', record);
-      
       setFormData({
         driver_name: record.driver_name || '',
         km_reading: record.km_reading || '',
@@ -45,8 +44,6 @@ const OperationalEditModal = ({
   }, [record, visible]);
 
   const updateField = (field, value) => {
-    console.log(`Updating field ${field} with value:`, value);
-    
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -54,26 +51,12 @@ const OperationalEditModal = ({
   };
 
   const handleSave = async () => {
-    console.log('Attempting to save form data:', formData);
-    
-    // Basic validation
-    if (!formData.driver_name.trim()) {
-      showAlert('Error', 'Driver name is required');
-      return;
-    }
-    
-    if (!formData.km_reading.trim()) {
-      showAlert('Error', 'KM reading is required');
-      return;
-    }
-    
-    if (!formData.loader_names.trim()) {
-      showAlert('Error', 'Loader names are required');
-      return;
-    }
-
-    if (!formData.loader_count.trim()) {
-      showAlert('Error', 'Loader count is required');
+    // ✅ FIX: shared validators — identical rules to the create form
+    // (GateEntryTab). Previously this modal accepted values the create form
+    // would reject (e.g. a 1-digit KM reading).
+    const validation = validateOperationalData(formData);
+    if (!validation.isValid) {
+      showAlert('Validation Error', validation.firstError);
       return;
     }
 
@@ -88,8 +71,6 @@ const OperationalEditModal = ({
         loader_names: formData.loader_names.trim(),
         remarks: formData.remarks.trim() || null
       };
-
-      console.log('Sending update data:', updateData);
 
       const response = await insightsAPI.updateOperationalData(updateData);
       
@@ -121,14 +102,6 @@ const OperationalEditModal = ({
   }
 
   const isCompletionRequired = record?.edit_button_config?.action === 'complete_required';
-  const missingFields = record?.missing_fields || [];
-
-  console.log('Modal rendering with:', {
-    visible,
-    isCompletionRequired,
-    missingFields,
-    formData
-  });
 
   return (
     <Modal
@@ -160,7 +133,7 @@ const OperationalEditModal = ({
             marginBottom: 16,
             color: '#333',
           }}>
-            {isCompletionRequired ? '⚠️ Complete Operational Info' : '✅ Edit Operational Details'}
+            {isCompletionRequired ? 'Complete Operational Info' : 'Edit Operational Details'}
           </Text>
           
           {/* Status Message */}
@@ -203,7 +176,7 @@ const OperationalEditModal = ({
                 marginBottom: 8,
                 color: '#333',
               }}>
-                👤 Driver Name *
+                Driver Name *
               </Text>
               <TextInput
                 style={{
@@ -231,7 +204,7 @@ const OperationalEditModal = ({
                 marginBottom: 8,
                 color: '#333',
               }}>
-                🚗 {record.movement_type === 'Gate-Out' ? 'KM OUT Reading' : 'KM IN Reading'} *
+                {record.movement_type === 'Gate-Out' ? 'KM OUT Reading' : 'KM IN Reading'} *
               </Text>
               <TextInput
                 style={{
@@ -259,7 +232,7 @@ const OperationalEditModal = ({
                 marginBottom: 8,
                 color: '#333',
               }}>
-                👥 Loader Names *
+                Loader Names *
               </Text>
               <TextInput
                 style={{
@@ -284,7 +257,7 @@ const OperationalEditModal = ({
                 color: '#6c757d',
                 marginTop: 4,
               }}>
-                💡 Separate multiple names with commas
+                Separate multiple names with commas
               </Text>
             </View>
 
@@ -296,7 +269,7 @@ const OperationalEditModal = ({
                 marginBottom: 8,
                 color: '#333',
               }}>
-                🔢 Loader Count
+                Loader Count *
               </Text>
               <TextInput
                 style={{
@@ -324,7 +297,7 @@ const OperationalEditModal = ({
                 marginBottom: 8,
                 color: '#333',
               }}>
-                📝 Remarks (Optional)
+                Remarks (Optional)
               </Text>
               <TextInput
                 style={{

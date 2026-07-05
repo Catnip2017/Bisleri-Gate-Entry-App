@@ -56,57 +56,100 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  // ✅ UPDATED: Button row for 3 tabs
+  // ✅ 2-tab navigation (Gate Entry | Insights)
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginVertical: 10,
+    gap: 8,
   },
 
-  // ✅ UPDATED: Active button styles for 3 tabs
+  // Symmetric tab buttons (old version rounded only one side of each tab)
   activeButton: {
-    backgroundColor: '#00bfff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderTopLeftRadius: 8,
-    borderBottomLeftRadius: 8,
-    marginHorizontal: 1,
-    minWidth: 100,
+    backgroundColor: '#007bff',
+    minHeight: 48,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    minWidth: 140,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
-  // ✅ UPDATED: Inactive button styles for 3 tabs  
   inactiveButton: {
-    backgroundColor: '#ccf5ff',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderTopRightRadius: 8,
-    borderBottomRightRadius: 8,
-    marginHorizontal: 1,
-    minWidth: 100,
+    backgroundColor: '#ffffff',
+    minHeight: 48,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#dee2e6',
+    minWidth: 140,
     alignItems: 'center',
+    justifyContent: 'center',
   },
 
   buttonText: {
-    color: '#000',
+    color: '#6c757d',
     fontWeight: 'bold',
     fontSize: 14,
     textAlign: 'center',
   },
 
-  // 🧊 Sidebar (Left side under header)
-  sidebar: {
-    width: 220,
-    backgroundColor: '#E0F7FA',
+  activeButtonText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+
+  // ✅ Overlay sidebar (drawer) — no longer pushes content sideways
+  sidebarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    zIndex: 100,
+  },
+
+  sidebarBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+  },
+
+  sidebarPanel: {
+    width: 280,
+    height: '100%',
+    backgroundColor: '#ffffff',
     padding: 16,
-    borderRightWidth: 1,
-    borderColor: '#ccc',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+
+  sidebarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+
+  sidebarCloseButton: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   sidebarTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
   },
 
   sidebarItem: {
@@ -114,6 +157,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '600',
+  },
+
+  sidebarLogoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#dc3545',
+    minHeight: 48,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+
+  sidebarLogoutText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 
   // Tab content containers

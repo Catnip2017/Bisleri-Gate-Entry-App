@@ -1,34 +1,37 @@
-// app/security/components/TabNavigation.js - MERGED 3-Tab System
+// app/security/components/TabNavigation.js - 2-tab hierarchy
+// Gate Entry (FG/RM toggle inside) | Insights (FG/RM toggle inside)
+// Replaces the old 3-tab layout where entry types were combined but insights
+// were split — an inconsistent hierarchy. Also fixes the old style bug where
+// the active tab only rounded its LEFT corners and inactive only its RIGHT.
 import React from 'react';
 import { View, TouchableOpacity, Text } from 'react-native';
 import styles from '../styles/dashboardStyles';
 
+const TABS = [
+  { key: 'entry', label: 'Gate Entry' },
+  { key: 'insights', label: 'Insights' },
+];
+
 const TabNavigation = ({ activeTab, onTabChange }) => {
   return (
-    <View style={styles.buttonRow}>
-      {/* ✅ MERGED: Gate Entry Tab (FG/RM toggle inside) */}
-      <TouchableOpacity 
-        style={activeTab === 'fgentry' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('fgentry')}
-      >
-        <Text style={styles.buttonText}>Gate Entry</Text>
-      </TouchableOpacity>
-
-      {/* ✅ MERGED: FG Insights Tab */}
-      <TouchableOpacity 
-        style={activeTab === 'fginsights' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('fginsights')}
-      >
-        <Text style={styles.buttonText}>FG Insights</Text>
-      </TouchableOpacity>
-
-      {/* ✅ MERGED: RM Insights Tab */}
-      <TouchableOpacity 
-        style={activeTab === 'rminsights' ? styles.activeButton : styles.inactiveButton}
-        onPress={() => onTabChange('rminsights')}
-      >
-        <Text style={styles.buttonText}>RM Insights</Text>
-      </TouchableOpacity>
+    <View style={styles.buttonRow} accessibilityRole="tablist">
+      {TABS.map((tab) => (
+        <TouchableOpacity
+          key={tab.key}
+          style={activeTab === tab.key ? styles.activeButton : styles.inactiveButton}
+          onPress={() => onTabChange(tab.key)}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === tab.key }}
+        >
+          <Text
+            style={
+              activeTab === tab.key ? styles.activeButtonText : styles.buttonText
+            }
+          >
+            {tab.label}
+          </Text>
+        </TouchableOpacity>
+      ))}
     </View>
   );
 };

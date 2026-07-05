@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  FlatList,
 } from "react-native";
 import Checkbox from "expo-checkbox";
 import styles from "../styles/gateEntryStyles";
@@ -20,13 +19,19 @@ import {
   gateHelpers,
 } from "../../../services/api";
 import { showAlert } from "../../../utils/customModal";
+import {
+  validateVehicleNo,
+  validateDriverName,
+  validateKMReading,
+  validateLoaderCount,
+  validateLoaderNames,
+  validateOperationalData,
+} from "../../../utils/validators";
+import DataTable from "../../../components/ui/DataTable";
 
 const GateEntryTab = ({
   gateEntryData,
   onDataChange,
-  onSubmit,
-  onAddManualEntry,
-  onClearAll,
   userData,
 }) => {
   const router = useRouter();
@@ -37,7 +42,7 @@ const GateEntryTab = ({
   const userRoles = userData?.roles || [];
   const isRestricted = userRoles.includes('itadmin') || userRoles.includes('securityadmin');
   const restrictedMessage =
-    '🚫 Restricted Access — you can only search vehicle records. Manual entry and submission are disabled for your role.';
+    'Restricted access — you can only search vehicle records. Manual entry and submission are disabled for your role.';
 
   // ✅ MERGED: Entry type toggle (FG or RM)
   const [entryType, setEntryType] = useState("FG");
@@ -71,72 +76,7 @@ const GateEntryTab = ({
     loader_names: { isValid: false, touched: false },
   });
 
-  // ✅ NEW: Validation functions matching OperationalEditModal
-  const validateDriverName = (value) => {
-    if (!value || !value.trim()) {
-      return { isValid: false, error: "Driver name is required" };
-    }
-    if (value.trim().length < 2) {
-      return {
-        isValid: false,
-        error: "Driver name must be at least 2 characters",
-      };
-    }
-    if (value.trim().length > 50) {
-      return {
-        isValid: false,
-        error: "Driver name must be less than 50 characters",
-      };
-    }
-    return { isValid: true, error: "" };
-  };
-
-  const validateKMReading = (value) => {
-    if (!value || !value.trim()) {
-      return { isValid: false, error: "KM reading is required" };
-    }
-    const cleanValue = value.replace(/[^0-9]/g, "");
-    if (!cleanValue) {
-      return { isValid: false, error: "KM reading must be numeric" };
-    }
-    if (cleanValue.length < 3 || cleanValue.length > 6) {
-      return { isValid: false, error: "KM reading must be 3-6 digits" };
-    }
-    const kmValue = parseInt(cleanValue);
-    if (kmValue < 0 || kmValue > 999999) {
-      return {
-        isValid: false,
-        error: "KM reading must be between 0 and 999999",
-      };
-    }
-    return { isValid: true, error: "" };
-  };
-
-  const validateLoaderNames = (value) => {
-    if (!value || !value.trim()) {
-      return { isValid: false, error: "Loader names are required" };
-    }
-    const names = value
-      .split(",")
-      .map((name) => name.trim())
-      .filter((name) => name);
-    if (names.length === 0) {
-      return { isValid: false, error: "At least one loader name is required" };
-    }
-    if (names.length > 10) {
-      return { isValid: false, error: "Maximum 10 loader names allowed" };
-    }
-    for (let name of names) {
-      if (name.length < 2) {
-        return {
-          isValid: false,
-          error: "Each loader name must be at least 2 characters",
-        };
-      }
-    }
-    return { isValid: true, error: "" };
-  };
-
+  // ✅ Validation now lives in utils/validators.js (shared with OperationalEditModal)
   const updateOperationalField = (field, value) => {
     let validation;
     let cleanValue = value;
@@ -151,15 +91,8 @@ const GateEntryTab = ({
         break;
       case "loader_count":
         cleanValue = value.replace(/[^0-9]/g, "");
-
-        if (cleanValue === "") {
-          validation = { isValid: false, error: "Loader count is required" };
-        } else if (parseInt(cleanValue) < 0 || parseInt(cleanValue) > 20) {
-          validation = { isValid: false, error: "Loader count must be between 0-20" };
-        } else {
-          validation = { isValid: true, error: "" };
-        }
-      break;
+        validation = validateLoaderCount(cleanValue);
+        break;
       case "loader_names":
         validation = validateLoaderNames(value);
         break;
@@ -193,8 +126,10 @@ const GateEntryTab = ({
     quantity: "",
   });
 
+  // ✅ FIX C15: single source of truth — the checkbox state. The old
+  // isEmptyVehicleRef was never written to, so validation always demanded a
+  // document number even for empty vehicles (guards were stuck).
   const [isEmptyVehicle, setIsEmptyVehicle] = useState(false);
-  const isEmptyVehicleRef = React.useRef(false);
 
   // ✅ MERGED: RM form handlers
   const updateRMField = (field, value) => {
@@ -205,19 +140,16 @@ const GateEntryTab = ({
   };
 
   const validateRMForm = (emptyVehicle = isEmptyVehicle) => {
-    if (!rmFormData.vehicleNo.trim()) {
-      showAlert("Error", "Vehicle number is required");
+    const vehicleCheck = validateVehicleNo(rmFormData.vehicleNo);
+    if (!vehicleCheck.isValid) {
+      showAlert("Validation Error", vehicleCheck.error);
       return false;
     }
 
-    if (rmFormData.vehicleNo.trim().length < 8) {
-      showAlert("Error", "Vehicle number must be at least 8 characters");
-      return false;
-    }
-
-    // Document number is only required when NOT an empty vehicle
-    if (!isEmptyVehicleRef.current && !rmFormData.documentNo.trim()) {
-      showAlert("Error", "Document number is required");
+    // ✅ FIX C15: document number is only required when NOT an empty vehicle.
+    // Reads the live checkbox state instead of the dead ref.
+    if (!emptyVehicle && !rmFormData.documentNo.trim()) {
+      showAlert("Validation Error", "Document number is required");
       return false;
     }
 
@@ -331,6 +263,44 @@ const GateEntryTab = ({
     });
   };
 
+  // ✅ FIX C16: ONE place builds the manual-entry route. Previously two
+  // hand-assembled URL strings diverged (the empty-vehicle path dropped
+  // loaderCount), so pre-fill depended on which button the guard used.
+  const buildManualEntryRoute = () => {
+    const params = [
+      ["vehicle", gateEntryData.vehicleNo || ""],
+      ["gateType", gateEntryData.gateType || "Gate-In"],
+      ["driverName", operationalData.driver_name || ""],
+      ["kmReading", operationalData.km_reading || ""],
+      ["loaderCount", operationalData.loader_count || ""],
+      ["loaderNames", operationalData.loader_names || ""],
+    ]
+      .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+      .join("&");
+    return `/security/manual-entry?${params}`;
+  };
+
+  // Shared pre-navigation / pre-submit check for operational fields.
+  // Marks all fields touched so inline errors render, and returns the
+  // first error for the popup (single source of truth — no more three
+  // divergent copies of this alert chain).
+  const checkOperationalFields = () => {
+    const result = validateOperationalData(operationalData);
+
+    setValidationErrors(result.errors);
+    setFieldValidation({
+      driver_name: { isValid: !result.errors.driver_name, touched: true },
+      km_reading: { isValid: !result.errors.km_reading, touched: true },
+      loader_count: { isValid: !result.errors.loader_count, touched: true },
+      loader_names: { isValid: !result.errors.loader_names, touched: true },
+    });
+
+    if (!result.isValid) {
+      showAlert("Validation Error", result.firstError);
+    }
+    return result.isValid;
+  };
+
   const handleDocumentSelection = (documentNo, isSelected) => {
     if (isSelected) {
       setSelectedDocuments((prev) => [...prev, documentNo]);
@@ -401,7 +371,7 @@ const GateEntryTab = ({
 
   const handleEnhancedSubmit = async () => {
     if (isRestricted) {
-      showAlert('🚫 Restricted Access', restrictedMessage);
+      showAlert('Restricted Access', restrictedMessage);
       return;
     }
 
@@ -412,42 +382,17 @@ const GateEntryTab = ({
     }
 
     if (!vehicleNo) {
-      showAlert("Error", "Please enter vehicle number");
-      return;
-    }
-  
-    if (!searchResults) {
-      showAlert("Error", "Please search for documents first");
+      showAlert("Validation Error", "Please enter vehicle number");
       return;
     }
 
-// ✅ ADD VALIDATIONS HERE:
-    if (!operationalData.driver_name?.trim()) {
-      showAlert('Validation Error', 'Driver name is required');
+    if (!searchResults) {
+      showAlert("Validation Error", "Please search for documents first");
       return;
     }
-    
-    if (operationalData.driver_name.trim().length < 2) {
-      showAlert('Validation Error', 'Driver name must be at least 2 characters');
-      return;
-    }
-    
-    if (!operationalData.km_reading?.trim()) {
-      showAlert('Validation Error', 'KM reading is required');
-      return;
-    }
-    
-    if (operationalData.km_reading.trim().length < 3 || operationalData.km_reading.trim().length > 6) {
-      showAlert('Validation Error', 'KM reading must be 3-6 digits');
-      return;
-    }
-    
-    if (!operationalData.loader_count?.trim()) {
-      showAlert('Validation Error', 'Loader count is required');
-      return;
-    }
-    if (!operationalData.loader_names?.trim()) {
-      showAlert('Validation Error', 'Loader names are required');
+
+    // ✅ Shared operational-field validation (was a 30-line inline alert chain)
+    if (!checkOperationalFields()) {
       return;
     }
 
@@ -457,16 +402,15 @@ const GateEntryTab = ({
         'This vehicle has no documents. Would you like to create a manual entry?',
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Manual Entry', 
-            onPress: () => {
-              router.push(`/security/manual-entry?vehicle=${encodeURIComponent(vehicleNo)}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`);
-            }
+          {
+            text: 'Manual Entry',
+            // ✅ FIX C16: shared route builder — loaderCount is no longer dropped
+            onPress: () => router.push(buildManualEntryRoute()),
           }
         ]
       );
       return;
-}
+    }
 
     if (selectedDocuments.length === 0) {
       showAlert("Error", "Please select at least one document");
@@ -611,216 +555,77 @@ const GateEntryTab = ({
     }
   };
 
-  // ✅ MERGED: Table rendering logic
-  const tableColumns = useMemo(
+  // ✅ NEW: Column-priority config for the shared DataTable.
+  // priority 1 = always visible (the data guards act on);
+  // priority 2 = inside the expandable row detail panel.
+  const documentColumns = useMemo(
     () => [
-      { key: "gate_entry_no", title: "Gate Entry No.", width: 130 },
-      { key: "select", title: "Select", width: 70 },
-      { key: "document_no", title: "Document No.", width: 110 },
-      { key: "document_type", title: "Doc Type", width: 90 },
-      { key: "sub_document_type", title: "Sub Doc Type", width: 100 },
-      { key: "document_date", title: "Doc Date", width: 90 },
-      { key: "vehicle_no", title: "Vehicle No.", width: 100 },
-      { key: "to_warehouse_code", title: "To Warehouse Code", width: 120 },
-      { key: "customer_name", title: "Customer Name", width: 140 },
-      { key: "site", title: "Site", width: 70 },
-      { key: "route_code", title: "Route Code", width: 90 },
-      { key: "transporter_name", title: "Transporter", width: 130 },
-      { key: "direct_dispatch", title: "Direct Dispatch", width: 110 },
-      { key: "total_quantity", title: "Total Qty.", width: 80 },
+      { key: "document_no", title: "Document No.", flex: 1.4, priority: 1 },
+      { key: "document_type", title: "Doc Type", flex: 1, priority: 1 },
+      {
+        key: "document_date",
+        title: "Doc Date",
+        flex: 1,
+        priority: 1,
+        render: (doc) =>
+          doc.document_date
+            ? new Date(doc.document_date).toLocaleDateString()
+            : "—",
+      },
+      { key: "customer_name", title: "Customer", flex: 1.6, priority: 1 },
+      { key: "total_quantity", title: "Qty", flex: 0.6, priority: 1 },
+      {
+        key: "gate_entry_no",
+        title: "Gate Entry No.",
+        priority: 2,
+        render: (doc) => doc.gate_entry_no || "Not yet assigned",
+      },
+      { key: "sub_document_type", title: "Sub Doc Type", priority: 2 },
+      { key: "vehicle_no", title: "Vehicle No.", priority: 2 },
+      { key: "to_warehouse_code", title: "To Warehouse", priority: 2 },
+      { key: "site", title: "Site", priority: 2 },
+      { key: "route_code", title: "Route Code", priority: 2 },
+      { key: "transporter_name", title: "Transporter", priority: 2 },
+      { key: "direct_dispatch", title: "Direct Dispatch", priority: 2 },
     ],
     []
   );
 
-  const totalTableWidth = useMemo(() => {
-    return tableColumns.reduce((sum, col) => sum + col.width, 0);
-  }, [tableColumns]);
-
-  const renderCell = (column, doc) => {
-    const cellStyle = [styles.tableCell, { width: column.width }];
-
-    switch (column.key) {
-      case "gate_entry_no":
-        return (
-          <View style={cellStyle}>
-            <Text
-              style={[
-                styles.cellText,
-                {
-                  color: doc.gate_entry_no ? "#28a745" : "#dc3545",
-                  fontWeight: "bold",
-                },
-              ]}
-            >
-              {doc.gate_entry_no || "--"}
-            </Text>
-          </View>
-        );
-
-      case "select":
-        return (
-          <View
-            style={[
-              cellStyle,
-              { alignItems: "center", justifyContent: "center" },
-            ]}
-          >
-            <Checkbox
-              value={selectedDocuments.includes(doc.document_no)}
-              onValueChange={(selected) =>
-                handleDocumentSelection(doc.document_no, selected)
-              }
-            />
-          </View>
-        );
-
-      case "document_date":
-        return (
-          <View style={cellStyle}>
-            <Text style={styles.cellText}>
-              {doc.document_date
-                ? new Date(doc.document_date).toLocaleDateString()
-                : "--"}
-            </Text>
-          </View>
-        );
-
-      case "transporter_name":
-        return (
-          <View style={cellStyle}>
-            <Text
-              style={[
-                styles.cellText,
-                { color: "#007bff", fontWeight: "bold" },
-              ]}
-            >
-              {doc.transporter_name || "FROM DATABASE"}
-            </Text>
-          </View>
-        );
-
-      default:
-        return (
-          <View style={cellStyle}>
-            <Text style={styles.cellText}>{doc[column.key] || "--"}</Text>
-          </View>
-        );
-    }
-  };
-
-    const renderDocumentTable = () => {
+  const renderDocumentTable = () => {
     if (!searchResults) return null;
 
     if (searchResults.count === 0) {
       return (
         <View style={styles.noResultsContainer}>
-          <Text style={styles.noResultsText}>🚛 Empty Vehicle Detected</Text>
+          <Text style={styles.noResultsText}>Empty Vehicle Detected</Text>
           <Text style={styles.noResultsSubtext}>
             No documents found for this vehicle within the last 48 hours. This
-            appears to be an empty vehicle.
+            appears to be an empty vehicle. Use the Manual Entry button below
+            to record its passage.
           </Text>
-          {/* <TouchableOpacity
-            style={styles.manualEntryButton}
-            onPress={() => {
-              // ✅ ADD VALIDATIONS HERE:
-              if (!operationalData.driver_name?.trim()) {
-                showAlert('Validation Error', 'Driver name is required');
-                return;
-              }
-              
-              if (operationalData.driver_name.trim().length < 2) {
-                showAlert('Validation Error', 'Driver name must be at least 2 characters');
-                return;
-              }
-              
-              if (!operationalData.km_reading?.trim()) {
-                showAlert('Validation Error', 'KM reading is required');
-                return;
-              }
-              
-              if (operationalData.km_reading.trim().length < 3 || operationalData.km_reading.trim().length > 6) {
-                showAlert('Validation Error', 'KM reading must be 3-6 digits');
-                return;
-              }
-              
-              if (!operationalData.loader_names?.trim()) {
-                showAlert('Validation Error', 'Loader names are required');
-                return;
-              }
-
-              // If validations pass, navigate
-              router.push(
-                `/security/manual-entry?vehicle=${encodeURIComponent(
-                  gateEntryData.vehicleNo || ""
-                )}&gateType=${
-                  gateEntryData.gateType
-                }&driverName=${encodeURIComponent(
-                  operationalData.driver_name || ""
-                )}&kmReading=${encodeURIComponent(
-                  operationalData.km_reading || ""
-                )}&loaderNames=${encodeURIComponent(
-                  operationalData.loader_names || ""
-                )}`
-              );
-            }}
-          >
-            <Text style={styles.manualEntryButtonText}>
-              Create Manual Entry
-            </Text>
-          </TouchableOpacity> */}
         </View>
       );
     }
 
-  // ... rest of table rendering
+    // ✅ Shared DataTable: 5 primary columns always visible (no horizontal
+    // scrolling), full row tap toggles selection, chevron expands the
+    // remaining details. Replaces the 14-column 1,330px-wide scroll table.
     return (
-      <View style={styles.cleanTableContainer}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          style={styles.tableScrollView}
-        >
-          <View style={[styles.tableWrapper, { width: totalTableWidth }]}>
-            <View style={styles.tableHeaderRow}>
-              {tableColumns.map((column) => (
-                <View
-                  key={`header-${column.key}`}
-                  style={[styles.tableHeaderCell, { width: column.width }]}
-                >
-                  <Text style={styles.tableHeaderText}>{column.title}</Text>
-                </View>
-              ))}
-            </View>
-
-            <ScrollView
-              style={styles.tableDataContainer}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-            >
-              {searchResults.documents.map((doc, index) => (
-                <View
-                  key={`row-${doc.document_no}-${index}`}
-                  style={[
-                    styles.tableDataRow,
-                    index % 2 === 0 ? styles.evenRow : styles.oddRow,
-                  ]}
-                >
-                  {tableColumns.map((column) => (
-                    <View key={`cell-${doc.document_no}-${column.key}`}>
-                      {renderCell(column, doc)}
-                    </View>
-                  ))}
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </ScrollView>
-
-        <View style={styles.scrollHintContainer}>
-          <Text style={styles.scrollHintText}>
-            💡 Scroll horizontally and vertically to see all data
-          </Text>
-        </View>
+      <View style={{ marginTop: 16 }}>
+        <DataTable
+          columns={documentColumns}
+          data={searchResults.documents}
+          keyExtractor={(doc) => doc.document_no}
+          selectable
+          selectedKeys={selectedDocuments}
+          onToggleSelect={(key, doc, selected) =>
+            handleDocumentSelection(key, selected)
+          }
+          emptyText="No documents found for this vehicle"
+        />
+        <Text style={styles.selectedCountText}>
+          Tap a row to select it for submission. Tap the arrow for full details.
+        </Text>
       </View>
     );
   };
@@ -1110,7 +915,7 @@ const GateEntryTab = ({
               ) : (
                 <Text style={styles.buttonText}>
                   {isRestricted
-                    ? '🚫 Restricted Access'
+                    ? 'View Only'
                     : `Submit (${selectedDocuments.length} selected)`}
                 </Text>
               )}
@@ -1124,44 +929,14 @@ const GateEntryTab = ({
               ]}
               onPress={() => {
                 if (isRestricted) {
-                  showAlert('🚫 Restricted Access', restrictedMessage);
+                  showAlert('Restricted Access', restrictedMessage);
                   return;
                 }
-                // ✅ ADD VALIDATIONS HERE:
-                if (!operationalData.driver_name?.trim()) {
-                  showAlert('Validation Error', 'Driver name is required');
+                // ✅ Shared operational validation + shared route builder (FIX C16)
+                if (!checkOperationalFields()) {
                   return;
                 }
-                
-                if (operationalData.driver_name.trim().length < 2) {
-                  showAlert('Validation Error', 'Driver name must be at least 2 characters');
-                  return;
-                }
-                
-                if (!operationalData.km_reading?.trim()) {
-                  showAlert('Validation Error', 'KM reading is required');
-                  return;
-                }
-                
-                if (operationalData.km_reading.trim().length < 3 || operationalData.km_reading.trim().length > 6) {
-                  showAlert('Validation Error', 'KM reading must be 3-6 digits');
-                  return;
-                }
-                
-                                  // ✅ ADD HERE:
-                if (!operationalData.loader_count?.trim()) {
-                  showAlert('Validation Error', 'Loader count is required');
-                  return;
-                }
-                if (!operationalData.loader_names?.trim()) {
-                  showAlert('Validation Error', 'Loader names are required');
-                  return;
-                }
-
-                // If all validations pass, navigate to manual entry
-                router.push(
-                    `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderCount=${encodeURIComponent(operationalData.loader_count || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`
-                );
+                router.push(buildManualEntryRoute());
               }}
               disabled={isSubmitting || isSearching || isRestricted}
             >
@@ -1319,7 +1094,7 @@ const GateEntryTab = ({
   ]}
   onPress={
     isRestricted
-      ? () => showAlert('🚫 Restricted Access', restrictedMessage)
+      ? () => showAlert('Restricted Access', restrictedMessage)
       : handleRMSubmit
   }
   disabled={isSubmitting || isRestricted}
@@ -1328,7 +1103,7 @@ const GateEntryTab = ({
     <ActivityIndicator size="small" color="white" />
   ) : (
     <Text style={styles.buttonText}>
-      {isRestricted ? '🚫 Restricted Access' : 'Submit RM Entry'}
+      {isRestricted ? 'View Only' : 'Submit RM Entry'}
     </Text>
   )}
 </TouchableOpacity>
