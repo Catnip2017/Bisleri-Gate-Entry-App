@@ -126,7 +126,7 @@ export default function LoginScreen() {
 
         <View style={styles.inputRow}>
           <Text style={styles.label}>Password:</Text>
-          <View style={{ position: 'relative', justifyContent: 'center' }}>
+          <View style={{ flex: 1, position: 'relative', justifyContent: 'center' }}>
             <TextInput
               ref={passwordInputRef}
               style={[styles.input, { paddingRight: 48 }]}

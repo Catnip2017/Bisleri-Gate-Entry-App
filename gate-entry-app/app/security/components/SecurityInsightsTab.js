@@ -583,7 +583,7 @@ const SecurityInsightsTab = () => {
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Edited Today:</Text>
-            <Text style={[styles.summaryValue, {color: '#00843D'}]}>
+            <Text style={[styles.summaryValue, {color: '#00A651'}]}>
               {editStatistics?.edited_today || 0}
             </Text>
           </View>
@@ -636,7 +636,7 @@ const SecurityInsightsTab = () => {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#00843D" />
+                  <ActivityIndicator size="large" color="#00A651" />
                   <Text style={styles.loadingText}>Loading movements...</Text>
                 </View>
               ) : currentMovements.length === 0 ? (
@@ -827,7 +827,7 @@ const SecurityInsightsTab = () => {
             
             {loadingDocuments ? (
               <View style={styles.assignmentLoadingContainer}>
-                <ActivityIndicator size="large" color="#00843D" />
+                <ActivityIndicator size="large" color="#00A651" />
                 <Text>Loading available documents...</Text>
               </View>
             ) : availableDocuments.length === 0 ? (

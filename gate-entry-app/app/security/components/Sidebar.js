@@ -1,14 +1,8 @@
-// app/security/components/Sidebar.js - Overlay drawer with logout.
-// Was: a static panel that pushed the whole dashboard sideways, with no way
-// to close it except the menu button, no logout anywhere on the security
-// dashboard, and the raw role string displayed.
+// app/security/components/Sidebar.js - Overlay drawer with user info.
+// (Logout moved to the header beside Home, July 2026.)
 import React from 'react';
 import { View, Text, Pressable, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { authAPI } from '../../../services/api';
-import { storage } from '../../../utils/storage';
-import { confirmAction } from '../../../utils/customModal';
 import styles from '../styles/dashboardStyles';
 
 const ROLE_LABELS = {
@@ -19,32 +13,11 @@ const ROLE_LABELS = {
 };
 
 const Sidebar = ({ isVisible, onClose, userData }) => {
-  const router = useRouter();
-
   if (!isVisible) return null;
 
   const displayRoles = (userData?.roles || [])
     .map((r) => ROLE_LABELS[r] || r)
     .join(', ');
-
-  const handleLogout = () => {
-    confirmAction({
-      title: 'Logout',
-      message: 'Are you sure you want to logout?',
-      confirmText: 'Logout',
-      destructive: true,
-      onConfirm: async () => {
-        try {
-          await authAPI.logout();
-        } catch (e) {
-          console.log('Logout API error:', e);
-        } finally {
-          await storage.removeItem('access_token');
-          router.replace('/LoginScreen');
-        }
-      },
-    });
-  };
 
   return (
     <View style={styles.sidebarOverlay}>
@@ -75,16 +48,6 @@ const Sidebar = ({ isVisible, onClose, userData }) => {
         ) : (
           <Text style={styles.sidebarItem}>Loading user info…</Text>
         )}
-
-        <TouchableOpacity
-          style={styles.sidebarLogoutButton}
-          onPress={handleLogout}
-          accessibilityRole="button"
-          accessibilityLabel="Logout"
-        >
-          <MaterialIcons name="logout" size={18} color="#fff" />
-          <Text style={styles.sidebarLogoutText}>Logout</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );

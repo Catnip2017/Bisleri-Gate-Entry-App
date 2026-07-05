@@ -1,7 +1,6 @@
 // app/rpa/index.js
-// RPA Process domain selector — placeholder tiles, not yet functional.
-// Each domain tile will eventually deep-link to its own process list.
-
+// RPA Process domain selector.
+// Finance is LIVE (2 processes) — other domains remain coming-soon tiles.
 import React from 'react';
 import {
   View,
@@ -13,8 +12,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import styles from './RpaStyles';
 
-// ── Domain definitions ────────────────────────────────────────────────────────
-// route: null until individual domain screens are built
+// ── Domain definitions ────────────────────────────────────────────────────
 const DOMAINS = [
   {
     key: 'it',
@@ -28,9 +26,10 @@ const DOMAINS = [
     key: 'finance',
     label: 'Finance',
     icon: 'account-balance',
-    accentColor: '#38a169',
-    iconBg: '#f0fff4',
-    route: null,
+    accentColor: '#00A651',
+    iconBg: '#D5EEDF',
+    route: '/rpa/finance',
+    processCount: 2,
   },
   {
     key: 'sales',
@@ -65,11 +64,10 @@ export default function RpaScreen() {
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
         >
-          <MaterialIcons name="arrow-back" size={22} color="#1a365d" />
+          <MaterialIcons name="arrow-back" size={22} color="#064D28" />
           <Text style={styles.backText}>Admin Hub</Text>
         </Pressable>
         <Text style={styles.topTitle}>RPA Processes</Text>
-        {/* balance spacer */}
         <View style={{ width: 90 }} />
       </View>
 
@@ -84,11 +82,15 @@ export default function RpaScreen() {
           {DOMAINS.map((domain) => (
             <Pressable
               key={domain.key}
-              // All tiles are placeholders — disabled until routes are ready
               onPress={() => {
                 if (domain.route) router.push(domain.route);
-                // else: no-op — tile visible but non-functional
               }}
+              accessibilityRole="button"
+              accessibilityLabel={
+                domain.route
+                  ? `Open ${domain.label} processes`
+                  : `${domain.label} — coming soon`
+              }
               style={({ pressed }) => [
                 styles.domainTile,
                 { borderTopWidth: 4, borderTopColor: domain.accentColor },
@@ -109,8 +111,22 @@ export default function RpaScreen() {
                 />
               </View>
               <Text style={styles.domainLabel}>{domain.label}</Text>
-              {/* Coming-soon badge shown while route is null */}
-              {!domain.route && (
+
+              {domain.route ? (
+                <View
+                  style={{
+                    backgroundColor: '#D5EEDF',
+                    borderRadius: 12,
+                    paddingHorizontal: 10,
+                    paddingVertical: 3,
+                    marginTop: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#064D28' }}>
+                    {domain.processCount} LIVE PROCESS{domain.processCount === 1 ? '' : 'ES'}
+                  </Text>
+                </View>
+              ) : (
                 <View style={styles.comingSoonBadge}>
                   <Text style={styles.comingSoonText}>COMING SOON</Text>
                 </View>

@@ -7,13 +7,13 @@ import { PLATFORM_COLORS } from './platformColors';
 // backgrounds and containers (layered depth), solids for actions/headers,
 // deeps for text and KPI surfaces.
 export const green = {
-  tint1: '#EAF4EE',   // page background (lightest)
-  tint2: '#D8EAE0',   // cards / containers
-  tint3: '#C2DFCE',   // chips, hovers, zebra emphasis
-  mid: '#4CAF7D',     // decorative mid-tone
-  primary: '#00843D', // buttons, active tabs, table headers
-  dark: '#005C2B',    // headings, KPI card background
-  deep: '#03301B',    // strongest text on tints
+  tint1: '#EAF7EF',   // page background (lightest)
+  tint2: '#D5EEDF',   // cards / containers
+  tint3: '#BCE5CC',   // chips, hovers, zebra emphasis
+  mid: '#3FBB74',     // decorative mid-tone
+  primary: '#00A651', // Bisleri logo green — buttons, active tabs, headers
+  dark: '#007A3B',    // headings, KPI card background
+  deep: '#064D28',    // strongest text on tints
 };
 
 export const colors = {

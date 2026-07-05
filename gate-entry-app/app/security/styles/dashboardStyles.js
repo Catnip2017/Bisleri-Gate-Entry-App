@@ -6,7 +6,7 @@ const styles = StyleSheet.create({
   // Main container — lightest green tint (page layer)
   container: {
     paddingBottom: 20,
-    backgroundColor: '#EAF4EE',
+    backgroundColor: '#EAF7EF',
     paddingHorizontal: 12,
   },
 
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
 
   // Symmetric tab buttons (old version rounded only one side of each tab)
   activeButton: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     minHeight: 48,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
   },
 
   inactiveButton: {
-    backgroundColor: '#D8EAE0',
+    backgroundColor: '#D5EEDF',
     minHeight: 48,
     paddingHorizontal: 24,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#B7D8C5',
+    borderColor: '#BCE5CC',
     minWidth: 140,
     alignItems: 'center',
     justifyContent: 'center',

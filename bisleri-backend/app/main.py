@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials
+from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Bisleri Backend API",
     description="Backend API for Bisleri with automated data synchronization",
-    version="1.0.0",
+    version="1.0.3-rpa",
     lifespan=lifespan,
 )
 
@@ -72,9 +72,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://192.168.1.56:9001",
+        "http://localhost:9001",
+        "http://127.0.0.1:9001",
         "http://192.168.1.56:9081",
         "http://127.0.0.1:9081",
-        "http://localhost:9081"
+        "http://localhost:9081",
         "http://localhost:8081",
         "http://127.0.0.1:8081",
         "http://localhost:8082",
@@ -103,6 +105,7 @@ app.include_router(admin.router)
 app.include_router(sync.router)
 app.include_router(raw_materials.router)
 app.include_router(copacker_router.router)
+app.include_router(rpa.router)
 
 # Ensure the copacker images directory exists on startup
 _copacker_img_dir = _settings.COPACKER_IMAGE_PATH

@@ -6,7 +6,7 @@ import { BACKGROUND_PRIMARY } from '../../../utils/platformColors';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#EAF4EE',
+    backgroundColor: '#EAF7EF',
     padding: 12,
   },
 
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
 
   statCard: {
     flex: 1,
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
 
   searchButton: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 4,
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: '#005C2B',
+    color: '#007A3B',
   },
 
   // Enhanced Table Styles
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
 
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
 
   defaultButton: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     borderWidth: 2,
     borderColor: '#0056b3',
   },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
 
   // ✅ NEW: Document assignment cell styles
   assignmentDropdownButton: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 4,
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#00843D',
+    borderLeftColor: '#00A651',
   },
 
   assignmentInfoText: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
 
   selectedDocumentOption: {
     backgroundColor: '#e7f3ff',
-    borderColor: '#00843D',
+    borderColor: '#00A651',
     borderWidth: 2,
   },
 
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
 
   documentOptionAge: {
     fontSize: 12,
-    color: '#00843D',
+    color: '#00A651',
     fontStyle: 'italic',
     marginTop: 4,
   },
@@ -719,7 +719,7 @@ const styles = StyleSheet.create({
   },
 
   quickFilterActive: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     borderColor: '#0056b3',
   },
 
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
   },
 
   multipleLoaders: {
-    color: '#00843D',
+    color: '#00A651',
     fontWeight: 'bold',
   },
 
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 4,
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
   },
 
   quickActionText: {
@@ -1172,7 +1172,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#00843D',
+    borderLeftColor: '#00A651',
   },
 
   batchAssignmentTitle: {
@@ -1311,9 +1311,9 @@ const styles = StyleSheet.create({
 
   // Focus States
   inputFocused: {
-    borderColor: '#00843D',
+    borderColor: '#00A651',
     borderWidth: 2,
-    shadowColor: '#00843D',
+    shadowColor: '#00A651',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -1360,7 +1360,7 @@ const styles = StyleSheet.create({
   },
 
   paginationButton: {
-    backgroundColor: '#00843D',
+    backgroundColor: '#00A651',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,

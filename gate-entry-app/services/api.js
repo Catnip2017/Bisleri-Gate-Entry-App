@@ -701,6 +701,20 @@ export const copackerAPI = {
   },
 };
 
+// RPA process dashboards (IT Admin only)
+export const rpaAPI = {
+  // Vendor Payment Advice — status counts (respects active filters)
+  getVpaSummary: async (params = {}) => {
+    const response = await api.get('/rpa/vpa/summary', { params });
+    return response.data;
+  },
+  // Vendor Payment Advice — records grouped by recid
+  getVpaRecords: async (params = {}) => {
+    const response = await api.get('/rpa/vpa/records', { params });
+    return response.data;
+  },
+};
+
 console.log('API Configuration:', {
   baseURL: API_BASE_URL,
   platform: Platform.OS,
