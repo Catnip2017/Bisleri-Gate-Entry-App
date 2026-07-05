@@ -4,13 +4,17 @@
 import { PLATFORM_COLORS } from './platformColors';
 
 export const colors = {
-  // Brand / semantic
-  primary: PLATFORM_COLORS.PRIMARY_BLUE,        // #007bff
-  success: PLATFORM_COLORS.SUCCESS_GREEN,       // #28a745
-  danger: PLATFORM_COLORS.DANGER_RED,           // #dc3545
-  warning: PLATFORM_COLORS.WARNING_YELLOW,      // #ffc107
-  info: PLATFORM_COLORS.INFO_CYAN,              // #17a2b8
-  secondary: PLATFORM_COLORS.DARK_GRAY,         // #6c757d
+  // Brand — Bisleri green palette (chosen July 2026)
+  primary: PLATFORM_COLORS.PRIMARY_BLUE,        // #00843D brand green
+  primaryDark: '#005C2B',
+  accent: PLATFORM_COLORS.INFO_CYAN,            // #00A8CC aqua
+
+  // Semantic
+  success: PLATFORM_COLORS.SUCCESS_GREEN,       // #2E7D32
+  danger: PLATFORM_COLORS.DANGER_RED,           // #C62828
+  warning: PLATFORM_COLORS.WARNING_YELLOW,      // #F59E0B
+  info: PLATFORM_COLORS.INFO_CYAN,              // #00A8CC
+  secondary: PLATFORM_COLORS.DARK_GRAY,         // #5C6B62
 
   // Surfaces
   background: PLATFORM_COLORS.BACKGROUND_PRIMARY,
@@ -22,7 +26,7 @@ export const colors = {
   textSecondary: PLATFORM_COLORS.TEXT_SECONDARY, // #666
   textMuted: PLATFORM_COLORS.TEXT_MUTED,         // #999
   textInverse: PLATFORM_COLORS.TEXT_WHITE,       // #fff
-  heading: '#1a365d',
+  heading: '#005C2B',                            // brand primary dark
 
   // Borders
   border: PLATFORM_COLORS.BORDER_MEDIUM,         // #ced4da

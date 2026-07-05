@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
 
   // Symmetric tab buttons (old version rounded only one side of each tab)
   activeButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#00843D',
     minHeight: 48,
     paddingHorizontal: 24,
     borderRadius: 8,

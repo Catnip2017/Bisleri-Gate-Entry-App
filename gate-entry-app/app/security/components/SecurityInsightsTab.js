@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateField from '../../../components/ui/DateField';
+import KpiCard from '../../../components/ui/KpiCard';
 import styles from '../styles/insightsStyles';
 import { 
   insightsAPI, 
@@ -487,42 +488,41 @@ const SecurityInsightsTab = () => {
       {/* Card Container */}
       <View style={styles.card}>
         
-        {/* UPDATED: 4x1 Stats Cards with document assignment tracking */}
-       {/* UPDATED: 7 Stats Cards for FG Insights */}
-    <View style={styles.statsCardsContainer}>
-      <View style={styles.statsRowContainer}>
-        <View style={[styles.statCard, { backgroundColor: '#28a745' }]}>
-          <Text style={styles.statNumber}>{stats.gateInCount}</Text>
-          <Text style={styles.statLabel}>Gate In</Text>
+        {/* ✅ KPI cards (redesign): 4 cards instead of 7. White surfaces with
+            tinted icon chips; the ONLY colored card is "Need completion"
+            when its count demands action. Total Movements (= in + out) and
+            Assigned (= total - pending) were derivable noise — removed. */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+          <KpiCard
+            label="Gate in"
+            value={stats.gateInCount}
+            icon="arrow-downward"
+            tint="#E1F5EE"
+            iconColor="#0F6E56"
+          />
+          <KpiCard
+            label="Gate out"
+            value={stats.gateOutCount}
+            icon="arrow-upward"
+            tint="#E0F4F9"
+            iconColor="#0A6E85"
+          />
+          <KpiCard
+            label="Need completion"
+            value={stats.needsCompletion}
+            icon="warning"
+            emphasized={stats.needsCompletion > 0}
+            tint="#F1EFE8"
+            iconColor="#5F5E5A"
+          />
+          <KpiCard
+            label="Pending assignment"
+            value={stats.pendingAssignment}
+            icon="assignment"
+            tint="#EEEDFE"
+            iconColor="#534AB7"
+          />
         </View>
-        <View style={[styles.statCard, { backgroundColor: '#dc3545' }]}>
-          <Text style={styles.statNumber}>{stats.gateOutCount}</Text>
-          <Text style={styles.statLabel}>Gate Out</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{stats.totalMovements}</Text>
-          <Text style={styles.statLabel}>Total Movements</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#17a2b8' }]}>
-          <Text style={styles.statNumber}>{stats.uniqueVehicles}</Text>
-          <Text style={styles.statLabel}>Unique Vehicles</Text>
-        </View>
-      </View>
-      <View style={styles.statsRowContainer}>
-        <View style={[styles.statCard, { backgroundColor: '#ffc107' }]}>
-          <Text style={styles.statNumber}>{stats.needsCompletion}</Text>
-          <Text style={styles.statLabel}>Need Completion</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#6f42c1' }]}>
-          <Text style={styles.statNumber}>{stats.pendingAssignment}</Text>
-          <Text style={styles.statLabel}>Pending Assignment</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: '#20c997' }]}>
-          <Text style={styles.statNumber}>{stats.assigned}</Text>
-          <Text style={styles.statLabel}>Assigned</Text>
-        </View>
-      </View>
-    </View>
         
         {/* Enhanced Filters */}
         <View style={styles.filters}>
@@ -588,7 +588,7 @@ const SecurityInsightsTab = () => {
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Edited Today:</Text>
-            <Text style={[styles.summaryValue, {color: '#007bff'}]}>
+            <Text style={[styles.summaryValue, {color: '#00843D'}]}>
               {editStatistics?.edited_today || 0}
             </Text>
           </View>
@@ -646,7 +646,7 @@ const SecurityInsightsTab = () => {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#007bff" />
+                  <ActivityIndicator size="large" color="#00843D" />
                   <Text style={styles.loadingText}>Loading movements...</Text>
                 </View>
               ) : currentMovements.length === 0 ? (
@@ -837,7 +837,7 @@ const SecurityInsightsTab = () => {
             
             {loadingDocuments ? (
               <View style={styles.assignmentLoadingContainer}>
-                <ActivityIndicator size="large" color="#007bff" />
+                <ActivityIndicator size="large" color="#00843D" />
                 <Text>Loading available documents...</Text>
               </View>
             ) : availableDocuments.length === 0 ? (

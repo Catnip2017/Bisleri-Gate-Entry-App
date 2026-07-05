@@ -15,11 +15,11 @@ const styles = StyleSheet.create({
     web: { minHeight: '100vh' }, // Fill the viewport on web
     default: { minHeight: '100%' }
   }),
-  backgroundColor: '#E0F7FA',
+  backgroundColor: '#F4F7F5',
 },
 
   cardContainer: {
-    backgroundColor: BACKGROUND_PRIMARY, // CHANGED FROM '#E0F7FA'
+    backgroundColor: BACKGROUND_PRIMARY, // CHANGED FROM '#F4F7F5'
     padding: 16,
     borderRadius: 12,
     marginHorizontal: 12,
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
-    color: '#1a365d',
+    color: '#005C2B',
   },
 
   // Form Rows
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   // ✅ FIXED: Header Row - Perfectly aligned
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#007bff',
+    backgroundColor: '#00843D',
     height: 50,
     borderBottomWidth: 2,
     borderBottomColor: '#0056b3',
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#007bff',
+    borderLeftColor: '#00843D',
   },
 
   statusTitle: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
 
   manualEntryButton: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#00843D',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 6,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   },
 
   manualButton: {
-    backgroundColor: '#17a2b8',
+    backgroundColor: '#00A8CC',
   },
 
   clearButton: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   },
 
   tableHeader: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#00843D',
     height: 50,
   },
 
@@ -570,9 +570,9 @@ const styles = StyleSheet.create({
   },
 
   focusedInput: {
-    borderColor: '#007bff',
+    borderColor: '#00843D',
     borderWidth: 2,
-    shadowColor: '#007bff',
+    shadowColor: '#00843D',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
 
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#007bff',
+    backgroundColor: '#00843D',
     height: 50,
     borderBottomWidth: 2,
     borderBottomColor: '#0056b3',
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#007bff',
+    borderColor: '#00843D',
   },
 
   entryTypeLabel: {
@@ -695,8 +695,8 @@ const styles = StyleSheet.create({
   },
 
   entryTypeButtonActive: {
-    borderColor: '#007bff',
-    backgroundColor: '#007bff',
+    borderColor: '#00843D',
+    backgroundColor: '#00843D',
   },
 
   entryTypeButtonText: {

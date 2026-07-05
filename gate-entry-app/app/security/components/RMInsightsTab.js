@@ -12,6 +12,7 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import KpiCard from '../../../components/ui/KpiCard';
 import styles from '../styles/insightsStyles';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
@@ -391,26 +392,36 @@ const stats = React.useMemo(() => {
       {/* Card Container */}
       <View style={styles.card}>
         
-        {/* Stats Cards */}
-        <View style={styles.statsCardsContainer}>
-          <View style={styles.statsRowContainer}>
-            <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{stats.totalEntries}</Text>
-              <Text style={styles.statLabel}>Total RM Entries</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#28a745' }]}>
-              <Text style={styles.statNumber}>{stats.gateInCount}</Text>
-              <Text style={styles.statLabel}>Gate In</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#dc3545' }]}>
-              <Text style={styles.statNumber}>{stats.gateOutCount}</Text>
-              <Text style={styles.statLabel}>Gate Out</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: '#ffc107' }]}>
-              <Text style={styles.statNumber}>{stats.uniqueVehicles}</Text>
-              <Text style={styles.statLabel}>Unique Vehicles</Text>
-            </View>
-          </View>
+        {/* ✅ KPI cards (redesign) — same card system as FG Insights */}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+          <KpiCard
+            label="Total RM entries"
+            value={stats.totalEntries}
+            icon="inventory"
+            tint="#F1EFE8"
+            iconColor="#5F5E5A"
+          />
+          <KpiCard
+            label="Gate in"
+            value={stats.gateInCount}
+            icon="arrow-downward"
+            tint="#E1F5EE"
+            iconColor="#0F6E56"
+          />
+          <KpiCard
+            label="Gate out"
+            value={stats.gateOutCount}
+            icon="arrow-upward"
+            tint="#E0F4F9"
+            iconColor="#0A6E85"
+          />
+          <KpiCard
+            label="Unique vehicles"
+            value={stats.uniqueVehicles}
+            icon="local-shipping"
+            tint="#EEEDFE"
+            iconColor="#534AB7"
+          />
         </View>
         
         {/* Filters */}
@@ -509,7 +520,7 @@ const stats = React.useMemo(() => {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#007bff" />
+                  <ActivityIndicator size="large" color="#00843D" />
                   <Text style={styles.loadingText}>Loading RM entries...</Text>
                 </View>
               ) : currentRMEntries.length === 0 ? (

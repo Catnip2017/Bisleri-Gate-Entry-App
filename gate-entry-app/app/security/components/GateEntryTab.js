@@ -1030,7 +1030,7 @@ const GateEntryTab = ({
                 }
               }}
               disabled={isSubmitting || isRestricted}
-              color={isEmptyVehicle ? "#007bff" : undefined}
+              color={isEmptyVehicle ? "#00843D" : undefined}
             />
             <Text style={{ marginLeft: 8, fontSize: 14, color: "#333" }}>
               Empty Vehicle (No Document)
@@ -1144,7 +1144,7 @@ const GateEntryTab = ({
 
       {(isSearching || isSubmitting) && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
+          <ActivityIndicator size="large" color="#00843D" />
           <Text style={styles.loadingText}>
             {isSearching
               ? "Searching documents..."

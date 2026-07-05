@@ -26,26 +26,27 @@ const darkenColor = (hexColor, percentage) => {
   return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
 };
 
-// Base colors
+// Base colors — Bisleri green brand palette (July 2026 redesign).
+// NOTE: PRIMARY_BLUE keeps its key name for backward compatibility across
+// ~40 style files, but its VALUE is now the Bisleri brand green.
 const BASE_COLORS = {
-  BACKGROUND_PRIMARY: '#E0F7FA',
+  BACKGROUND_PRIMARY: '#F4F7F5',   // soft green-tinted off-white
   BACKGROUND_SECONDARY: '#ffffff',
-  PRIMARY_BLUE: '#007bff',
-  SUCCESS_GREEN: '#28a745',
-  DANGER_RED: '#dc3545',
-  WARNING_YELLOW: '#ffc107',
-  INFO_CYAN: '#17a2b8',
-  DARK_GRAY: '#6c757d',
+  PRIMARY_BLUE: '#00843D',         // Bisleri brand green (primary)
+  SUCCESS_GREEN: '#2E7D32',
+  DANGER_RED: '#C62828',
+  WARNING_YELLOW: '#F59E0B',
+  INFO_CYAN: '#00A8CC',            // accent aqua
+  DARK_GRAY: '#5C6B62',
   LIGHT_GRAY: '#f8f9fa',
-  BORDER_GRAY: '#dee2e6',
+  BORDER_GRAY: '#D5DED8',
 };
 
 // Platform-specific colors
 export const PLATFORM_COLORS = {
-  // Main background color - 30% darker on web
-  BACKGROUND_PRIMARY: Platform.OS === 'web' 
-    ? darkenColor(BASE_COLORS.BACKGROUND_PRIMARY, 30) // #9DADAF
-    : BASE_COLORS.BACKGROUND_PRIMARY, // #E0F7FA
+  // Same background on all platforms (the old 30% web darkening made the
+  // web build look muddy for no benefit)
+  BACKGROUND_PRIMARY: BASE_COLORS.BACKGROUND_PRIMARY,
   
   // Other colors remain the same across platforms
   BACKGROUND_SECONDARY: BASE_COLORS.BACKGROUND_SECONDARY,
@@ -59,9 +60,9 @@ export const PLATFORM_COLORS = {
   BORDER_GRAY: BASE_COLORS.BORDER_GRAY,
   
   // Text colors
-  TEXT_PRIMARY: '#333333',
-  TEXT_SECONDARY: '#666666',
-  TEXT_MUTED: '#999999',
+  TEXT_PRIMARY: '#1A2E22',
+  TEXT_SECONDARY: '#5C6B62',
+  TEXT_MUTED: '#9FB3A7',
   TEXT_WHITE: '#ffffff',
   
   // Button colors
