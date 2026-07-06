@@ -11,7 +11,7 @@ import { copackerAPI, authAPI, handleAPIError } from '../../services/api';
 import { showAlert } from '../../utils/customModal';
 import { storage } from '../../utils/storage';
 import { API_BASE_URL } from '../../services/api';
-import BackChip from '../../components/ui/BackChip';
+import AppShell from '../../components/ui/AppShell';
 import { useCopackerStyles } from './styles/copackerStyles';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -881,60 +881,14 @@ const CoPackerDashboard = () => {
   // Main Render
   // ═══════════════════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView style={styles.flex1}>
+    <AppShell
+      backLabel={isITAdmin ? 'Admin Hub' : null}
+      onBack={() => router.push('/admin-hub')}
+    >
 
-      {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton} onPress={() => setIsSidebarVisible(v => !v)}>
-          <Text style={styles.menuText}>☰</Text>
-        </TouchableOpacity>
-        <Image
-          source={require('../../assets/images/bisleri-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <View style={{ width: 80 }} />
-      </View>
-
-      {/* Back navigation — standard blue chip, top-left row below the header */}
-      {isITAdmin && (
-        <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10 }}>
-          <BackChip label="Admin Hub" onPress={() => router.push('/admin-hub')} />
-        </View>
-      )}
-
-      {/* ── Body ── */}
+      {/* ── Body ── (header, sidebar with Location + logout, and back chip
+          all come from AppShell / NavSidebar now) */}
       <View style={styles.body}>
-
-        {/* ── Sidebar ── */}
-        {isSidebarVisible && (
-          <>
-            {isSmall && (
-              <TouchableOpacity
-                onPress={() => setIsSidebarVisible(false)}
-                style={{
-                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                  backgroundColor: 'rgba(0,0,0,0.35)', zIndex: 99,
-                }}
-                activeOpacity={1}
-              />
-            )}
-            <View style={styles.sidebar}>
-              <Text style={styles.sidebarTitle}>User Info</Text>
-              <Text style={styles.sidebarLabel}>Username</Text>
-              <Text style={styles.sidebarValue}>{userData?.username || '—'}</Text>
-              <Text style={styles.sidebarLabel}>Full Name</Text>
-              <Text style={styles.sidebarValue}>{userData?.fullName || '—'}</Text>
-              <Text style={styles.sidebarLabel}>Role</Text>
-              <Text style={styles.sidebarValue}>Co Packer</Text>
-              <Text style={styles.sidebarLabel}>Location</Text>
-              <Text style={styles.sidebarValue}>{userData?.copackerLocation || '—'}</Text>
-              <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-                <Text style={styles.logoutButtonText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
 
         {/* ── Main content ── */}
         <View style={styles.mainContent}>
@@ -1290,7 +1244,7 @@ const CoPackerDashboard = () => {
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </AppShell>
   );
 };
 

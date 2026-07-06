@@ -1,0 +1,219 @@
+// components/ui/NavSidebar.js - The ONE sidebar, for all pages and all roles.
+//
+// Structure (identical for every role — only the config decides content):
+//   1. Avatar + full name + role chips
+//   2. Role-aware navigation links (from config/navConfig.js), current
+//      page highlighted
+//   3. Role-relevant detail rows (WH/site, or copacker location)
+//   4. Pinned red Logout with confirmation — the single logout in the app
+//   5. Footer: app version + connected server
+import React from 'react';
+import { View, Text, Pressable, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter, usePathname } from 'expo-router';
+import { MaterialIcons } from '@expo/vector-icons';
+import { authAPI, API_BASE_URL } from '../../services/api';
+import { storage } from '../../utils/storage';
+import { confirmAction } from '../../utils/customModal';
+import {
+  APP_VERSION,
+  ROLE_LABELS,
+  getUserDetails,
+  getNavLinksForRoles,
+} from '../../config/navConfig';
+
+const NavSidebar = ({ isVisible, onClose, userData }) => {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  if (!isVisible) return null;
+
+  const roles = userData?.roles || [];
+  const links = getNavLinksForRoles(roles);
+  const details = getUserDetails(userData);
+  const initials = (userData?.fullName || userData?.username || '?')
+    .split(' ')
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleNavigate = (route) => {
+    onClose();
+    if (pathname !== route) {
+      router.push(route);
+    }
+  };
+
+  const handleLogout = () => {
+    confirmAction({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await authAPI.logout();
+        } catch (e) {
+          console.log('Logout API error:', e);
+        } finally {
+          await storage.removeItem('access_token');
+          onClose();
+          router.replace('/LoginScreen');
+        }
+      },
+    });
+  };
+
+  const isCurrent = (route) =>
+    pathname === route || (route !== '/' && pathname?.startsWith(route + '/'));
+
+  return (
+    <View style={{
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      flexDirection: 'row', zIndex: 100,
+    }}>
+      {/* Backdrop — tap outside to close */}
+      <Pressable
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        }}
+        onPress={onClose}
+      />
+
+      {/* Panel */}
+      <View style={{
+        width: 290, height: '100%', backgroundColor: '#ffffff',
+        elevation: 8,
+        shadowColor: '#000', shadowOffset: { width: 2, height: 0 },
+        shadowOpacity: 0.3, shadowRadius: 8,
+      }}>
+        {/* 1. Identity */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 12,
+          padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5EDE8',
+        }}>
+          <View style={{
+            width: 44, height: 44, borderRadius: 22, backgroundColor: '#D5EEDF',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#064D28' }}>
+              {initials}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2E22' }} numberOfLines={1}>
+              {userData?.fullName || userData?.username || 'Loading…'}
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+              {roles.map((role) => (
+                <View key={role} style={{
+                  backgroundColor: '#EAF7EF', borderRadius: 8,
+                  paddingHorizontal: 6, paddingVertical: 2,
+                }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#064D28' }}>
+                    {ROLE_LABELS[role] || role}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+          <TouchableOpacity
+            onPress={onClose}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+          >
+            <MaterialIcons name="close" size={22} color="#5C6B62" />
+          </TouchableOpacity>
+        </View>
+
+        {/* 2. Navigation links (role-filtered, current highlighted) */}
+        <ScrollView style={{ flex: 1 }}>
+          <View style={{ paddingVertical: 8 }}>
+            {links.map((link) => {
+              const active = isCurrent(link.route);
+              return (
+                <TouchableOpacity
+                  key={link.key}
+                  onPress={() => handleNavigate(link.route)}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    minHeight: 48, paddingHorizontal: 16,
+                    backgroundColor: active ? '#D5EEDF' : 'transparent',
+                    borderRightWidth: active ? 3 : 0,
+                    borderRightColor: '#00A651',
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={link.label}
+                >
+                  <MaterialIcons
+                    name={link.icon}
+                    size={20}
+                    color={active ? '#064D28' : '#5C6B62'}
+                  />
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: active ? 'bold' : '500',
+                    color: active ? '#064D28' : '#1A2E22',
+                  }}>
+                    {link.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* 3. Details */}
+          {details.length > 0 && (
+            <View style={{
+              marginHorizontal: 16, marginTop: 8, padding: 12,
+              backgroundColor: '#EAF7EF', borderRadius: 8,
+            }}>
+              {details.map(([label, value]) => (
+                <View key={label} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                  <Text style={{ width: 80, fontSize: 12, color: '#5C6B62' }}>{label}</Text>
+                  <Text style={{ flex: 1, fontSize: 12, fontWeight: 'bold', color: '#1A2E22' }}>
+                    {value}
+                  </Text>
+                </View>
+              ))}
+              <View style={{ flexDirection: 'row' }}>
+                <Text style={{ width: 80, fontSize: 12, color: '#5C6B62' }}>Username</Text>
+                <Text style={{ flex: 1, fontSize: 12, fontWeight: 'bold', color: '#1A2E22' }}>
+                  {userData?.username || '—'}
+                </Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* 4. Pinned logout */}
+        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#E5EDE8' }}>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+              gap: 8, backgroundColor: '#C62828', minHeight: 48, borderRadius: 8,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Logout"
+          >
+            <MaterialIcons name="logout" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+          </TouchableOpacity>
+
+          {/* 5. Footer */}
+          <Text style={{
+            marginTop: 10, fontSize: 10, color: '#9FB3A7', textAlign: 'center',
+          }}>
+            {APP_VERSION} · {String(API_BASE_URL || '').replace(/^https?:\/\//, '')}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+export default NavSidebar;

@@ -1,30 +1,17 @@
 // app/admin/AdminDashboard.js
-// Simplified: this screen now ONLY shows Admin Insights.
-// Register Users / Modify Users / Reset Password have moved to
-// app/admin-hub/user-management (IT Admin only, accessed from Admin Hub).
-
+// Admin Insights — wrapped in the shared AppShell (standard header, avatar,
+// role-aware sidebar with pinned logout, standard blue back chip).
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  SafeAreaView,
-  ScrollView,
-} from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
-import { authAPI } from '../../services/api';
-import * as SecureStore from 'expo-secure-store';
 import { showAlert } from '../../utils/customModal';
 
 // Import admin screens
 import AdminInsightsScreen from './screens/AdminInsightsScreen';
 
-// Shared UI (standard header, back chip, overlay sidebar)
-import AppHeader from '../../components/ui/AppHeader';
-import BackChip from '../../components/ui/BackChip';
-import Sidebar from '../security/components/Sidebar';
+// Shared shell
+import AppShell from '../../components/ui/AppShell';
 
 // Import styles
 import styles from './AdminDashboardStyles';
@@ -32,7 +19,6 @@ import styles from './AdminDashboardStyles';
 const AdminDashboard = () => {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [isSidebarVisible, setIsSidebarVisible] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -72,77 +58,26 @@ const AdminDashboard = () => {
     }
   };
 
-  const handleLogout = () => {
-    showAlert(
-      'Logout Confirmation',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Logout', style: 'destructive', onPress: performLogout }
-      ]
-    );
-  };
-
-  const performLogout = async () => {
-    try {
-      await authAPI.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      await SecureStore.deleteItemAsync('access_token');
-      router.replace('/LoginScreen');
-    }
-  };
-
-  const handleBackToLanding = () => {
-    router.push('/landing/');
-  };
-
-  const handleBackToAdminHub = () => {
-    router.push('/admin-hub');
-  };
-
   const roles = user?.roles || [];
   const isITAdmin = roles.includes('itadmin');
-  // securityguard + securityadmin combo also passes through /landing
   const showLandingButton = roles.includes('securityguard');
 
+  // IT Admins came from the Admin Hub; guard+admin combos came from Landing.
+  const backLabel = isITAdmin ? 'Admin Hub' : (showLandingButton ? 'Home' : null);
+  const backTarget = isITAdmin ? '/admin-hub' : '/landing/';
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Standard header */}
-      <AppHeader onMenuPress={() => setIsSidebarVisible(!isSidebarVisible)} />
-
-      {/* Body */}
-      <View style={styles.body}>
-        {/* Top-left back navigation — standard blue chip */}
-        {(isITAdmin || showLandingButton) && (
-          <View style={styles.topLeftRow}>
-            {isITAdmin && (
-              <BackChip label="Admin Hub" onPress={handleBackToAdminHub} />
-            )}
-            {showLandingButton && (
-              <BackChip label="Home" onPress={handleBackToLanding} />
-            )}
-          </View>
-        )}
-
-        <View style={styles.bodyRow}>
-          {/* Main Content — Admin Insights only */}
-          <View style={styles.mainContent}>
-            <ScrollView style={styles.screenContainer}>
-              <AdminInsightsScreen />
-            </ScrollView>
-          </View>
-        </View>
+    <AppShell
+      title="Admin Insights"
+      backLabel={backLabel}
+      onBack={() => router.push(backTarget)}
+    >
+      <View style={styles.mainContent}>
+        <ScrollView style={styles.screenContainer}>
+          <AdminInsightsScreen />
+        </ScrollView>
       </View>
-
-      {/* Standard overlay sidebar (same component as the security dashboard) */}
-      <Sidebar
-        isVisible={isSidebarVisible}
-        onClose={() => setIsSidebarVisible(false)}
-        userData={user}
-      />
-    </SafeAreaView>
+    </AppShell>
   );
 };
 

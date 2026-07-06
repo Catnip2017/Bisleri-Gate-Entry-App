@@ -15,8 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import BackChip from '../../components/ui/BackChip';
-import AppHeader from '../../components/ui/AppHeader';
+import AppShell from '../../components/ui/AppShell';
 
 // ── Use your machine's LAN IP — NOT localhost ─────────────────────────────────
 // localhost resolves to the device/browser itself, not your PC.
@@ -47,16 +46,8 @@ export default function DashboardScreen() {
     }
   };
 
-  // ── Standard header + back chip row ────────────────────────────────────────
-  const TopBar = () => (
-    <View>
-      <AppHeader />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
-        <BackChip label="Admin Hub" onPress={() => router.back()} />
-        <Text style={styles.topTitle}>Dashboards</Text>
-      </View>
-    </View>
-  );
+  // Header/back-chip now come from AppShell; nothing screen-owned remains.
+  const TopBar = () => null;
 
   // ── Error state ─────────────────────────────────────────────────────────────
   const ErrorScreen = () => (
@@ -91,6 +82,7 @@ export default function DashboardScreen() {
   // ════════════════════════════════════════════════════════════════════════════
   if (Platform.OS === 'web') {
     return (
+      <AppShell title="Dashboards" backLabel="Admin Hub">
       <View style={styles.container}>
         <TopBar />
 
@@ -124,6 +116,7 @@ export default function DashboardScreen() {
           />
         )}
       </View>
+      </AppShell>
     );
   }
 
@@ -131,6 +124,7 @@ export default function DashboardScreen() {
   // MOBILE / TABLET — use react-native-webview
   // ════════════════════════════════════════════════════════════════════════════
   return (
+    <AppShell title="Dashboards" backLabel="Admin Hub">
     <View style={styles.container}>
       <TopBar />
 
@@ -159,6 +153,7 @@ export default function DashboardScreen() {
         />
       )}
     </View>
+    </AppShell>
   );
 }
 
@@ -203,7 +198,7 @@ const styles = StyleSheet.create({
   // ── Overlay shared by loading + error ─────────────────────────────────────
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    top: 122,
+    top: 0,
     backgroundColor: '#E0F7FA',
     alignItems: 'center',
     justifyContent: 'center',

@@ -29,8 +29,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { rpaAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showAlert } from '../../utils/customModal';
-import BackChip from '../../components/ui/BackChip';
-import AppHeader from '../../components/ui/AppHeader';
+import AppShell from '../../components/ui/AppShell';
 import KpiCard from '../../components/ui/KpiCard';
 import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
@@ -214,14 +213,8 @@ export default function VendorPaymentAdviceScreen() {
   }
 
   return (
+    <AppShell title="Vendor Payment Advice" backLabel="Finance">
     <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* Standard header + back chip row */}
-      <AppHeader />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
-        <BackChip label="Finance" onPress={() => router.back()} />
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Vendor Payment Advice</Text>
-      </View>
-
       <View style={{ padding: 14 }}>
         {/* KPI cards — tap to filter by status, tap again to clear */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
@@ -370,5 +363,6 @@ export default function VendorPaymentAdviceScreen() {
         )}
       </View>
     </ScrollView>
+    </AppShell>
   );
 }

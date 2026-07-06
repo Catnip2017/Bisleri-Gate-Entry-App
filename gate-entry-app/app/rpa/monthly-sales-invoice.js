@@ -6,8 +6,7 @@ import React from 'react';
 import { View, Text, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import BackChip from '../../components/ui/BackChip';
-import AppHeader from '../../components/ui/AppHeader';
+import AppShell from '../../components/ui/AppShell';
 import KpiCard from '../../components/ui/KpiCard';
 import { green } from '../../utils/theme';
 
@@ -15,14 +14,8 @@ export default function MonthlySalesInvoiceScreen() {
   const router = useRouter();
 
   return (
+    <AppShell title="Monthly Sales Invoice" backLabel="Finance">
     <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
-      {/* Standard header + back chip row */}
-      <AppHeader />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
-        <BackChip label="Finance" onPress={() => router.back()} />
-        <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.dark }}>Monthly Sales Invoice</Text>
-      </View>
-
       <View style={{ padding: 14 }}>
         {/* Placeholder KPI row */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
@@ -47,5 +40,6 @@ export default function MonthlySalesInvoiceScreen() {
         </View>
       </View>
     </ScrollView>
+    </AppShell>
   );
 }

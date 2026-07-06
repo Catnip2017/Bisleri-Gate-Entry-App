@@ -13,8 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import BackChip from '../../components/ui/BackChip';
-import AppHeader from '../../components/ui/AppHeader';
+import AppShell from '../../components/ui/AppShell';
 import styles from './RpaStyles';
 
 // NOTE: About content summarised from the Process Solution Documents —
@@ -70,18 +69,12 @@ export default function FinanceProcessesScreen() {
   const [aboutProc, setAboutProc] = useState(null);
 
   return (
+    <AppShell title="Finance Processes" backLabel="Domains">
     <ScrollView
       style={styles.container}
       contentContainerStyle={{ flexGrow: 1 }}
       showsVerticalScrollIndicator={false}
     >
-      {/* ── Standard header + back chip row ─────────────────────────────── */}
-      <AppHeader />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
-        <BackChip label="Domains" onPress={() => router.back()} />
-        <Text style={styles.topTitle}>Finance Processes</Text>
-      </View>
-
       {/* ── Body ─────────────────────────────────────────────────────────── */}
       <View style={styles.body}>
         <Text style={styles.heading}>Finance automation</Text>
@@ -265,5 +258,6 @@ export default function FinanceProcessesScreen() {
         </View>
       </Modal>
     </ScrollView>
+    </AppShell>
   );
 }

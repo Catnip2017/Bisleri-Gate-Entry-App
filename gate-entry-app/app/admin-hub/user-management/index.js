@@ -14,8 +14,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
-import BackChip from '../../../components/ui/BackChip';
-import AppHeader from '../../../components/ui/AppHeader';
+import AppShell from '../../../components/ui/AppShell';
 
 // Re-use the existing screens from app/admin/screens — relative imports
 // inside those files are resolved relative to their own location, so no
@@ -76,14 +75,8 @@ export default function UserManagementScreen() {
   }
 
   return (
+    <AppShell title="User Management" backLabel="Admin Hub">
     <View style={styles.container}>
-      {/* ── Standard header + back chip row ─────────────────────────────── */}
-      <AppHeader />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10 }}>
-        <BackChip label="Admin Hub" onPress={() => router.back()} />
-        <Text style={styles.topTitle}>User Management</Text>
-      </View>
-
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <View style={styles.tabContainer}>
         {TABS.map((tab) => (
@@ -104,5 +97,6 @@ export default function UserManagementScreen() {
         {renderActiveScreen()}
       </ScrollView>
     </View>
+    </AppShell>
   );
 }
