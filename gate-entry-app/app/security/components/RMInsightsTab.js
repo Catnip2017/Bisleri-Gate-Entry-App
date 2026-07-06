@@ -41,6 +41,14 @@ const RMInsightsTab = () => {
   // Vehicle filter state
   const [vehicleFilter, setVehicleFilter] = useState('');
 
+  // ✅ Admin filters (merged from the retired Admin Insights screen)
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [siteFilter, setSiteFilter] = useState('');
+
+  const userRoles = userData?.roles || [];
+  const isITAdmin = userRoles.includes('itadmin');
+  const isAdminViewer = isITAdmin || userRoles.includes('securityadmin');
+
   // Edit form state
   const [editFormData, setEditFormData] = useState({
     gate_entry_no: '',
@@ -51,11 +59,13 @@ const RMInsightsTab = () => {
     quantity: ''
   });
 
-  // Load initial data
+  // Load initial data — user first, so the first fetch is correctly scoped
   useEffect(() => {
-    loadUserData();
-    loadRMEntries();
-    loadStatistics();
+    (async () => {
+      const user = await loadUserData();
+      loadRMEntries(user);
+      loadStatistics();
+    })();
   }, []);
 
   // Helper function to format date as YYYY-MM-DD for API
@@ -133,8 +143,10 @@ const RMInsightsTab = () => {
     try {
       const user = await getCurrentUser();
       setUserData(user);
+      return user;
     } catch (error) {
       console.log('Error loading user data:', error);
+      return null;
     }
   };
 
@@ -149,28 +161,27 @@ const RMInsightsTab = () => {
   };
 
   // ✅ FIXED: Enhanced loadRMEntries with better filtering
-  const loadRMEntries = async () => {
+  const loadRMEntries = async (user = userData) => {
     setLoading(true);
     try {
       const { rmAPI } = await import('../../../services/api');
-      
-      // ✅ DEBUG: Log filter values
-      console.log('RM Filter Debug:', {
-        vehicleFilter: vehicleFilter,
-        vehicleFilterTrimmed: vehicleFilter.trim(),
-        fromDate: formatDateForAPI(fromDate),
-        toDate: formatDateForAPI(toDate)
-      });
-      
+
+      const roles = user?.roles || [];
+      const itadmin = roles.includes('itadmin');
       const filter = {
         from_date: formatDateForAPI(fromDate),
         to_date: formatDateForAPI(toDate),
-        warehouse_code: userData?.warehouse_code || null,
+        // IT Admin: optional free warehouse/site filters (empty = all).
+        // Everyone else: own warehouse (backend enforces this regardless).
+        // (Also fixes the old userData?.warehouse_code snake_case key that
+        // never existed — the filter was silently null.)
+        warehouse_code: itadmin
+          ? (warehouseFilter.trim().toUpperCase() || null)
+          : (user?.warehouseCode || null),
+        site_code: itadmin ? (siteFilter.trim().toUpperCase() || null) : null,
         vehicle_no: vehicleFilter.trim() || null,
         movement_type: null
       };
-
-      console.log('Final filter sent to API:', filter);
 
       const response = await rmAPI.getFilteredRMEntries(filter);
       setRMEntries(response.results || []);
@@ -345,6 +356,14 @@ const RMInsightsTab = () => {
 
   // Render edit button
   const renderEditButton = (record) => {
+    // ✅ Admins are view-only on this dashboard
+    if (isAdminViewer) {
+      return (
+        <Text style={{ fontSize: 11, color: '#9FB3A7', textAlign: 'center' }}>
+          View only
+        </Text>
+      );
+    }
     if (!record.can_edit) {
       return (
         <TouchableOpacity style={[styles.actionButton, styles.expiredButton]} disabled>
@@ -461,6 +480,33 @@ const stats = React.useMemo(() => {
               autoCapitalize="characters"
             />
           </View>
+
+          {/* ✅ Admin filters — IT Admin: free; Security Admin: locked to own */}
+          {isAdminViewer && (
+            <View style={styles.filterItem}>
+              <Text style={styles.filterLabel}>Warehouse Code</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={isITAdmin ? 'All warehouses' : ''}
+                value={isITAdmin ? warehouseFilter : (userData?.warehouseCode || '')}
+                onChangeText={setWarehouseFilter}
+                autoCapitalize="characters"
+                editable={isITAdmin}
+              />
+            </View>
+          )}
+          {isITAdmin && (
+            <View style={styles.filterItem}>
+              <Text style={styles.filterLabel}>Site Code</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="All sites"
+                value={siteFilter}
+                onChangeText={setSiteFilter}
+                autoCapitalize="characters"
+              />
+            </View>
+          )}
 
           {/* Search Button */}
           <View style={styles.filterItem}>

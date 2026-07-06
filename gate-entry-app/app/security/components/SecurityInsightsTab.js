@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import DateField from '../../../components/ui/DateField';
@@ -56,6 +57,16 @@ const SecurityInsightsTab = () => {
 
   // Vehicle filter state
   const [vehicleFilter, setVehicleFilter] = useState('');
+
+  // ✅ Admin filters (merged from the retired Admin Insights screen).
+  // IT Admin: free warehouse + site filters. Security Admin: locked to own
+  // warehouse (server enforces this too). Guards: no filters (implicit).
+  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const [siteFilter, setSiteFilter] = useState('');
+
+  const userRoles = userData?.roles || [];
+  const isITAdmin = userRoles.includes('itadmin');
+  const isAdminViewer = isITAdmin || userRoles.includes('securityadmin');
 
   // Load initial data.
   // ✅ FIX: user data must load BEFORE the first movements fetch — previously
@@ -108,13 +119,17 @@ const SecurityInsightsTab = () => {
   const loadMovements = async (user = userData) => {
     setLoading(true);
     try {
+      const roles = user?.roles || [];
+      const itadmin = roles.includes('itadmin');
       const filter = {
         from_date: formatDateForAPI(fromDate),
         to_date: formatDateForAPI(toDate),
-        // ✅ FIX: getCurrentUser() returns warehouseCode (camelCase) — the old
-        // userData?.warehouse_code key never existed, so the warehouse filter
-        // was silently null on every request.
-        warehouse_code: user?.warehouseCode || null,
+        // IT Admin: optional free warehouse filter (empty = all warehouses).
+        // Everyone else: own warehouse (backend enforces this regardless).
+        warehouse_code: itadmin
+          ? (warehouseFilter.trim().toUpperCase() || null)
+          : (user?.warehouseCode || null),
+        site_code: itadmin ? (siteFilter.trim().toUpperCase() || null) : null,
         vehicle_no: vehicleFilter.trim() || null,
         movement_type: null
       };
@@ -319,6 +334,34 @@ const SecurityInsightsTab = () => {
       };
     }, [movements]);
 
+  // ✅ CSV export (admins only, web) — replaces the retired Admin Insights
+  // download. Exports the CURRENT filtered movement list.
+  const handleDownloadCSV = () => {
+    if (Platform.OS !== 'web') {
+      showAlert('Download', 'CSV export is available on the web version.');
+      return;
+    }
+    const header = ['Gate Entry No', 'Vehicle No', 'Movement', 'Date', 'Time',
+      'Document Type', 'Document No', 'Driver Name', 'KM Reading',
+      'Loader Count', 'Loader Names', 'Warehouse', 'Site', 'Security Guard',
+      'Edit Count', 'Remarks'];
+    const escapeCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = movements.map((m) => [
+      m.gate_entry_no, m.vehicle_no, m.movement_type, m.date, m.time,
+      m.document_type, m.document_no, m.driver_name, m.km_reading,
+      m.loader_count, m.loader_names, m.to_warehouse_code, m.site_code,
+      m.security_name, m.edit_count || 0, m.remarks,
+    ].map(escapeCell).join(','));
+    const csv = [header.map(escapeCell).join(','), ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `fg_movements_${formatDateForAPI(new Date())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Open edit modal
   const openEditModal = (record) => {
     setEditingRecord(record);
@@ -345,6 +388,14 @@ const SecurityInsightsTab = () => {
 
   // Render 3-color edit button
   const renderEditButton = (record) => {
+    // ✅ Admins are view-only on this dashboard — no operational edits
+    if (isAdminViewer) {
+      return (
+        <Text style={{ fontSize: 11, color: '#9FB3A7', textAlign: 'center' }}>
+          View only
+        </Text>
+      );
+    }
     const buttonConfig = editStatusUtils.getButtonConfig(record);
     
     const colorStyles = {
@@ -397,9 +448,18 @@ const SecurityInsightsTab = () => {
         </Text>
       );
     }
-    
+
+    // ✅ Admins are view-only — show status text instead of the picker
+    if (isAdminViewer) {
+      return (
+        <Text style={[styles.tableCell, styles.expiredAssignmentText]}>
+          Not assigned
+        </Text>
+      );
+    }
+
     return (
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.assignmentDropdownButton}
         onPress={() => openDocumentAssignment(record)}
       >
@@ -412,6 +472,16 @@ const SecurityInsightsTab = () => {
 
   // NEW: Render assignment action button
   const renderAssignmentActionButton = (record) => {
+    // ✅ Admins are view-only — no document assignment
+    if (isAdminViewer) {
+      return (
+        <View style={[styles.tableCell, styles.colAssignmentActions]}>
+          <Text style={{ fontSize: 11, color: '#9FB3A7', textAlign: 'center' }}>
+            View only
+          </Text>
+        </View>
+      );
+    }
     const needsAssignment = documentAssignmentUtils.needsDocumentAssignment(record);
     const canAssign = documentAssignmentUtils.canAssignDocument(record);
     
@@ -550,6 +620,33 @@ const SecurityInsightsTab = () => {
               autoCapitalize="characters"
             />
           </View>
+
+          {/* ✅ Admin filters — IT Admin: free; Security Admin: locked to own */}
+          {isAdminViewer && (
+            <View style={styles.filterItem}>
+              <Text style={styles.filterLabel}>Warehouse Code</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={isITAdmin ? 'All warehouses' : ''}
+                value={isITAdmin ? warehouseFilter : (userData?.warehouseCode || '')}
+                onChangeText={setWarehouseFilter}
+                autoCapitalize="characters"
+                editable={isITAdmin}
+              />
+            </View>
+          )}
+          {isITAdmin && (
+            <View style={styles.filterItem}>
+              <Text style={styles.filterLabel}>Site Code</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="All sites"
+                value={siteFilter}
+                onChangeText={setSiteFilter}
+                autoCapitalize="characters"
+              />
+            </View>
+          )}
 
           {/* Search Button */}
           <View style={styles.filterItem}>
@@ -782,6 +879,28 @@ const SecurityInsightsTab = () => {
             <MaterialIcons name="last-page" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
         </View>
+
+        {/* ✅ Admin-only CSV export of the current filtered list */}
+        {isAdminViewer && (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
+            <TouchableOpacity
+              onPress={handleDownloadCSV}
+              disabled={movements.length === 0}
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: movements.length === 0 ? '#ccc' : '#00A651',
+                minHeight: 48, paddingHorizontal: 20, borderRadius: 8,
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Download CSV"
+            >
+              <MaterialIcons name="download" size={18} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
+                Download CSV
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Operational Edit Modal */}

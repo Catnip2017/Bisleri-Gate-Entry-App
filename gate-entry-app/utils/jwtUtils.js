@@ -243,15 +243,9 @@ export const getRoleBasedRoute = (roles = []) => {
   // regardless of additional security roles.
   if (roles.includes('itadmin')) return '/admin-hub';
 
-  // Dual security roles (no itadmin) → landing, with restricted security tab
-  if (roles.includes('securityguard') && roles.includes('securityadmin')) {
-    return '/landing/';
-  }
-
-  // Security Admin only → straight to Admin Insights
-  if (roles.includes('securityadmin')) return '/admin/AdminDashboard';
-
-  // securityguard only, or any unrecognised role → security tab
+  // Everyone else (guard, security admin, or both) → the ONE gate
+  // dashboard. Admins land on the Insights tab in view-only mode;
+  // guards land on Gate Entry. (Admin Insights retired July 2026.)
   return '/security';
 };
 

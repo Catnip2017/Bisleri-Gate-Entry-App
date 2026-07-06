@@ -63,7 +63,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Bisleri Backend API",
     description="Backend API for Bisleri with automated data synchronization",
-    version="1.0.3-rpa",
+    version="1.0.4-merged-insights",
     lifespan=lifespan,
 )
 

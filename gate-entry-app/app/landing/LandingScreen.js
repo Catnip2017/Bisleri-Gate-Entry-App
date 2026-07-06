@@ -58,7 +58,9 @@ export default function LandingScreen() {
 
   const handleAdminCardPress = () => {
     if (hasRole("securityadmin") || hasRole("itadmin")) {
-      router.push("/admin/AdminDashboard");
+      // Admin Insights merged into the gate dashboard (July 2026):
+      // admins land on the Insights tab there, view-only Gate Entry.
+      router.push("/security");
     } else {
       showAlert("Access Denied", "You do not have Admin privileges.");
     }

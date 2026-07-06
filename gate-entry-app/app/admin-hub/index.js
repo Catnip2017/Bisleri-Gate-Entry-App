@@ -18,17 +18,16 @@ import styles from './AdminHubStyles';
 
 // ── Tile config ───────────────────────────────────────────────────────────────
 const getTiles = (roles = []) => {
-  const hasSecurityGuard = roles.includes('securityguard');
-
   return [
     {
       key: 'gate-entry',
       label: 'Gate Entry',
-      sublabel: 'Vehicle & load management',
+      sublabel: 'Entries & insights',
       icon: 'meeting-room',
       accentColor: '#38a169',
       iconBg: '#f0fff4',
-      route: hasSecurityGuard ? '/landing/' : '/admin/AdminDashboard',
+      // The ONE gate dashboard — admins land on Insights (view-only entry)
+      route: '/security',
       disabled: false,
     },
     {

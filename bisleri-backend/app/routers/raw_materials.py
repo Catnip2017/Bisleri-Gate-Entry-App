@@ -144,9 +144,18 @@ def get_filtered_rm_entries(
         # Movement type filter
         if filters.get('movement_type'):
             query = query.filter(RawMaterialsData.gate_type == filters['movement_type'])
-        
-        # Security filter for non-admins
-        if current_user.role != "Admin":
+
+        # Optional admin filters (mirrors /filtered-movements)
+        if filters.get('warehouse_code'):
+            query = query.filter(RawMaterialsData.warehouse_code == filters['warehouse_code'])
+        if filters.get('site_code'):
+            query = query.filter(RawMaterialsData.site_code == filters['site_code'])
+
+        # IT Admin sees all warehouses; Security Admin / Security Guard see
+        # their own warehouse only. (Was the raw "Admin" string bug — F14's
+        # twin — which warehouse-locked IT Admins on this endpoint.)
+        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        if "itadmin" not in normalized_roles:
             query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
         
         # Execute query

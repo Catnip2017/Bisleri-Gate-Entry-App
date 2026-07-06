@@ -7,18 +7,14 @@ export const APP_VERSION = 'v1.0.3';
 
 export const NAV_LINKS = [
   {
+    // The ONE gate dashboard: guards create entries; admins land on
+    // Insights with warehouse/site filters and view-only Gate Entry.
+    // (Admin Insights was retired July 2026 — merged into this page.)
     key: 'security',
     label: 'Gate Entry & Insights',
     icon: 'local-shipping',
     route: '/security',
-    roles: ['securityguard', 'itadmin'],
-  },
-  {
-    key: 'admin-insights',
-    label: 'Admin Insights',
-    icon: 'insights',
-    route: '/admin/AdminDashboard',
-    roles: ['securityadmin', 'itadmin'],
+    roles: ['securityguard', 'securityadmin', 'itadmin'],
   },
   {
     key: 'admin-hub',
