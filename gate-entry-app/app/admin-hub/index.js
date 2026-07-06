@@ -113,7 +113,7 @@ export default function AdminHubScreen() {
                 <View style={[styles.iconCircle, { backgroundColor: tile.iconBg }]}>
                   <MaterialIcons
                     name={tile.icon}
-                    size={34}
+                    size={28}
                     color={tile.accentColor}
                   />
                 </View>

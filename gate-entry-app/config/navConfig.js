@@ -7,6 +7,15 @@ export const APP_VERSION = 'v1.0.3';
 
 export const NAV_LINKS = [
   {
+    // Admin Hub stays FIRST in the sidebar — it's the IT Admin's home.
+    // (Non-admins never see it; the role filter removes it.)
+    key: 'admin-hub',
+    label: 'Admin Hub',
+    icon: 'apps',
+    route: '/admin-hub',
+    roles: ['itadmin'],
+  },
+  {
     // The ONE gate dashboard: guards create entries; admins land on
     // Insights with warehouse/site filters and view-only Gate Entry.
     // (Admin Insights was retired July 2026 — merged into this page.)
@@ -15,13 +24,6 @@ export const NAV_LINKS = [
     icon: 'local-shipping',
     route: '/security',
     roles: ['securityguard', 'securityadmin', 'itadmin'],
-  },
-  {
-    key: 'admin-hub',
-    label: 'Admin Hub',
-    icon: 'apps',
-    route: '/admin-hub',
-    roles: ['itadmin'],
   },
   {
     key: 'user-management',

@@ -95,23 +95,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // ── 2×2 tile grid ─────────────────────────────────────────────────────────
+  // ── Horizontal tile grid ──────────────────────────────────────────────────
+  // Compact fixed-width tiles flowing left-to-right and wrapping — room for
+  // many future applications without redesigning this screen.
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 18,
+    gap: 16,
     width: '100%',
-    maxWidth: 520,
+    maxWidth: 1100,
   },
   tile: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    width: '46%',
-    aspectRatio: 0.9,
+    borderRadius: 14,
+    width: 185,
+    minHeight: 170,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 18,
+    padding: 14,
     ...Platform.select({
       web: { boxShadow: '0px 4px 8px rgba(0,0,0,0.12)', cursor: 'pointer' },
       android: { elevation: 5 },
@@ -139,13 +141,13 @@ const styles = StyleSheet.create({
   },
 
   iconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#ebf8ff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   tileLabel: {
     fontSize: 14,
