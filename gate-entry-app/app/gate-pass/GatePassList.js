@@ -1,27 +1,18 @@
-// app/gate-pass/GatePassList.js - Initiator's pass list with status lifecycle.
+// app/gate-pass/GatePassList.js - Pass list, driven by the wireframe menu
+// (fixedStatus prop) or free filtering in "View All Passes" (showFilters).
 // Actions per status (NO EDIT anywhere, by design):
 //   Open      -> Release (confirm popup) | Cancel (mandatory reason)
-//   Released  -> Cancel (until the guard dispatches)
-//   Dispatched / Partially Received / Inward Received / Cancelled / Closed -> view only
+//   Released  -> Print | Cancel (until the guard dispatches)
+//   Dispatched / Partially Received -> Print | Close w/o return (admin)
+//   Inward Received / Cancelled / Closed -> Print / view only
 // Cancelled passes are ALWAYS visible to their department — permanent record.
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
-import AppButton from '../../components/ui/AppButton';
 import DataTable from '../../components/ui/DataTable';
-import { colors } from '../../utils/theme';
-import styles from './styles/gatePassStyles';
-
-const STATUS_FILTERS = [
-  { key: null, label: 'All' },
-  { key: 'Open', label: 'Open' },
-  { key: 'Released', label: 'Pending Release' },
-  { key: 'Dispatched', label: 'Dispatched' },
-  { key: 'Partially Received', label: 'Partial' },
-  { key: 'Inward Received', label: 'Inward Received' },
-  { key: 'Cancelled', label: 'Cancelled' },
-];
+import printGatePass from './printPass';
+import styles, { gp } from './styles/gatePassStyles';
 
 const STATUS_STYLES = {
   Open: { bg: '#F1EFE8', fg: '#444441' },
@@ -36,7 +27,7 @@ const STATUS_STYLES = {
 const StatusBadge = ({ status, overdue }) => {
   const s = STATUS_STYLES[status] || STATUS_STYLES.Open;
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
       <View style={[styles.statusBadge, { backgroundColor: s.bg }]}>
         <Text style={[styles.statusBadgeText, { color: s.fg }]}>{status}</Text>
       </View>
@@ -49,10 +40,11 @@ const StatusBadge = ({ status, overdue }) => {
   );
 };
 
-const GatePassList = ({ refreshKey, onChanged }) => {
+const PRINTABLE = ['Released', 'Dispatched', 'Partially Received', 'Inward Received', 'Closed Without Return'];
+
+const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters = true }) => {
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [statusFilter, setStatusFilter] = useState(null);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,11 +56,16 @@ const GatePassList = ({ refreshKey, onChanged }) => {
   const [cancelRemarks, setCancelRemarks] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
+  // Force close modal (admin write-off, mandatory reason)
+  const [forceCloseTarget, setForceCloseTarget] = useState(null);
+  const [closeReason, setCloseReason] = useState('');
+  const [closing, setClosing] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const filters = { limit: 100 };
-      if (statusFilter) filters.status = statusFilter;
+      if (fixedStatus) filters.status = fixedStatus;
       if (overdueOnly) filters.overdue_only = true;
       if (searchText.trim()) filters.q = searchText.trim();
       const data = await gatePassAPI.listPasses(filters);
@@ -79,7 +76,7 @@ const GatePassList = ({ refreshKey, onChanged }) => {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, overdueOnly, searchText]);
+  }, [fixedStatus, overdueOnly, searchText]);
 
   useEffect(() => {
     load();
@@ -158,15 +155,9 @@ const GatePassList = ({ refreshKey, onChanged }) => {
       confirmText: 'Continue',
       cancelText: 'Go back',
       destructive: true,
-      onConfirm: () => {
-        // Reuse the cancel modal UI pattern with a free-text mandatory reason
-        setForceCloseTarget(pass);
-      },
+      onConfirm: () => setForceCloseTarget(pass),
     });
   };
-  const [forceCloseTarget, setForceCloseTarget] = useState(null);
-  const [closeReason, setCloseReason] = useState('');
-  const [closing, setClosing] = useState(false);
 
   const submitForceClose = async () => {
     if (closeReason.trim().length < 5) {
@@ -201,7 +192,7 @@ const GatePassList = ({ refreshKey, onChanged }) => {
     {
       key: 'actions',
       title: 'Actions',
-      flex: 1.8,
+      flex: 1.9,
       priority: 1,
       render: (item) => (
         <View style={styles.rowActions}>
@@ -211,13 +202,13 @@ const GatePassList = ({ refreshKey, onChanged }) => {
                 <Text style={styles.smallBtnText}>Release</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.smallDangerBtn} onPress={() => openCancelModal(item)}>
-                <Text style={styles.smallBtnText}>Cancel</Text>
+                <Text style={styles.smallBtnText}>Cancel Pass</Text>
               </TouchableOpacity>
             </>
           )}
           {item.status === 'Released' && (
             <TouchableOpacity style={styles.smallDangerBtn} onPress={() => openCancelModal(item)}>
-              <Text style={styles.smallBtnText}>Cancel</Text>
+              <Text style={styles.smallBtnText}>Cancel Pass</Text>
             </TouchableOpacity>
           )}
           {(item.status === 'Dispatched' || item.status === 'Partially Received') &&
@@ -226,6 +217,11 @@ const GatePassList = ({ refreshKey, onChanged }) => {
                 <Text style={styles.smallBtnText}>Close w/o return</Text>
               </TouchableOpacity>
             )}
+          {PRINTABLE.includes(item.status) && (
+            <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
+              <Text style={styles.smallBtnText}>Print Pass</Text>
+            </TouchableOpacity>
+          )}
         </View>
       ),
     },
@@ -247,55 +243,43 @@ const GatePassList = ({ refreshKey, onChanged }) => {
 
   return (
     <View>
-      {/* Filters */}
-      <View style={styles.filterRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.chipRow}>
-            {STATUS_FILTERS.map((f) => (
+      {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
+      {showFilters && (
+        <View style={styles.filterRow}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.chipRow}>
               <TouchableOpacity
-                key={f.label}
-                style={statusFilter === f.key && !overdueOnly ? styles.chipActive : styles.chip}
-                onPress={() => {
-                  setStatusFilter(f.key);
-                  setOverdueOnly(false);
-                }}
+                style={overdueOnly ? styles.chipActive : styles.chip}
+                onPress={() => setOverdueOnly(!overdueOnly)}
               >
-                <Text style={statusFilter === f.key && !overdueOnly ? styles.chipActiveText : styles.chipText}>
-                  {f.label}
-                </Text>
+                <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
               </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={overdueOnly ? styles.chipActive : styles.chip}
-              onPress={() => {
-                setOverdueOnly(!overdueOnly);
-                setStatusFilter(null);
-              }}
-            >
-              <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </View>
+            </View>
+          </ScrollView>
+        </View>
+      )}
       <View style={styles.searchRow}>
         <TextInput
           style={[styles.input, { flex: 1 }]}
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search pass no., party or vehicle"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={gp.textMuted}
           onSubmitEditing={load}
         />
-        <AppButton title="Search" icon="search" variant="secondary" onPress={load} />
+        <TouchableOpacity style={[styles.wfButton, styles.btnDispatch]} onPress={load}>
+          <Text style={styles.wfButtonText}>Search</Text>
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.countText}>
+        {fixedStatus ? `${fixedStatus}: ` : ''}
         {totalCount} pass{totalCount === 1 ? '' : 'es'}
       </Text>
 
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={gp.accent} />
         </View>
       ) : (
         <DataTable
@@ -333,18 +317,27 @@ const GatePassList = ({ refreshKey, onChanged }) => {
               value={cancelRemarks}
               onChangeText={setCancelRemarks}
               placeholder="Remarks (optional)"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={gp.textMuted}
               multiline
             />
             <View style={styles.actionRow}>
-              <AppButton
-                title="Cancel pass"
-                variant="danger"
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnCancel, !selectedReasonId && { opacity: 0.5 }]}
                 onPress={submitCancel}
-                loading={cancelling}
-                disabled={!selectedReasonId}
-              />
-              <AppButton title="Go back" variant="secondary" onPress={() => setCancelTarget(null)} />
+                disabled={cancelling || !selectedReasonId}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.wfButtonText}>Cancel Pass</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnSecondary]}
+                onPress={() => setCancelTarget(null)}
+              >
+                <Text style={styles.wfButtonText}>Go back</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -369,17 +362,27 @@ const GatePassList = ({ refreshKey, onChanged }) => {
               value={closeReason}
               onChangeText={setCloseReason}
               placeholder="Why are these items being written off?"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={gp.textMuted}
               multiline
             />
             <View style={styles.actionRow}>
-              <AppButton
-                title="Close without return"
-                variant="danger"
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnCancel]}
                 onPress={submitForceClose}
-                loading={closing}
-              />
-              <AppButton title="Go back" variant="secondary" onPress={() => setForceCloseTarget(null)} />
+                disabled={closing}
+              >
+                {closing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.wfButtonText}>Close without return</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnSecondary]}
+                onPress={() => setForceCloseTarget(null)}
+              >
+                <Text style={styles.wfButtonText}>Go back</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

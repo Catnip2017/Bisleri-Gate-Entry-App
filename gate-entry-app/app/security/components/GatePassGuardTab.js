@@ -1,17 +1,17 @@
 // app/security/components/GatePassGuardTab.js - Security guard's gate pass
-// worklist. The guard NEVER sees or edits the pass form — this is a list-only
-// view with exactly two actions: Dispatch (with confirm popup + security
-// remarks) and Inward (line-level partial receipt + security remarks).
+// worklist, styled to match the approved wireframe (blue Dispatch, teal
+// Inward, gray Print Pass). The guard NEVER sees or edits the pass form —
+// this is a list-only view with exactly two actions: Dispatch (confirm popup
+// + security remarks) and Inward (line-level partial receipt + remarks).
 // The Cancelled sub-view shows ONLY passes that were released and then
 // cancelled before dispatch — "where did that pass on my list go?"
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
-import AppButton from '../../../components/ui/AppButton';
 import DataTable from '../../../components/ui/DataTable';
-import { colors } from '../../../utils/theme';
-import styles from '../../gate-pass/styles/gatePassStyles';
+import printGatePass from '../../gate-pass/printPass';
+import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
 const VIEWS = [
   { key: 'dispatch', label: 'Pending Dispatch' },
@@ -160,29 +160,34 @@ const GatePassGuardTab = () => {
     {
       key: 'action',
       title: view === 'dispatch' ? 'Dispatch' : view === 'inward' ? 'Inward' : 'Reason',
-      flex: 1.2,
+      flex: 1.4,
       priority: 1,
       render: (item) => {
         if (view === 'dispatch') {
           return (
-            <TouchableOpacity style={styles.smallPrimaryBtn} onPress={() => openDispatch(item)}>
-              <Text style={styles.smallBtnText}>Dispatch</Text>
-            </TouchableOpacity>
+            <View style={styles.rowActions}>
+              <TouchableOpacity style={styles.smallDispatchBtn} onPress={() => openDispatch(item)}>
+                <Text style={styles.smallBtnText}>Dispatch</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
+                <Text style={styles.smallBtnText}>Print</Text>
+              </TouchableOpacity>
+            </View>
           );
         }
         if (view === 'inward') {
           return (
             <View style={{ gap: 2 }}>
-              <TouchableOpacity style={styles.smallPrimaryBtn} onPress={() => openInward(item)}>
-                <Text style={styles.smallBtnText}>Receive</Text>
+              <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
+                <Text style={styles.smallBtnText}>Inward</Text>
               </TouchableOpacity>
               {item.is_overdue && (
-                <Text style={{ color: colors.danger, fontSize: 11, fontWeight: 'bold' }}>Overdue</Text>
+                <Text style={{ color: gp.cancel, fontSize: 11, fontWeight: 'bold' }}>Overdue</Text>
               )}
             </View>
           );
         }
-        return <Text style={{ fontSize: 12, color: colors.textSecondary }}>{item.cancel_reason_text || '—'}</Text>;
+        return <Text style={{ fontSize: 12, color: gp.textMuted }}>{item.cancel_reason_text || '—'}</Text>;
       },
     },
     { key: 'vehicle_no', title: 'Vehicle', priority: 2 },
@@ -216,7 +221,7 @@ const GatePassGuardTab = () => {
         </View>
       )}
 
-      {/* Sub-view toggle */}
+      {/* Sub-view pills (wireframe blue) */}
       <View style={styles.subToggleRow} accessibilityRole="tablist">
         {VIEWS.map((v) => (
           <TouchableOpacity
@@ -229,12 +234,18 @@ const GatePassGuardTab = () => {
             <Text style={view === v.key ? styles.toggleActiveText : styles.toggleInactiveText}>{v.label}</Text>
           </TouchableOpacity>
         ))}
-        <AppButton title="Refresh" icon="refresh" variant="secondary" onPress={() => { load(); loadDue(); }} />
+        <TouchableOpacity
+          style={[styles.wfButton, styles.btnSecondary]}
+          onPress={() => { load(); loadDue(); }}
+          accessibilityRole="button"
+        >
+          <Text style={styles.wfButtonText}>Refresh</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={gp.accent} />
         </View>
       ) : (
         <DataTable
@@ -272,12 +283,33 @@ const GatePassGuardTab = () => {
               value={dispatchRemarks}
               onChangeText={setDispatchRemarks}
               placeholder="e.g. verified against printed pass, seal intact"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={gp.textMuted}
               multiline
             />
             <View style={styles.actionRow}>
-              <AppButton title="Dispatch" icon="local-shipping" onPress={submitDispatch} loading={dispatching} />
-              <AppButton title="Go back" variant="secondary" onPress={() => setDispatchTarget(null)} />
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnDispatch]}
+                onPress={submitDispatch}
+                disabled={dispatching}
+              >
+                {dispatching ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.wfButtonText}>Dispatch</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnPrint]}
+                onPress={() => printGatePass(dispatchTarget.id)}
+              >
+                <Text style={styles.wfButtonText}>Print Pass</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnSecondary]}
+                onPress={() => setDispatchTarget(null)}
+              >
+                <Text style={styles.wfButtonText}>Go back</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -316,7 +348,7 @@ const GatePassGuardTab = () => {
                     }
                     keyboardType="numeric"
                     placeholder="0"
-                    placeholderTextColor={colors.textMuted}
+                    placeholderTextColor={gp.textMuted}
                   />
                 </View>
               ))}
@@ -326,12 +358,27 @@ const GatePassGuardTab = () => {
               value={inwardRemarks}
               onChangeText={setInwardRemarks}
               placeholder="e.g. 3 of 5 received, packaging damaged"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={gp.textMuted}
               multiline
             />
             <View style={styles.actionRow}>
-              <AppButton title="Record inward" icon="assignment-turned-in" onPress={submitInward} loading={receiving} />
-              <AppButton title="Go back" variant="secondary" onPress={() => setInwardTarget(null)} />
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnInward]}
+                onPress={submitInward}
+                disabled={receiving}
+              >
+                {receiving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.wfButtonText}>Inward</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnSecondary]}
+                onPress={() => setInwardTarget(null)}
+              >
+                <Text style={styles.wfButtonText}>Go back</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

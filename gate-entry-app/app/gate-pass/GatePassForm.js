@@ -1,14 +1,16 @@
 // app/gate-pass/GatePassForm.js - Create-once gate pass form (NO EDIT by design).
-// The user fills the form and either releases it to security or cancels it.
+// Layout follows the approved wireframe: Entry Type pills + NR/R badge,
+// "General Details" section bar, field grid (auto-generated pass no, document
+// date/time, status, user id, dispatch date/time placeholders), blue items
+// table (Description of Goods | Qty | Unit), wireframe action buttons.
 // A wrong pass is cancelled and recreated — there is no edit path anywhere.
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
+import { getCurrentUser } from '../../utils/jwtUtils';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
-import AppButton from '../../components/ui/AppButton';
 import DateField from '../../components/ui/DateField';
-import { colors } from '../../utils/theme';
-import styles from './styles/gatePassStyles';
+import styles, { gp } from './styles/gatePassStyles';
 
 const EMPTY_LINE = () => ({
   item_code: '',
@@ -25,6 +27,7 @@ const UOM_OPTIONS = ['NOS', 'KG', 'LTR', 'BOX', 'SET'];
 
 const GatePassForm = ({ onCreated }) => {
   const [passType, setPassType] = useState('NR');
+  const [username, setUsername] = useState('');
   const [locations, setLocations] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [locationCode, setLocationCode] = useState('');
@@ -45,16 +48,19 @@ const GatePassForm = ({ onCreated }) => {
   const [itemSearchLine, setItemSearchLine] = useState(null);
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [nowStr] = useState(() => new Date());
 
   useEffect(() => {
     (async () => {
       try {
-        const [locs, depts] = await Promise.all([
+        const [locs, depts, user] = await Promise.all([
           gatePassAPI.getLocations(),
           gatePassAPI.getDepartments(),
+          getCurrentUser(),
         ]);
         setLocations(locs);
         setDepartments(depts.departments || []);
+        setUsername(user?.username || '');
         if (locs.length > 0) setLocationCode(locs[0].location_code);
         if (depts.departments?.length > 0) setDepartment(depts.departments[0]);
       } catch (error) {
@@ -88,7 +94,7 @@ const GatePassForm = ({ onCreated }) => {
   };
 
   // ── Item lookup per line ──────────────────────────────────────────────────
-  const searchItems = useCallback(async (lineIndex, q) => {
+  const searchItems = async (lineIndex, q) => {
     updateLine(lineIndex, { item_code: q, item_type: null });
     setItemSearchLine(lineIndex);
     if (!q || q.length < 2) {
@@ -101,15 +107,22 @@ const GatePassForm = ({ onCreated }) => {
     } catch (error) {
       setItemResults([]);
     }
-  }, [lines]);
+  };
 
   const pickItem = (lineIndex, item) => {
-    updateLine(lineIndex, {
-      item_code: item.item_code,
-      item_type: item.item_type,
-      description: lines[lineIndex].description || item.item_name,
-      uom: item.uom || 'NOS',
-    });
+    setLines((prev) =>
+      prev.map((l, i) =>
+        i === lineIndex
+          ? {
+              ...l,
+              item_code: item.item_code,
+              item_type: item.item_type,
+              description: l.description || item.item_name,
+              uom: item.uom || 'NOS',
+            }
+          : l
+      )
+    );
     setItemResults([]);
     setItemSearchLine(null);
   };
@@ -223,7 +236,7 @@ const GatePassForm = ({ onCreated }) => {
       const created = await gatePassAPI.createPass(buildPayload());
       showSuccess(
         'Gate pass created',
-        `Pass number: ${created.gate_pass_no}\nStatus: Open — release it from My Passes when ready.`
+        `Pass number: ${created.gate_pass_no}\nStatus: Open — release it from Pending Release when ready.`
       );
       resetForm();
       if (onCreated) onCreated();
@@ -234,19 +247,32 @@ const GatePassForm = ({ onCreated }) => {
     }
   };
 
+  const handleClear = () => {
+    confirmAction({
+      title: 'Clear form?',
+      message: 'All entered data will be cleared.',
+      confirmText: 'Clear',
+      cancelText: 'Go back',
+      destructive: true,
+      onConfirm: resetForm,
+    });
+  };
+
   if (loadingMasters) {
     return (
       <View style={styles.loadingBox}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={gp.accent} />
       </View>
     );
   }
 
+  const isReturnable = passType === 'R';
+
   return (
     <View style={styles.formCard}>
-      {/* Entry type toggle */}
+      {/* ── Entry type (wireframe pills + NR/R badge) ── */}
       <View style={styles.toggleRow}>
-        <Text style={styles.fieldLabel}>Entry type</Text>
+        <Text style={styles.fieldLabel}>Entry Type:</Text>
         {[
           { key: 'NR', label: 'Non-Returnable' },
           { key: 'R', label: 'Returnable' },
@@ -262,6 +288,21 @@ const GatePassForm = ({ onCreated }) => {
             </Text>
           </TouchableOpacity>
         ))}
+        <View
+          style={[
+            styles.typeBadge,
+            { backgroundColor: isReturnable ? gp.badgeRBg : gp.badgeNrBg },
+          ]}
+        >
+          <Text
+            style={[
+              styles.typeBadgeText,
+              { color: isReturnable ? gp.badgeRFg : gp.badgeNrFg },
+            ]}
+          >
+            {passType}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.noEditBanner}>
@@ -270,9 +311,50 @@ const GatePassForm = ({ onCreated }) => {
         </Text>
       </View>
 
-      {/* Location + department */}
+      {/* ── General Details (wireframe section bar) ── */}
+      <View style={styles.sectionBar}>
+        <Text style={styles.sectionBarText}>General Details</Text>
+      </View>
+
       <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Gate Pass No.</Text>
+          <View style={[styles.input, styles.inputDisabled, { justifyContent: 'center' }]}>
+            <Text style={styles.passNoText}>Auto-generated</Text>
+          </View>
+        </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Document Date</Text>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={nowStr.toLocaleDateString()}
+            editable={false}
+          />
+        </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Document Time</Text>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={nowStr.toLocaleTimeString()}
+            editable={false}
+          />
+        </View>
+      </View>
+
+      <View style={styles.fieldRow}>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Status</Text>
+          <TextInput style={[styles.input, styles.inputDisabled]} value="Open" editable={false} />
+        </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>User ID</Text>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={username}
+            editable={false}
+          />
+        </View>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Location *</Text>
           <View style={styles.chipRow}>
             {locations.map((loc) => (
@@ -288,8 +370,45 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
+      </View>
+
+      {/* Party lookup */}
+      <View style={styles.fieldRow}>
         <View style={styles.fieldHalf}>
-          <Text style={styles.fieldLabel}>Department *</Text>
+          <Text style={styles.fieldLabel}>Party Code *</Text>
+          <TextInput
+            style={styles.input}
+            value={partyQuery}
+            onChangeText={searchParties}
+            placeholder="-- Select (type code or name) --"
+            placeholderTextColor={gp.textMuted}
+          />
+          {partyResults.length > 0 && (
+            <View style={styles.lookupPanel}>
+              {partyResults.map((p) => (
+                <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
+                  <Text style={styles.lookupCode}>{p.party_code}</Text>
+                  <Text style={styles.lookupName}>{p.party_name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
+        <View style={styles.fieldHalf}>
+          <Text style={styles.fieldLabel}>Party Name</Text>
+          <TextInput
+            style={[styles.input, styles.inputDisabled]}
+            value={selectedParty?.party_name || ''}
+            placeholder="Auto-filled from code"
+            placeholderTextColor={gp.textMuted}
+            editable={false}
+          />
+        </View>
+      </View>
+
+      <View style={styles.fieldRow}>
+        <View style={styles.fieldHalf}>
+          <Text style={styles.fieldLabel}>Dept. Code *</Text>
           <View style={styles.chipRow}>
             {departments.map((d) => (
               <TouchableOpacity
@@ -302,35 +421,8 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-      </View>
-
-      {/* Party lookup */}
-      <Text style={styles.fieldLabel}>Party (code or name) *</Text>
-      <TextInput
-        style={styles.input}
-        value={partyQuery}
-        onChangeText={searchParties}
-        placeholder="Type at least 2 characters to search"
-        placeholderTextColor={colors.textMuted}
-      />
-      {partyResults.length > 0 && (
-        <View style={styles.lookupPanel}>
-          {partyResults.map((p) => (
-            <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
-              <Text style={styles.lookupCode}>{p.party_code}</Text>
-              <Text style={styles.lookupName}>{p.party_name}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-      {selectedParty && (
-        <Text style={styles.autoFilledNote}>Party name auto-filled: {selectedParty.party_name}</Text>
-      )}
-
-      {/* Transport */}
-      <View style={styles.fieldRow}>
         <View style={styles.fieldHalf}>
-          <Text style={styles.fieldLabel}>Mode of transport *</Text>
+          <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
               <TouchableOpacity
@@ -343,194 +435,232 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-        <View style={styles.fieldHalf}>
-          <Text style={styles.fieldLabel}>
-            Vehicle no. {modeOfTransport === 'Vehicle' ? '*' : '(optional)'}
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={vehicleNo}
-            onChangeText={setVehicleNo}
-            placeholder="MH01AB1234"
-            placeholderTextColor={colors.textMuted}
-            autoCapitalize="characters"
-          />
-        </View>
       </View>
 
-      {/* Sender / approver */}
       <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
-          <Text style={styles.fieldLabel}>Sender name (optional)</Text>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Sender Name</Text>
           <TextInput
             style={styles.input}
             value={senderName}
             onChangeText={setSenderName}
             placeholder="Enter sender name"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={gp.textMuted}
           />
         </View>
-        <View style={styles.fieldHalf}>
-          <Text style={styles.fieldLabel}>Approver name (optional)</Text>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>
+            Vehicle No. {modeOfTransport === 'Vehicle' ? '*' : ''}
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={vehicleNo}
+            onChangeText={setVehicleNo}
+            placeholder="If applicable"
+            placeholderTextColor={gp.textMuted}
+            autoCapitalize="characters"
+          />
+        </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Approver Name</Text>
           <TextInput
             style={styles.input}
             value={approverName}
             onChangeText={setApproverName}
-            placeholder="Enter approver name"
-            placeholderTextColor={colors.textMuted}
+            placeholder="Enter approver"
+            placeholderTextColor={gp.textMuted}
           />
         </View>
       </View>
 
-      {/* Expected inward date — returnable only */}
-      {passType === 'R' && (
-        <View style={styles.fieldHalf}>
-          <DateField
-            label="Expected inward date *"
-            value={expectedInwardDate}
-            onChange={setExpectedInwardDate}
-          />
+      <View style={styles.fieldRow}>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Dispatch Date</Text>
+          <TextInput style={[styles.input, styles.inputDisabled]} value="--" editable={false} />
         </View>
-      )}
-
-      {/* Item lines */}
-      <Text style={styles.sectionTitle}>Items</Text>
-      {lines.map((line, index) => (
-        <View key={index} style={styles.lineCard}>
-          <View style={styles.lineHeader}>
-            <Text style={styles.lineTitle}>Line {index + 1}</Text>
-            <TouchableOpacity onPress={() => removeLine(index)} accessibilityRole="button">
-              <Text style={styles.lineRemove}>Remove</Text>
-            </TouchableOpacity>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Dispatch Time</Text>
+          <TextInput style={[styles.input, styles.inputDisabled]} value="--" editable={false} />
+        </View>
+        {isReturnable ? (
+          <View style={styles.fieldThird}>
+            <DateField
+              label="Expected Inward Date *"
+              value={expectedInwardDate}
+              onChange={setExpectedInwardDate}
+            />
           </View>
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldHalf}>
-              <Text style={styles.fieldLabel}>Item code (blank if none)</Text>
-              <TextInput
-                style={styles.input}
-                value={line.item_code}
-                onChangeText={(q) => searchItems(index, q)}
-                placeholder="e.g. FA-COM-0412"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="characters"
-              />
-              {itemSearchLine === index && itemResults.length > 0 && (
-                <View style={styles.lookupPanel}>
-                  {itemResults.map((it) => (
+        ) : (
+          <View style={styles.fieldThird} />
+        )}
+      </View>
+
+      {/* ── Items table (wireframe: blue header) ── */}
+      <View style={styles.sectionBar}>
+        <Text style={styles.sectionBarText}>Items</Text>
+      </View>
+      <View style={styles.itemsTable}>
+        <View style={styles.itemsHeaderRow}>
+          <Text style={[styles.itemsHeaderCell, { flex: 1.1 }]}>Item Code</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 2.2 }]}>Description of Goods</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 1.1 }]}>Serial No.</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.6 }]}>Qty</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.9 }]}>Unit</Text>
+          <Text style={[styles.itemsHeaderCell, { width: 34 }]} />
+        </View>
+        {lines.map((line, index) => (
+          <View key={index}>
+            <View style={styles.itemsRow}>
+              <View style={[styles.itemsCell, { flex: 1.1 }]}>
+                <TextInput
+                  style={styles.cellInput}
+                  value={line.item_code}
+                  onChangeText={(q) => searchItems(index, q)}
+                  placeholder="Code"
+                  placeholderTextColor={gp.textMuted}
+                  autoCapitalize="characters"
+                />
+              </View>
+              <View style={[styles.itemsCell, { flex: 2.2 }]}>
+                <TextInput
+                  style={styles.cellInput}
+                  value={line.description}
+                  onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
+                  placeholder="Description"
+                  placeholderTextColor={gp.textMuted}
+                />
+              </View>
+              <View style={[styles.itemsCell, { flex: 1.1 }]}>
+                <TextInput
+                  style={styles.cellInput}
+                  value={line.serial_no}
+                  onChangeText={(v) => updateLine(index, { serial_no: v })}
+                  placeholder="Serial"
+                  placeholderTextColor={gp.textMuted}
+                />
+              </View>
+              <View style={[styles.itemsCell, { flex: 0.6 }]}>
+                <TextInput
+                  style={styles.cellInput}
+                  value={String(line.quantity)}
+                  onChangeText={(v) => updateLine(index, { quantity: v.replace(/[^0-9]/g, '') })}
+                  placeholder="0"
+                  placeholderTextColor={gp.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={[styles.itemsCell, { flex: 0.9 }]}>
+                <View style={styles.chipRow}>
+                  {UOM_OPTIONS.slice(0, 3).map((u) => (
                     <TouchableOpacity
-                      key={it.item_code}
-                      style={styles.lookupRow}
-                      onPress={() => pickItem(index, it)}
+                      key={u}
+                      style={line.uom === u ? styles.chipActiveSmall : styles.chipSmall}
+                      onPress={() => updateLine(index, { uom: u })}
                     >
-                      <Text style={styles.lookupCode}>{it.item_code}</Text>
-                      <Text style={styles.lookupName}>
-                        {it.item_name} ({it.item_type})
-                      </Text>
+                      <Text style={line.uom === u ? styles.chipActiveText : styles.chipText}>{u}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-              )}
+              </View>
+              <TouchableOpacity
+                onPress={() => removeLine(index)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove line ${index + 1}`}
+              >
+                <Text style={styles.lineRemove}>×</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.fieldHalf}>
-              <Text style={styles.fieldLabel}>Serial no. (optional)</Text>
-              <TextInput
-                style={styles.input}
-                value={line.serial_no}
-                onChangeText={(v) => updateLine(index, { serial_no: v })}
-                placeholder="Serial number"
-                placeholderTextColor={colors.textMuted}
-              />
-            </View>
-          </View>
-          <Text style={styles.fieldLabel}>Description * (max 250 chars)</Text>
-          <TextInput
-            style={styles.input}
-            value={line.description}
-            onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
-            placeholder="Description of goods"
-            placeholderTextColor={colors.textMuted}
-          />
-          <View style={styles.fieldRow}>
-            <View style={styles.fieldThird}>
-              <Text style={styles.fieldLabel}>Qty *</Text>
-              <TextInput
-                style={styles.input}
-                value={String(line.quantity)}
-                onChangeText={(v) => updateLine(index, { quantity: v.replace(/[^0-9]/g, '') })}
-                placeholder="0"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="numeric"
-              />
-            </View>
-            <View style={styles.fieldThird}>
-              <Text style={styles.fieldLabel}>Unit</Text>
-              <View style={styles.chipRow}>
-                {UOM_OPTIONS.map((u) => (
+            {/* Item lookup results for this line */}
+            {itemSearchLine === index && itemResults.length > 0 && (
+              <View style={styles.lookupPanel}>
+                {itemResults.map((it) => (
                   <TouchableOpacity
-                    key={u}
-                    style={line.uom === u ? styles.chipActiveSmall : styles.chipSmall}
-                    onPress={() => updateLine(index, { uom: u })}
+                    key={it.item_code}
+                    style={styles.lookupRow}
+                    onPress={() => pickItem(index, it)}
                   >
-                    <Text style={line.uom === u ? styles.chipActiveText : styles.chipText}>{u}</Text>
+                    <Text style={styles.lookupCode}>{it.item_code}</Text>
+                    <Text style={styles.lookupName}>
+                      {it.item_name} ({it.item_type})
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
-            <View style={styles.fieldThird}>
-              <Text style={styles.fieldLabel}>Amount (optional)</Text>
+            )}
+            {/* Secondary attributes: amount + chargeable */}
+            <View style={styles.lineMetaRow}>
+              <Text style={styles.lineMetaLabel}>Amount:</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.cellInput, { width: 110 }]}
                 value={String(line.amount)}
                 onChangeText={(v) => updateLine(index, { amount: v.replace(/[^0-9.]/g, '') })}
                 placeholder="0.00"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={gp.textMuted}
                 keyboardType="numeric"
               />
+              {['Chargeable', 'Non-chargeable'].map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={line.chargeable === c ? styles.chipActiveSmall : styles.chipSmall}
+                  onPress={() => updateLine(index, { chargeable: line.chargeable === c ? null : c })}
+                >
+                  <Text style={line.chargeable === c ? styles.chipActiveText : styles.chipText}>{c}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
-          <View style={styles.chipRow}>
-            {['Chargeable', 'Non-chargeable'].map((c) => (
-              <TouchableOpacity
-                key={c}
-                style={line.chargeable === c ? styles.chipActiveSmall : styles.chipSmall}
-                onPress={() => updateLine(index, { chargeable: line.chargeable === c ? null : c })}
-              >
-                <Text style={line.chargeable === c ? styles.chipActiveText : styles.chipText}>{c}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      ))}
-      <AppButton title="Add line" icon="add" variant="secondary" onPress={addLine} style={styles.addLineButton} />
+        ))}
+        <TouchableOpacity onPress={addLine} accessibilityRole="button">
+          <Text style={styles.addLinesHint}>+ add more lines</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Initiator remarks — frozen after creation */}
-      <Text style={styles.fieldLabel}>Remarks (optional)</Text>
+      <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Remarks</Text>
       <TextInput
         style={[styles.input, styles.remarksInput]}
         value={remarks}
         onChangeText={setRemarks}
         placeholder="Remarks for this pass"
-        placeholderTextColor={colors.textMuted}
+        placeholderTextColor={gp.textMuted}
         multiline
       />
 
-      {/* Actions */}
+      {/* ── Wireframe action buttons ── */}
       <View style={styles.actionRow}>
-        <AppButton
-          title="Release to security"
-          icon="send"
-          variant="primary"
+        <TouchableOpacity
+          style={[styles.wfButton, styles.btnRelease]}
           onPress={handleCreateAndRelease}
-          loading={submitting}
-        />
-        <AppButton
-          title="Save as Open"
-          icon="save"
-          variant="secondary"
+          disabled={submitting}
+          accessibilityRole="button"
+        >
+          {submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.wfButtonText}>Release</Text>
+          )}
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.wfButton, styles.btnDispatch]}
           onPress={handleSaveOpen}
-          loading={submitting}
-        />
+          disabled={submitting}
+          accessibilityRole="button"
+        >
+          <Text style={styles.wfButtonText}>Save as Open</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.wfButton, styles.btnSecondary]}
+          onPress={handleClear}
+          disabled={submitting}
+          accessibilityRole="button"
+        >
+          <Text style={styles.wfButtonText}>Clear</Text>
+        </TouchableOpacity>
       </View>
+      <Text style={[styles.autoFilledNote, { marginTop: 8 }]}>
+        Dispatch, Inward and Print become available after release — Dispatch/Inward on the security
+        guard's screen, Print from the pass lists.
+      </Text>
     </View>
   );
 };

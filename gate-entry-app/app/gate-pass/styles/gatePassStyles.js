@@ -1,13 +1,38 @@
 // app/gate-pass/styles/gatePassStyles.js - Gate Pass module styles.
-// All tokens from utils/theme.js — no hardcoded magic values except the
-// status-badge ramp colours (shared with the guard tab).
+// Palette follows the approved wireframe (Returnable_gate_pass.docx):
+// light-cyan menu panel + section bars, blue accents, blue table header,
+// and the wireframe action-button colours (green Release, blue Dispatch,
+// teal Inward, red Cancel, gray Print).
 import { StyleSheet } from 'react-native';
-import { colors, spacing, radius, TOUCH_TARGET, elevation } from '../../../utils/theme';
+import { spacing, radius, TOUCH_TARGET, elevation } from '../../../utils/theme';
+
+// ── Wireframe palette ────────────────────────────────────────────────────────
+export const gp = {
+  menuBg: '#E2F6F9',        // left menu panel
+  sectionBg: '#DFF2FB',     // "General Details" bar
+  accent: '#1E88E5',        // blue accent (active pill, links, pass no)
+  accentDark: '#0C447C',
+  tableHeader: '#1E88F7',   // items table header
+  border: '#D6DEE6',
+  inputBg: '#FFFFFF',
+  disabledBg: '#F1F4F7',
+  text: '#2B3440',
+  textMuted: '#7A8794',
+  release: '#4CAF50',
+  dispatch: '#2196F3',
+  inward: '#26A6B5',
+  cancel: '#E53946',
+  print: '#757575',
+  badgeNrBg: '#FAEEDA',
+  badgeNrFg: '#854F0B',
+  badgeRBg: '#E1F5EE',
+  badgeRFg: '#085041',
+};
 
 export default StyleSheet.create({
   container: {
     padding: spacing.md,
-    backgroundColor: colors.background,
+    backgroundColor: '#F6FBFC',
   },
   loadingBox: {
     padding: spacing.xl,
@@ -15,13 +40,60 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // ── Form ──────────────────────────────────────────────────────────────────
-  formCard: {
-    backgroundColor: colors.surfaceTint,
+  // ── Two-pane layout: menu | content ──────────────────────────────────────
+  layoutRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  menuPanel: {
+    backgroundColor: gp.menuBg,
     borderRadius: radius.lg,
+    paddingVertical: spacing.sm,
+    width: 210,
+    minWidth: 180,
+    ...elevation.card,
+  },
+  menuTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: gp.text,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  menuItem: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.06)',
+    minHeight: TOUCH_TARGET - 4,
+    justifyContent: 'center',
+  },
+  menuItemText: { fontSize: 14, color: gp.text },
+  menuItemActiveText: { fontSize: 14, color: gp.accent, fontWeight: 'bold' },
+  menuBadge: {
+    backgroundColor: '#FCEBEB',
+    borderRadius: 9,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+    marginLeft: 6,
+    alignSelf: 'center',
+  },
+  menuBadgeText: { fontSize: 11, fontWeight: 'bold', color: '#791F1F' },
+  contentPane: { flex: 1, minWidth: 320 },
+
+  // ── Form card ─────────────────────────────────────────────────────────────
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: gp.border,
     padding: spacing.md,
     ...elevation.card,
   },
+
+  // Entry type pills (wireframe: blue filled active, outlined inactive)
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -30,58 +102,89 @@ export default StyleSheet.create({
     flexWrap: 'wrap',
   },
   toggleActive: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    backgroundColor: gp.accent,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: gp.accent,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
     minHeight: TOUCH_TARGET - 8,
     justifyContent: 'center',
   },
   toggleInactive: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: gp.accent,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.lg,
     minHeight: TOUCH_TARGET - 8,
     justifyContent: 'center',
   },
-  toggleActiveText: { color: colors.textInverse, fontWeight: 'bold', fontSize: 14 },
-  toggleInactiveText: { color: colors.textSecondary, fontSize: 14 },
+  toggleActiveText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
+  toggleInactiveText: { color: gp.accent, fontWeight: 'bold', fontSize: 14 },
+  typeBadge: {
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginLeft: spacing.xs,
+  },
+  typeBadgeText: { fontSize: 12, fontWeight: 'bold' },
+
+  // Section bar ("General Details")
+  sectionBar: {
+    backgroundColor: gp.sectionBg,
+    borderLeftWidth: 4,
+    borderLeftColor: gp.accent,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sectionBarText: { fontSize: 15, fontWeight: 'bold', color: gp.accentDark },
 
   noEditBanner: {
-    backgroundColor: colors.warningBg,
+    backgroundColor: '#FFF6DE',
     borderRadius: radius.sm,
     padding: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   noEditBannerText: { color: '#633806', fontSize: 12 },
 
+  // Field grid
   fieldRow: {
     flexDirection: 'row',
     gap: spacing.md,
     flexWrap: 'wrap',
   },
   fieldHalf: { flex: 1, minWidth: 220, marginBottom: spacing.sm },
-  fieldThird: { flex: 1, minWidth: 140, marginBottom: spacing.sm },
+  fieldThird: { flex: 1, minWidth: 150, marginBottom: spacing.sm },
   fieldLabel: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: colors.textPrimary,
+    color: gp.text,
     marginBottom: spacing.xs,
   },
   input: {
-    backgroundColor: colors.surface,
+    backgroundColor: gp.inputBg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: gp.border,
     borderRadius: radius.md,
     minHeight: 44,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     fontSize: 14,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    color: gp.text,
+    marginBottom: spacing.xs,
+  },
+  inputDisabled: {
+    backgroundColor: gp.disabledBg,
+    color: gp.textMuted,
+  },
+  passNoText: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: gp.accent,
   },
   remarksInput: { minHeight: 70, textAlignVertical: 'top' },
 
@@ -93,9 +196,9 @@ export default StyleSheet.create({
     marginBottom: spacing.xs,
   },
   chip: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: gp.border,
     borderRadius: radius.md,
     paddingVertical: 8,
     paddingHorizontal: spacing.sm,
@@ -103,9 +206,9 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
   chipActive: {
-    backgroundColor: colors.primary,
+    backgroundColor: gp.accent,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: gp.accent,
     borderRadius: radius.md,
     paddingVertical: 8,
     paddingHorizontal: spacing.sm,
@@ -113,28 +216,28 @@ export default StyleSheet.create({
     justifyContent: 'center',
   },
   chipSmall: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: gp.border,
     borderRadius: radius.sm,
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
   chipActiveSmall: {
-    backgroundColor: colors.primary,
+    backgroundColor: gp.accent,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: gp.accent,
     borderRadius: radius.sm,
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  chipText: { color: colors.textSecondary, fontSize: 13 },
-  chipActiveText: { color: colors.textInverse, fontSize: 13, fontWeight: 'bold' },
+  chipText: { color: gp.textMuted, fontSize: 13 },
+  chipActiveText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
 
   lookupPanel: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: gp.border,
     borderRadius: radius.md,
     marginTop: -spacing.xs,
     marginBottom: spacing.sm,
@@ -145,45 +248,104 @@ export default StyleSheet.create({
     gap: spacing.sm,
     padding: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: '#EDF1F5',
     minHeight: TOUCH_TARGET - 8,
     alignItems: 'center',
   },
-  lookupCode: { fontWeight: 'bold', color: colors.primaryDark, fontSize: 13 },
-  lookupName: { color: colors.textPrimary, fontSize: 13, flex: 1 },
-  autoFilledNote: { color: colors.textSecondary, fontSize: 12, marginBottom: spacing.sm },
+  lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 13 },
+  lookupName: { color: gp.text, fontSize: 13, flex: 1 },
+  autoFilledNote: { color: gp.textMuted, fontSize: 12, marginBottom: spacing.sm },
 
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.heading,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  lineCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
+  // ── Items table (wireframe: blue header, white rows) ──────────────────────
+  itemsTable: {
     borderWidth: 1,
-    borderColor: colors.borderLight,
-    padding: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  lineHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    borderColor: gp.border,
+    borderRadius: radius.md,
+    overflow: 'hidden',
     marginBottom: spacing.xs,
   },
-  lineTitle: { fontWeight: 'bold', color: colors.textPrimary, fontSize: 14 },
-  lineRemove: { color: colors.danger, fontSize: 13, fontWeight: 'bold', padding: spacing.xs },
-  addLineButton: { alignSelf: 'flex-start', marginBottom: spacing.md },
+  itemsHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: gp.tableHeader,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.xs,
+  },
+  itemsHeaderCell: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 13,
+    paddingHorizontal: 6,
+  },
+  itemsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: '#EDF1F5',
+    backgroundColor: '#FFFFFF',
+  },
+  itemsCell: { paddingHorizontal: 4 },
+  cellInput: {
+    backgroundColor: gp.inputBg,
+    borderWidth: 1,
+    borderColor: gp.border,
+    borderRadius: radius.sm,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    fontSize: 13,
+    color: gp.text,
+  },
+  addLinesHint: {
+    fontStyle: 'italic',
+    color: '#B9C2CC',
+    fontSize: 13,
+    padding: spacing.sm,
+    backgroundColor: '#FAFCFD',
+  },
+  lineRemove: {
+    color: gp.cancel,
+    fontSize: 18,
+    fontWeight: 'bold',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  lineMetaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.sm,
+    paddingBottom: 6,
+    backgroundColor: '#FFFFFF',
+  },
+  lineMetaLabel: { fontSize: 12, color: gp.textMuted, fontWeight: 'bold' },
 
+  // ── Wireframe action buttons ──────────────────────────────────────────────
   actionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
     flexWrap: 'wrap',
   },
+  wfButton: {
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    minHeight: TOUCH_TARGET - 4,
+    minWidth: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  btnRelease: { backgroundColor: gp.release },
+  btnDispatch: { backgroundColor: gp.dispatch },
+  btnInward: { backgroundColor: gp.inward },
+  btnCancel: { backgroundColor: gp.cancel },
+  btnPrint: { backgroundColor: gp.print },
+  btnSecondary: { backgroundColor: '#90A4AE' },
+  wfButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
 
   // ── List ──────────────────────────────────────────────────────────────────
   filterRow: { marginBottom: spacing.sm },
@@ -193,7 +355,7 @@ export default StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.xs,
   },
-  countText: { color: colors.textSecondary, fontSize: 12, marginBottom: spacing.sm },
+  countText: { color: gp.textMuted, fontSize: 12, marginBottom: spacing.sm },
   statusBadge: {
     borderRadius: 10,
     paddingVertical: 2,
@@ -203,24 +365,42 @@ export default StyleSheet.create({
   statusBadgeText: { fontSize: 11, fontWeight: 'bold' },
   rowActions: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
   smallPrimaryBtn: {
-    backgroundColor: colors.primary,
+    backgroundColor: gp.release,
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  smallDispatchBtn: {
+    backgroundColor: gp.dispatch,
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  smallInwardBtn: {
+    backgroundColor: gp.inward,
     borderRadius: radius.sm,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   smallDangerBtn: {
-    backgroundColor: colors.danger,
+    backgroundColor: gp.cancel,
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  smallPrintBtn: {
+    backgroundColor: gp.print,
     borderRadius: radius.sm,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   smallSecondaryBtn: {
-    backgroundColor: colors.secondary,
+    backgroundColor: '#90A4AE',
     borderRadius: radius.sm,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
-  smallBtnText: { color: colors.textInverse, fontSize: 12, fontWeight: 'bold' },
+  smallBtnText: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
 
   // ── Modals ────────────────────────────────────────────────────────────────
   modalBackdrop: {
@@ -231,15 +411,15 @@ export default StyleSheet.create({
     padding: spacing.md,
   },
   modalCard: {
-    backgroundColor: colors.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: radius.lg,
     padding: spacing.md,
     width: '100%',
     maxWidth: 480,
     ...elevation.overlay,
   },
-  modalTitle: { fontSize: 17, fontWeight: 'bold', color: colors.heading, marginBottom: spacing.xs },
-  modalSubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.md },
+  modalTitle: { fontSize: 17, fontWeight: 'bold', color: gp.accentDark, marginBottom: spacing.xs },
+  modalSubtitle: { fontSize: 13, color: gp.textMuted, marginBottom: spacing.md },
   radioRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -251,7 +431,7 @@ export default StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: gp.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -260,7 +440,7 @@ export default StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.primary,
+    borderColor: gp.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -268,13 +448,13 @@ export default StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
+    backgroundColor: gp.accent,
   },
-  radioLabel: { fontSize: 14, color: colors.textPrimary, flex: 1 },
+  radioLabel: { fontSize: 14, color: gp.text, flex: 1 },
 
-  // ── Guard tab ─────────────────────────────────────────────────────────────
+  // ── Guard tab / notifications ─────────────────────────────────────────────
   dueBanner: {
-    backgroundColor: colors.errorBg,
+    backgroundColor: '#FCEBEB',
     borderRadius: radius.md,
     padding: spacing.sm,
     marginBottom: spacing.sm,
@@ -286,6 +466,7 @@ export default StyleSheet.create({
     gap: spacing.xs,
     marginBottom: spacing.sm,
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
   receiptLineRow: {
     flexDirection: 'row',
@@ -293,19 +474,19 @@ export default StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: '#EDF1F5',
   },
-  receiptLineText: { flex: 1, fontSize: 13, color: colors.textPrimary },
+  receiptLineText: { flex: 1, fontSize: 13, color: gp.text },
   receiptQtyInput: {
-    backgroundColor: colors.surface,
+    backgroundColor: gp.inputBg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: gp.border,
     borderRadius: radius.sm,
     width: 70,
     minHeight: 40,
     textAlign: 'center',
     fontSize: 14,
-    color: colors.textPrimary,
+    color: gp.text,
   },
-  receiptOutstanding: { fontSize: 12, color: colors.textSecondary, width: 90, textAlign: 'right' },
+  receiptOutstanding: { fontSize: 12, color: gp.textMuted, width: 90, textAlign: 'right' },
 });
