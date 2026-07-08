@@ -17,7 +17,12 @@ import AppShell from '../../components/ui/AppShell';
 import styles from './AdminHubStyles';
 
 // ── Tile config ───────────────────────────────────────────────────────────────
+// 'Dashboards' is itadmin-only — filtered out below for everyone else, and the
+// backend enforces the same restriction on every /dashboard/* endpoint, so a
+// non-itadmin can't reach the data even by guessing the route/URL directly.
 const getTiles = (roles = []) => {
+  const isItAdmin = roles.includes('itadmin');
+
   return [
     {
       key: 'gate-entry',
@@ -39,6 +44,7 @@ const getTiles = (roles = []) => {
       iconBg: '#ebf8ff',
       route: '/admin-hub/dashboard',
       disabled: false,
+      hidden: !isItAdmin,
     },
     {
       key: 'copacker',
@@ -70,7 +76,7 @@ const getTiles = (roles = []) => {
       route: '/rpa',
       disabled: false,
     },
-  ];
+  ].filter((tile) => !tile.hidden);
 };
 
 export default function AdminHubScreen() {

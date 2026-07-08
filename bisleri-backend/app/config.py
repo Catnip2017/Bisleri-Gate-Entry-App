@@ -32,6 +32,16 @@ class Settings(BaseSettings):
     RPA_DB_USER: str = Field(default="postgres", env="RPA_DB_USER")
     RPA_DB_PASSWORD: str = Field(default="", env="RPA_DB_PASSWORD")
 
+    # Vehicle/Load dashboard — separate Bisleri_dashboard database. Holds
+    # read-only copies of source data plus pre-computed summary tables
+    # (vehicle_load_summary, document_tat_summary, etc.). Ported from the
+    # standalone Streamlit dashboard's Load_management ETL scripts.
+    HISTORICAL_DB_HOST: str = Field(default="localhost", env="HISTORICAL_DB_HOST")
+    HISTORICAL_DB_PORT: int = Field(default=5432, env="HISTORICAL_DB_PORT")
+    HISTORICAL_DB_NAME: str = Field(default="Bisleri_dashboard", env="HISTORICAL_DB_NAME")
+    HISTORICAL_DB_USER: str = Field(default="postgres", env="HISTORICAL_DB_USER")
+    HISTORICAL_DB_PASSWORD: str = Field(default="", env="HISTORICAL_DB_PASSWORD")
+
     class Config:
         env_file = ".env"
 

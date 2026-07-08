@@ -1,11 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa
+from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa, dashboard
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -30,6 +33,20 @@ def _run_mfabric_sync():
         logger.error(f"[Scheduler] Sync failed: {exc}")
 
 
+def _run_dashboard_etl():
+    """Called by APScheduler every 8 hours (and once at startup, in the
+    background). Lazy-imports so the ETL modules' connections are created
+    after app startup completes. Targets the separate Bisleri_dashboard DB
+    only — unrelated to _run_mfabric_sync's document_data target."""
+    logger.info("[Scheduler] Starting vehicle/load dashboard ETL...")
+    try:
+        from app.dashboard.etl.run_all import run_dashboard_etl
+        run_dashboard_etl(is_startup=True)
+        logger.info("[Scheduler] Dashboard ETL completed successfully.")
+    except Exception as exc:
+        logger.error(f"[Scheduler] Dashboard ETL failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
@@ -44,10 +61,24 @@ async def lifespan(app: FastAPI):
         max_instances=1,       # never overlap two sync jobs
         replace_existing=True,
     )
+    scheduler.add_job(
+        _run_dashboard_etl,
+        trigger="interval",
+        minutes=480,            # 8 hours
+        id="dashboard_etl",
+        max_instances=1,       # never overlap two ETL runs
+        replace_existing=True,
+        next_run_time=datetime.now(),  # fire once immediately, in the background
+    )
     scheduler.start()
-    logger.info("Background sync scheduler started — runs every 10 minutes (IST).")
+    logger.info("Background sync scheduler started — mfabric_sync every 10 minutes, "
+                "dashboard_etl every 8 hours (IST).")
 
-    # Run one sync immediately so document_data is fresh on startup
+    # Run one mfabric sync immediately (synchronously, it's fast) so
+    # document_data is fresh on startup. The dashboard ETL's first run is
+    # scheduled above instead (next_run_time=now) since it can be much
+    # slower — it runs in the scheduler's background thread rather than
+    # blocking app startup.
     logger.info("Running initial sync on startup...")
     _run_mfabric_sync()
 
@@ -106,12 +137,42 @@ app.include_router(sync.router)
 app.include_router(raw_materials.router)
 app.include_router(copacker_router.router)
 app.include_router(rpa.router)
+app.include_router(dashboard.router)
 
 # Ensure the copacker images directory exists on startup
 _copacker_img_dir = _settings.COPACKER_IMAGE_PATH
 os.makedirs(_copacker_img_dir, exist_ok=True)
 # NOTE: Images are served via the authenticated GET /copacker/image/{path} endpoint
 # in app/routers/copacker.py — NOT as public static files.
+
+# ── Vehicle/Load Dashboard SPA ───────────────────────────────────────────────
+# Built with `npm run build` in dashboard-web/, served from this same
+# process/port — no separate Node server to run in production (the API and
+# the dashboard's HTML/JS/CSS share one origin). Built with base: '/dashboard/'
+# so its own asset URLs already point at /dashboard/assets/...
+_dashboard_dist = os.path.join(os.path.dirname(__file__), "..", "dashboard-web", "dist")
+_dashboard_index = os.path.join(_dashboard_dist, "index.html")
+
+if os.path.isdir(_dashboard_dist):
+    app.mount("/dashboard/assets", StaticFiles(directory=os.path.join(_dashboard_dist, "assets")), name="dashboard-assets")
+
+    @app.get("/dashboard/favicon.svg")
+    async def dashboard_favicon():
+        return FileResponse(os.path.join(_dashboard_dist, "favicon.svg"))
+
+    @app.get("/dashboard/icons.svg")
+    async def dashboard_icons():
+        return FileResponse(os.path.join(_dashboard_dist, "icons.svg"))
+
+    @app.get("/dashboard")
+    @app.get("/dashboard/{full_path:path}")
+    async def dashboard_spa(full_path: str = ""):
+        # Client-side routes (e.g. /dashboard/tat) all serve the same
+        # index.html — react-router handles the path in the browser.
+        return FileResponse(_dashboard_index)
+else:
+    logger.warning("dashboard-web/dist not found — run `npm run build` in dashboard-web/ to serve the dashboard SPA.")
+
 
 @app.get("/")
 async def root():
