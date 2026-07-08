@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "bisleri-backend",
+      "runtimeExecutable": "C:\\Work_software\\Anaconda_Navigator\\envs\\bisleri_env\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8123"],
+      "cwd": "bisleri-backend",
+      "port": 8123
+    }
+  ]
+}

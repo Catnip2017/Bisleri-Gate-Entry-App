@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+:root {
+  --brand-dark: #064d28;
+  --brand: #007a3b;
+  --brand-mid: #00a651;
+  --brand-tint: #d5eedf;
+  --brand-tint-2: #eaf7ef;
+  --ink: #1a2e22;
+  --muted: #5c6b62;
+  --border: #e5ede8;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--brand-tint-2);
+}
+
+#root {
+  min-height: 100vh;
+}
