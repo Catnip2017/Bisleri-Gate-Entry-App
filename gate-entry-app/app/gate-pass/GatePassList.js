@@ -11,7 +11,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, Scro
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
-import printGatePass from './printPass';
+import printGatePass from '../../utils/printGatePass';
 import styles, { gp } from './styles/gatePassStyles';
 
 const STATUS_STYLES = {

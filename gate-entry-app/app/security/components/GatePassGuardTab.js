@@ -10,7 +10,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } fro
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
-import printGatePass from '../../gate-pass/printPass';
+import printGatePass from '../../../utils/printGatePass';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
 const VIEWS = [
