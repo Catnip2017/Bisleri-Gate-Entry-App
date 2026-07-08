@@ -13,6 +13,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
+import { storage } from '../../utils/storage';
 import AppHeader from './AppHeader';
 import BackChip from './BackChip';
 import NavSidebar from './NavSidebar';
@@ -23,12 +24,29 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
   const [userData, setUserData] = useState(null);
 
   useEffect(() => {
+    // ── AUTH GUARD ──────────────────────────────────────────────────────────
+    // Every screen wraps itself in AppShell, so this one check covers every
+    // direct URL. getCurrentUser() returns null when there is no token OR the
+    // token is expired (it also clears the expired token) — in either case
+    // bounce to the login screen instead of rendering a ghost "?" session.
+    // (Previously only API 401s redirected; pages that make no API calls
+    // rendered with a null user.)
     (async () => {
       try {
         const user = await getCurrentUser();
+        if (!user) {
+          try {
+            await storage.setItem('session_expired', 'true');
+          } catch (se) {
+            // best-effort flag — never block the redirect on it
+          }
+          router.replace('/');
+          return;
+        }
         setUserData(user);
       } catch (e) {
         console.log('AppShell: error loading user', e);
+        router.replace('/');
       }
     })();
   }, []);

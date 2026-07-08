@@ -3,6 +3,7 @@
 // the one role-aware sidebar with pinned logout. No screen-owned chrome.
 import React, { useState, useEffect } from 'react';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
 import TabNavigation from './components/TabNavigation';
@@ -12,6 +13,7 @@ import GatePassGuardTab from './components/GatePassGuardTab';
 import styles from './styles/dashboardStyles';
 
 const SecurityDashboard = () => {
+  const router = useRouter();
   // Initial tab is role-dependent: admins land on Insights (their job is
   // reviewing), guards land on Gate Entry (their job is recording). Resolved
   // AFTER the user loads so there's no wrong-tab flash.
@@ -67,9 +69,16 @@ const SecurityDashboard = () => {
   const isAdminViewer = roles.includes('itadmin') || roles.includes('securityadmin');
   // Gate Pass worklist: guards (dispatch/inward at their gate) + IT Admin.
   const showGatePassTab = roles.includes('securityguard') || roles.includes('itadmin');
+  // IT Admins arrive here from the Admin Hub tile — give them a way back.
+  // Guards/Security Admins have no Admin Hub, so they get no back chip.
+  const isItAdmin = roles.includes('itadmin');
 
   return (
-    <AppShell>
+    <AppShell
+      title={isItAdmin ? 'Gate Entry & Insights' : undefined}
+      backLabel={isItAdmin ? 'Admin Hub' : undefined}
+      onBack={isItAdmin ? () => router.replace('/admin-hub') : undefined}
+    >
       {activeTab === null ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#00A651" />

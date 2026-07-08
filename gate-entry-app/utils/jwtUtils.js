@@ -239,6 +239,14 @@ export const getRoleBasedRoute = (roles = []) => {
   // Copacker only → straight to copacker dashboard (exclusive role)
   if (roles.includes('copacker')) return '/copacker';
 
+  // Gate Pass User ONLY (no admin/guard role) → straight to the Gate Pass
+  // form. A combined role (e.g. IT Admin + Gate Pass User) falls through to
+  // its normal landing and reaches Gate Pass via the Admin Hub tile/sidebar.
+  const hasOtherRole = ['itadmin', 'securityadmin', 'securityguard'].some((r) =>
+    roles.includes(r)
+  );
+  if (roles.includes('gatepassuser') && !hasOtherRole) return '/gate-pass';
+
   // Any user with itadmin always lands on the Admin Hub,
   // regardless of additional security roles.
   if (roles.includes('itadmin')) return '/admin-hub';

@@ -22,6 +22,7 @@ import styles from './AdminHubStyles';
 // non-itadmin can't reach the data even by guessing the route/URL directly.
 const getTiles = (roles = []) => {
   const isItAdmin = roles.includes('itadmin');
+  const isGatePassUser = roles.includes('gatepassuser'); // future role
 
   return [
     {
@@ -45,6 +46,19 @@ const getTiles = (roles = []) => {
       route: '/admin-hub/dashboard',
       disabled: false,
       hidden: !isItAdmin,
+    },
+    {
+      // Gate Pass (RGP / Non-RGP) — TEMP: itadmin stands in for the future
+      // 'gatepassuser' role; the tile already lights up for both.
+      key: 'gate-pass',
+      label: 'Gate Pass',
+      sublabel: 'Returnable & non-returnable',
+      icon: 'assignment',
+      accentColor: '#1E88E5',
+      iconBg: '#E6F1FB',
+      route: '/gate-pass',
+      disabled: false,
+      hidden: !isItAdmin && !isGatePassUser,
     },
     {
       key: 'copacker',

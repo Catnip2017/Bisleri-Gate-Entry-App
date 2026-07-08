@@ -5,7 +5,9 @@
 // (Pending Dispatch = Released; Dispatched view includes Partially Received.)
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { useRouter } from 'expo-router';
 import { gatePassAPI } from '../../services/api';
+import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
 import GatePassForm from './GatePassForm';
 import GatePassList from './GatePassList';
@@ -23,9 +25,17 @@ const MENU = [
 ];
 
 const GatePassDashboard = () => {
+  const router = useRouter();
   const [activeKey, setActiveKey] = useState('new');
   const [refreshKey, setRefreshKey] = useState(0);
   const [dueItems, setDueItems] = useState([]);
+  const [isItAdmin, setIsItAdmin] = useState(false);
+
+  useEffect(() => {
+    // IT Admins arrive from the Admin Hub tile — show them a back chip.
+    // A pure Gate Pass User lands here directly and gets no back chip.
+    getCurrentUser().then((u) => setIsItAdmin((u?.roles || []).includes('itadmin')));
+  }, []);
 
   const loadDue = useCallback(async () => {
     try {
@@ -45,7 +55,11 @@ const GatePassDashboard = () => {
   const activeMenu = MENU.find((m) => m.key === activeKey) || MENU[0];
 
   return (
-    <AppShell>
+    <AppShell
+      title={isItAdmin ? 'Gate Pass' : undefined}
+      backLabel={isItAdmin ? 'Admin Hub' : undefined}
+      onBack={isItAdmin ? () => router.replace('/admin-hub') : undefined}
+    >
       <ScrollView contentContainerStyle={styles.container}>
         {/* In-app due-return alert (items expected back today or earlier) */}
         {dueItems.length > 0 && (

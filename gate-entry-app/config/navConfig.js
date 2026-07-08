@@ -53,7 +53,7 @@ export const NAV_LINKS = [
     label: 'Gate Pass',
     icon: 'assignment',
     route: '/gate-pass',
-    roles: ['itadmin'],
+    roles: ['itadmin', 'gatepassuser'],
   },
   {
     key: 'copacker',
@@ -69,6 +69,7 @@ export const ROLE_LABELS = {
   securityadmin: 'Security Admin',
   securityguard: 'Security Guard',
   copacker: 'Co-Packer',
+  gatepassuser: 'Gate Pass User',
 };
 
 /**
