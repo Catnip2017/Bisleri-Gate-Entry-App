@@ -8,6 +8,7 @@ import AppShell from '../../components/ui/AppShell';
 import TabNavigation from './components/TabNavigation';
 import GateEntryTab from './components/GateEntryTab';
 import InsightsTab from './components/InsightsTab';
+import GatePassGuardTab from './components/GatePassGuardTab';
 import styles from './styles/dashboardStyles';
 
 const SecurityDashboard = () => {
@@ -15,7 +16,7 @@ const SecurityDashboard = () => {
   // reviewing), guards land on Gate Entry (their job is recording). Resolved
   // AFTER the user loads so there's no wrong-tab flash.
   const [activeTab, setActiveTab] = useState(null);
-  const [visitedTabs, setVisitedTabs] = useState({ entry: false, insights: false });
+  const [visitedTabs, setVisitedTabs] = useState({ entry: false, insights: false, gatepass: false });
 
   // User data
   const [userData, setUserData] = useState(null);
@@ -64,6 +65,8 @@ const SecurityDashboard = () => {
 
   const roles = userData?.roles || [];
   const isAdminViewer = roles.includes('itadmin') || roles.includes('securityadmin');
+  // Gate Pass worklist: guards (dispatch/inward at their gate) + IT Admin.
+  const showGatePassTab = roles.includes('securityguard') || roles.includes('itadmin');
 
   return (
     <AppShell>
@@ -77,6 +80,7 @@ const SecurityDashboard = () => {
             activeTab={activeTab}
             onTabChange={handleTabChange}
             viewOnlyEntry={isAdminViewer}
+            showGatePass={showGatePassTab}
           />
 
           <View style={styles.tabContent}>
@@ -95,6 +99,13 @@ const SecurityDashboard = () => {
             {visitedTabs.insights && (
               <View style={activeTab === 'insights' ? styles.visibleTab : styles.hiddenTab}>
                 <InsightsTab />
+              </View>
+            )}
+
+            {/* Gate Pass worklist (dispatch / inward / cancelled) — lazy mounted */}
+            {showGatePassTab && visitedTabs.gatepass && (
+              <View style={activeTab === 'gatepass' ? styles.visibleTab : styles.hiddenTab}>
+                <GatePassGuardTab />
               </View>
             )}
           </View>

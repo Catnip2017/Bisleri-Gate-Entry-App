@@ -97,13 +97,17 @@ const RMInsightsTab = () => {
             onChange(null, newDate);
           }}
           style={{
-            borderWidth: 1,
-            borderColor: '#aaa',
+            // boxSizing keeps padding+border INSIDE the 100% width — without
+            // it the input overflows its filterItem (max 180px) and overlaps
+            // the neighbouring filter. Same fix as the shared DateField.
+            boxSizing: 'border-box',
+            border: '1px solid #aaa',
             padding: 10,
             borderRadius: 4,
             backgroundColor: 'white',
             fontSize: 14,
             width: '100%',
+            maxWidth: '100%',
             minHeight: 40,
           }}
         />

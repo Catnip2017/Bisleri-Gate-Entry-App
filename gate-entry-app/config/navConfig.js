@@ -47,6 +47,15 @@ export const NAV_LINKS = [
     roles: ['itadmin'],
   },
   {
+    // Gate Pass (RGP / Non-RGP) — initiator module. TEMP: itadmin stands in
+    // for the future 'gatepassuser' role; add it here when the role lands.
+    key: 'gate-pass',
+    label: 'Gate Pass',
+    icon: 'assignment',
+    route: '/gate-pass',
+    roles: ['itadmin'],
+  },
+  {
     key: 'copacker',
     label: 'Co-Packer Sessions',
     icon: 'factory',

@@ -9,12 +9,14 @@ import styles from '../styles/dashboardStyles';
 const TABS = [
   { key: 'entry', label: 'Gate Entry' },
   { key: 'insights', label: 'Insights' },
+  { key: 'gatepass', label: 'Gate Pass' },
 ];
 
-const TabNavigation = ({ activeTab, onTabChange, viewOnlyEntry = false }) => {
+const TabNavigation = ({ activeTab, onTabChange, viewOnlyEntry = false, showGatePass = false }) => {
+  const tabs = showGatePass ? TABS : TABS.filter((t) => t.key !== 'gatepass');
   return (
     <View style={styles.buttonRow} accessibilityRole="tablist">
-      {TABS.map((tab) => {
+      {tabs.map((tab) => {
         const active = activeTab === tab.key;
         const showPill = tab.key === 'entry' && viewOnlyEntry;
         return (

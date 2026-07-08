@@ -1,0 +1,343 @@
+// app/security/components/GatePassGuardTab.js - Security guard's gate pass
+// worklist. The guard NEVER sees or edits the pass form — this is a list-only
+// view with exactly two actions: Dispatch (with confirm popup + security
+// remarks) and Inward (line-level partial receipt + security remarks).
+// The Cancelled sub-view shows ONLY passes that were released and then
+// cancelled before dispatch — "where did that pass on my list go?"
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { gatePassAPI, handleAPIError } from '../../../services/api';
+import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
+import AppButton from '../../../components/ui/AppButton';
+import DataTable from '../../../components/ui/DataTable';
+import { colors } from '../../../utils/theme';
+import styles from '../../gate-pass/styles/gatePassStyles';
+
+const VIEWS = [
+  { key: 'dispatch', label: 'Pending Dispatch' },
+  { key: 'inward', label: 'Pending Inward' },
+  { key: 'cancelled', label: 'Cancelled' },
+];
+
+const GatePassGuardTab = () => {
+  const [view, setView] = useState('dispatch');
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [dueItems, setDueItems] = useState([]);
+
+  // Dispatch modal (confirm + security remarks)
+  const [dispatchTarget, setDispatchTarget] = useState(null);
+  const [dispatchRemarks, setDispatchRemarks] = useState('');
+  const [dispatching, setDispatching] = useState(false);
+
+  // Inward modal (line-level partial receipt + security remarks)
+  const [inwardTarget, setInwardTarget] = useState(null);   // full pass detail
+  const [receiptQtys, setReceiptQtys] = useState({});       // line_id -> qty string
+  const [inwardRemarks, setInwardRemarks] = useState('');
+  const [receiving, setReceiving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await gatePassAPI.getGuardPending(view);
+      setItems(data.items || []);
+    } catch (error) {
+      showError(handleAPIError(error));
+    } finally {
+      setLoading(false);
+    }
+  }, [view]);
+
+  const loadDue = useCallback(async () => {
+    try {
+      const data = await gatePassAPI.getDueNotifications();
+      setDueItems(data.items || []);
+    } catch (error) {
+      setDueItems([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    loadDue();
+  }, [load, loadDue]);
+
+  // ── Dispatch flow ─────────────────────────────────────────────────────────
+  const openDispatch = (pass) => {
+    setDispatchRemarks('');
+    setDispatchTarget(pass);
+  };
+
+  const submitDispatch = () => {
+    // Confirmation popup before dispatch (agreed UX safeguard): material
+    // physically leaves the premises — irreversible from the guard's side.
+    confirmAction({
+      title: `Dispatch ${dispatchTarget.gate_pass_no}?`,
+      message:
+        'Confirm the physical items match the pass. Dispatch cannot be undone. ' +
+        'If something does not match, do NOT dispatch — the department must cancel and recreate the pass.',
+      confirmText: 'Dispatch',
+      cancelText: 'Go back',
+      onConfirm: async () => {
+        setDispatching(true);
+        try {
+          await gatePassAPI.dispatchPass(dispatchTarget.id, dispatchRemarks.trim() || null);
+          setDispatchTarget(null);
+          showSuccess('Dispatched', 'Movement recorded.');
+          load();
+        } catch (error) {
+          showError(handleAPIError(error));
+        } finally {
+          setDispatching(false);
+        }
+      },
+    });
+  };
+
+  // ── Inward flow (partial returns supported) ───────────────────────────────
+  const openInward = async (pass) => {
+    try {
+      const detail = await gatePassAPI.getPass(pass.id);
+      const initialQtys = {};
+      detail.lines.forEach((l) => {
+        const outstanding = l.quantity - l.received_qty;
+        if (outstanding > 0) initialQtys[l.id] = String(outstanding); // default: all back
+      });
+      setReceiptQtys(initialQtys);
+      setInwardRemarks('');
+      setInwardTarget(detail);
+    } catch (error) {
+      showError(handleAPIError(error));
+    }
+  };
+
+  const submitInward = async () => {
+    const receipts = [];
+    for (const line of inwardTarget.lines) {
+      const outstanding = line.quantity - line.received_qty;
+      if (outstanding <= 0) continue;
+      const raw = (receiptQtys[line.id] || '').trim();
+      if (raw === '' || raw === '0') continue;   // nothing received on this line today
+      const qty = parseInt(raw, 10);
+      if (Number.isNaN(qty) || qty < 0) {
+        showValidationError(`Line ${line.line_no}: enter a valid quantity`);
+        return;
+      }
+      if (qty > outstanding) {
+        showValidationError(`Line ${line.line_no}: only ${outstanding} outstanding, cannot receive ${qty}`);
+        return;
+      }
+      receipts.push({ line_id: line.id, received_qty: qty });
+    }
+    if (receipts.length === 0) {
+      showValidationError('Enter a received quantity on at least one line');
+      return;
+    }
+    setReceiving(true);
+    try {
+      const result = await gatePassAPI.inwardPass(inwardTarget.id, receipts, inwardRemarks.trim() || null);
+      setInwardTarget(null);
+      const msg =
+        result.status === 'Inward Received'
+          ? 'All items are back — pass closed.'
+          : `Partial receipt recorded — ${result.outstanding_quantity} item(s) still out. The pass stays open until everything returns.`;
+      showSuccess('Inward recorded', msg);
+      load();
+      loadDue();
+    } catch (error) {
+      showError(handleAPIError(error));
+    } finally {
+      setReceiving(false);
+    }
+  };
+
+  // ── Table ─────────────────────────────────────────────────────────────────
+  const columns = [
+    { key: 'gate_pass_no', title: 'Pass No.', flex: 1.3, priority: 1 },
+    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1 },
+    { key: 'party_name', title: 'Party', flex: 1.6, priority: 1 },
+    { key: 'department', title: 'Dept', flex: 0.8, priority: 1 },
+    {
+      key: 'action',
+      title: view === 'dispatch' ? 'Dispatch' : view === 'inward' ? 'Inward' : 'Reason',
+      flex: 1.2,
+      priority: 1,
+      render: (item) => {
+        if (view === 'dispatch') {
+          return (
+            <TouchableOpacity style={styles.smallPrimaryBtn} onPress={() => openDispatch(item)}>
+              <Text style={styles.smallBtnText}>Dispatch</Text>
+            </TouchableOpacity>
+          );
+        }
+        if (view === 'inward') {
+          return (
+            <View style={{ gap: 2 }}>
+              <TouchableOpacity style={styles.smallPrimaryBtn} onPress={() => openInward(item)}>
+                <Text style={styles.smallBtnText}>Receive</Text>
+              </TouchableOpacity>
+              {item.is_overdue && (
+                <Text style={{ color: colors.danger, fontSize: 11, fontWeight: 'bold' }}>Overdue</Text>
+              )}
+            </View>
+          );
+        }
+        return <Text style={{ fontSize: 12, color: colors.textSecondary }}>{item.cancel_reason_text || '—'}</Text>;
+      },
+    },
+    { key: 'vehicle_no', title: 'Vehicle', priority: 2 },
+    { key: 'mode_of_transport', title: 'Transport', priority: 2 },
+    { key: 'document_date', title: 'Doc Date', priority: 2 },
+    { key: 'expected_inward_date', title: 'Return By', priority: 2 },
+    {
+      key: 'total_quantity',
+      title: 'Qty (out / back)',
+      priority: 2,
+      render: (item) => `${item.total_quantity} out / ${item.total_quantity - item.outstanding_quantity} back`,
+    },
+    { key: 'created_by', title: 'Created By', priority: 2 },
+    { key: 'location_code', title: 'Location', priority: 2 },
+  ];
+
+  return (
+    <View>
+      {/* Due-return alert for the guard's location */}
+      {dueItems.length > 0 && (
+        <View style={styles.dueBanner}>
+          <Text style={styles.dueBannerTitle}>
+            {dueItems.length} item group(s) due back and not yet received
+          </Text>
+          {dueItems.slice(0, 3).map((d) => (
+            <Text key={d.gate_pass_no} style={styles.dueBannerText}>
+              {d.gate_pass_no} — {d.party_name} — {d.outstanding_quantity} item(s),{' '}
+              {d.days_overdue === 0 ? 'due today' : `${d.days_overdue} day(s) overdue`}
+            </Text>
+          ))}
+        </View>
+      )}
+
+      {/* Sub-view toggle */}
+      <View style={styles.subToggleRow} accessibilityRole="tablist">
+        {VIEWS.map((v) => (
+          <TouchableOpacity
+            key={v.key}
+            style={view === v.key ? styles.toggleActive : styles.toggleInactive}
+            onPress={() => setView(v.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: view === v.key }}
+          >
+            <Text style={view === v.key ? styles.toggleActiveText : styles.toggleInactiveText}>{v.label}</Text>
+          </TouchableOpacity>
+        ))}
+        <AppButton title="Refresh" icon="refresh" variant="secondary" onPress={() => { load(); loadDue(); }} />
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={items}
+          keyExtractor={(item) => String(item.id)}
+          emptyText={
+            view === 'dispatch'
+              ? 'No passes waiting for dispatch'
+              : view === 'inward'
+                ? 'No returnable passes waiting for inward'
+                : 'No cancelled passes (only passes cancelled after release appear here)'
+          }
+        />
+      )}
+
+      {/* ── Dispatch modal: security remarks + confirm ── */}
+      <Modal
+        visible={!!dispatchTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDispatchTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Dispatch {dispatchTarget?.gate_pass_no}</Text>
+            <Text style={styles.modalSubtitle}>
+              {dispatchTarget?.party_name} · {dispatchTarget?.department} ·{' '}
+              {dispatchTarget?.total_quantity} item(s)
+              {dispatchTarget?.vehicle_no ? ` · ${dispatchTarget.vehicle_no}` : ''}
+            </Text>
+            <Text style={styles.fieldLabel}>Security remarks (optional)</Text>
+            <TextInput
+              style={[styles.input, styles.remarksInput]}
+              value={dispatchRemarks}
+              onChangeText={setDispatchRemarks}
+              placeholder="e.g. verified against printed pass, seal intact"
+              placeholderTextColor={colors.textMuted}
+              multiline
+            />
+            <View style={styles.actionRow}>
+              <AppButton title="Dispatch" icon="local-shipping" onPress={submitDispatch} loading={dispatching} />
+              <AppButton title="Go back" variant="secondary" onPress={() => setDispatchTarget(null)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Inward modal: per-line received qty (partial supported) ── */}
+      <Modal
+        visible={!!inwardTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setInwardTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Inward {inwardTarget?.gate_pass_no}</Text>
+            <Text style={styles.modalSubtitle}>
+              Enter how many of each item came back. Partial receipts are fine — the pass stays open
+              until every item returns.
+            </Text>
+            {inwardTarget?.lines
+              ?.filter((l) => l.quantity - l.received_qty > 0)
+              .map((l) => (
+                <View key={l.id} style={styles.receiptLineRow}>
+                  <Text style={styles.receiptLineText} numberOfLines={2}>
+                    {l.line_no}. {l.description}
+                    {l.serial_no ? ` (SN ${l.serial_no})` : ''}
+                  </Text>
+                  <Text style={styles.receiptOutstanding}>
+                    {l.quantity - l.received_qty} outstanding
+                  </Text>
+                  <TextInput
+                    style={styles.receiptQtyInput}
+                    value={receiptQtys[l.id] ?? ''}
+                    onChangeText={(v) =>
+                      setReceiptQtys((prev) => ({ ...prev, [l.id]: v.replace(/[^0-9]/g, '') }))
+                    }
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={colors.textMuted}
+                  />
+                </View>
+              ))}
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Security remarks (optional)</Text>
+            <TextInput
+              style={[styles.input, styles.remarksInput]}
+              value={inwardRemarks}
+              onChangeText={setInwardRemarks}
+              placeholder="e.g. 3 of 5 received, packaging damaged"
+              placeholderTextColor={colors.textMuted}
+              multiline
+            />
+            <View style={styles.actionRow}>
+              <AppButton title="Record inward" icon="assignment-turned-in" onPress={submitInward} loading={receiving} />
+              <AppButton title="Go back" variant="secondary" onPress={() => setInwardTarget(null)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+export default GatePassGuardTab;

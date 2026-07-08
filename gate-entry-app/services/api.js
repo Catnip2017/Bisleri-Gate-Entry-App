@@ -701,6 +701,85 @@ export const copackerAPI = {
   },
 };
 
+// ── Gate Pass APIs (Returnable / Non-Returnable) ─────────────────────────────
+// NO EDIT anywhere by design: a wrong pass is cancelled (mandatory reason)
+// and recreated. There is deliberately no update call in this API.
+export const gatePassAPI = {
+  getLocations: async () => {
+    const response = await api.get('/gate-pass/locations');
+    return response.data;
+  },
+  getDepartments: async () => {
+    const response = await api.get('/gate-pass/departments');
+    return response.data;
+  },
+  getCancelReasons: async () => {
+    const response = await api.get('/gate-pass/cancel-reasons');
+    return response.data;
+  },
+  searchParties: async (q = '') => {
+    const response = await api.get('/gate-pass/parties', { params: { q } });
+    return response.data;
+  },
+  searchItems: async (q = '') => {
+    const response = await api.get('/gate-pass/items', { params: { q } });
+    return response.data;
+  },
+  createPass: async (payload) => {
+    if (!payload.party_code) throw new Error('Party is required');
+    if (!payload.lines || payload.lines.length === 0) throw new Error('At least one item line is required');
+    const response = await api.post('/gate-pass', payload);
+    return response.data;
+  },
+  listPasses: async (filters = {}) => {
+    const response = await api.get('/gate-pass', { params: filters });
+    return response.data;
+  },
+  getPass: async (passId) => {
+    const response = await api.get(`/gate-pass/${passId}`);
+    return response.data;
+  },
+  releasePass: async (passId) => {
+    const response = await api.post(`/gate-pass/${passId}/release`);
+    return response.data;
+  },
+  cancelPass: async (passId, cancelReasonId, cancelRemarks = null) => {
+    const response = await api.post(`/gate-pass/${passId}/cancel`, {
+      cancel_reason_id: cancelReasonId,
+      cancel_remarks: cancelRemarks,
+    });
+    return response.data;
+  },
+  dispatchPass: async (passId, securityRemarks = null) => {
+    const response = await api.post(`/gate-pass/${passId}/dispatch`, {
+      security_remarks: securityRemarks,
+    });
+    return response.data;
+  },
+  inwardPass: async (passId, receipts, securityRemarks = null) => {
+    // receipts: [{ line_id, received_qty }] — line-level partial returns
+    const response = await api.post(`/gate-pass/${passId}/inward`, {
+      receipts,
+      security_remarks: securityRemarks,
+    });
+    return response.data;
+  },
+  forceClosePass: async (passId, closeReason) => {
+    const response = await api.post(`/gate-pass/${passId}/force-close`, {
+      close_reason: closeReason,
+    });
+    return response.data;
+  },
+  getGuardPending: async (view = 'dispatch') => {
+    const response = await api.get('/gate-pass/guard/pending', { params: { view } });
+    return response.data;
+  },
+  getDueNotifications: async () => {
+    const response = await api.get('/gate-pass/notifications/due');
+    return response.data;
+  },
+};
+
 // RPA process dashboards (IT Admin only)
 export const rpaAPI = {
   // Vendor Payment Advice — status counts (respects active filters)

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa
+from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa, gate_pass
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -106,6 +106,7 @@ app.include_router(sync.router)
 app.include_router(raw_materials.router)
 app.include_router(copacker_router.router)
 app.include_router(rpa.router)
+app.include_router(gate_pass.router)
 
 # Ensure the copacker images directory exists on startup
 _copacker_img_dir = _settings.COPACKER_IMAGE_PATH

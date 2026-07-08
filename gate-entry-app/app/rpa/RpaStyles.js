@@ -87,7 +87,8 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         boxShadow: '0px 3px 8px rgba(0,0,0,0.10)',
-        cursor: 'not-allowed',  // placeholder — not functional yet
+        // cursor is set per-tile in index.js: 'pointer' for live domains,
+        // 'not-allowed' only for coming-soon tiles.
       },
       android: { elevation: 4 },
       ios: {

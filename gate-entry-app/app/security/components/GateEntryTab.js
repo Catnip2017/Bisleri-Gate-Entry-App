@@ -989,7 +989,9 @@ const GateEntryTab = ({
                     key={type}
                     style={styles.radioButton}
                     onPress={() => updateRMField("gateType", type)}
-                    disabled={isSubmitting || isRestricted}
+                    // Match the FG radio: toggling is allowed even in view-only
+                    // mode (submission stays blocked for restricted roles).
+                    disabled={isSubmitting}
                   >
                     <View style={styles.radioCircle}>
                       {rmFormData.gateType === type && (

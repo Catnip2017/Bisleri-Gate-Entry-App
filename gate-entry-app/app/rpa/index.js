@@ -7,6 +7,7 @@ import {
   Text,
   Pressable,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -85,6 +86,9 @@ export default function RpaScreen() {
                 { borderTopWidth: 4, borderTopColor: domain.accentColor },
                 pressed && domain.route && styles.domainTilePressed,
                 !domain.route && { opacity: 0.65 },
+                Platform.OS === 'web' && {
+                  cursor: domain.route ? 'pointer' : 'not-allowed',
+                },
               ]}
             >
               <View
