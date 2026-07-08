@@ -46,6 +46,7 @@ const GatePassForm = ({ onCreated }) => {
   const [lines, setLines] = useState([EMPTY_LINE()]);
   const [itemResults, setItemResults] = useState([]);
   const [itemSearchLine, setItemSearchLine] = useState(null);
+  const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [nowStr] = useState(() => new Date());
@@ -409,17 +410,33 @@ const GatePassForm = ({ onCreated }) => {
       <View style={styles.fieldRow}>
         <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
-          <View style={styles.chipRow}>
-            {departments.map((d) => (
-              <TouchableOpacity
-                key={d}
-                style={department === d ? styles.chipActive : styles.chip}
-                onPress={() => setDepartment(d)}
-              >
-                <Text style={department === d ? styles.chipActiveText : styles.chipText}>{d}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+            onPress={() => setDeptDropdownOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: deptDropdownOpen }}
+          >
+            <Text style={{ fontSize: 14, color: department ? gp.text : gp.textMuted }}>
+              {department || '-- Select --'}
+            </Text>
+            <Text style={{ color: gp.textMuted, fontSize: 12 }}>{deptDropdownOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {deptDropdownOpen && (
+            <View style={styles.lookupPanel}>
+              {departments.map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  style={styles.lookupRow}
+                  onPress={() => {
+                    setDepartment(d);
+                    setDeptDropdownOpen(false);
+                  }}
+                >
+                  <Text style={department === d ? styles.lookupCode : styles.lookupName}>{d}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
         <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>

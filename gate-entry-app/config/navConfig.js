@@ -83,8 +83,15 @@ export const getUserDetails = (user) => {
   if (roles.includes('copacker')) {
     details.push(['Location', user.copackerLocation || '—']);
   } else {
-    details.push(['WH Code', user.warehouseCode || '—']);
+    // Gate Entry scope (warehouse master) and Gate Pass scope (separate
+    // gate pass location master) are DIFFERENT masters — shown separately.
+    details.push(['Gate Entry WH', user.warehouseCode || '—']);
     details.push(['Site Code', user.siteCode || '—']);
+    if (roles.includes('gatepassuser') || roles.includes('itadmin')) {
+      // gatePassLocation comes from the future user↔location assignment;
+      // '—' until the backend adds it to the user profile.
+      details.push(['Gate Pass Loc', user.gatePassLocation || '—']);
+    }
   }
   return details;
 };
