@@ -8,7 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
-dist
+# dist IS committed — the backend serves it directly at /dashboard, and the
+# server shouldn't need node/npm just to build the frontend. See root
+# .gitignore for the matching exception.
 dist-ssr
 *.local
 

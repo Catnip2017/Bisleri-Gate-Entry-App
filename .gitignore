@@ -39,6 +39,12 @@ yarn-error.log*
 # Example placeholder
 app-example
  
+# dashboard-web build output IS committed on purpose — the server serves it
+# directly (bisleri-backend/app/main.py mounts it at /dashboard) and should
+# not need node/npm installed just to build the frontend.
+!bisleri-backend/dashboard-web/dist/
+!bisleri-backend/dashboard-web/dist/**
+
 # ------------------------
 # Python / FastAPI backend
 # ------------------------
