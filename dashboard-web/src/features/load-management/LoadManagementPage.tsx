@@ -4,13 +4,13 @@ import WarehouseView from './WarehouseView'
 import LoadAnalytics from './LoadAnalytics'
 
 const SUB_TABS = [
+  { key: 'analytics', label: '📊 Load Analytics' },
   { key: 'vehicles', label: '🚗 Vehicles View' },
   { key: 'warehouse', label: '🏭 Warehouse View' },
-  { key: 'analytics', label: '📊 Load Analytics' },
 ] as const
 
 export default function LoadManagementPage() {
-  const [active, setActive] = useState<(typeof SUB_TABS)[number]['key']>('vehicles')
+  const [active, setActive] = useState<(typeof SUB_TABS)[number]['key']>('analytics')
 
   return (
     <div className="space-y-4">
