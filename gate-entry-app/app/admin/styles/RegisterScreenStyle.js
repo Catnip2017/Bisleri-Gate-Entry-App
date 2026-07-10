@@ -11,6 +11,8 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 12,
     width: '100%',
+    maxWidth: 960,
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -18,6 +20,29 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 0.5,
     borderColor: '#e0e0e0',
+  },
+
+  // Auth badge
+  authBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3e5f5',
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#ce93d8',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 18,
+    flexWrap: 'wrap',
+  },
+  authBadgeText: {
+    fontSize: 13,
+    color: '#6a1b9a',
+    fontWeight: '600',
+  },
+  authBadgeNote: {
+    fontSize: 11,
+    color: '#9c27b0',
   },
 
   // ── Two-panel layout ──────────────────────────────────────────────────────
