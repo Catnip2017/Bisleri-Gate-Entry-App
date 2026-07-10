@@ -11,7 +11,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 12,
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1080,
     alignSelf: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.07,
@@ -38,48 +38,54 @@ const styles = StyleSheet.create({
   authBadgeText: { fontSize: 13, color: '#6a1b9a', fontWeight: '700' },
   authBadgeNote: { fontSize: 12, color: '#9c27b0' },
 
-  // ── TOP ROW: role panel | divider | details panel ──────────────────────────
-  topRow: {
+  // ── 3-column layout ────────────────────────────────────────────────────────
+  columns: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 0,
   },
 
-  // Role panel (fixed width, short)
-  rolePanel: {
-    width: 200,
+  // Col 1: Roles (fixed, narrow)
+  roleCol: {
+    width: 185,
     flexShrink: 0,
-    paddingRight: 20,
+    paddingRight: 16,
   },
 
-  // Personal details panel (fills remaining space)
-  detailsPanel: {
+  // Col 2: Personal details (fills remaining space)
+  detailsCol: {
     flex: 1,
-    paddingLeft: 20,
+    paddingHorizontal: 20,
   },
 
-  // Vertical divider
+  // Col 3: Scope (fixed, appears conditionally)
+  scopeCol: {
+    width: 220,
+    flexShrink: 0,
+    paddingLeft: 16,
+  },
+
+  // Vertical divider between columns
   vDivider: {
     width: 1,
     backgroundColor: '#e8e8e8',
     alignSelf: 'stretch',
   },
 
-  // Horizontal divider (between top row and scope section)
-  hDivider: {
-    height: 1,
-    backgroundColor: '#e8e8e8',
-    marginVertical: 20,
-  },
-
-  // ── Section title ──────────────────────────────────────────────────────────
+  // ── Section titles ─────────────────────────────────────────────────────────
   sectionTitle: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#999',
+    color: '#aaa',
     letterSpacing: 1,
     marginBottom: 10,
-    marginTop: 2,
+  },
+  scopeSubtitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1976d2',
+    marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   // ── Role buttons ───────────────────────────────────────────────────────────
@@ -101,38 +107,41 @@ const styles = StyleSheet.create({
   roleBtnDisabled: {
     borderColor: '#eee',
     backgroundColor: '#f5f5f5',
-    opacity: 0.5,
+    opacity: 0.45,
   },
-  roleCheck: {
-    width: 15, height: 15,
-    borderRadius: 3,
+  checkbox: {
+    width: 15,
+    height: 15,
+    borderRadius: 3,        // square checkbox for all roles
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
     flexShrink: 0,
   },
-  roleCheckCircle: { borderRadius: 8 },
-  roleCheckTick: { color: '#fff', fontSize: 9, fontWeight: '900', lineHeight: 11 },
+  checkTick: { color: '#fff', fontSize: 9, fontWeight: '900', lineHeight: 11 },
   roleBtnText: { fontSize: 13, fontWeight: '500', color: '#555', flex: 1 },
   roleBtnTextActive: { color: '#1565c0', fontWeight: '600' },
   roleBtnTextDisabled: { color: '#bbb' },
-  exclusiveTag: { fontSize: 10, marginLeft: 2 },
 
-  itAdminNote: {
+  roleHint: {
+    fontSize: 10,
+    color: '#bbb',
     marginTop: 8,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 7,
-    padding: 10,
+    lineHeight: 15,
   },
-  itAdminNoteText: { fontSize: 11, color: '#1565c0', lineHeight: 16 },
 
-  // ── Form fields (right panel) ──────────────────────────────────────────────
+  // ── Form fields ────────────────────────────────────────────────────────────
   label: {
     fontSize: 13,
     fontWeight: '600',
     color: '#444',
     marginBottom: 5,
+  },
+  disabledLabel: {
+    fontSize: 11,
+    color: '#888',
+    marginBottom: 3,
   },
   input: {
     backgroundColor: '#f8f9fa',
@@ -155,7 +164,6 @@ const styles = StyleSheet.create({
   },
   field: { flex: 1 },
 
-  // ── Register button ────────────────────────────────────────────────────────
   registerButton: {
     backgroundColor: '#1976d2',
     paddingVertical: 13,
@@ -167,35 +175,31 @@ const styles = StyleSheet.create({
   registerButtonDisabled: { backgroundColor: '#b0bec5', elevation: 0 },
   registerText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
-  // ── Scope row (bottom, full-width) ─────────────────────────────────────────
-  scopeRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 0,
-  },
-  scopeBlock: {
-    flex: 1,
-  },
-
-  copackerNote: {
-    fontSize: 12,
-    color: '#b45309',
+  // ── Scope: Co Packer note ─────────────────────────────────────────────────
+  cpNote: {
     backgroundColor: '#fffbeb',
     borderWidth: 1,
     borderColor: '#fde68a',
     borderRadius: 6,
     padding: 8,
     marginBottom: 10,
-    lineHeight: 17,
   },
+  cpNoteText: { fontSize: 11, color: '#b45309', lineHeight: 16 },
 
-  // ── Warehouse dropdown ─────────────────────────────────────────────────────
-  searchContainer: {
-    position: 'relative',
-    zIndex: 9999,
-    marginBottom: 0,
+  // ── Scope: IT Admin note ──────────────────────────────────────────────────
+  itNote: {
+    backgroundColor: '#e3f2fd',
+    borderRadius: 7,
+    padding: 12,
   },
-  dropdown: {
+  itNoteText: { fontSize: 12, color: '#1565c0', lineHeight: 18 },
+
+  // ── Warehouse autocomplete ─────────────────────────────────────────────────
+  whContainer: {
+    position: 'relative',
+    zIndex: 999,
+  },
+  whDropdown: {
     position: 'absolute',
     top: '100%',
     left: 0,
@@ -206,22 +210,74 @@ const styles = StyleSheet.create({
     borderTopWidth: 0,
     borderBottomLeftRadius: 6,
     borderBottomRightRadius: 6,
-    maxHeight: 160,
-    zIndex: 9999,
+    zIndex: 999,
     elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
   },
-  dropdownItem: {
+  whDropdownItem: {
     padding: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
-    backgroundColor: '#fff',
   },
-  dropdownItemCode: { fontSize: 13, fontWeight: '700', color: '#1976d2', marginBottom: 1 },
-  dropdownItemName: { fontSize: 12, color: '#777' },
+  whCode: { fontSize: 13, fontWeight: '700', color: '#1976d2', marginBottom: 1 },
+  whName: { fontSize: 11, color: '#777' },
+
+  // ── Custom Dropdown (dept / GP location) ─────────────────────────────────
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 14,
+  },
+  dropdownTriggerText: {
+    fontSize: 13,
+    color: '#333',
+    flex: 1,
+  },
+  dropdownMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    zIndex: 9999,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
+  },
+  dropdownMenuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f3f3',
+  },
+  dropdownMenuItemActive: {
+    backgroundColor: '#e8f1fb',
+  },
+  dropdownMenuItemText: {
+    fontSize: 13,
+    color: '#444',
+  },
+  dropdownMenuItemTextActive: {
+    color: '#1565c0',
+    fontWeight: '600',
+  },
 });
 
 export default styles;
