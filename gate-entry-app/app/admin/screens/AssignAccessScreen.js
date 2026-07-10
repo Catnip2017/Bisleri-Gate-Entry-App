@@ -7,13 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 
-// NOTE (ROLE SWAP): When real 'gatepassuser' role lands, add it to AVAILABLE_ROLES.
 const AVAILABLE_ROLES = ['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
+const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
 
 const AssignAccessScreen = () => {
   // ── Left panel state ──────────────────────────────────────────────────────
@@ -39,6 +39,11 @@ const AssignAccessScreen = () => {
   const [filteredWarehouses, setFilteredWarehouses] = useState([]);
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
 
+  // Gate Pass User scope
+  const [department, setDepartment] = useState('');
+  const [gatePassLocation, setGatePassLocation] = useState('');
+  const [gpLocations, setGpLocations] = useState([]);
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
     const f = user.first_name?.[0] || '';
@@ -49,6 +54,7 @@ const AssignAccessScreen = () => {
   const hasNoRoles = (user) => !user.role || user.role.trim() === '';
 
   const needsWarehouse = roles.some(r => GUARD_ROLES.includes(r));
+  const needsGpScope = roles.includes('Gate Pass User');
 
   // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = async (query) => {
@@ -87,6 +93,8 @@ const AssignAccessScreen = () => {
     setWarehouseName(user.warehouse_name || '');
     setSiteCode(user.site_code || '');
     setWarehouseSearch(user.warehouse_code || '');
+    setDepartment(user.department || '');
+    setGatePassLocation(user.gate_pass_location || '');
 
     if (!warehouses.length) {
       try {
@@ -94,6 +102,15 @@ const AssignAccessScreen = () => {
         setWarehouses(data);
       } catch (e) {
         console.error('Failed to load warehouses:', e);
+      }
+    }
+
+    if (!gpLocations.length) {
+      try {
+        const data = await gatePassAPI.getLocations();
+        setGpLocations(data || []);
+      } catch (e) {
+        console.error('Failed to load GP locations:', e);
       }
     }
   };
@@ -158,6 +175,8 @@ const AssignAccessScreen = () => {
     setWarehouseName('');
     setSiteCode('');
     setWarehouseSearch('');
+    setDepartment('');
+    setGatePassLocation('');
   };
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -173,6 +192,12 @@ const AssignAccessScreen = () => {
     if (needsWarehouse && (!warehouseCode || !warehouseName))
       return showAlert('Validation Error', 'Please select a valid warehouse for Security roles');
 
+    if (needsGpScope && !department)
+      return showAlert('Validation Error', 'Department is required for Gate Pass User');
+
+    if (needsGpScope && !gatePassLocation)
+      return showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass User');
+
     setSaving(true);
     try {
       // Update role + scope
@@ -180,8 +205,8 @@ const AssignAccessScreen = () => {
         role: roles.join(', '),
         copacker_location: roles.includes('Co Packer') ? copackerLocation.trim() : null,
         warehouse_code: needsWarehouse ? warehouseCode.trim() : null,
-        // NOTE (BACKEND): site_code update requires adding site_code to UserRoleUpdate schema
-        // and the modifyUser router handler. Currently warehouse_code is accepted.
+        department: needsGpScope ? department : null,
+        gate_pass_location: needsGpScope ? gatePassLocation : null,
       });
 
       // Update personal details
@@ -466,6 +491,54 @@ const AssignAccessScreen = () => {
                   value={copackerLocation}
                   onChangeText={setCopackerLocation}
                 />
+              </>
+            )}
+
+            {/* ── Scope: Gate Pass User ── */}
+            {needsGpScope && (
+              <>
+                <Text style={styles.sectionLabel}>Scope</Text>
+
+                <Text style={styles.fieldLabel}>
+                  Department <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {DEPARTMENTS.map(dept => (
+                    <TouchableOpacity
+                      key={dept}
+                      style={[styles.pill, { flex: 0, paddingHorizontal: 14, paddingVertical: 8 },
+                        department === dept && styles.pillSelected]}
+                      onPress={() => setDepartment(dept)}
+                    >
+                      <Text style={[styles.pillText, { fontSize: 13 },
+                        department === dept && styles.pillTextSelected]}>
+                        {dept}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.fieldLabel}>
+                  Gate Pass Location <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {gpLocations.map(loc => (
+                    <TouchableOpacity
+                      key={loc.location_code}
+                      style={[styles.pill, { flex: 0, paddingHorizontal: 14, paddingVertical: 8 },
+                        gatePassLocation === loc.location_code && styles.pillSelected]}
+                      onPress={() => setGatePassLocation(loc.location_code)}
+                    >
+                      <Text style={[styles.pillText, { fontSize: 13 },
+                        gatePassLocation === loc.location_code && styles.pillTextSelected]}>
+                        {loc.location_code} — {loc.location_name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  {gpLocations.length === 0 && (
+                    <Text style={{ fontSize: 12, color: '#aaa' }}>Loading locations...</Text>
+                  )}
+                </View>
               </>
             )}
 

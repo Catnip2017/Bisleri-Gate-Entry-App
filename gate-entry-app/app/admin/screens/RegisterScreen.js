@@ -7,7 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import styles from '../styles/RegisterScreenStyle';
 import {
   validateUsername,
@@ -18,24 +18,31 @@ import {
 import { showAlert } from '../../../utils/customModal';
 
 // This screen registers LOCAL / CONTRACTOR users only.
-// AD (company) employees are provisioned via the Assign Access screen.
-const RegisterScreen = () => {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    firstName: '',
-    lastName: '',
-    role: 'Security Guard',
-    warehouseCode: '',
-    warehouseName: '',
-    siteCode: '',
-    email: '',
-    phone_number: '',
-    copackerLocation: '',
-  });
+// AD (company) employees are provisioned via the Assign Access tab.
 
+const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
+
+const EMPTY_FORM = {
+  username: '',
+  password: '',
+  confirmPassword: '',
+  firstName: '',
+  lastName: '',
+  role: 'Security Guard',
+  warehouseCode: '',
+  warehouseName: '',
+  siteCode: '',
+  email: '',
+  phone_number: '',
+  copackerLocation: '',
+  department: '',
+  gatePassLocation: '',
+};
+
+const RegisterScreen = () => {
+  const [formData, setFormData] = useState({ ...EMPTY_FORM });
   const [warehouses, setWarehouses] = useState([]);
+  const [gpLocations, setGpLocations] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -43,15 +50,24 @@ const RegisterScreen = () => {
 
   useEffect(() => {
     loadWarehouses();
+    loadGpLocations();
   }, []);
 
   const loadWarehouses = async () => {
     try {
-      const warehouseData = await adminAPI.getWarehouses();
-      setWarehouses(warehouseData);
-    } catch (error) {
-      console.error('Error loading warehouses:', error);
-      showAlert('Error', handleAPIError(error));
+      const data = await adminAPI.getWarehouses();
+      setWarehouses(data);
+    } catch (e) {
+      console.error('Error loading warehouses:', e);
+    }
+  };
+
+  const loadGpLocations = async () => {
+    try {
+      const data = await gatePassAPI.getLocations();
+      setGpLocations(data || []);
+    } catch (e) {
+      console.error('Error loading GP locations:', e);
     }
   };
 
@@ -61,23 +77,19 @@ const RegisterScreen = () => {
 
   const handleWarehouseCodeChange = (text) => {
     setSearchText(text);
-
     if (!text.trim()) {
       setFormData(prev => ({ ...prev, warehouseCode: '', warehouseName: '', siteCode: '' }));
       setFilteredWarehouses([]);
       setShowDropdown(false);
       return;
     }
-
-    const searchTerm = text.toLowerCase();
+    const term = text.toLowerCase();
     const filtered = warehouses.filter(w =>
-      (w.warehouse_code?.toLowerCase() || '').includes(searchTerm) ||
-      (w.warehouse_name?.toLowerCase() || '').includes(searchTerm)
+      (w.warehouse_code?.toLowerCase() || '').includes(term) ||
+      (w.warehouse_name?.toLowerCase() || '').includes(term)
     );
-
     setFilteredWarehouses(filtered);
     setShowDropdown(filtered.length > 0);
-
     setFormData(prev => ({ ...prev, warehouseCode: text, warehouseName: '', siteCode: '' }));
   };
 
@@ -93,151 +105,100 @@ const RegisterScreen = () => {
     setFilteredWarehouses([]);
   };
 
-  const validateForm = () => {
-    const errors = {};
+  const needsWarehouse = ['Security Guard', 'Security Admin'].includes(formData.role);
+  const needsGpScope = formData.role === 'Gate Pass User';
+  const needsCopacker = formData.role === 'Co Packer';
 
+  const validateForm = () => {
     const usernameError = validateUsername(formData.username);
-    if (usernameError) errors.username = usernameError;
+    if (usernameError) { showAlert('Validation Error', usernameError); return false; }
 
     const firstNameError = validateName(formData.firstName, 'First name');
-    if (firstNameError) errors.firstName = firstNameError;
+    if (firstNameError) { showAlert('Validation Error', firstNameError); return false; }
 
     const lastNameError = validateName(formData.lastName, 'Last name');
-    if (lastNameError) errors.lastName = lastNameError;
+    if (lastNameError) { showAlert('Validation Error', lastNameError); return false; }
 
     const passwordError = validatePassword(formData.password);
-    if (passwordError) errors.password = passwordError;
+    if (passwordError) { showAlert('Validation Error', passwordError); return false; }
 
     const passwordMatchError = validatePasswordMatch(formData.password, formData.confirmPassword);
-    if (passwordMatchError) errors.confirmPassword = passwordMatchError;
+    if (passwordMatchError) { showAlert('Validation Error', passwordMatchError); return false; }
 
-    // Email validation
-    if (["Security Admin", "IT Admin"].includes(formData.role)) {
-      if (!formData.email) errors.email = 'Email is required for this role';
-      else if (!/\S+@\S+\.\S+/.test(formData.email)) errors.email = 'Enter a valid email address';
-    } else if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Enter a valid email address';
-    }
-
-     // 🔹 Phone validation (required for Admin roles)
-  if (["Security Admin", "IT Admin"].includes(formData.role)) {
-    // ❌ Don't allow registration if number missing
-    if (!formData.phone_number || !formData.phone_number.trim()) {
-      showAlert('Validation Error', 'Mobile number is required for this role');
+    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
+      showAlert('Validation Error', 'Enter a valid email address');
       return false;
     }
 
-    // ❌ Don't allow if invalid number
-    if (!/^\d{10}$/.test(formData.phone_number)) {
+    if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
       showAlert('Validation Error', 'Enter a valid 10-digit mobile number');
       return false;
     }
-  } else if (formData.phone_number && !/^\d{10}$/.test(formData.phone_number)) {
-    // Optional for Guards, but must be valid if entered
-    showAlert('Validation Error', 'Enter a valid 10-digit mobile number');
-    return false;
-  }
 
-
-    // Warehouse required for Guards/Admins
-    if (["Security Guard", "Security Admin"].includes(formData.role)) {
-      if (!formData.warehouseCode || !formData.warehouseName || !formData.siteCode) {
-        errors.warehouse = 'Please enter a valid Warehouse Code';
-      }
+    if (needsWarehouse && (!formData.warehouseCode || !formData.warehouseName)) {
+      showAlert('Validation Error', 'Please select a valid Warehouse');
+      return false;
     }
 
-    // Copacker location required for Co Packer role
-    if (formData.role === 'Co Packer') {
-      if (!formData.copackerLocation.trim()) {
-        errors.copackerLocation = 'Copacker Location is required for Co Packer role';
-      }
+    if (needsCopacker && !formData.copackerLocation.trim()) {
+      showAlert('Validation Error', 'Copacker Location is required for Co Packer role');
+      return false;
     }
 
-    const errorKeys = Object.keys(errors);
-    if (errorKeys.length > 0) {
-      showAlert('Validation Error', errors[errorKeys[0]]);
+    if (needsGpScope && !formData.department) {
+      showAlert('Validation Error', 'Department is required for Gate Pass User role');
+      return false;
+    }
+
+    if (needsGpScope && !formData.gatePassLocation) {
+      showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass User role');
       return false;
     }
 
     return true;
   };
-const handleRegister = async () => {
-  if (!validateForm()) return;
 
-  setLoading(true);
-  try {
-    const userData = {
-      username: formData.username.trim(),
-      password: formData.password,
-      first_name: formData.firstName.trim(),
-      last_name: formData.lastName.trim(),
-      role: formData.role,
-      warehouse_code: formData.warehouseCode?.trim() || undefined,
-      site_code: formData.siteCode?.trim() || undefined,
-      copacker_location: formData.role === 'Co Packer' ? formData.copackerLocation.trim() : undefined,
-    };
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+    setLoading(true);
+    try {
+      const userData = {
+        username: formData.username.trim(),
+        password: formData.password,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        role: formData.role,
+        warehouse_code: needsWarehouse ? formData.warehouseCode?.trim() : undefined,
+        site_code: needsWarehouse ? formData.siteCode?.trim() : undefined,
+        copacker_location: needsCopacker ? formData.copackerLocation.trim() : undefined,
+        department: needsGpScope ? formData.department : undefined,
+        gate_pass_location: needsGpScope ? formData.gatePassLocation : undefined,
+      };
+      if (formData.email?.trim()) userData.email = formData.email.trim();
+      if (formData.phone_number?.trim()) userData.phone_number = formData.phone_number.trim();
 
-    // 🔹 Only add email/phone if user entered
-    if (formData.email?.trim()) {
-      userData.email = formData.email.trim();
+      const response = await adminAPI.registerUser(userData);
+      showAlert('Success', response.message || 'User registered successfully!', [
+        { text: 'OK', onPress: () => { setFormData({ ...EMPTY_FORM }); setSearchText(''); } },
+      ]);
+    } catch (error) {
+      showAlert('Registration Error', handleAPIError(error));
+    } finally {
+      setLoading(false);
     }
-    if (formData.phone_number?.trim()) {
-      userData.phone_number = formData.phone_number.trim();
-    }
-
-    console.log('Register Payload:', userData);
-
-    const response = await adminAPI.registerUser(userData);
-
-    showAlert('Success', response.message || 'User registered successfully!', [
-      {
-        text: 'OK',
-        onPress: () => {
-          setFormData({
-            username: '',
-            password: '',
-            confirmPassword: '',
-            firstName: '',
-            lastName: '',
-            role: 'Security Guard',
-            warehouseCode: '',
-            warehouseName: '',
-            siteCode: '',
-            email: '',
-            phone_number: '',
-            copackerLocation: '',
-          });
-          setSearchText('');
-        },
-      },
-    ]);
-  } catch (error) {
-    console.error('Registration Error:', error);
-    showAlert('Registration Error', handleAPIError(error));
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Register Contractor / Vendor</Text>
 
-        {/* Auth type — locked, informational only */}
+        {/* Auth type badge */}
         <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          backgroundColor: '#f3e5f5',
-          borderRadius: 8,
-          borderWidth: 0.5,
-          borderColor: '#ce93d8',
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          marginBottom: 16,
-          gap: 8,
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: '#f3e5f5', borderRadius: 8,
+          borderWidth: 0.5, borderColor: '#ce93d8',
+          paddingHorizontal: 12, paddingVertical: 8,
+          marginBottom: 18, gap: 8,
         }}>
           <Text style={{ fontSize: 13, color: '#6a1b9a', fontWeight: '500' }}>
             🔒 Local / Contractor Account
@@ -247,116 +208,189 @@ const handleRegister = async () => {
           </Text>
         </View>
 
-        {/* Role Selection */}
-        <Text style={styles.label}>Role</Text>
-        <View style={styles.roleContainer}>
-          {['Security Guard', 'Security Admin', 'IT Admin', 'Co Packer'].map(role => (
-            <TouchableOpacity
-              key={role}
-              style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
-              onPress={() => handleInputChange('role', role)}
-            >
-              <Text style={[styles.roleButtonText, formData.role === role && styles.roleButtonTextActive]}>
-                {role}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {formData.role === 'Co Packer' && (
-          <Text style={styles.copackerNote}>
-            Co Packer is an exclusive role — it cannot be combined with any other role.
-          </Text>
-        )}
-
-        {/* Copacker Location field for Co Packer role */}
-        {formData.role === 'Co Packer' && (
-          <>
-            <Text style={styles.label}>Copacker Location</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter copacker location name..."
-              value={formData.copackerLocation}
-              onChangeText={v => handleInputChange('copackerLocation', v)}
-            />
-          </>
-        )}
-
-        {/* Warehouse fields for Security roles */}
-        {["Security Guard", "Security Admin"].includes(formData.role) && (
-          <>
-            <Text style={styles.label}>Warehouse Code</Text>
-            <View style={styles.searchContainer}>
-              <TextInput
-                style={styles.input}
-                placeholder="Type warehouse code or name..."
-                value={searchText}
-                onChangeText={handleWarehouseCodeChange}
-                onFocus={() => { if (searchText && filteredWarehouses.length > 0) setShowDropdown(true); }}
-                autoCapitalize="characters"
-              />
-              {showDropdown && (
-                <View style={styles.dropdown}>
-                  <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
-                    {filteredWarehouses.map(w => (
-                      <TouchableOpacity key={w.warehouse_code} style={styles.dropdownItem} onPress={() => selectWarehouse(w)}>
-                        <Text style={styles.dropdownItemCode}>{w.warehouse_code}</Text>
-                        <Text style={styles.dropdownItemName}>{w.warehouse_name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+        <View style={styles.panels}>
+          {/* ── LEFT PANEL: Role + Scope ── */}
+          <View style={styles.leftPanel}>
+            <Text style={styles.label}>Role</Text>
+            <View style={styles.roleContainer}>
+              {['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'].map(role => (
+                <TouchableOpacity
+                  key={role}
+                  style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
+                  onPress={() => handleInputChange('role', role)}
+                >
+                  <Text style={[styles.roleButtonText, formData.role === role && styles.roleButtonTextActive]}>
+                    {role}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            <Text style={styles.label}>Warehouse Name</Text>
-            <TextInput style={[styles.input, styles.inputDisabled]} value={formData.warehouseName} editable={false} />
-            <Text style={styles.label}>Site Code</Text>
-            <TextInput style={[styles.input, styles.inputDisabled]} value={formData.siteCode} editable={false} />
-          </>
-        )}
+            {/* Co Packer */}
+            {needsCopacker && (
+              <>
+                <Text style={styles.copackerNote}>
+                  Co Packer is an exclusive role — cannot be combined with others.
+                </Text>
+                <Text style={styles.label}>Copacker Location *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter copacker location..."
+                  value={formData.copackerLocation}
+                  onChangeText={v => handleInputChange('copackerLocation', v)}
+                />
+              </>
+            )}
 
-        {/* User Info */}
-        <View style={styles.row}>
-          <View style={styles.field}>
-            <Text style={styles.label}>First Name</Text>
-            <TextInput style={styles.input} placeholder="First Name" value={formData.firstName} onChangeText={v => handleInputChange('firstName', v)} />
+            {/* Security Guard / Admin: Warehouse */}
+            {needsWarehouse && (
+              <>
+                <Text style={styles.label}>Warehouse *</Text>
+                <View style={styles.searchContainer}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Type code or name..."
+                    value={searchText}
+                    onChangeText={handleWarehouseCodeChange}
+                    onFocus={() => { if (searchText && filteredWarehouses.length > 0) setShowDropdown(true); }}
+                    autoCapitalize="characters"
+                  />
+                  {showDropdown && (
+                    <View style={styles.dropdown}>
+                      <ScrollView style={styles.dropdownScrollView} nestedScrollEnabled>
+                        {filteredWarehouses.map(w => (
+                          <TouchableOpacity key={w.warehouse_code} style={styles.dropdownItem} onPress={() => selectWarehouse(w)}>
+                            <Text style={styles.dropdownItemCode}>{w.warehouse_code}</Text>
+                            <Text style={styles.dropdownItemName}>{w.warehouse_name}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+
+                <Text style={styles.label}>Warehouse Name</Text>
+                <TextInput style={[styles.input, styles.inputDisabled]} value={formData.warehouseName} editable={false} />
+
+                <Text style={styles.label}>Site Code</Text>
+                <TextInput style={[styles.input, styles.inputDisabled]} value={formData.siteCode} editable={false} />
+              </>
+            )}
+
+            {/* Gate Pass User: Department + GP Location */}
+            {needsGpScope && (
+              <>
+                <Text style={styles.label}>Department *</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {DEPARTMENTS.map(dept => (
+                    <TouchableOpacity
+                      key={dept}
+                      style={[styles.roleButton, { flex: 0, paddingHorizontal: 12, paddingVertical: 8 },
+                        formData.department === dept && styles.roleButtonActive]}
+                      onPress={() => handleInputChange('department', dept)}
+                    >
+                      <Text style={[styles.roleButtonText, { fontSize: 12 },
+                        formData.department === dept && styles.roleButtonTextActive]}>
+                        {dept}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.label}>Gate Pass Location *</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {gpLocations.map(loc => (
+                    <TouchableOpacity
+                      key={loc.location_code}
+                      style={[styles.roleButton, { flex: 0, paddingHorizontal: 12, paddingVertical: 8 },
+                        formData.gatePassLocation === loc.location_code && styles.roleButtonActive]}
+                      onPress={() => handleInputChange('gatePassLocation', loc.location_code)}
+                    >
+                      <Text style={[styles.roleButtonText, { fontSize: 12 },
+                        formData.gatePassLocation === loc.location_code && styles.roleButtonTextActive]}>
+                        {loc.location_code} — {loc.location_name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  {gpLocations.length === 0 && (
+                    <Text style={{ fontSize: 12, color: '#aaa' }}>Loading locations...</Text>
+                  )}
+                </View>
+              </>
+            )}
+
+            {formData.role === 'IT Admin' && (
+              <View style={{ backgroundColor: '#e3f2fd', borderRadius: 8, padding: 12, marginTop: 8 }}>
+                <Text style={{ fontSize: 12, color: '#1565c0' }}>
+                  IT Admin has full access to all areas. No scope assignment needed.
+                </Text>
+              </View>
+            )}
           </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Username</Text>
-            <TextInput style={styles.input} placeholder="Username" value={formData.username} onChangeText={v => handleInputChange('username', v)} autoCapitalize="none" />
+
+          <View style={styles.panelDivider} />
+
+          {/* ── RIGHT PANEL: Personal details ── */}
+          <View style={styles.rightPanel}>
+            <View style={styles.row}>
+              <View style={styles.field}>
+                <Text style={styles.label}>First Name *</Text>
+                <TextInput style={styles.input} placeholder="First Name" value={formData.firstName} onChangeText={v => handleInputChange('firstName', v)} />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>Last Name *</Text>
+                <TextInput style={styles.input} placeholder="Last Name" value={formData.lastName} onChangeText={v => handleInputChange('lastName', v)} />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.field}>
+                <Text style={styles.label}>Username *</Text>
+                <TextInput style={styles.input} placeholder="Username" value={formData.username} onChangeText={v => handleInputChange('username', v)} autoCapitalize="none" />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>Mobile Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="10-digit mobile"
+                  value={formData.phone_number}
+                  onChangeText={v => handleInputChange('phone_number', v.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  maxLength={10}
+                />
+              </View>
+            </View>
+
+            <View style={styles.row}>
+              <View style={styles.field}>
+                <Text style={styles.label}>Password *</Text>
+                <TextInput style={styles.input} placeholder="Password" secureTextEntry value={formData.password} onChangeText={v => handleInputChange('password', v)} />
+              </View>
+              <View style={styles.field}>
+                <Text style={styles.label}>Confirm Password *</Text>
+                <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={formData.confirmPassword} onChangeText={v => handleInputChange('confirmPassword', v)} />
+              </View>
+            </View>
+
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Email (optional)"
+              value={formData.email}
+              onChangeText={v => handleInputChange('email', v)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <TouchableOpacity
+              style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register Contractor</Text>}
+            </TouchableOpacity>
           </View>
         </View>
-
-        <View style={styles.row}>
-          <View style={styles.field}>
-            <Text style={styles.label}>Last Name</Text>
-            <TextInput style={styles.input} placeholder="Last Name" value={formData.lastName} onChangeText={v => handleInputChange('lastName', v)} />
-          </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput style={styles.input} placeholder="Password" secureTextEntry value={formData.password} onChangeText={v => handleInputChange('password', v)} />
-          </View>
-        </View>
-
-        <Text style={styles.label}>Confirm Password</Text>
-        <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={formData.confirmPassword} onChangeText={v => handleInputChange('confirmPassword', v)} />
-
-        <Text style={styles.label}>Email</Text>
-        <TextInput style={styles.input} placeholder="Enter Email" value={formData.email} onChangeText={v => handleInputChange('email', v)} keyboardType="email-address" autoCapitalize="none" />
-
-       <Text style={styles.label}>Mobile Number</Text>
-<TextInput
-  style={styles.input}
-  placeholder="Enter Mobile Number"
-  value={formData.phone_number}
-  onChangeText={v => handleInputChange('phone_number', v.replace(/[^0-9]/g, ''))} // only digits
-  keyboardType="number-pad"
-  maxLength={10} // 🔹 limit to 10 digits
-/>
-
-        <TouchableOpacity style={[styles.registerButton, loading && styles.registerButtonDisabled]} onPress={handleRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register Contractor</Text>}
-        </TouchableOpacity>
       </View>
     </ScrollView>
   );

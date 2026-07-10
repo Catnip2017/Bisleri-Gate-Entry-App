@@ -25,5 +25,8 @@ class UsersMaster(Base):
     phone_number = Column(String(20), nullable=True, default=None)
     last_login = Column(DateTime)
     copacker_location = Column(String(255), nullable=True, default=None)
+    # Gate Pass User scope fields (added for AD integration + gate pass module)
+    department = Column(String(50), nullable=True, default=None)
+    gate_pass_location = Column(String(50), nullable=True, default=None)
 
     location = relationship("LocationMaster")

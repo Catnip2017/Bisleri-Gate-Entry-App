@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -265,6 +265,29 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
             # Clear copacker_location when switching away from Co Packer role
             user.copacker_location = None
 
+    # Handle warehouse update (Security Guard / Security Admin scope)
+    if update_data.warehouse_code is not None:
+        if update_data.warehouse_code:
+            warehouse = db.query(LocationMaster).filter(
+                LocationMaster.warehouse_code == update_data.warehouse_code.strip()
+            ).first()
+            if warehouse:
+                user.warehouse_code = warehouse.warehouse_code
+                user.warehouse_name = warehouse.warehouse_name
+                user.site_code = warehouse.site_code
+        else:
+            user.warehouse_code = None
+            user.warehouse_name = None
+            user.site_code = None
+
+    # Handle department (Gate Pass User scope)
+    if update_data.department is not None:
+        user.department = update_data.department or None
+
+    # Handle gate pass location (Gate Pass User scope)
+    if update_data.gate_pass_location is not None:
+        user.gate_pass_location = update_data.gate_pass_location or None
+
     db.commit()
     db.refresh(user)
 
@@ -311,7 +334,14 @@ def search_users(
 
     users = (
         db.query(UsersMaster)
-        .filter(UsersMaster.username.ilike(f"%{q}%"))
+        .filter(
+            or_(
+                UsersMaster.username.ilike(f"%{q}%"),
+                UsersMaster.email.ilike(f"%{q}%"),
+                UsersMaster.first_name.ilike(f"%{q}%"),
+                UsersMaster.last_name.ilike(f"%{q}%"),
+            )
+        )
         .limit(10)
         .all()
     )

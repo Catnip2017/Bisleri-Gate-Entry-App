@@ -3,25 +3,38 @@ import { StyleSheet } from 'react-native';
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: 'center',
     backgroundColor: '#f9f9f9',
-    paddingHorizontal: 20,
-    paddingVertical: 30,
+    padding: 20,
   },
   card: {
     backgroundColor: '#fff',
-    padding: 25,
+    padding: 24,
     borderRadius: 12,
-    maxWidth: 700,
-    alignSelf: 'center',
     width: '100%',
     shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
-    borderWidth: 1,
+    elevation: 3,
+    borderWidth: 0.5,
     borderColor: '#e0e0e0',
+  },
+  // Two-panel horizontal layout
+  panels: {
+    flexDirection: 'row',
+    gap: 20,
+  },
+  leftPanel: {
+    width: 280,
+    flexShrink: 0,
+  },
+  rightPanel: {
+    flex: 1,
+  },
+  panelDivider: {
+    width: 0.5,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 4,
   },
   title: {
     fontSize: 22,
@@ -108,12 +121,11 @@ const styles = StyleSheet.create({
   registerButton: {
     backgroundColor: '#1976d2',
     paddingVertical: 14,
-    paddingHorizontal: 30,
     borderRadius: 8,
-    alignSelf: 'center',
     marginTop: 20,
-    minWidth: 150,
+    width: '100%',
     elevation: 2,
+    alignItems: 'center',
   },
   registerButtonDisabled: {
     backgroundColor: '#ccc',

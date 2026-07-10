@@ -40,6 +40,8 @@ class UserRoleUpdate(BaseModel):
     role: Optional[str] = None
     warehouse_code: Optional[str] = None
     copacker_location: Optional[str] = None
+    department: Optional[str] = None
+    gate_pass_location: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -59,3 +61,12 @@ class UserSearchResponse(BaseModel):
     role: Optional[str] = None
     email: Optional[str] = None
     phone_number: Optional[str] = None
+    warehouse_code: Optional[str] = None
+    warehouse_name: Optional[str] = None
+    site_code: Optional[str] = None
+    copacker_location: Optional[str] = None
+    department: Optional[str] = None
+    gate_pass_location: Optional[str] = None
+
+    class Config:
+        from_attributes = True
