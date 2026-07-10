@@ -151,7 +151,7 @@ os.makedirs(_copacker_img_dir, exist_ok=True)
 # process/port — no separate Node server to run in production (the API and
 # the dashboard's HTML/JS/CSS share one origin). Built with base: '/dashboard/'
 # so its own asset URLs already point at /dashboard/assets/...
-_dashboard_dist = os.path.join(os.path.dirname(__file__), "..", "dashboard-web", "dist")
+_dashboard_dist = os.path.join(os.path.dirname(__file__), "..", "..", "dashboard-web", "dist")
 _dashboard_index = os.path.join(_dashboard_dist, "index.html")
 
 if os.path.isdir(_dashboard_dist):
@@ -172,7 +172,7 @@ if os.path.isdir(_dashboard_dist):
         # index.html — react-router handles the path in the browser.
         return FileResponse(_dashboard_index)
 else:
-    logger.warning("dashboard-web/dist not found — run `npm run build` in dashboard-web/ to serve the dashboard SPA.")
+    logger.warning("dashboard-web/dist not found — run `npm run build` in the root dashboard-web/ folder to serve the dashboard SPA.")
 
 
 @app.get("/")

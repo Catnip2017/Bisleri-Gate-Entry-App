@@ -19,17 +19,21 @@ import AppShell from '../../../components/ui/AppShell';
 // Re-use the existing screens from app/admin/screens — relative imports
 // inside those files are resolved relative to their own location, so no
 // changes needed there.
+import AssignAccessScreen from '../../admin/screens/AssignAccessScreen';
 import RegisterScreen from '../../admin/screens/RegisterScreen';
-import ModifyUserScreen from '../../admin/screens/ModifyUserScreen';
 import ResetPasswordScreen from '../../admin/screens/ResetPasswordScreen';
 
 import styles from './UserManagementStyles';
 
-const TABS = ['Register Users', 'Modify Users', 'Reset Password'];
+// Tab structure post-AD integration:
+// • Assign Access   — find AD user by email, assign role + scope (replaces Register + Modify)
+// • Register User   — create local/contractor accounts with username + password
+// • Reset Password  — local users only; AD users see an informational block
+const TABS = ['Assign Access', 'Register User', 'Reset Password'];
 
 export default function UserManagementScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(TABS[0]);
+  const [activeTab, setActiveTab] = useState('Assign Access');
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -55,10 +59,10 @@ export default function UserManagementScreen() {
 
   const renderActiveScreen = () => {
     switch (activeTab) {
-      case 'Register Users':
+      case 'Assign Access':
+        return <AssignAccessScreen />;
+      case 'Register User':
         return <RegisterScreen />;
-      case 'Modify Users':
-        return <ModifyUserScreen />;
       case 'Reset Password':
         return <ResetPasswordScreen />;
       default:

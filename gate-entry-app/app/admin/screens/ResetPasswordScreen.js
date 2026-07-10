@@ -51,6 +51,10 @@ const ResetPasswordScreen = () => {
     setSearchQuery(user.username);
     setUserFound(user);
     setMatchingUsers([]);
+    // Reset password fields when switching users
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordStrength('');
   };
 
   // Password validation
@@ -193,8 +197,28 @@ const ResetPasswordScreen = () => {
 
         
 
-        {/* Password Reset Form */}
-        {userFound && (
+        {/* AD user — block password reset */}
+        {userFound && userFound.auth_type === 'ad' && (
+          <View style={{
+            backgroundColor: '#e3f2fd',
+            borderRadius: 8,
+            borderWidth: 0.5,
+            borderColor: '#90caf9',
+            padding: 16,
+            marginTop: 12,
+          }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1565c0', marginBottom: 6 }}>
+              AD Account — Password managed externally
+            </Text>
+            <Text style={{ fontSize: 12, color: '#1976d2', lineHeight: 18 }}>
+              This user signs in via Active Directory. Passwords are managed by your IT department.
+              Contact your AD administrator to reset this user's password.
+            </Text>
+          </View>
+        )}
+
+        {/* Password Reset Form — local users only */}
+        {userFound && userFound.auth_type !== 'ad' && (
           <>
             <Text style={styles.label}>New Password</Text>
             <TextInput
@@ -224,6 +248,7 @@ const ResetPasswordScreen = () => {
             </TouchableOpacity>
           </>
         )}
+
       </View>
     </ScrollView>
   );

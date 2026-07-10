@@ -17,6 +17,8 @@ import {
 } from '../utils/validation';
 import { showAlert } from '../../../utils/customModal';
 
+// This screen registers LOCAL / CONTRACTOR users only.
+// AD (company) employees are provisioned via the Assign Access screen.
 const RegisterScreen = () => {
   const [formData, setFormData] = useState({
     username: '',
@@ -222,7 +224,28 @@ const handleRegister = async () => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.title}>Register New User</Text>
+        <Text style={styles.title}>Register Contractor / Vendor</Text>
+
+        {/* Auth type — locked, informational only */}
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#f3e5f5',
+          borderRadius: 8,
+          borderWidth: 0.5,
+          borderColor: '#ce93d8',
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          marginBottom: 16,
+          gap: 8,
+        }}>
+          <Text style={{ fontSize: 13, color: '#6a1b9a', fontWeight: '500' }}>
+            🔒 Local / Contractor Account
+          </Text>
+          <Text style={{ fontSize: 11, color: '#9c27b0', flex: 1 }}>
+            — password login only. For company employees use Assign Access.
+          </Text>
+        </View>
 
         {/* Role Selection */}
         <Text style={styles.label}>Role</Text>
@@ -332,7 +355,7 @@ const handleRegister = async () => {
 />
 
         <TouchableOpacity style={[styles.registerButton, loading && styles.registerButtonDisabled]} onPress={handleRegister} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register User</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register Contractor</Text>}
         </TouchableOpacity>
       </View>
     </ScrollView>
