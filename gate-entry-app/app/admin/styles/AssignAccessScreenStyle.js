@@ -123,11 +123,38 @@ export default StyleSheet.create({
     borderRadius: 12,
     borderWidth: 0.5,
     borderColor: '#e0e0e0',
+    overflow: 'hidden',
   },
-  rightPanelContent: {
-    padding: 20,
+  rightPanelRow: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  mainCol: {
+    flex: 1,
+  },
+  scopeDivider: {
+    width: 1,
+    backgroundColor: '#efefef',
+  },
+  scopeCol: {
+    width: 215,
+    flexShrink: 0,
+    backgroundColor: '#fafcff',
+  },
+  scopeSubLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1976d2',
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  dimLabel: {
+    fontSize: 10,
+    color: '#999',
+    marginBottom: 3,
   },
   placeholder: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
@@ -139,6 +166,23 @@ export default StyleSheet.create({
     maxWidth: 240,
     lineHeight: 20,
   },
+  // Scope dropdown
+  ddTrigger: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#f8f9fa', paddingVertical: 8, paddingHorizontal: 10,
+    borderRadius: 7, borderWidth: 0.5, borderColor: '#ccc', marginBottom: 12,
+  },
+  ddTriggerText: { fontSize: 12, color: '#333', flex: 1 },
+  ddMenu: {
+    position: 'absolute', top: '100%', left: 0, right: 0,
+    backgroundColor: '#fff', borderWidth: 0.5, borderColor: '#ccc',
+    borderTopWidth: 0, borderBottomLeftRadius: 7, borderBottomRightRadius: 7,
+    zIndex: 9999, elevation: 6,
+  },
+  ddItem: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
+  ddItemActive: { backgroundColor: '#e8f1fb' },
+  ddItemText: { fontSize: 12, color: '#444' },
+  ddItemTextActive: { color: '#1565c0', fontWeight: '600' },
 
   // ── User header ───────────────────────────────────────────────────────────
   userHeader: {

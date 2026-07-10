@@ -11,6 +11,35 @@ import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 
+// Simple inline dropdown for scope fields
+function ScopeDropdown({ value, options, onSelect, placeholder = 'Select...' }) {
+  const [open, setOpen] = React.useState(false);
+  const selected = options.find(o => o.value === value);
+  return (
+    <View style={{ marginBottom: 12, zIndex: open ? 999 : 1 }}>
+      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+        <Text style={[styles.ddTriggerText, !selected && { color: '#bbb' }]} numberOfLines={1}>
+          {selected ? selected.label : placeholder}
+        </Text>
+        <Text style={{ color: '#aaa', fontSize: 10 }}>{open ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.ddMenu}>
+          <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
+            {options.map(opt => (
+              <TouchableOpacity key={opt.value}
+                style={[styles.ddItem, value === opt.value && styles.ddItemActive]}
+                onPress={() => { onSelect(opt.value); setOpen(false); }}>
+                <Text style={[styles.ddItemText, value === opt.value && styles.ddItemTextActive]}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const AVAILABLE_ROLES = ['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
@@ -298,8 +327,7 @@ const AssignAccessScreen = () => {
       </View>
 
       {/* ── RIGHT PANEL ── */}
-      <ScrollView style={styles.rightPanel} contentContainerStyle={styles.rightPanelContent}>
-
+      <View style={styles.rightPanel}>
         {!selectedUser ? (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderText}>
@@ -307,260 +335,169 @@ const AssignAccessScreen = () => {
             </Text>
           </View>
         ) : (
-          <>
-            {/* User header */}
-            <View style={styles.userHeader}>
-              <View style={[styles.avatar, styles.avatarLarge]}>
-                <Text style={[styles.avatarText, styles.avatarTextLarge]}>
-                  {getInitials(selectedUser)}
-                </Text>
-              </View>
-              <View style={styles.userHeaderInfo}>
-                <Text style={styles.userHeaderName}>
-                  {firstName} {lastName}
-                </Text>
-                <Text style={styles.userHeaderSub}>
-                  {selectedUser.email || selectedUser.username}
-                </Text>
-                <View style={[
-                  styles.authBadge,
-                  selectedUser.auth_type !== 'ad' && styles.authBadgeLocal,
-                ]}>
-                  <Text style={[
-                    styles.authBadgeText,
-                    selectedUser.auth_type !== 'ad' && styles.authBadgeLocalText,
-                  ]}>
-                    {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
-                  </Text>
+          <View style={styles.rightPanelRow}>
+
+            {/* ── MAIN COLUMN: header + details + roles + save ── */}
+            <ScrollView style={styles.mainCol} contentContainerStyle={{ padding: 20 }}>
+
+              {/* User header */}
+              <View style={styles.userHeader}>
+                <View style={[styles.avatar, styles.avatarLarge]}>
+                  <Text style={[styles.avatarText, styles.avatarTextLarge]}>{getInitials(selectedUser)}</Text>
                 </View>
-              </View>
-              {hasNoRoles(selectedUser) && (
-                <View style={styles.badgeWarn}>
-                  <Text style={styles.badgeWarnText}>No roles assigned</Text>
-                </View>
-              )}
-            </View>
-
-            {/* ── Details ── */}
-            <Text style={styles.sectionLabel}>Details</Text>
-
-            <View style={styles.row}>
-              <View style={styles.halfField}>
-                <Text style={styles.fieldLabel}>First name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="First name"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-              <View style={styles.halfField}>
-                <Text style={styles.fieldLabel}>Last name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Last name"
-                  placeholderTextColor="#aaa"
-                />
-              </View>
-            </View>
-
-            <Text style={styles.fieldLabel}>Mobile number</Text>
-            <TextInput
-              style={styles.input}
-              value={phoneNumber}
-              onChangeText={v => setPhoneNumber(v.replace(/[^0-9]/g, ''))}
-              keyboardType="number-pad"
-              maxLength={10}
-              placeholder="10-digit mobile"
-              placeholderTextColor="#aaa"
-            />
-
-            {/* Email: locked for AD users */}
-            <Text style={styles.fieldLabel}>Email</Text>
-            <View style={[styles.input, styles.inputDisabled]}>
-              <Text style={styles.inputDisabledText}>
-                {selectedUser.email || '—'}
-              </Text>
-            </View>
-            {selectedUser.auth_type === 'ad' && (
-              <Text style={styles.fieldNote}>
-                Email is linked to Active Directory and cannot be changed here
-              </Text>
-            )}
-
-            {/* ── Roles ── */}
-            <Text style={styles.sectionLabel}>Roles</Text>
-            <View style={styles.pillRow}>
-              {AVAILABLE_ROLES.map(role => {
-                const isCopacker = role === 'Co Packer';
-                const copackerSelected = roles.includes('Co Packer');
-                const isDisabled =
-                  (isCopacker && !copackerSelected && roles.some(r => r !== 'Co Packer')) ||
-                  (!isCopacker && copackerSelected);
-                const isSelected = roles.includes(role);
-
-                return (
-                  <TouchableOpacity
-                    key={role}
-                    style={[
-                      styles.pill,
-                      isSelected && styles.pillSelected,
-                      isDisabled && styles.pillDisabled,
-                    ]}
-                    onPress={() => !isDisabled && toggleRole(role)}
-                    disabled={isDisabled}
-                  >
-                    <Text style={[
-                      styles.pillText,
-                      isSelected && styles.pillTextSelected,
-                      isDisabled && styles.pillTextDisabled,
-                    ]}>
-                      {role}
+                <View style={styles.userHeaderInfo}>
+                  <Text style={styles.userHeaderName}>{firstName} {lastName}</Text>
+                  <Text style={styles.userHeaderSub}>{selectedUser.email || selectedUser.username}</Text>
+                  <View style={[styles.authBadge, selectedUser.auth_type !== 'ad' && styles.authBadgeLocal]}>
+                    <Text style={[styles.authBadgeText, selectedUser.auth_type !== 'ad' && styles.authBadgeLocalText]}>
+                      {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                  </View>
+                </View>
+                {hasNoRoles(selectedUser) && (
+                  <View style={styles.badgeWarn}><Text style={styles.badgeWarnText}>No roles assigned</Text></View>
+                )}
+              </View>
 
-            {roles.includes('Co Packer') && (
-              <Text style={styles.copackerNote}>
-                Co Packer is an exclusive role — cannot be combined with others
-              </Text>
-            )}
+              {/* Details */}
+              <Text style={styles.sectionLabel}>Details</Text>
+              <View style={styles.row}>
+                <View style={styles.halfField}>
+                  <Text style={styles.fieldLabel}>First name</Text>
+                  <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor="#aaa" />
+                </View>
+                <View style={styles.halfField}>
+                  <Text style={styles.fieldLabel}>Last name</Text>
+                  <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor="#aaa" />
+                </View>
+              </View>
+              <Text style={styles.fieldLabel}>Mobile number</Text>
+              <TextInput style={styles.input} value={phoneNumber}
+                onChangeText={v => setPhoneNumber(v.replace(/[^0-9]/g, ''))}
+                keyboardType="number-pad" maxLength={10} placeholder="10-digit mobile" placeholderTextColor="#aaa" />
+              <Text style={styles.fieldLabel}>Email</Text>
+              <View style={[styles.input, styles.inputDisabled]}>
+                <Text style={styles.inputDisabledText}>{selectedUser.email || '—'}</Text>
+              </View>
+              {selectedUser.auth_type === 'ad' && (
+                <Text style={styles.fieldNote}>Email is linked to Active Directory and cannot be changed here</Text>
+              )}
 
-            {/* ── Scope: Warehouse ── */}
-            {needsWarehouse && (
+              {/* Roles */}
+              <Text style={styles.sectionLabel}>Roles</Text>
+              <View style={styles.pillRow}>
+                {AVAILABLE_ROLES.map(role => {
+                  const isCp = role === 'Co Packer';
+                  const cpOn = roles.includes('Co Packer');
+                  const isDisabled = (isCp && !cpOn && roles.some(r => r !== 'Co Packer')) || (!isCp && cpOn);
+                  const isSelected = roles.includes(role);
+                  return (
+                    <TouchableOpacity key={role}
+                      style={[styles.pill, isSelected && styles.pillSelected, isDisabled && styles.pillDisabled]}
+                      onPress={() => !isDisabled && toggleRole(role)} disabled={isDisabled}>
+                      <Text style={[styles.pillText, isSelected && styles.pillTextSelected, isDisabled && styles.pillTextDisabled]}>
+                        {role}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {roles.includes('Co Packer') && (
+                <Text style={styles.copackerNote}>Co Packer is an exclusive role — cannot be combined with others</Text>
+              )}
+
+              {/* Save */}
+              <TouchableOpacity
+                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+                onPress={handleSave} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* ── SCOPE COLUMN (right side, only when needed) ── */}
+            {(needsWarehouse || needsGpScope || roles.includes('Co Packer')) && (
               <>
-                <Text style={styles.sectionLabel}>Scope</Text>
+                <View style={styles.scopeDivider} />
+                <ScrollView style={styles.scopeCol} contentContainerStyle={{ padding: 16 }}>
+                  <Text style={styles.sectionLabel}>Scope</Text>
 
-                <Text style={styles.fieldLabel}>
-                  Warehouse <Text style={styles.required}>*</Text>
-                </Text>
-                <View style={styles.dropdownWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Type warehouse code or name..."
-                    placeholderTextColor="#aaa"
-                    value={warehouseSearch}
-                    onChangeText={handleWarehouseSearch}
-                    onFocus={() => {
-                      if (warehouseSearch && filteredWarehouses.length > 0)
-                        setShowWarehouseDropdown(true);
-                    }}
-                    autoCapitalize="characters"
-                  />
-                  {showWarehouseDropdown && (
-                    <View style={styles.dropdown}>
-                      <ScrollView nestedScrollEnabled>
-                        {filteredWarehouses.map(w => (
-                          <TouchableOpacity
-                            key={w.warehouse_code}
-                            style={styles.dropdownItem}
-                            onPress={() => selectWarehouse(w)}
-                          >
-                            <Text style={styles.dropdownCode}>{w.warehouse_code}</Text>
-                            <Text style={styles.dropdownName}>{w.warehouse_name}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
+                  {/* Warehouse */}
+                  {needsWarehouse && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={styles.scopeSubLabel}>Warehouse *</Text>
+                      <View style={styles.dropdownWrapper}>
+                        <TextInput style={styles.input} placeholder="Type code or name..."
+                          placeholderTextColor="#aaa" value={warehouseSearch}
+                          onChangeText={handleWarehouseSearch} autoCapitalize="characters" />
+                        {showWarehouseDropdown && (
+                          <View style={styles.dropdown}>
+                            <ScrollView nestedScrollEnabled style={{ maxHeight: 130 }}>
+                              {filteredWarehouses.map(w => (
+                                <TouchableOpacity key={w.warehouse_code} style={styles.dropdownItem} onPress={() => selectWarehouse(w)}>
+                                  <Text style={styles.dropdownCode}>{w.warehouse_code}</Text>
+                                  <Text style={styles.dropdownName}>{w.warehouse_name}</Text>
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          </View>
+                        )}
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.dimLabel}>Name</Text>
+                          <View style={[styles.input, styles.inputDisabled]}>
+                            <Text style={styles.inputDisabledText}>{warehouseName || '—'}</Text>
+                          </View>
+                        </View>
+                        <View style={{ width: 72 }}>
+                          <Text style={styles.dimLabel}>Site Code</Text>
+                          <View style={[styles.input, styles.inputDisabled]}>
+                            <Text style={styles.inputDisabledText}>{siteCode || '—'}</Text>
+                          </View>
+                        </View>
+                      </View>
                     </View>
                   )}
-                </View>
 
-                <Text style={styles.fieldLabel}>Warehouse name</Text>
-                <View style={[styles.input, styles.inputDisabled]}>
-                  <Text style={styles.inputDisabledText}>{warehouseName || '—'}</Text>
-                </View>
-
-                <Text style={styles.fieldLabel}>Site code</Text>
-                <View style={[styles.input, styles.inputDisabled]}>
-                  <Text style={styles.inputDisabledText}>{siteCode || '—'}</Text>
-                </View>
-              </>
-            )}
-
-            {/* ── Scope: Co Packer ── */}
-            {roles.includes('Co Packer') && (
-              <>
-                <Text style={styles.sectionLabel}>Scope</Text>
-                <Text style={styles.fieldLabel}>
-                  Copacker location <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter copacker location..."
-                  placeholderTextColor="#aaa"
-                  value={copackerLocation}
-                  onChangeText={setCopackerLocation}
-                />
-              </>
-            )}
-
-            {/* ── Scope: Gate Pass User ── */}
-            {needsGpScope && (
-              <>
-                <Text style={styles.sectionLabel}>Scope</Text>
-
-                <Text style={styles.fieldLabel}>
-                  Department <Text style={styles.required}>*</Text>
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                  {DEPARTMENTS.map(dept => (
-                    <TouchableOpacity
-                      key={dept}
-                      style={[styles.pill, { flex: 0, paddingHorizontal: 14, paddingVertical: 8 },
-                        department === dept && styles.pillSelected]}
-                      onPress={() => setDepartment(dept)}
-                    >
-                      <Text style={[styles.pillText, { fontSize: 13 },
-                        department === dept && styles.pillTextSelected]}>
-                        {dept}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={styles.fieldLabel}>
-                  Gate Pass Location <Text style={styles.required}>*</Text>
-                </Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
-                  {gpLocations.map(loc => (
-                    <TouchableOpacity
-                      key={loc.location_code}
-                      style={[styles.pill, { flex: 0, paddingHorizontal: 14, paddingVertical: 8 },
-                        gatePassLocation === loc.location_code && styles.pillSelected]}
-                      onPress={() => setGatePassLocation(loc.location_code)}
-                    >
-                      <Text style={[styles.pillText, { fontSize: 13 },
-                        gatePassLocation === loc.location_code && styles.pillTextSelected]}>
-                        {loc.location_code} — {loc.location_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                  {gpLocations.length === 0 && (
-                    <Text style={{ fontSize: 12, color: '#aaa' }}>Loading locations...</Text>
+                  {/* Co Packer */}
+                  {roles.includes('Co Packer') && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={styles.scopeSubLabel}>Co Packer</Text>
+                      <Text style={styles.fieldLabel}>Location *</Text>
+                      <TextInput style={styles.input} placeholder="Enter copacker location..."
+                        placeholderTextColor="#aaa" value={copackerLocation} onChangeText={setCopackerLocation} />
+                    </View>
                   )}
-                </View>
+
+                  {/* Gate Pass User */}
+                  {needsGpScope && (
+                    <View>
+                      <Text style={styles.scopeSubLabel}>Gate Pass User</Text>
+                      {/* Department dropdown */}
+                      <Text style={styles.fieldLabel}>Department *</Text>
+                      <ScopeDropdown
+                        value={department}
+                        options={DEPARTMENTS.map(d => ({ label: d, value: d }))}
+                        onSelect={setDepartment}
+                        placeholder="Select department..."
+                      />
+                      {/* GP Location dropdown */}
+                      <Text style={styles.fieldLabel}>Gate Pass Location *</Text>
+                      <ScopeDropdown
+                        value={gatePassLocation}
+                        options={gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }))}
+                        onSelect={setGatePassLocation}
+                        placeholder="Select location..."
+                      />
+                    </View>
+                  )}
+                </ScrollView>
               </>
             )}
 
-            {/* ── Save ── */}
-            <TouchableOpacity
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              {saving
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.saveButtonText}>Save Changes</Text>
-              }
-            </TouchableOpacity>
-          </>
+          </View>
         )}
-      </ScrollView>
+      </View>
     </View>
   );
 };
