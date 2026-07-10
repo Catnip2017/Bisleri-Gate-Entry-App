@@ -131,8 +131,20 @@ const ResetPasswordScreen = () => {
                         style={styles.dropdownItem}
                         onPress={() => handleSelectUser(user)}
                       >
-                        <Text style={styles.dropdownUsername}>{user.username}</Text>
-                        <Text style={styles.dropdownRole}>{user.role}</Text>
+                        <View>
+                          <Text style={styles.dropdownUsername}>
+                            {user.first_name} {user.last_name}
+                          </Text>
+                          <Text style={styles.dropdownRole}>{user.username}</Text>
+                          {user.email ? (
+                            <Text style={[styles.dropdownRole, { color: '#90a4ae', fontSize: 11 }]}>
+                              {user.email}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={[styles.dropdownRole, { fontSize: 11, alignSelf: 'flex-start', marginTop: 2 }]}>
+                          {user.role}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </ScrollView>

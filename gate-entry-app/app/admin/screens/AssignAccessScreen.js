@@ -269,8 +269,13 @@ const AssignAccessScreen = () => {
                   {user.first_name} {user.last_name}
                 </Text>
                 <Text style={styles.userRowSub} numberOfLines={1}>
-                  {user.email || user.username}
+                  {user.username}
                 </Text>
+                {user.email ? (
+                  <Text style={[styles.userRowSub, { color: '#90a4ae', fontSize: 11 }]} numberOfLines={1}>
+                    {user.email}
+                  </Text>
+                ) : null}
               </View>
               {hasNoRoles(user) && (
                 <View style={styles.badgeWarn}>

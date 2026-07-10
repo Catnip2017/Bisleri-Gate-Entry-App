@@ -209,46 +209,43 @@ const RegisterScreen = () => {
         </View>
 
         <View style={styles.panels}>
+
           {/* ── LEFT PANEL: Role + Scope ── */}
           <View style={styles.leftPanel}>
-            <Text style={styles.label}>Role</Text>
+            <Text style={styles.sectionTitle}>Role</Text>
             <View style={styles.roleContainer}>
-              {['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'].map(role => (
-                <TouchableOpacity
-                  key={role}
-                  style={[styles.roleButton, formData.role === role && styles.roleButtonActive]}
-                  onPress={() => handleInputChange('role', role)}
-                >
-                  <Text style={[styles.roleButtonText, formData.role === role && styles.roleButtonTextActive]}>
-                    {role}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'].map(role => {
+                const active = formData.role === role;
+                return (
+                  <TouchableOpacity
+                    key={role}
+                    style={[styles.roleButton, active && styles.roleButtonActive]}
+                    onPress={() => handleInputChange('role', role)}
+                  >
+                    {/* Radio dot */}
+                    <View style={{
+                      width: 14, height: 14, borderRadius: 7,
+                      borderWidth: 2,
+                      borderColor: active ? '#1976d2' : '#bbb',
+                      backgroundColor: active ? '#1976d2' : 'transparent',
+                      marginRight: 2,
+                    }} />
+                    <Text style={[styles.roleButtonText, active && styles.roleButtonTextActive]}>
+                      {role}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            {/* Co Packer */}
-            {needsCopacker && (
-              <>
-                <Text style={styles.copackerNote}>
-                  Co Packer is an exclusive role — cannot be combined with others.
-                </Text>
-                <Text style={styles.label}>Copacker Location *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter copacker location..."
-                  value={formData.copackerLocation}
-                  onChangeText={v => handleInputChange('copackerLocation', v)}
-                />
-              </>
-            )}
-
-            {/* Security Guard / Admin: Warehouse */}
+            {/* ── Scope: Security Guard / Admin → Warehouse ── */}
             {needsWarehouse && (
-              <>
+              <View style={styles.scopeBox}>
+                <Text style={styles.sectionTitle}>Scope</Text>
                 <Text style={styles.label}>Warehouse *</Text>
                 <View style={styles.searchContainer}>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, { marginBottom: 0 }]}
                     placeholder="Type code or name..."
                     value={searchText}
                     onChangeText={handleWarehouseCodeChange}
@@ -269,84 +266,134 @@ const RegisterScreen = () => {
                   )}
                 </View>
 
-                <Text style={styles.label}>Warehouse Name</Text>
-                <TextInput style={[styles.input, styles.inputDisabled]} value={formData.warehouseName} editable={false} />
-
-                <Text style={styles.label}>Site Code</Text>
-                <TextInput style={[styles.input, styles.inputDisabled]} value={formData.siteCode} editable={false} />
-              </>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.label, { fontSize: 11, color: '#777' }]}>Name</Text>
+                    <TextInput style={[styles.input, styles.inputDisabled, { fontSize: 12, marginBottom: 0 }]}
+                      value={formData.warehouseName} editable={false} />
+                  </View>
+                  <View style={{ width: 80 }}>
+                    <Text style={[styles.label, { fontSize: 11, color: '#777' }]}>Site Code</Text>
+                    <TextInput style={[styles.input, styles.inputDisabled, { fontSize: 12, marginBottom: 0 }]}
+                      value={formData.siteCode} editable={false} />
+                  </View>
+                </View>
+              </View>
             )}
 
-            {/* Gate Pass User: Department + GP Location */}
+            {/* ── Scope: Co Packer → Location ── */}
+            {needsCopacker && (
+              <View style={styles.scopeBox}>
+                <Text style={styles.sectionTitle}>Scope</Text>
+                <Text style={styles.copackerNote}>
+                  Exclusive role — cannot be combined with others.
+                </Text>
+                <Text style={styles.label}>Copacker Location *</Text>
+                <TextInput
+                  style={[styles.input, { marginBottom: 0 }]}
+                  placeholder="Enter copacker location..."
+                  value={formData.copackerLocation}
+                  onChangeText={v => handleInputChange('copackerLocation', v)}
+                />
+              </View>
+            )}
+
+            {/* ── Scope: Gate Pass User → Dept + GP Location ── */}
             {needsGpScope && (
-              <>
+              <View style={styles.scopeBox}>
+                <Text style={styles.sectionTitle}>Scope</Text>
+
                 <Text style={styles.label}>Department *</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {DEPARTMENTS.map(dept => (
-                    <TouchableOpacity
-                      key={dept}
-                      style={[styles.roleButton, { flex: 0, paddingHorizontal: 12, paddingVertical: 8 },
-                        formData.department === dept && styles.roleButtonActive]}
-                      onPress={() => handleInputChange('department', dept)}
-                    >
-                      <Text style={[styles.roleButtonText, { fontSize: 12 },
-                        formData.department === dept && styles.roleButtonTextActive]}>
-                        {dept}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {DEPARTMENTS.map(dept => {
+                    const active = formData.department === dept;
+                    return (
+                      <TouchableOpacity
+                        key={dept}
+                        style={{
+                          paddingHorizontal: 10, paddingVertical: 6,
+                          borderRadius: 6, borderWidth: 1.5,
+                          borderColor: active ? '#1976d2' : '#ccc',
+                          backgroundColor: active ? '#e8f1fb' : '#f5f5f5',
+                        }}
+                        onPress={() => handleInputChange('department', dept)}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '600',
+                          color: active ? '#1565c0' : '#666' }}>
+                          {dept}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
                 <Text style={styles.label}>Gate Pass Location *</Text>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-                  {gpLocations.map(loc => (
-                    <TouchableOpacity
-                      key={loc.location_code}
-                      style={[styles.roleButton, { flex: 0, paddingHorizontal: 12, paddingVertical: 8 },
-                        formData.gatePassLocation === loc.location_code && styles.roleButtonActive]}
-                      onPress={() => handleInputChange('gatePassLocation', loc.location_code)}
-                    >
-                      <Text style={[styles.roleButtonText, { fontSize: 12 },
-                        formData.gatePassLocation === loc.location_code && styles.roleButtonTextActive]}>
-                        {loc.location_code} — {loc.location_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={{ flexDirection: 'column', gap: 5 }}>
+                  {gpLocations.map(loc => {
+                    const active = formData.gatePassLocation === loc.location_code;
+                    return (
+                      <TouchableOpacity
+                        key={loc.location_code}
+                        style={{
+                          paddingHorizontal: 10, paddingVertical: 8,
+                          borderRadius: 6, borderWidth: 1.5,
+                          borderColor: active ? '#1976d2' : '#ccc',
+                          backgroundColor: active ? '#e8f1fb' : '#f5f5f5',
+                          flexDirection: 'row', alignItems: 'center', gap: 6,
+                        }}
+                        onPress={() => handleInputChange('gatePassLocation', loc.location_code)}
+                      >
+                        <View style={{
+                          width: 12, height: 12, borderRadius: 6,
+                          borderWidth: 2, borderColor: active ? '#1976d2' : '#bbb',
+                          backgroundColor: active ? '#1976d2' : 'transparent',
+                        }} />
+                        <Text style={{ fontSize: 12, color: active ? '#1565c0' : '#555', fontWeight: active ? '600' : '400' }}>
+                          {loc.location_code} — {loc.location_name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                   {gpLocations.length === 0 && (
                     <Text style={{ fontSize: 12, color: '#aaa' }}>Loading locations...</Text>
                   )}
                 </View>
-              </>
+              </View>
             )}
 
+            {/* ── IT Admin: no scope needed ── */}
             {formData.role === 'IT Admin' && (
-              <View style={{ backgroundColor: '#e3f2fd', borderRadius: 8, padding: 12, marginTop: 8 }}>
-                <Text style={{ fontSize: 12, color: '#1565c0' }}>
-                  IT Admin has full access to all areas. No scope assignment needed.
+              <View style={{ backgroundColor: '#e3f2fd', borderRadius: 8, padding: 12, marginTop: 4 }}>
+                <Text style={{ fontSize: 12, color: '#1565c0', lineHeight: 18 }}>
+                  IT Admin has system-wide access. No scope assignment needed.
                 </Text>
               </View>
             )}
           </View>
 
-          <View style={styles.panelDivider} />
-
           {/* ── RIGHT PANEL: Personal details ── */}
           <View style={styles.rightPanel}>
+            <Text style={styles.sectionTitle}>Personal Details</Text>
+
             <View style={styles.row}>
               <View style={styles.field}>
                 <Text style={styles.label}>First Name *</Text>
-                <TextInput style={styles.input} placeholder="First Name" value={formData.firstName} onChangeText={v => handleInputChange('firstName', v)} />
+                <TextInput style={styles.input} placeholder="First Name"
+                  value={formData.firstName} onChangeText={v => handleInputChange('firstName', v)} />
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>Last Name *</Text>
-                <TextInput style={styles.input} placeholder="Last Name" value={formData.lastName} onChangeText={v => handleInputChange('lastName', v)} />
+                <TextInput style={styles.input} placeholder="Last Name"
+                  value={formData.lastName} onChangeText={v => handleInputChange('lastName', v)} />
               </View>
             </View>
 
             <View style={styles.row}>
               <View style={styles.field}>
                 <Text style={styles.label}>Username *</Text>
-                <TextInput style={styles.input} placeholder="Username" value={formData.username} onChangeText={v => handleInputChange('username', v)} autoCapitalize="none" />
+                <TextInput style={styles.input} placeholder="Username"
+                  value={formData.username} onChangeText={v => handleInputChange('username', v)}
+                  autoCapitalize="none" />
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>Mobile Number</Text>
@@ -364,11 +411,13 @@ const RegisterScreen = () => {
             <View style={styles.row}>
               <View style={styles.field}>
                 <Text style={styles.label}>Password *</Text>
-                <TextInput style={styles.input} placeholder="Password" secureTextEntry value={formData.password} onChangeText={v => handleInputChange('password', v)} />
+                <TextInput style={styles.input} placeholder="Password" secureTextEntry
+                  value={formData.password} onChangeText={v => handleInputChange('password', v)} />
               </View>
               <View style={styles.field}>
                 <Text style={styles.label}>Confirm Password *</Text>
-                <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry value={formData.confirmPassword} onChangeText={v => handleInputChange('confirmPassword', v)} />
+                <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry
+                  value={formData.confirmPassword} onChangeText={v => handleInputChange('confirmPassword', v)} />
               </View>
             </View>
 
@@ -387,9 +436,12 @@ const RegisterScreen = () => {
               onPress={handleRegister}
               disabled={loading}
             >
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerText}>Register Contractor</Text>}
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.registerText}>Register Contractor</Text>}
             </TouchableOpacity>
           </View>
+
         </View>
       </View>
     </ScrollView>

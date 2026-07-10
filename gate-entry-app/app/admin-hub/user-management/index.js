@@ -39,21 +39,28 @@ export default function UserManagementScreen() {
 
   useEffect(() => {
     (async () => {
-      const userData = await getCurrentUser();
-      if (!userData) {
-        router.replace('/LoginScreen');
-        return;
-      }
+      try {
+        const userData = await getCurrentUser();
+        if (!userData) {
+          router.replace('/LoginScreen');
+          return;
+        }
 
-      const roles = userData.roles || [];
-      if (!roles.includes('itadmin')) {
-        showAlert('Access Denied', 'Only IT Admin can access User Management.');
+        const roles = userData.roles || [];
+        if (!roles.includes('itadmin')) {
+          showAlert('Access Denied', 'Only IT Admin can access User Management.');
+          router.replace('/admin-hub');
+          return;
+        }
+
+        setAllowed(true);
+      } catch (e) {
+        console.error('UserManagement auth check failed:', e);
+        // Don't leave the user stuck — send them back
         router.replace('/admin-hub');
-        return;
+      } finally {
+        setChecking(false);
       }
-
-      setAllowed(true);
-      setChecking(false);
     })();
   }, []);
 
@@ -70,17 +77,18 @@ export default function UserManagementScreen() {
     }
   };
 
-  if (checking || !allowed) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#007bff" />
-      </View>
-    );
-  }
-
   return (
     <AppShell title="User Management" backLabel="Admin Hub">
     <View style={styles.container}>
+
+      {/* Show spinner inside the shell so the back chip is always reachable */}
+      {(checking || !allowed) && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007bff" />
+        </View>
+      )}
+
+      {!checking && allowed && (<>
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
       <View style={styles.tabContainer}>
         {TABS.map((tab) => (
@@ -100,6 +108,7 @@ export default function UserManagementScreen() {
       <ScrollView style={styles.screenContainer}>
         {renderActiveScreen()}
       </ScrollView>
+      </>)}
     </View>
     </AppShell>
   );
