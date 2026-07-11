@@ -73,18 +73,19 @@ export const ROLE_LABELS = {
 };
 
 /**
- * Sidebar detail rows — identical set for every role.
- * Fields with no value show '—'; no row is hidden based on role.
+ * Sidebar detail rows — same labels for every role.
+ * Rows with no value are hidden entirely.
  */
 export const getUserDetails = (user) => {
   if (!user) return [];
-  return [
-    ['Gate Entry WH',  user.warehouseCode    || '—'],
-    ['Site Code',      user.siteCode         || '—'],
-    ['Gate Pass Loc',  user.gatePassLocation || '—'],
-    ['Department',     user.department       || '—'],
-    ['CP Location',    user.copackerLocation || '—'],
+  const rows = [
+    ['Gate Entry Warehouse', user.warehouseCode    || null],
+    ['Site Code',            user.siteCode         || null],
+    ['Gate Pass Location',   user.gatePassLocation || null],
+    ['Department',           user.department       || null],
+    ['Co-Packer Location',   user.copackerLocation || null],
   ];
+  return rows.filter(([, value]) => value); // only show rows with an actual value
 };
 
 export const getNavLinksForRoles = (roles = []) =>

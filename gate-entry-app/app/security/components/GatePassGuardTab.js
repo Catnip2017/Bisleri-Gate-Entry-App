@@ -231,7 +231,7 @@ const GatePassGuardTab = () => {
 
   return (
     <View>
-      {/* Due-return alert for the guard's location */}
+      {/* Due-return alert */}
       {dueItems.length > 0 && (
         <View style={styles.dueBanner}>
           <Text style={styles.dueBannerTitle}>
@@ -246,46 +246,61 @@ const GatePassGuardTab = () => {
         </View>
       )}
 
-      {/* Sub-view pills (wireframe blue) */}
-      <View style={styles.subToggleRow} accessibilityRole="tablist">
-        {VIEWS.map((v) => (
+      <View style={styles.layoutRow}>
+        {/* ── Left menu panel (same as GatePassDashboard) ── */}
+        <View style={styles.menuPanel}>
+          <Text style={styles.menuTitle}>Gate Pass Menu</Text>
+          {VIEWS.map((v) => (
+            <TouchableOpacity
+              key={v.key}
+              style={styles.menuItem}
+              onPress={() => setView(v.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: view === v.key }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={view === v.key ? styles.menuItemActiveText : styles.menuItemText}>
+                  {v.label}
+                </Text>
+                {v.key === 'inward' && dueItems.length > 0 && (
+                  <View style={styles.menuBadge}>
+                    <Text style={styles.menuBadgeText}>{dueItems.length}</Text>
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          ))}
           <TouchableOpacity
-            key={v.key}
-            style={view === v.key ? styles.toggleActive : styles.toggleInactive}
-            onPress={() => setView(v.key)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: view === v.key }}
+            style={[styles.menuItem, { marginTop: 8, borderTopWidth: 1, borderTopColor: '#D6DEE6' }]}
+            onPress={() => { load(); loadDue(); }}
+            accessibilityRole="button"
           >
-            <Text style={view === v.key ? styles.toggleActiveText : styles.toggleInactiveText}>{v.label}</Text>
+            <Text style={styles.menuItemText}>↻ Refresh</Text>
           </TouchableOpacity>
-        ))}
-        <TouchableOpacity
-          style={[styles.wfButton, styles.btnSecondary]}
-          onPress={() => { load(); loadDue(); }}
-          accessibilityRole="button"
-        >
-          <Text style={styles.wfButtonText}>Refresh</Text>
-        </TouchableOpacity>
-      </View>
-
-      {loading ? (
-        <View style={styles.loadingBox}>
-          <ActivityIndicator size="large" color={gp.accent} />
         </View>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          emptyText={
-            view === 'dispatch'
-              ? 'No passes waiting for dispatch'
-              : view === 'inward'
-                ? 'No returnable passes waiting for inward'
-                : 'No cancelled passes (only passes cancelled after release appear here)'
-          }
-        />
-      )}
+
+        {/* ── Content pane ── */}
+        <View style={styles.contentPane}>
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="large" color={gp.accent} />
+            </View>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={items}
+              keyExtractor={(item) => String(item.id)}
+              emptyText={
+                view === 'dispatch'
+                  ? 'No passes waiting for dispatch'
+                  : view === 'inward'
+                    ? 'No returnable passes waiting for inward'
+                    : 'No cancelled passes (only passes cancelled after release appear here)'
+              }
+            />
+          )}
+        </View>
+      </View>
 
       {/* ── Dispatch modal: security remarks + confirm ── */}
       <Modal
