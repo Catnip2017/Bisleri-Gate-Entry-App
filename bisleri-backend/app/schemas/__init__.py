@@ -3,3 +3,4 @@ from .gate_schemas import *
 from .document_schemas import *
 from .token_schemas import *
 from .raw_materials_schemas import *
+from .filter_schemas import *

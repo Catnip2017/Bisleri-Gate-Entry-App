@@ -1,11 +1,11 @@
 # app/routers/insights.py - UPDATED WITH OPERATIONAL EDIT LOGIC
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from app.database import get_db
 from app.models import InsightsData, DocumentData
-from app.schemas import InsightsFilter, OperationalDataEdit, EnhancedMovementResponse, EditStatistics, KMReadingContext
+from app.schemas import InsightsFilter, OperationalDataEdit, EnhancedMovementResponse, EditStatistics, KMReadingContext, MovementFilters
 from app.auth import get_current_user
 from app.utils.errors import internal_error
 from app.utils.roles import normalize_roles
@@ -17,9 +17,28 @@ from typing import Optional, List
 
 router = APIRouter(tags=["Insights"])
 
-@router.post("/filtered-movements")
+@router.get("/movements")
+def get_movements(
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    warehouse_code: Optional[str] = Query(None, max_length=50),
+    site_code: Optional[str] = Query(None, max_length=50),
+    vehicle_no: Optional[str] = Query(None, max_length=50),
+    movement_type: Optional[str] = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Q11: GET twin of the legacy POST /filtered-movements (same response)."""
+    filters = MovementFilters(
+        from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
+        site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+    )
+    return get_enhanced_filtered_movements(filters, db, current_user)
+
+
+@router.post("/filtered-movements", deprecated=True)  # Q11: use GET /movements
 def get_enhanced_filtered_movements(
-    filters: dict,
+    filters: MovementFilters,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
@@ -29,27 +48,26 @@ def get_enhanced_filtered_movements(
         query = db.query(InsightsData)
         
         # Date filters
-        if filters.get('from_date'):
-            query = query.filter(InsightsData.date >= filters['from_date'])
-        if filters.get('to_date'):
-            query = query.filter(InsightsData.date <= filters['to_date'])
+        if filters.from_date:
+            query = query.filter(InsightsData.date >= filters.from_date)
+        if filters.to_date:
+            query = query.filter(InsightsData.date <= filters.to_date)
             
         # ✅ ADD WAREHOUSE CODE FILTER HERE
-        if filters.get('warehouse_code'):
-            query = query.filter(InsightsData.warehouse_code == filters['warehouse_code'])
+        if filters.warehouse_code:
+            query = query.filter(InsightsData.warehouse_code == filters.warehouse_code)
             
         # ✅ ADD SITE CODE FILTER HERE  
-        if filters.get('site_code'):
-            query = query.filter(InsightsData.site_code == filters['site_code'])
+        if filters.site_code:
+            query = query.filter(InsightsData.site_code == filters.site_code)
             
         # Vehicle number filter
-        if filters.get('vehicle_no'):
-            vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
-            query = query.filter(InsightsData.vehicle_no.ilike(vehicle_filter))
+        if filters.vehicle_no:
+            query = query.filter(InsightsData.vehicle_no.ilike(f"%{filters.vehicle_no.upper()}%"))
             
         # Movement type filter
-        if filters.get('movement_type'):
-            query = query.filter(InsightsData.movement_type == filters['movement_type'])
+        if filters.movement_type:
+            query = query.filter(InsightsData.movement_type == filters.movement_type)
         
         # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
         user_roles = normalize_roles(current_user.role)
@@ -458,23 +476,13 @@ def get_records_needing_completion(
 # ✅ BACKWARD COMPATIBILITY: Keep the old edit endpoint for gradual migration
 @router.put("/update-gate-entry")
 def update_gate_entry_legacy(
-    edit_data: dict,
+    edit_data: OperationalDataEdit,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
-    """Legacy edit endpoint - redirects to new operational data endpoint"""
+    """Legacy edit endpoint - same body schema, validated by FastAPI (Q6)."""
     try:
-        # Convert old format to new format
-        operational_edit = OperationalDataEdit(
-            gate_entry_no=edit_data.get('gate_entry_no'),
-            driver_name=edit_data.get('driver_name'),
-            km_reading=edit_data.get('km_reading'),
-            loader_names=edit_data.get('loader_names'),
-            remarks=edit_data.get('remarks')
-        )
-        
-        # Call the new endpoint
-        return update_operational_data(operational_edit, db, current_user)
+        return update_operational_data(edit_data, db, current_user)
         
     except HTTPException:
         raise

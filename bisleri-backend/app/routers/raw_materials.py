@@ -1,16 +1,17 @@
 # app/routers/raw_materials.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text, func
 from app.database import get_db
 from app.schemas.raw_materials_schemas import RawMaterialsCreate, RawMaterialsResponse, RawMaterialsEdit
+from app.schemas.filter_schemas import MovementFilters
 from app.models import RawMaterialsData, UsersMaster
 from app.auth import get_current_user
 from app.utils.errors import internal_error
 from app.utils.helpers import generate_gate_entry_no_for_user, validate_vehicle_number
 from app.utils.roles import normalize_roles
 from app.utils.edit_window import EDIT_WINDOW_HOURS, is_within_edit_window, get_time_remaining
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import List
 
 router = APIRouter(prefix="/rm", tags=["Raw Materials"])
@@ -114,9 +115,28 @@ def create_raw_materials_entry(
         db.rollback()
         raise internal_error("Database error", e)
 
-@router.post("/filtered-entries")
+@router.get("/entries")
+def get_rm_entries(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    warehouse_code: str | None = Query(None, max_length=50),
+    site_code: str | None = Query(None, max_length=50),
+    vehicle_no: str | None = Query(None, max_length=50),
+    movement_type: str | None = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Q11: GET twin of the legacy POST /rm/filtered-entries (same response)."""
+    filters = MovementFilters(
+        from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
+        site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+    )
+    return get_filtered_rm_entries(filters, db, current_user)
+
+
+@router.post("/filtered-entries", deprecated=True)  # Q11: use GET /rm/entries
 def get_filtered_rm_entries(
-    filters: dict,
+    filters: MovementFilters,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
@@ -125,30 +145,27 @@ def get_filtered_rm_entries(
         # Build dynamic query
         query = db.query(RawMaterialsData)
         
-        # Date filters
-        if filters.get('from_date'):
-            from_date = datetime.strptime(filters['from_date'], '%Y-%m-%d').date()
-            query = query.filter(RawMaterialsData.date_time >= from_date)
-        if filters.get('to_date'):
-            to_date = datetime.strptime(filters['to_date'], '%Y-%m-%d').date()
-            # Add one day and convert to end of day
-            end_date = datetime.combine(to_date, datetime.max.time())
+        # Date filters (dates already validated & parsed by MovementFilters)
+        if filters.from_date:
+            query = query.filter(RawMaterialsData.date_time >= filters.from_date)
+        if filters.to_date:
+            # end of day, inclusive
+            end_date = datetime.combine(filters.to_date, datetime.max.time())
             query = query.filter(RawMaterialsData.date_time <= end_date)
-            
+
         # Vehicle number filter
-        if filters.get('vehicle_no'):
-            vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
-            query = query.filter(RawMaterialsData.vehicle_no.ilike(vehicle_filter))
-            
+        if filters.vehicle_no:
+            query = query.filter(RawMaterialsData.vehicle_no.ilike(f"%{filters.vehicle_no.upper()}%"))
+
         # Movement type filter
-        if filters.get('movement_type'):
-            query = query.filter(RawMaterialsData.gate_type == filters['movement_type'])
+        if filters.movement_type:
+            query = query.filter(RawMaterialsData.gate_type == filters.movement_type)
 
         # Optional admin filters (mirrors /filtered-movements)
-        if filters.get('warehouse_code'):
-            query = query.filter(RawMaterialsData.warehouse_code == filters['warehouse_code'])
-        if filters.get('site_code'):
-            query = query.filter(RawMaterialsData.site_code == filters['site_code'])
+        if filters.warehouse_code:
+            query = query.filter(RawMaterialsData.warehouse_code == filters.warehouse_code)
+        if filters.site_code:
+            query = query.filter(RawMaterialsData.site_code == filters.site_code)
 
         # IT Admin sees all warehouses; Security Admin / Security Guard see
         # their own warehouse only. (Was the raw "Admin" string bug — F14's
@@ -350,9 +367,28 @@ def get_rm_statistics(
         raise internal_error("Statistics error", e)
        
 # ✅ ENHANCED: Admin filtered RM entries
-@router.post("/admin-filtered-entries")
+@router.get("/admin-entries")
+def get_rm_admin_entries(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    warehouse_code: str | None = Query(None, max_length=50),
+    site_code: str | None = Query(None, max_length=50),
+    vehicle_no: str | None = Query(None, max_length=50),
+    movement_type: str | None = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Q11: GET twin of the legacy POST /rm/admin-filtered-entries (same response)."""
+    filters = MovementFilters(
+        from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
+        site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+    )
+    return get_admin_filtered_rm_entries(filters, db, current_user)
+
+
+@router.post("/admin-filtered-entries", deprecated=True)  # Q11: use GET /rm/admin-entries
 def get_admin_filtered_rm_entries(
-    filters: dict,
+    filters: MovementFilters,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user)
 ):
@@ -373,29 +409,26 @@ def get_admin_filtered_rm_entries(
             query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
         else:
             # IT Admin: can filter by site/warehouse if provided
-            if filters.get('site_code'):
-                query = query.filter(RawMaterialsData.site_code == filters['site_code'])
-            if filters.get('warehouse_code'):
-                query = query.filter(RawMaterialsData.warehouse_code == filters['warehouse_code'])
+            if filters.site_code:
+                query = query.filter(RawMaterialsData.site_code == filters.site_code)
+            if filters.warehouse_code:
+                query = query.filter(RawMaterialsData.warehouse_code == filters.warehouse_code)
         
-        # Date filters
-        if filters.get('from_date'):
-            from_date = datetime.strptime(filters['from_date'], '%Y-%m-%d').date()
-            query = query.filter(RawMaterialsData.date_time >= from_date)
-        if filters.get('to_date'):
-            to_date = datetime.strptime(filters['to_date'], '%Y-%m-%d').date()
-            # Add one day and convert to end of day
-            end_date = datetime.combine(to_date, datetime.max.time())
+        # Date filters (dates already validated & parsed by MovementFilters)
+        if filters.from_date:
+            query = query.filter(RawMaterialsData.date_time >= filters.from_date)
+        if filters.to_date:
+            # end of day, inclusive
+            end_date = datetime.combine(filters.to_date, datetime.max.time())
             query = query.filter(RawMaterialsData.date_time <= end_date)
-            
+
         # Vehicle number filter
-        if filters.get('vehicle_no'):
-            vehicle_filter = f"%{filters['vehicle_no'].upper()}%"
-            query = query.filter(RawMaterialsData.vehicle_no.ilike(vehicle_filter))
-            
+        if filters.vehicle_no:
+            query = query.filter(RawMaterialsData.vehicle_no.ilike(f"%{filters.vehicle_no.upper()}%"))
+
         # Movement type filter
-        if filters.get('movement_type'):
-            query = query.filter(RawMaterialsData.gate_type == filters['movement_type'])
+        if filters.movement_type:
+            query = query.filter(RawMaterialsData.gate_type == filters.movement_type)
         
         # Execute query
         entries = query.order_by(
