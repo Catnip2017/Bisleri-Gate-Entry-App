@@ -28,8 +28,9 @@ const GatePassDashboard = () => {
   const [activeKey, setActiveKey] = useState('new');
   const [refreshKey, setRefreshKey] = useState(0);
   const [dueItems, setDueItems] = useState([]);
-  const [isItAdmin, setIsItAdmin]       = useState(false);
-  const [isGuard, setIsGuard]           = useState(false);
+  const [isItAdmin, setIsItAdmin]         = useState(false);
+  const [isGuard, setIsGuard]             = useState(false);
+  const [guardBlocked, setGuardBlocked]   = useState(false); // guard with no gate_pass_location
 
   useEffect(() => {
     getCurrentUser().then((u) => {
@@ -37,12 +38,18 @@ const GatePassDashboard = () => {
       const guard = roles.includes('securityguard');
       setIsItAdmin(roles.includes('itadmin'));
       setIsGuard(guard);
-      // Guards land on Pending Dispatch (their primary action), not New Gate Pass
-      if (guard) setActiveKey('released');
+      if (guard) {
+        if (!u?.gate_pass_location) {
+          setGuardBlocked(true);   // block the entire dashboard
+        } else {
+          setActiveKey('released');
+        }
+      }
     });
   }, []);
 
   const loadDue = useCallback(async () => {
+    if (guardBlocked) return;          // don't fire API calls for blocked guards
     try {
       const data = await gatePassAPI.getDueNotifications();
       setDueItems(data.items || []);
@@ -50,7 +57,7 @@ const GatePassDashboard = () => {
       // Notifications are best-effort; never block the module on them
       setDueItems([]);
     }
-  }, []);
+  }, [guardBlocked]);
 
   useEffect(() => {
     loadDue();
@@ -62,6 +69,25 @@ const GatePassDashboard = () => {
     ? MENU.filter((m) => m.key !== 'new')
     : MENU;
   const activeMenu = visibleMenu.find((m) => m.key === activeKey) || visibleMenu[0];
+
+  // Guard with no gate_pass_location — full-page block, no API calls made
+  if (guardBlocked) {
+    return (
+      <AppShell>
+        <View style={styles.guardBlockedContainer}>
+          <View style={styles.guardBlockedCard}>
+            <Text style={styles.guardBlockedIcon}>🚫</Text>
+            <Text style={styles.guardBlockedTitle}>No Gate Location Assigned</Text>
+            <Text style={styles.guardBlockedBody}>
+              Your profile does not have a gate pass location assigned.
+              You cannot access gate passes until an IT Admin assigns your location.
+            </Text>
+            <Text style={styles.guardBlockedHint}>Contact IT Admin to resolve this.</Text>
+          </View>
+        </View>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

@@ -551,6 +551,33 @@ export default StyleSheet.create({
   },
   dueBannerTitle: { color: '#791F1F', fontWeight: 'bold', fontSize: 13, marginBottom: 2 },
   dueBannerText: { color: '#791F1F', fontSize: 12 },
+  // ── Guard blocked (no gate_pass_location) full-page state ───────────────────
+  guardBlockedContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xl,
+    backgroundColor: '#F6FBFC',
+  },
+  guardBlockedCard: {
+    backgroundColor: '#fff',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: '#FFD54F',
+    padding: 32,
+    maxWidth: 420,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  guardBlockedIcon:  { fontSize: 40, marginBottom: 16 },
+  guardBlockedTitle: { fontSize: 18, fontWeight: '700', color: '#333', marginBottom: 10, textAlign: 'center' },
+  guardBlockedBody:  { fontSize: 14, color: '#555', lineHeight: 22, textAlign: 'center', marginBottom: 12 },
+  guardBlockedHint:  { fontSize: 12, color: '#999', textAlign: 'center' },
+
   noLocBanner: {
     backgroundColor: '#FFF8E1',
     borderWidth: 1,
