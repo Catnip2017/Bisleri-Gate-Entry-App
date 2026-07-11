@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.models import UsersMaster
 from app.services.db_service import DBService
 
@@ -7,7 +8,7 @@ router = APIRouter(tags=["Document Management"])
 
 @router.post("/consolidate-documents", summary="Manually consolidate base tables into document_data")
 def consolidate_document_data(current_user: UsersMaster = Depends(get_current_user)):
-    normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+    normalized_roles = normalize_roles(current_user.role)
     if "itadmin" not in normalized_roles:
         raise HTTPException(status_code=403, detail="Only IT Admins can trigger consolidation")
 

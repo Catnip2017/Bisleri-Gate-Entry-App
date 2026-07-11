@@ -7,6 +7,8 @@ from app.schemas.raw_materials_schemas import RawMaterialsCreate, RawMaterialsRe
 from app.models import RawMaterialsData, UsersMaster
 from app.auth import get_current_user
 from app.utils.helpers import generate_gate_entry_no_for_user, validate_vehicle_number
+from app.utils.roles import normalize_roles
+from app.utils.edit_window import EDIT_WINDOW_HOURS, is_within_edit_window, get_time_remaining
 from datetime import datetime, timedelta
 from typing import List
 
@@ -154,7 +156,7 @@ def get_filtered_rm_entries(
         # IT Admin sees all warehouses; Security Admin / Security Guard see
         # their own warehouse only. (Was the raw "Admin" string bug — F14's
         # twin — which warehouse-locked IT Admins on this endpoint.)
-        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        normalized_roles = normalize_roles(current_user.role)
         if "itadmin" not in normalized_roles:
             query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
         
@@ -166,23 +168,14 @@ def get_filtered_rm_entries(
         # Format response with edit status
         result_list = []
         for entry in entries:
-            # Check if entry can be edited (48-hour window)
-            time_since_creation = datetime.now() - entry.date_time
-            normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
+            # Check if entry can be edited (48-hour window — app/utils/edit_window.py)
             # IT Admin: view-only. Security Admin / Security Guard: same warehouse only.
             can_edit = (
-                time_since_creation <= timedelta(hours=48) and
-                normalized_role != 'itadmin' and
+                is_within_edit_window(entry.date_time) and
+                "itadmin" not in normalized_roles and
                 entry.warehouse_code == current_user.warehouse_code
             )
-
-            # Calculate time remaining
-            time_remaining = None
-            if time_since_creation <= timedelta(hours=48):
-                remaining_seconds = (timedelta(hours=48) - time_since_creation).total_seconds()
-                hours = int(remaining_seconds // 3600)
-                minutes = int((remaining_seconds % 3600) // 60)
-                time_remaining = f"{hours}h {minutes}m"
+            time_remaining = get_time_remaining(entry.date_time)
             
             result_list.append({
                 "id": entry.id,
@@ -230,17 +223,15 @@ def update_rm_entry(
         if not rm_entry:
             raise HTTPException(status_code=404, detail="Raw materials entry not found")
         
-        # Check 48-hour edit window
-        time_since_creation = datetime.now() - rm_entry.date_time
-        if time_since_creation.total_seconds() > 48 * 60 * 60:  # 48 hours in seconds
+        # Check 48-hour edit window (app/utils/edit_window.py)
+        if not is_within_edit_window(rm_entry.date_time):
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 48 hours."
+                detail=f"Edit window expired. Records can only be edited within {EDIT_WINDOW_HOURS} hours."
             )
 
         # Check permissions — warehouse-based
-        normalized_role = current_user.role.strip().lower().replace(" ", "") if current_user.role else ""
-        if normalized_role == 'itadmin':
+        if "itadmin" in normalize_roles(current_user.role):
             raise HTTPException(
                 status_code=403,
                 detail="IT Admins can only view entries. Editing is disabled."
@@ -306,11 +297,7 @@ def get_rm_statistics(
 ):
     """Get raw materials statistics"""
     try:
-        normalized_roles = [
-            r.strip().lower().replace(" ", "")
-            for r in (current_user.role or "").split(",")
-            if r.strip()
-        ]
+        normalized_roles = normalize_roles(current_user.role)
 
         base_query = db.query(RawMaterialsData)
 
@@ -376,10 +363,7 @@ def get_admin_filtered_rm_entries(
     """Get filtered raw materials entries for admin with proper role-based access"""
     try:
         # Normalize roles
-        if hasattr(current_user, 'role') and current_user.role:
-            roles = [r.strip().lower().replace(" ", "") for r in current_user.role.split(",")]
-        else:
-            roles = []
+        roles = normalize_roles(current_user.role)
         
         if not any(r in ["securityadmin", "itadmin"] for r in roles):
             raise HTTPException(status_code=403, detail="Access denied")
@@ -425,22 +409,14 @@ def get_admin_filtered_rm_entries(
         # Format response with edit status
         result_list = []
         for entry in entries:
-            # Check if entry can be edited (48-hour window)
-            time_since_creation = datetime.now() - entry.date_time
+            # Check if entry can be edited (48-hour window — app/utils/edit_window.py)
             # IT Admin: view-only. Security Admin: same warehouse only.
             can_edit = (
-                time_since_creation <= timedelta(hours=48) and
+                is_within_edit_window(entry.date_time) and
                 "itadmin" not in roles and
                 entry.warehouse_code == current_user.warehouse_code
             )
-
-            # Calculate time remaining
-            time_remaining = None
-            if time_since_creation <= timedelta(hours=48):
-                remaining_seconds = (timedelta(hours=48) - time_since_creation).total_seconds()
-                hours = int(remaining_seconds // 3600)
-                minutes = int((remaining_seconds % 3600) // 60)
-                time_remaining = f"{hours}h {minutes}m"
+            time_remaining = get_time_remaining(entry.date_time)
             
             result_list.append({
                 "id": entry.id,

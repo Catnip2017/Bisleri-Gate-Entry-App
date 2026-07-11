@@ -7,6 +7,9 @@ from app.database import get_db
 from app.models import InsightsData, DocumentData
 from app.schemas import InsightsFilter, OperationalDataEdit, EnhancedMovementResponse, EditStatistics, KMReadingContext
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
+from app.utils.edit_window import EDIT_WINDOW, EDIT_WINDOW_HOURS, is_within_edit_window
+from app.services import edit_service
 from app.models import UsersMaster 
 from pydantic import BaseModel
 from typing import Optional, List
@@ -48,7 +51,7 @@ def get_enhanced_filtered_movements(
             query = query.filter(InsightsData.movement_type == filters['movement_type'])
         
         # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
-        user_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        user_roles = normalize_roles(current_user.role)
         if "itadmin" not in user_roles:
             query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
         
@@ -73,7 +76,8 @@ def get_enhanced_filtered_movements(
                 document_age_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             
             # ✅ NEW: Get edit status and button configuration
-            edit_button_config = movement.get_edit_button_config(
+            edit_button_config = edit_service.get_edit_button_config(
+                movement,
                 current_user.username,
                 current_user.role,
                 current_user.warehouse_code
@@ -106,11 +110,11 @@ def get_enhanced_filtered_movements(
                 "edit_count": movement.edit_count or 0,
                 
                 # ✅ NEW: Edit status information
-                "edit_status": movement.get_edit_status(),
-                "time_remaining": movement.get_time_remaining(),
-                "is_operational_complete": movement.is_operational_data_complete(),
-                "missing_fields": movement.get_missing_operational_fields(),
-                "can_edit": movement.can_be_edited(current_user.username, current_user.role, current_user.warehouse_code),
+                "edit_status": edit_service.get_edit_status(movement),
+                "time_remaining": edit_service.get_time_remaining(movement),
+                "is_operational_complete": edit_service.is_operational_data_complete(movement),
+                "missing_fields": edit_service.get_missing_operational_fields(movement),
+                "can_edit": edit_service.can_be_edited(movement, current_user.username, current_user.role, current_user.warehouse_code),
                 "edit_button_config": edit_button_config
             })
         
@@ -140,18 +144,15 @@ def update_operational_data(
         if not insights_record:
             raise HTTPException(status_code=404, detail="Gate entry not found")
         
-        # ✅ NEW: Check 48-hour edit window 
-        entry_datetime = datetime.combine(insights_record.date, insights_record.time)
-        time_elapsed = datetime.now() - entry_datetime
-        
-        if time_elapsed.total_seconds() > 48 * 60 * 60:  # 48 hours in seconds
+        # ✅ Check 48-hour edit window (app/utils/edit_window.py)
+        if not is_within_edit_window(edit_service.record_created_at(insights_record)):
             raise HTTPException(
                 status_code=403, 
-                detail="Edit window expired. Records can only be edited within 48 hours."
+                detail=f"Edit window expired. Records can only be edited within {EDIT_WINDOW_HOURS} hours."
             )
             
         # Check permissions (same warehouse or admin)
-        if not insights_record.can_be_edited(current_user.username, current_user.role, current_user.warehouse_code):
+        if not edit_service.can_be_edited(insights_record, current_user.username, current_user.role, current_user.warehouse_code):
             raise HTTPException(
                 status_code=403,
                 detail="Only staff from this warehouse or Admin can edit this entry."
@@ -188,7 +189,8 @@ def update_operational_data(
         db.commit()
         
         # ✅ NEW: Get updated edit status
-        updated_button_config = insights_record.get_edit_button_config(
+        updated_button_config = edit_service.get_edit_button_config(
+            insights_record,
             current_user.username,
             current_user.role,
             current_user.warehouse_code
@@ -200,9 +202,9 @@ def update_operational_data(
             "fields_updated": fields_updated,
             "edit_count": insights_record.edit_count,
             "updated_at": insights_record.last_edited_at.isoformat(),
-            "operational_complete": insights_record.is_operational_data_complete(),
-            "edit_status": insights_record.get_edit_status(),
-            "time_remaining": insights_record.get_time_remaining(),
+            "operational_complete": edit_service.is_operational_data_complete(insights_record),
+            "edit_status": edit_service.get_edit_status(insights_record),
+            "time_remaining": edit_service.get_time_remaining(insights_record),
             "edit_button_config": updated_button_config,
             "updated_data": {
             "driver_name": insights_record.driver_name,
@@ -232,7 +234,7 @@ def get_edit_statistics(
         base_query = db.query(InsightsData)
 
         # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
-        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        normalized_roles = normalize_roles(current_user.role)
         if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
@@ -273,7 +275,7 @@ def get_edit_statistics(
         today = datetime.now().date()
         
         for record in records:
-            edit_status = record.get_edit_status()
+            edit_status = edit_service.get_edit_status(record)
             
             # Count by edit status
             if edit_status == 'needs_completion':
@@ -284,7 +286,7 @@ def get_edit_statistics(
                 expired += 1
             
             # Count missing fields
-            missing_fields = record.get_missing_operational_fields()
+            missing_fields = edit_service.get_missing_operational_fields(record)
             if 'driver_name' in missing_fields:
                 missing_driver += 1
             if 'km_reading' in missing_fields:
@@ -409,23 +411,24 @@ def get_records_needing_completion(
         base_query = db.query(InsightsData)
 
         # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
-        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        normalized_roles = normalize_roles(current_user.role)
         if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code
             )
 
-        # Only get records within 48-hour edit window
-        twenty_four_hours_ago = datetime.now() - timedelta(hours=48)
+        # Only get records within the edit window (app/utils/edit_window.py)
+        window_start = datetime.now() - EDIT_WINDOW
         recent_records = base_query.filter(
-            InsightsData.date >= twenty_four_hours_ago.date()
+            InsightsData.date >= window_start.date()
         ).all()
         
         # Filter records that need completion
         needing_completion = []
         for record in recent_records:
-            if record.get_edit_status() == 'needs_completion':
-                button_config = record.get_edit_button_config(
+            if edit_service.get_edit_status(record) == 'needs_completion':
+                button_config = edit_service.get_edit_button_config(
+                    record,
                     current_user.username, 
                     current_user.role
                 )
@@ -436,8 +439,8 @@ def get_records_needing_completion(
                     "date": record.date.isoformat(),
                     "time": record.time.isoformat(),
                     "movement_type": record.movement_type,
-                    "missing_fields": record.get_missing_operational_fields(),
-                    "time_remaining": record.get_time_remaining(),
+                    "missing_fields": edit_service.get_missing_operational_fields(record),
+                    "time_remaining": edit_service.get_time_remaining(record),
                     "button_config": button_config
                 })
         

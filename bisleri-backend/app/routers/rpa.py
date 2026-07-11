@@ -17,6 +17,7 @@ import psycopg2
 import psycopg2.extras
 
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.models import UsersMaster
 from app.config import settings
 
@@ -38,7 +39,7 @@ MAX_ROWS = 5000
 
 
 def _require_itadmin(user: UsersMaster):
-    roles = [r.strip().lower().replace(" ", "") for r in (user.role or "").split(",") if r.strip()]
+    roles = normalize_roles(user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only IT Admins can view RPA dashboards")
 

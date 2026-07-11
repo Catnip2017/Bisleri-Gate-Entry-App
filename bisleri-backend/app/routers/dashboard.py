@@ -19,6 +19,7 @@ import psycopg2.extras
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.models import UsersMaster
 from app.dashboard.etl.connections import HISTORICAL_DB
 from app.dashboard.etl.constants import TABLES, RECORDS_PER_PAGE, LOAD_THRESHOLDS, LOAD_DATA_START_DATE
@@ -29,7 +30,7 @@ router = APIRouter(prefix="/dashboard-api", tags=["Dashboard"])
 
 
 def _require_itadmin(user: UsersMaster):
-    roles = [r.strip().lower().replace(" ", "") for r in (user.role or "").split(",") if r.strip()]
+    roles = normalize_roles(user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only IT Admins can view the dashboard")
 

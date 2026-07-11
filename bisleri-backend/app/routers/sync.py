@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.models import UsersMaster
 from app.services.data_sync_service import data_sync_service
 
@@ -8,7 +9,7 @@ router = APIRouter(prefix="/sync", tags=["sync"])
 
 def _require_itadmin(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:
     """Dependency: rejects any caller who is not an IT Admin."""
-    roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+    roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only IT Admins can access sync endpoints")
     return current_user

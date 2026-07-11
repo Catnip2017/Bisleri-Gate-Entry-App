@@ -14,6 +14,8 @@ from app.schemas import (
 )
 from app.models import DocumentData, InsightsData, UsersMaster
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
+from app.utils.edit_window import EDIT_WINDOW
 from app.utils.helpers import generate_gate_entry_no_for_user, fetch_user_details
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -421,7 +423,7 @@ def create_enhanced_batch_gate_entry(
                     field for field in ['driver_name', 'km_reading', 'loader_names']
                     if not operational_data.get(field)
                 ],
-                "edit_window_expires": (now + timedelta(hours=48)).isoformat()
+                "edit_window_expires": (now + EDIT_WINDOW).isoformat()
             }
         else:
             db.rollback()
@@ -1122,7 +1124,7 @@ def get_operational_data_summary(
         # Base query with warehouse filter
         # IT Admin sees all warehouses; Security Admin / Security Guard see their own warehouse only
         base_query = db.query(InsightsData)
-        normalized_roles = [r.strip().lower().replace(" ", "") for r in (current_user.role or "").split(",") if r.strip()]
+        normalized_roles = normalize_roles(current_user.role)
         if "itadmin" not in normalized_roles:
             base_query = base_query.filter(
                 InsightsData.warehouse_code == current_user.warehouse_code

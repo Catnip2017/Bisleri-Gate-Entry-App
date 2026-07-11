@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.database import get_db
 from app.models import UsersMaster
 from app.models.gate_pass import (
@@ -43,7 +44,7 @@ router = APIRouter(prefix="/gate-pass", tags=["Gate Pass"])
 
 # ── Role helpers (centralised — see ROLE SWAP NOTE above) ────────────────────
 def _roles(user: UsersMaster):
-    return [r.strip().lower().replace(" ", "") for r in (user.role or "").split(",") if r.strip()]
+    return normalize_roles(user.role)
 
 
 def _require_initiator(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:

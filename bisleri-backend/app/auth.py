@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models import UsersMaster
 from app.database import get_db
+from app.utils.roles import normalize_roles
 from app.schemas.token_schemas import TokenData
 from passlib.context import CryptContext
 
@@ -54,11 +55,8 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
-    # 🔥 Normalize roles into list
-    if user.role:
-        user.roles = [r.strip().lower().replace(" ", "") for r in user.role.split(",")]
-    else:
-        user.roles = []
+    # 🔥 Normalize roles into list (single source of truth: app/utils/roles.py)
+    user.roles = normalize_roles(user.role)
 
     return user
 

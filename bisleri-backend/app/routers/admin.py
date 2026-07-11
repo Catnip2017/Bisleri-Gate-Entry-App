@@ -11,20 +11,13 @@ from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsDa
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
 from sqlalchemy import func, or_
+from app.utils.roles import normalize_roles, normalize_role_list
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Admin Operations"])
-
-# ✅ Helper to normalize roles
-def normalize_roles(role_string: str) -> List[str]:
-    if not role_string:
-        return []
-    return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
-
- 
 
 @router.post("/register", response_model=UserResponse)
 def register_user(
@@ -50,7 +43,7 @@ def register_user(
             raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
 
         roles_requested = [r.strip() for r in user.role.split(",")]
-        normalized_roles = [r.lower().replace(" ", "") for r in roles_requested]
+        normalized_roles = normalize_role_list(roles_requested)
 
         # ✅ Copacker exclusivity: cannot be combined with any other role
         if "copacker" in normalized_roles and len(normalized_roles) > 1:
@@ -233,7 +226,7 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
 
     if update_data.role:
         roles_cleaned = [r.strip() for r in update_data.role.split(",")]
-        normalized_new_roles = [r.lower().replace(" ", "") for r in roles_cleaned]
+        normalized_new_roles = normalize_role_list(roles_cleaned)
 
         # Copacker exclusivity check
         if "copacker" in normalized_new_roles and len(normalized_new_roles) > 1:

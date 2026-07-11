@@ -35,6 +35,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.utils.roles import normalize_roles
 from app.config import settings
 from app.database import get_db
 from app.models import UsersMaster
@@ -65,12 +66,6 @@ ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
-def normalize_roles(role_string: str) -> List[str]:
-    if not role_string:
-        return []
-    return [r.strip().lower().replace(" ", "") for r in role_string.split(",") if r.strip()]
-
-
 def require_roles(current_user: UsersMaster, allowed: List[str]):
     roles = normalize_roles(current_user.role)
     if not any(r in allowed for r in roles):
