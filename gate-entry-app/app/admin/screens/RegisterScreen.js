@@ -286,7 +286,7 @@ export default function RegisterScreen() {
 // ── Styles ─────────────────────────────────────────────────────────────────
 const S = {
   page:         { flex: 1, flexDirection: 'row', padding: 16, gap: 12, backgroundColor: '#f4f6f8' },
-  card1:        { width: 195, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 14, flexShrink: 0 },
+  card1:        { width: 280, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 16, flexShrink: 0 },
   card2:        { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 20 },
   card2Inner:   { flex: 1, flexDirection: 'row' },
   detailsCol:   { flex: 1, maxWidth: 680 },
