@@ -92,7 +92,7 @@ def _next_pass_number(db: Session, location_code: str, pass_type: str) -> str:
         .first()
     )
     if seq is None:
-        seq = GatePassSequence(location_code=location_code, pass_type=pass_type, last_number=150000)
+        seq = GatePassSequence(location_code=location_code, pass_type=pass_type, last_number=0)
         db.add(seq)
         db.flush()
         seq = (

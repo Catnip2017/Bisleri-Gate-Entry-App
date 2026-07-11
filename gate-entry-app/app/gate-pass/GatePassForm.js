@@ -47,8 +47,11 @@ const GatePassForm = ({ onCreated }) => {
   const [itemResults, setItemResults] = useState([]);
   const [itemSearchLine, setItemSearchLine] = useState(null);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
+  const [locDropdownOpen, setLocDropdownOpen] = useState(false);
+  const [openUomLine, setOpenUomLine] = useState(null); // index of line with UOM dropdown open
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [createdPassNo, setCreatedPassNo] = useState('');
   const [nowStr] = useState(() => new Date());
 
   useEffect(() => {
@@ -191,6 +194,7 @@ const GatePassForm = ({ onCreated }) => {
     setApproverName('');
     setRemarks('');
     setLines([EMPTY_LINE()]);
+    setCreatedPassNo('');
   };
 
   const handleCreateAndRelease = () => {
@@ -214,6 +218,7 @@ const GatePassForm = ({ onCreated }) => {
         try {
           const created = await gatePassAPI.createPass(buildPayload());
           await gatePassAPI.releasePass(created.id);
+          setCreatedPassNo(created.gate_pass_no);
           showSuccess('Gate pass released', `Pass number: ${created.gate_pass_no}`);
           resetForm();
           if (onCreated) onCreated();
@@ -226,27 +231,6 @@ const GatePassForm = ({ onCreated }) => {
     });
   };
 
-  const handleSaveOpen = async () => {
-    const error = validate();
-    if (error) {
-      showValidationError(error);
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const created = await gatePassAPI.createPass(buildPayload());
-      showSuccess(
-        'Gate pass created',
-        `Pass number: ${created.gate_pass_no}\nStatus: Open — release it from Pending Release when ready.`
-      );
-      resetForm();
-      if (onCreated) onCreated();
-    } catch (error) {
-      showError(handleAPIError(error));
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const handleClear = () => {
     confirmAction({
@@ -320,8 +304,15 @@ const GatePassForm = ({ onCreated }) => {
       <View style={styles.fieldRow}>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Gate Pass No.</Text>
-          <View style={[styles.input, styles.inputDisabled, { justifyContent: 'center' }]}>
-            <Text style={styles.passNoText}>Auto-generated</Text>
+          <View style={[styles.input, styles.inputDisabled, { justifyContent: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+            <Text style={createdPassNo ? [styles.passNoText, { color: gp.accent, fontWeight: '700' }] : styles.passNoText}>
+              {createdPassNo || 'Auto-generated on submit'}
+            </Text>
+            {createdPassNo ? (
+              <TouchableOpacity onPress={resetForm} style={{ backgroundColor: gp.accent, borderRadius: 5, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>+ New Pass</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
         <View style={styles.fieldThird}>
@@ -355,21 +346,37 @@ const GatePassForm = ({ onCreated }) => {
             editable={false}
           />
         </View>
-        <View style={styles.fieldThird}>
+        <View style={[styles.fieldThird, { zIndex: 20 }]}>
           <Text style={styles.fieldLabel}>Location *</Text>
-          <View style={styles.chipRow}>
-            {locations.map((loc) => (
-              <TouchableOpacity
-                key={loc.location_code}
-                style={locationCode === loc.location_code ? styles.chipActive : styles.chip}
-                onPress={() => setLocationCode(loc.location_code)}
-              >
-                <Text style={locationCode === loc.location_code ? styles.chipActiveText : styles.chipText}>
-                  {loc.location_code}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
+            onPress={() => { setLocDropdownOpen((o) => !o); setDeptDropdownOpen(false); }}
+            accessibilityRole="button"
+          >
+            <Text style={{ fontSize: 14, color: locationCode ? gp.text : gp.textMuted }}>
+              {locationCode
+                ? locations.find(l => l.location_code === locationCode)?.location_name
+                  ? `${locationCode} — ${locations.find(l => l.location_code === locationCode).location_name}`
+                  : locationCode
+                : '-- Select location --'}
+            </Text>
+            <Text style={{ color: gp.textMuted, fontSize: 12 }}>{locDropdownOpen ? '▲' : '▼'}</Text>
+          </TouchableOpacity>
+          {locDropdownOpen && (
+            <View style={styles.lookupPanel}>
+              {locations.map((loc) => (
+                <TouchableOpacity
+                  key={loc.location_code}
+                  style={styles.lookupRow}
+                  onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
+                >
+                  <Text style={locationCode === loc.location_code ? styles.lookupCode : styles.lookupName}>
+                    {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
       </View>
 
@@ -408,11 +415,11 @@ const GatePassForm = ({ onCreated }) => {
       </View>
 
       <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
+        <View style={[styles.fieldThird, { zIndex: 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
           <TouchableOpacity
             style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            onPress={() => setDeptDropdownOpen((o) => !o)}
+            onPress={() => { setDeptDropdownOpen((o) => !o); setLocDropdownOpen(false); }}
             accessibilityRole="button"
             accessibilityState={{ expanded: deptDropdownOpen }}
           >
@@ -427,10 +434,7 @@ const GatePassForm = ({ onCreated }) => {
                 <TouchableOpacity
                   key={d}
                   style={styles.lookupRow}
-                  onPress={() => {
-                    setDepartment(d);
-                    setDeptDropdownOpen(false);
-                  }}
+                  onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
                 >
                   <Text style={department === d ? styles.lookupCode : styles.lookupName}>{d}</Text>
                 </TouchableOpacity>
@@ -438,7 +442,7 @@ const GatePassForm = ({ onCreated }) => {
             </View>
           )}
         </View>
-        <View style={styles.fieldHalf}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
@@ -452,10 +456,24 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>
+            Vehicle No. {modeOfTransport === 'Vehicle' ? '*' : ''}
+          </Text>
+          <TextInput
+            style={[styles.input, modeOfTransport !== 'Vehicle' && styles.inputDisabled]}
+            value={vehicleNo}
+            onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
+            placeholder={modeOfTransport === 'Vehicle' ? 'e.g. MH12AB1234' : 'N/A'}
+            placeholderTextColor={gp.textMuted}
+            autoCapitalize="characters"
+            editable={modeOfTransport === 'Vehicle'}
+          />
+        </View>
       </View>
 
       <View style={styles.fieldRow}>
-        <View style={styles.fieldThird}>
+        <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Sender Name</Text>
           <TextInput
             style={styles.input}
@@ -465,20 +483,7 @@ const GatePassForm = ({ onCreated }) => {
             placeholderTextColor={gp.textMuted}
           />
         </View>
-        <View style={styles.fieldThird}>
-          <Text style={styles.fieldLabel}>
-            Vehicle No. {modeOfTransport === 'Vehicle' ? '*' : ''}
-          </Text>
-          <TextInput
-            style={styles.input}
-            value={vehicleNo}
-            onChangeText={setVehicleNo}
-            placeholder="If applicable"
-            placeholderTextColor={gp.textMuted}
-            autoCapitalize="characters"
-          />
-        </View>
-        <View style={styles.fieldThird}>
+        <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Approver Name</Text>
           <TextInput
             style={styles.input}
@@ -490,16 +495,8 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      <View style={styles.fieldRow}>
-        <View style={styles.fieldThird}>
-          <Text style={styles.fieldLabel}>Dispatch Date</Text>
-          <TextInput style={[styles.input, styles.inputDisabled]} value="--" editable={false} />
-        </View>
-        <View style={styles.fieldThird}>
-          <Text style={styles.fieldLabel}>Dispatch Time</Text>
-          <TextInput style={[styles.input, styles.inputDisabled]} value="--" editable={false} />
-        </View>
-        {isReturnable ? (
+      {isReturnable && (
+        <View style={styles.fieldRow}>
           <View style={styles.fieldThird}>
             <DateField
               label="Expected Inward Date *"
@@ -507,28 +504,33 @@ const GatePassForm = ({ onCreated }) => {
               onChange={setExpectedInwardDate}
             />
           </View>
-        ) : (
-          <View style={styles.fieldThird} />
-        )}
-      </View>
+        </View>
+      )}
 
       {/* ── Items table (wireframe: blue header) ── */}
       <View style={styles.sectionBar}>
         <Text style={styles.sectionBarText}>Items</Text>
       </View>
       <View style={styles.itemsTable}>
+        {/* Header */}
         <View style={styles.itemsHeaderRow}>
-          <Text style={[styles.itemsHeaderCell, { flex: 1.1 }]}>Item Code</Text>
-          <Text style={[styles.itemsHeaderCell, { flex: 2.2 }]}>Description of Goods</Text>
-          <Text style={[styles.itemsHeaderCell, { flex: 1.1 }]}>Serial No.</Text>
-          <Text style={[styles.itemsHeaderCell, { flex: 0.6 }]}>Qty</Text>
-          <Text style={[styles.itemsHeaderCell, { flex: 0.9 }]}>Unit</Text>
-          <Text style={[styles.itemsHeaderCell, { width: 34 }]} />
+          <Text style={[styles.itemsHeaderCell, { flex: 1.0 }]}>Item Code</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 2.0 }]}>Description of Goods</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.9 }]}>Serial No.</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.35 }]}>Qty</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.65 }]}>Unit</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.7 }]}>Amount</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.8 }]}>Chargeable</Text>
+          <Text style={[styles.itemsHeaderCell, { width: 28 }]} />
         </View>
+
         {lines.map((line, index) => (
           <View key={index}>
-            <View style={styles.itemsRow}>
-              <View style={[styles.itemsCell, { flex: 1.1 }]}>
+            {/* Single-row line item */}
+            <View style={[styles.itemsRow, { zIndex: openUomLine === index ? 10 : 1 }]}>
+
+              {/* Item Code */}
+              <View style={[styles.itemsCell, { flex: 1.0 }]}>
                 <TextInput
                   style={styles.cellInput}
                   value={line.item_code}
@@ -538,7 +540,9 @@ const GatePassForm = ({ onCreated }) => {
                   autoCapitalize="characters"
                 />
               </View>
-              <View style={[styles.itemsCell, { flex: 2.2 }]}>
+
+              {/* Description */}
+              <View style={[styles.itemsCell, { flex: 2.0 }]}>
                 <TextInput
                   style={styles.cellInput}
                   value={line.description}
@@ -547,7 +551,9 @@ const GatePassForm = ({ onCreated }) => {
                   placeholderTextColor={gp.textMuted}
                 />
               </View>
-              <View style={[styles.itemsCell, { flex: 1.1 }]}>
+
+              {/* Serial No. */}
+              <View style={[styles.itemsCell, { flex: 0.9 }]}>
                 <TextInput
                   style={styles.cellInput}
                   value={line.serial_no}
@@ -556,7 +562,9 @@ const GatePassForm = ({ onCreated }) => {
                   placeholderTextColor={gp.textMuted}
                 />
               </View>
-              <View style={[styles.itemsCell, { flex: 0.6 }]}>
+
+              {/* Qty — narrow */}
+              <View style={[styles.itemsCell, { flex: 0.35 }]}>
                 <TextInput
                   style={styles.cellInput}
                   value={String(line.quantity)}
@@ -566,69 +574,92 @@ const GatePassForm = ({ onCreated }) => {
                   keyboardType="numeric"
                 />
               </View>
-              <View style={[styles.itemsCell, { flex: 0.9 }]}>
-                <View style={styles.chipRow}>
-                  {UOM_OPTIONS.slice(0, 3).map((u) => (
-                    <TouchableOpacity
-                      key={u}
-                      style={line.uom === u ? styles.chipActiveSmall : styles.chipSmall}
-                      onPress={() => updateLine(index, { uom: u })}
-                    >
-                      <Text style={line.uom === u ? styles.chipActiveText : styles.chipText}>{u}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+
+              {/* Unit — inline dropdown */}
+              <View style={[styles.itemsCell, { flex: 0.65, position: 'relative', overflow: 'visible' }]}>
+                <TouchableOpacity
+                  style={styles.uomTrigger}
+                  onPress={() => setOpenUomLine(openUomLine === index ? null : index)}
+                >
+                  <Text style={styles.uomTriggerText}>{line.uom || 'NOS'}</Text>
+                  <Text style={{ fontSize: 9, color: gp.textMuted }}>{openUomLine === index ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+                {openUomLine === index && (
+                  <View style={styles.uomMenu}>
+                    {UOM_OPTIONS.map((u) => (
+                      <TouchableOpacity
+                        key={u}
+                        style={[styles.uomItem, line.uom === u && styles.uomItemActive]}
+                        onPress={() => { updateLine(index, { uom: u }); setOpenUomLine(null); }}
+                      >
+                        <Text style={[styles.uomItemText, line.uom === u && styles.uomItemTextActive]}>{u}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
+
+              {/* Amount */}
+              <View style={[styles.itemsCell, { flex: 0.7 }]}>
+                <TextInput
+                  style={styles.cellInput}
+                  value={String(line.amount)}
+                  onChangeText={(v) => updateLine(index, { amount: v.replace(/[^0-9.]/g, '') })}
+                  placeholder="0.00"
+                  placeholderTextColor={gp.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Chargeable — compact toggle */}
+              <View style={[styles.itemsCell, { flex: 0.8 }]}>
+                <TouchableOpacity
+                  style={[styles.uomTrigger, line.chargeable === 'Chargeable' && { borderColor: gp.accent, backgroundColor: '#e8f4ff' }]}
+                  onPress={() => updateLine(index, {
+                    chargeable: line.chargeable === 'Chargeable' ? 'Non-chargeable'
+                      : line.chargeable === 'Non-chargeable' ? null : 'Chargeable'
+                  })}
+                >
+                  <Text style={[styles.uomTriggerText, { fontSize: 11 },
+                    line.chargeable === 'Chargeable' && { color: gp.accent, fontWeight: '600' },
+                    line.chargeable === 'Non-chargeable' && { color: gp.textMuted },
+                  ]}>
+                    {line.chargeable || '— tap —'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Remove */}
               <TouchableOpacity
                 onPress={() => removeLine(index)}
+                style={{ width: 28, alignItems: 'center', justifyContent: 'center' }}
                 accessibilityRole="button"
-                accessibilityLabel={`Remove line ${index + 1}`}
               >
                 <Text style={styles.lineRemove}>×</Text>
               </TouchableOpacity>
             </View>
-            {/* Item lookup results for this line */}
+
+            {/* Item lookup dropdown */}
             {itemSearchLine === index && itemResults.length > 0 && (
               <View style={styles.lookupPanel}>
                 {itemResults.map((it) => (
-                  <TouchableOpacity
-                    key={it.item_code}
-                    style={styles.lookupRow}
-                    onPress={() => pickItem(index, it)}
-                  >
+                  <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
                     <Text style={styles.lookupCode}>{it.item_code}</Text>
-                    <Text style={styles.lookupName}>
-                      {it.item_name} ({it.item_type})
-                    </Text>
+                    <Text style={styles.lookupName}>{it.item_name} ({it.item_type})</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             )}
-            {/* Secondary attributes: amount + chargeable */}
-            <View style={styles.lineMetaRow}>
-              <Text style={styles.lineMetaLabel}>Amount:</Text>
-              <TextInput
-                style={[styles.cellInput, { width: 110 }]}
-                value={String(line.amount)}
-                onChangeText={(v) => updateLine(index, { amount: v.replace(/[^0-9.]/g, '') })}
-                placeholder="0.00"
-                placeholderTextColor={gp.textMuted}
-                keyboardType="numeric"
-              />
-              {['Chargeable', 'Non-chargeable'].map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={line.chargeable === c ? styles.chipActiveSmall : styles.chipSmall}
-                  onPress={() => updateLine(index, { chargeable: line.chargeable === c ? null : c })}
-                >
-                  <Text style={line.chargeable === c ? styles.chipActiveText : styles.chipText}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
           </View>
         ))}
-        <TouchableOpacity onPress={addLine} accessibilityRole="button">
-          <Text style={styles.addLinesHint}>+ add more lines</Text>
+
+        {/* Add line button — prominent */}
+        <TouchableOpacity
+          onPress={addLine}
+          style={styles.addLineBtn}
+          accessibilityRole="button"
+        >
+          <Text style={styles.addLineBtnText}>+ Add Line</Text>
         </TouchableOpacity>
       </View>
 
@@ -656,14 +687,6 @@ const GatePassForm = ({ onCreated }) => {
           ) : (
             <Text style={styles.wfButtonText}>Release</Text>
           )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.wfButton, styles.btnDispatch]}
-          onPress={handleSaveOpen}
-          disabled={submitting}
-          accessibilityRole="button"
-        >
-          <Text style={styles.wfButtonText}>Save as Open</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.wfButton, styles.btnSecondary]}

@@ -98,7 +98,7 @@ class GatePassSequence(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     location_code = Column(String(10), nullable=False)
     pass_type = Column(String(3), nullable=False)        # 'R' | 'NR'
-    last_number = Column(Integer, nullable=False, default=150000)
+    last_number = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (
         UniqueConstraint("location_code", "pass_type", name="uq_gate_pass_seq_loc_type"),

@@ -67,8 +67,9 @@ const SecurityDashboard = () => {
 
   const roles = userData?.roles || [];
   const isAdminViewer = roles.includes('itadmin') || roles.includes('securityadmin');
-  // Gate Pass worklist: guards (dispatch/inward at their gate) + IT Admin.
-  const showGatePassTab = roles.includes('securityguard') || roles.includes('itadmin');
+  // Gate Pass worklist: guards only. IT Admin has their own Gate Pass portal
+  // and should not see all-department passes in the Gate Entry app.
+  const showGatePassTab = roles.includes('securityguard');
   // IT Admins arrive here from the Admin Hub tile — give them a way back.
   // Guards/Security Admins have no Admin Hub, so they get no back chip.
   const isItAdmin = roles.includes('itadmin');

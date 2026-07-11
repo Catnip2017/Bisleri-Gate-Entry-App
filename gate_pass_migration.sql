@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS gate_pass_sequences (
     id            SERIAL PRIMARY KEY,
     location_code VARCHAR(10) NOT NULL,
     pass_type     VARCHAR(3)  NOT NULL,       -- 'R' | 'NR'
-    last_number   INTEGER     NOT NULL DEFAULT 150000,
+    last_number   INTEGER     NOT NULL DEFAULT 0,
     CONSTRAINT uq_gate_pass_seq_loc_type UNIQUE (location_code, pass_type)
 );
 

@@ -29,12 +29,18 @@ const GatePassDashboard = () => {
   const [activeKey, setActiveKey] = useState('new');
   const [refreshKey, setRefreshKey] = useState(0);
   const [dueItems, setDueItems] = useState([]);
-  const [isItAdmin, setIsItAdmin] = useState(false);
+  const [isItAdmin, setIsItAdmin]       = useState(false);
+  const [isGuard, setIsGuard]           = useState(false);
 
   useEffect(() => {
-    // IT Admins arrive from the Admin Hub tile — show them a back chip.
-    // A pure Gate Pass User lands here directly and gets no back chip.
-    getCurrentUser().then((u) => setIsItAdmin((u?.roles || []).includes('itadmin')));
+    getCurrentUser().then((u) => {
+      const roles = u?.roles || [];
+      const guard = roles.includes('securityguard');
+      setIsItAdmin(roles.includes('itadmin'));
+      setIsGuard(guard);
+      // Guards land on Pending Dispatch (their primary action), not New Gate Pass
+      if (guard) setActiveKey('released');
+    });
   }, []);
 
   const loadDue = useCallback(async () => {
@@ -52,7 +58,12 @@ const GatePassDashboard = () => {
   }, [loadDue, refreshKey]);
 
   const bump = () => setRefreshKey((k) => k + 1);
-  const activeMenu = MENU.find((m) => m.key === activeKey) || MENU[0];
+  // Guards see status views relevant to gate operations — not New Pass or Pending Release
+  // (Pending Release is an internal dept approval workflow; guard has nothing to do there)
+  const visibleMenu = isGuard
+    ? MENU.filter((m) => m.key !== 'new' && m.key !== 'open')
+    : MENU;
+  const activeMenu = visibleMenu.find((m) => m.key === activeKey) || visibleMenu[0];
 
   return (
     <AppShell
@@ -83,7 +94,7 @@ const GatePassDashboard = () => {
           {/* ── Gate Pass Menu (wireframe left panel) ── */}
           <View style={styles.menuPanel}>
             <Text style={styles.menuTitle}>Gate Pass Menu</Text>
-            {MENU.map((m) => (
+            {visibleMenu.map((m) => (
               <TouchableOpacity
                 key={m.key}
                 style={styles.menuItem}
