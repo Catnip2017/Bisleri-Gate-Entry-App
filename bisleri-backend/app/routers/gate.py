@@ -14,6 +14,7 @@ from app.schemas import (
 )
 from app.models import DocumentData, InsightsData, UsersMaster
 from app.auth import get_current_user
+from app.utils.errors import internal_error
 from app.utils.roles import normalize_roles
 from app.utils.edit_window import EDIT_WINDOW
 from app.utils.helpers import generate_gate_entry_no_for_user, fetch_user_details
@@ -155,14 +156,10 @@ ORDER BY document_date DESC;
             "documents": document_list
         }
         
+    except HTTPException:
+        raise  # e.g. the 404 "No recent documents found" above
     except Exception as e:
-        if "No recent documents found" in str(e):
-            raise e
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Database error while searching documents: {str(e)}"
-            )
+        raise internal_error("Database error while searching documents", e)
 
 @router.get("/vehicle-status/{vehicle_no}")
 def get_vehicle_status(
@@ -436,11 +433,7 @@ def create_enhanced_batch_gate_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Enhanced batch gate entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)
 
 @router.post("/batch-gate-entry")
 def create_batch_gate_entry(
@@ -603,11 +596,7 @@ def create_batch_gate_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Batch gate entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)
 
 @router.post("/enhanced-manual-gate-entry", response_model=GateEntryResponse)
 def create_enhanced_manual_gate_entry(
@@ -722,11 +711,7 @@ def create_enhanced_manual_gate_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Enhanced manual entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)
 
 @router.post("/manual-gate-entry", response_model=GateEntryResponse)
 def create_manual_gate_entry(
@@ -825,11 +810,7 @@ def create_manual_gate_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Manual entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)
 
 # NEW: Get unassigned documents for vehicle
 @router.get("/unassigned-documents/{vehicle_no}")
@@ -921,11 +902,10 @@ def get_unassigned_documents_for_vehicle(
             "documents": document_list
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error fetching unassigned documents: {str(e)}"
-        )
+        raise internal_error("Error fetching unassigned documents", e)
 
 # NEW: Assign document to manual entry
 @router.post("/assign-document-to-manual-entry")
@@ -1018,11 +998,7 @@ def assign_document_to_manual_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Document assignment error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Assignment failed: {str(e)}"
-        )
+        raise internal_error("Assignment failed", e)
 
 @router.get("/documents/{vehicle_no}")
 def get_documents_by_vehicle(
@@ -1197,9 +1173,10 @@ def get_operational_data_summary(
             "period": "Last 7 days"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting operational summary: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Summary error: {str(e)}")
+        raise internal_error("Summary error", e)
 
 # Updated Multi-Document Manual Entry Endpoint - gate.py
 # ✅ UPDATED: Multi-document manual entry endpoint with Empty Vehicle Support
@@ -1352,8 +1329,4 @@ def create_multi_document_manual_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Multi-document manual entry error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)

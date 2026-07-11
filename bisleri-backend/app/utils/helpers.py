@@ -131,12 +131,6 @@ def generate_gate_entry_no_for_user(username):
         print(f"Error in generate_gate_entry_no_for_user: {str(e)}")
         return None
 
-# Legacy function for backward compatibility
-def generate_gate_entry_no(warehouse_code: str = "ATDVG") -> str:
-    """Legacy function - use generate_gate_entry_no_for_user instead"""
-    result = generate_gate_entry_number(warehouse_code)
-    return result if result else f"ATDVG{datetime.now().strftime('%Y')}{''.join(random.choices(string.digits, k=6))}"
-
 def validate_document_date(date_str: str) -> bool:
     """Validate document date format"""
     try:

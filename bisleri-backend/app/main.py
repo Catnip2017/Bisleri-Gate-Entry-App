@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -97,6 +98,16 @@ app = FastAPI(
     version="1.0.4-merged-insights",
     lifespan=lifespan,
 )
+
+
+# ── Global safety net (Q5): any unhandled exception is fully logged with a
+# ref ID, while the client only ever sees a generic message. Per-route
+# handlers use app.utils.errors.internal_error for the same behaviour.
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    from app.utils.errors import log_exception
+    ref = log_exception(f"Unhandled error on {request.method} {request.url.path}")
+    return JSONResponse(status_code=500, content={"detail": f"Internal server error (ref: {ref})"})
 
 # CORS - Allowed origins (dev: 8082, prod: 8081, server: nginx)
 app.add_middleware(

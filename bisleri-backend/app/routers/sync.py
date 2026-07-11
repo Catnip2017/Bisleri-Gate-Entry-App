@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.auth import get_current_user
+from app.utils.errors import internal_error
 from app.utils.roles import normalize_roles
 from app.models import UsersMaster
 from app.services.data_sync_service import data_sync_service
@@ -22,8 +23,10 @@ async def manual_sync(current_user: UsersMaster = Depends(_require_itadmin)):
         import csv_to_DB as _sync  # noqa: N813
         _sync.push_to_document_data()
         return {"message": "Data sync completed successfully", "status": "success"}
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
+        raise internal_error("Sync error", e)
 
 
 @router.get("/status")
@@ -34,8 +37,10 @@ async def sync_status(current_user: UsersMaster = Depends(_require_itadmin)):
         if status:
             return status
         raise HTTPException(status_code=500, detail="Could not retrieve sync status")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Status error: {str(e)}")
+        raise internal_error("Status error", e)
 
 
 @router.get("/logs")

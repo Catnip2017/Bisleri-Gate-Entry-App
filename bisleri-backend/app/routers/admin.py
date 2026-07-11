@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
+from app.utils.errors import internal_error
 from sqlalchemy import func, or_
 from app.utils.roles import normalize_roles, normalize_role_list
 
@@ -463,9 +464,10 @@ def get_dashboard_stats(
             }
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error calculating dashboard stats: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to calculate stats: {str(e)}")
+        raise internal_error("Failed to calculate stats", e)
 
 
 # ✅ NEW: Admin RM Statistics with Filtering
@@ -546,5 +548,4 @@ def get_admin_rm_statistics(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting admin RM statistics: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
+        raise internal_error("Statistics error", e)

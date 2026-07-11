@@ -7,6 +7,7 @@ from app.database import get_db
 from app.models import InsightsData, DocumentData
 from app.schemas import InsightsFilter, OperationalDataEdit, EnhancedMovementResponse, EditStatistics, KMReadingContext
 from app.auth import get_current_user
+from app.utils.errors import internal_error
 from app.utils.roles import normalize_roles
 from app.utils.edit_window import EDIT_WINDOW, EDIT_WINDOW_HOURS, is_within_edit_window
 from app.services import edit_service
@@ -124,9 +125,10 @@ def get_enhanced_filtered_movements(
             "filters_applied": filters
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error in enhanced filtered movements: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Filter error: {str(e)}")
+        raise internal_error("Filter error", e)
 
 @router.put("/update-operational-data")
 def update_operational_data(
@@ -221,8 +223,7 @@ def update_operational_data(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error updating operational data: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+        raise internal_error("Update failed", e)
 
 @router.get("/edit-statistics")
 def get_edit_statistics(
@@ -341,9 +342,10 @@ def get_edit_statistics(
             avg_edits_per_record=round(avg_edits, 1)
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting edit statistics: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
+        raise internal_error("Statistics error", e)
 
 @router.get("/km-reading-context/{gate_entry_no}")
 def get_km_reading_context(
@@ -398,8 +400,7 @@ def get_km_reading_context(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting KM context: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Context error: {str(e)}")
+        raise internal_error("Context error", e)
 
 @router.get("/records-needing-completion")
 def get_records_needing_completion(
@@ -449,9 +450,10 @@ def get_records_needing_completion(
             "records": needing_completion
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting records needing completion: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Query error: {str(e)}")
+        raise internal_error("Query error", e)
 
 # ✅ BACKWARD COMPATIBILITY: Keep the old edit endpoint for gradual migration
 @router.put("/update-gate-entry")
@@ -474,6 +476,7 @@ def update_gate_entry_legacy(
         # Call the new endpoint
         return update_operational_data(operational_edit, db, current_user)
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error in legacy edit endpoint: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Legacy update failed: {str(e)}")
+        raise internal_error("Legacy update failed", e)

@@ -6,6 +6,7 @@ from app.database import get_db
 from app.schemas.raw_materials_schemas import RawMaterialsCreate, RawMaterialsResponse, RawMaterialsEdit
 from app.models import RawMaterialsData, UsersMaster
 from app.auth import get_current_user
+from app.utils.errors import internal_error
 from app.utils.helpers import generate_gate_entry_no_for_user, validate_vehicle_number
 from app.utils.roles import normalize_roles
 from app.utils.edit_window import EDIT_WINDOW_HOURS, is_within_edit_window, get_time_remaining
@@ -111,11 +112,7 @@ def create_raw_materials_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Raw materials entry creation error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database error: {str(e)}"
-        )
+        raise internal_error("Database error", e)
 
 @router.post("/filtered-entries")
 def get_filtered_rm_entries(
@@ -203,9 +200,10 @@ def get_filtered_rm_entries(
             "filters_applied": filters
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error in filtered RM entries: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Filter error: {str(e)}")
+        raise internal_error("Filter error", e)
 
 @router.put("/update-entry")
 def update_rm_entry(
@@ -287,8 +285,7 @@ def update_rm_entry(
         raise
     except Exception as e:
         db.rollback()
-        print(f"Error updating RM entry: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Update failed: {str(e)}")
+        raise internal_error("Update failed", e)
 
 @router.get("/statistics")
 def get_rm_statistics(
@@ -350,8 +347,7 @@ def get_rm_statistics(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting RM statistics — role={current_user.role} warehouse={current_user.warehouse_code}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Statistics error: {str(e)}")
+        raise internal_error("Statistics error", e)
        
 # ✅ ENHANCED: Admin filtered RM entries
 @router.post("/admin-filtered-entries")
@@ -446,6 +442,7 @@ def get_admin_filtered_rm_entries(
             "access_level": "itadmin" if "itadmin" in roles else "securityadmin"
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error in admin filtered RM entries: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Filter error: {str(e)}")
+        raise internal_error("Filter error", e)
