@@ -129,10 +129,12 @@ CREATE INDEX IF NOT EXISTS idx_gpe_pass ON gate_pass_events (gate_pass_id);
 -- Locations: replace when the real gate pass location master is confirmed.
 -- warehouse_code values must exist in location_master for guard visibility.
 INSERT INTO gate_pass_locations (location_code, location_name, warehouse_code) VALUES
-    ('HO',  'Head Office — Mumbai',   NULL),
+    ('HO',  'Head Office - Mumbai',   NULL),
     ('CHN', 'Chennai Depot',          NULL),
     ('DEL', 'Delhi Plant',            NULL)
 ON CONFLICT (location_code) DO NOTHING;
+-- Run this once to fix encoding-garbled data from earlier migration runs:
+-- UPDATE gate_pass_locations SET location_name = 'Head Office - Mumbai' WHERE location_code = 'HO';
 -- NOTE: set warehouse_code per row once mapping is known, e.g.:
 -- UPDATE gate_pass_locations SET warehouse_code = 'WH001' WHERE location_code = 'HO';
 

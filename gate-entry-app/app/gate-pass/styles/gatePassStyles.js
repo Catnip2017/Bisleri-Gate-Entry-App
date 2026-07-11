@@ -234,34 +234,46 @@ export default StyleSheet.create({
   chipText: { color: gp.textMuted, fontSize: 13 },
   chipActiveText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
 
+  // ── Absolute-overlay dropdown panel (all dropdowns use this) ─────────────
+  // position: 'relative' must be on the direct parent of lookupPanel
   lookupPanel: {
+    position: 'absolute',
+    top: 44,          // sits flush under a standard 44px trigger/input
+    left: 0,
+    right: 0,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: gp.border,
     borderRadius: radius.md,
-    marginTop: -spacing.xs,
-    marginBottom: spacing.sm,
-    overflow: 'hidden',
+    zIndex: 9999,
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
   },
   lookupRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    padding: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#EDF1F5',
     minHeight: TOUCH_TARGET - 8,
     alignItems: 'center',
   },
+  lookupRowActive: { backgroundColor: '#f0f7ff' },
   lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 13 },
   lookupName: { color: gp.text, fontSize: 13, flex: 1 },
   autoFilledNote: { color: gp.textMuted, fontSize: 12, marginBottom: spacing.sm },
 
   // ── Items table (wireframe: blue header, white rows) ──────────────────────
+  // overflow: 'visible' so UOM / Chargeable dropdown menus are not clipped
   itemsTable: {
     borderWidth: 1,
     borderColor: gp.border,
     borderRadius: radius.md,
-    overflow: 'hidden',
+    overflow: 'visible',
     marginBottom: spacing.xs,
   },
   itemsHeaderRow: {
@@ -291,7 +303,7 @@ export default StyleSheet.create({
     borderWidth: 1,
     borderColor: gp.border,
     borderRadius: radius.sm,
-    minHeight: 40,
+    height: 36,           // explicit, same as uomTrigger — keeps all cells aligned
     paddingHorizontal: 8,
     fontSize: 13,
     color: gp.text,
@@ -322,18 +334,24 @@ export default StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  // UOM inline dropdown
+  // UOM / Chargeable inline dropdown trigger — height must match cellInput
   uomTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#f8f9fa',
-    borderWidth: 0.5,
-    borderColor: '#ccc',
+    borderWidth: 1,
+    borderColor: gp.border,
     borderRadius: 5,
     paddingHorizontal: 6,
-    paddingVertical: 5,
+    height: 36,           // matches cellInput exactly
     gap: 3,
+  },
+  // Standard field-level dropdown trigger (Location, Dept) — same height as input
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   uomTriggerText: { fontSize: 12, color: '#333', flex: 1 },
   uomMenu: {

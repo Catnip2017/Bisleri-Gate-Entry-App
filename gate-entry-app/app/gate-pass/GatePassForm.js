@@ -5,7 +5,7 @@
 // table (Description of Goods | Qty | Unit), wireframe action buttons.
 // A wrong pass is cancelled and recreated — there is no edit path anywhere.
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
@@ -24,6 +24,7 @@ const EMPTY_LINE = () => ({
 });
 
 const UOM_OPTIONS = ['NOS', 'KG', 'LTR', 'BOX', 'SET'];
+const CHARGEABLE_OPTIONS = ['Chargeable', 'Non-chargeable'];
 
 const GatePassForm = ({ onCreated }) => {
   const [passType, setPassType] = useState('NR');
@@ -48,7 +49,18 @@ const GatePassForm = ({ onCreated }) => {
   const [itemSearchLine, setItemSearchLine] = useState(null);
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
   const [locDropdownOpen, setLocDropdownOpen] = useState(false);
-  const [openUomLine, setOpenUomLine] = useState(null); // index of line with UOM dropdown open
+  const [openUomLine, setOpenUomLine] = useState(null);          // index of line with UOM dropdown open
+  const [openChargeableLine, setOpenChargeableLine] = useState(null); // index of line with Chargeable dropdown open
+
+  // Mutually exclusive: opening one closes the other
+  const handleOpenUom = (index) => {
+    setOpenUomLine((prev) => (prev === index ? null : index));
+    setOpenChargeableLine(null);
+  };
+  const handleOpenChargeable = (index) => {
+    setOpenChargeableLine((prev) => (prev === index ? null : index));
+    setOpenUomLine(null);
+  };
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [createdPassNo, setCreatedPassNo] = useState('');
@@ -346,61 +358,67 @@ const GatePassForm = ({ onCreated }) => {
             editable={false}
           />
         </View>
-        <View style={[styles.fieldThird, { zIndex: 20 }]}>
+        <View style={[styles.fieldThird, { zIndex: locDropdownOpen ? 200 : 20 }]}>
           <Text style={styles.fieldLabel}>Location *</Text>
-          <TouchableOpacity
-            style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            onPress={() => { setLocDropdownOpen((o) => !o); setDeptDropdownOpen(false); }}
-            accessibilityRole="button"
-          >
-            <Text style={{ fontSize: 14, color: locationCode ? gp.text : gp.textMuted }}>
-              {locationCode
-                ? locations.find(l => l.location_code === locationCode)?.location_name
-                  ? `${locationCode} — ${locations.find(l => l.location_code === locationCode).location_name}`
-                  : locationCode
-                : '-- Select location --'}
-            </Text>
-            <Text style={{ color: gp.textMuted, fontSize: 12 }}>{locDropdownOpen ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
-          {locDropdownOpen && (
-            <View style={styles.lookupPanel}>
-              {locations.map((loc) => (
-                <TouchableOpacity
-                  key={loc.location_code}
-                  style={styles.lookupRow}
-                  onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
-                >
-                  <Text style={locationCode === loc.location_code ? styles.lookupCode : styles.lookupName}>
-                    {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity
+              style={[styles.input, styles.dropdownTrigger]}
+              onPress={() => { setLocDropdownOpen((o) => !o); setDeptDropdownOpen(false); }}
+              accessibilityRole="button"
+            >
+              <Text style={{ fontSize: 14, color: locationCode ? gp.text : gp.textMuted }}>
+                {locationCode
+                  ? `${locationCode} — ${locations.find(l => l.location_code === locationCode)?.location_name || ''}`
+                  : '-- Select location --'}
+              </Text>
+              <Text style={{ color: gp.textMuted, fontSize: 12 }}>{locDropdownOpen ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {locDropdownOpen && (
+              <View style={styles.lookupPanel}>
+                <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {locations.map((loc) => (
+                    <TouchableOpacity
+                      key={loc.location_code}
+                      style={[styles.lookupRow, locationCode === loc.location_code && styles.lookupRowActive]}
+                      onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
+                    >
+                      <Text style={locationCode === loc.location_code ? styles.lookupCode : styles.lookupName}>
+                        {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
       </View>
 
       {/* Party lookup */}
       <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
+        <View style={[styles.fieldHalf, { zIndex: partyResults.length > 0 ? 150 : 1 }]}>
           <Text style={styles.fieldLabel}>Party Code *</Text>
-          <TextInput
-            style={styles.input}
-            value={partyQuery}
-            onChangeText={searchParties}
-            placeholder="-- Select (type code or name) --"
-            placeholderTextColor={gp.textMuted}
-          />
-          {partyResults.length > 0 && (
-            <View style={styles.lookupPanel}>
-              {partyResults.map((p) => (
-                <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
-                  <Text style={styles.lookupCode}>{p.party_code}</Text>
-                  <Text style={styles.lookupName}>{p.party_name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            <TextInput
+              style={styles.input}
+              value={partyQuery}
+              onChangeText={searchParties}
+              placeholder="-- Select (type code or name) --"
+              placeholderTextColor={gp.textMuted}
+            />
+            {partyResults.length > 0 && (
+              <View style={styles.lookupPanel}>
+                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {partyResults.map((p) => (
+                    <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
+                      <Text style={styles.lookupCode}>{p.party_code}</Text>
+                      <Text style={styles.lookupName}>{p.party_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
         <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Party Name</Text>
@@ -415,32 +433,36 @@ const GatePassForm = ({ onCreated }) => {
       </View>
 
       <View style={styles.fieldRow}>
-        <View style={[styles.fieldThird, { zIndex: 10 }]}>
+        <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
-          <TouchableOpacity
-            style={[styles.input, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
-            onPress={() => { setDeptDropdownOpen((o) => !o); setLocDropdownOpen(false); }}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: deptDropdownOpen }}
-          >
-            <Text style={{ fontSize: 14, color: department ? gp.text : gp.textMuted }}>
-              {department || '-- Select --'}
-            </Text>
-            <Text style={{ color: gp.textMuted, fontSize: 12 }}>{deptDropdownOpen ? '▲' : '▼'}</Text>
-          </TouchableOpacity>
-          {deptDropdownOpen && (
-            <View style={styles.lookupPanel}>
-              {departments.map((d) => (
-                <TouchableOpacity
-                  key={d}
-                  style={styles.lookupRow}
-                  onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
-                >
-                  <Text style={department === d ? styles.lookupCode : styles.lookupName}>{d}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
+          <View style={{ position: 'relative' }}>
+            <TouchableOpacity
+              style={[styles.input, styles.dropdownTrigger]}
+              onPress={() => { setDeptDropdownOpen((o) => !o); setLocDropdownOpen(false); }}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: deptDropdownOpen }}
+            >
+              <Text style={{ fontSize: 14, color: department ? gp.text : gp.textMuted }}>
+                {department || '-- Select --'}
+              </Text>
+              <Text style={{ color: gp.textMuted, fontSize: 12 }}>{deptDropdownOpen ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {deptDropdownOpen && (
+              <View style={styles.lookupPanel}>
+                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {departments.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.lookupRow, department === d && styles.lookupRowActive]}
+                      onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
+                    >
+                      <Text style={department === d ? styles.lookupCode : styles.lookupName}>{d}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
         </View>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
@@ -527,7 +549,7 @@ const GatePassForm = ({ onCreated }) => {
         {lines.map((line, index) => (
           <View key={index}>
             {/* Single-row line item */}
-            <View style={[styles.itemsRow, { zIndex: openUomLine === index ? 10 : 1 }]}>
+            <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index) ? 100 : 1 }]}>
 
               {/* Item Code */}
               <View style={[styles.itemsCell, { flex: 1.0 }]}>
@@ -579,22 +601,24 @@ const GatePassForm = ({ onCreated }) => {
               <View style={[styles.itemsCell, { flex: 0.65, position: 'relative', overflow: 'visible' }]}>
                 <TouchableOpacity
                   style={styles.uomTrigger}
-                  onPress={() => setOpenUomLine(openUomLine === index ? null : index)}
+                  onPress={() => handleOpenUom(index)}
                 >
                   <Text style={styles.uomTriggerText}>{line.uom || 'NOS'}</Text>
                   <Text style={{ fontSize: 9, color: gp.textMuted }}>{openUomLine === index ? '▲' : '▼'}</Text>
                 </TouchableOpacity>
                 {openUomLine === index && (
                   <View style={styles.uomMenu}>
-                    {UOM_OPTIONS.map((u) => (
-                      <TouchableOpacity
-                        key={u}
-                        style={[styles.uomItem, line.uom === u && styles.uomItemActive]}
-                        onPress={() => { updateLine(index, { uom: u }); setOpenUomLine(null); }}
-                      >
-                        <Text style={[styles.uomItemText, line.uom === u && styles.uomItemTextActive]}>{u}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    <ScrollView style={{ maxHeight: 160 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {UOM_OPTIONS.map((u) => (
+                        <TouchableOpacity
+                          key={u}
+                          style={[styles.uomItem, line.uom === u && styles.uomItemActive]}
+                          onPress={() => { updateLine(index, { uom: u }); setOpenUomLine(null); }}
+                        >
+                          <Text style={[styles.uomItemText, line.uom === u && styles.uomItemTextActive]}>{u}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                   </View>
                 )}
               </View>
@@ -611,22 +635,51 @@ const GatePassForm = ({ onCreated }) => {
                 />
               </View>
 
-              {/* Chargeable — compact toggle */}
-              <View style={[styles.itemsCell, { flex: 0.8 }]}>
+              {/* Chargeable — dropdown */}
+              <View style={[styles.itemsCell, { flex: 0.8, position: 'relative', overflow: 'visible' }]}>
                 <TouchableOpacity
-                  style={[styles.uomTrigger, line.chargeable === 'Chargeable' && { borderColor: gp.accent, backgroundColor: '#e8f4ff' }]}
-                  onPress={() => updateLine(index, {
-                    chargeable: line.chargeable === 'Chargeable' ? 'Non-chargeable'
-                      : line.chargeable === 'Non-chargeable' ? null : 'Chargeable'
-                  })}
+                  style={[
+                    styles.uomTrigger,
+                    line.chargeable === 'Chargeable' && { borderColor: gp.accent, backgroundColor: '#e8f4ff' },
+                    line.chargeable === 'Non-chargeable' && { borderColor: gp.border },
+                  ]}
+                  onPress={() => handleOpenChargeable(index)}
                 >
-                  <Text style={[styles.uomTriggerText, { fontSize: 11 },
+                  <Text style={[
+                    styles.uomTriggerText,
+                    { fontSize: 11 },
                     line.chargeable === 'Chargeable' && { color: gp.accent, fontWeight: '600' },
                     line.chargeable === 'Non-chargeable' && { color: gp.textMuted },
+                    !line.chargeable && { color: gp.textMuted },
                   ]}>
-                    {line.chargeable || '— tap —'}
+                    {line.chargeable || '— Select —'}
+                  </Text>
+                  <Text style={{ fontSize: 9, color: gp.textMuted }}>
+                    {openChargeableLine === index ? '▲' : '▼'}
                   </Text>
                 </TouchableOpacity>
+                {openChargeableLine === index && (
+                  <View style={[styles.uomMenu, { minWidth: 130 }]}>
+                    <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {/* Blank / clear option */}
+                      <TouchableOpacity
+                        style={[styles.uomItem, !line.chargeable && styles.uomItemActive]}
+                        onPress={() => { updateLine(index, { chargeable: null }); setOpenChargeableLine(null); }}
+                      >
+                        <Text style={[styles.uomItemText, !line.chargeable && styles.uomItemTextActive]}>— None —</Text>
+                      </TouchableOpacity>
+                      {CHARGEABLE_OPTIONS.map((c) => (
+                        <TouchableOpacity
+                          key={c}
+                          style={[styles.uomItem, line.chargeable === c && styles.uomItemActive]}
+                          onPress={() => { updateLine(index, { chargeable: c }); setOpenChargeableLine(null); }}
+                        >
+                          <Text style={[styles.uomItemText, line.chargeable === c && styles.uomItemTextActive]}>{c}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
 
               {/* Remove */}
@@ -639,15 +692,17 @@ const GatePassForm = ({ onCreated }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Item lookup dropdown */}
+            {/* Item lookup dropdown — absolute overlay anchored under Item Code cell */}
             {itemSearchLine === index && itemResults.length > 0 && (
-              <View style={styles.lookupPanel}>
-                {itemResults.map((it) => (
-                  <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
-                    <Text style={styles.lookupCode}>{it.item_code}</Text>
-                    <Text style={styles.lookupName}>{it.item_name} ({it.item_type})</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={[styles.lookupPanel, { left: 4, right: 'auto', minWidth: 280, zIndex: 999 }]}>
+                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {itemResults.map((it) => (
+                    <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
+                      <Text style={styles.lookupCode}>{it.item_code}</Text>
+                      <Text style={styles.lookupName}>{it.item_name} ({it.item_type})</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>
