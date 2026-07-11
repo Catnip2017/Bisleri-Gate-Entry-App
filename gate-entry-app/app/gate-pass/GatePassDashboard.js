@@ -40,7 +40,7 @@ const GatePassDashboard = () => {
       setIsItAdmin(itadmin);
       setIsGuard(guard);
       // Hard block for ANY role without gate_pass_location
-      if (!u?.gate_pass_location) {
+      if (!u?.gatePassLocation) {
         setGuardBlocked(true);
         return;
       }
