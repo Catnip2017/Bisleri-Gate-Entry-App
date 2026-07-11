@@ -172,16 +172,14 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
               backgroundColor: '#EAF7EF', borderRadius: 8,
             }}>
               {details.map(([label, value]) => (
-                <View key={label} style={{ flexDirection: 'row', marginBottom: 4 }}>
-                  <Text style={{ width: 80, fontSize: 12, color: '#5C6B62' }}>{label}</Text>
-                  <Text style={{ flex: 1, fontSize: 12, fontWeight: 'bold', color: '#1A2E22' }}>
-                    {value}
-                  </Text>
+                <View key={label} style={{ marginBottom: 8 }}>
+                  <Text style={{ fontSize: 11, color: '#5C6B62', marginBottom: 1 }}>{label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1A2E22' }}>{value}</Text>
                 </View>
               ))}
-              <View style={{ flexDirection: 'row' }}>
-                <Text style={{ width: 80, fontSize: 12, color: '#5C6B62' }}>Username</Text>
-                <Text style={{ flex: 1, fontSize: 12, fontWeight: 'bold', color: '#1A2E22' }}>
+              <View>
+                <Text style={{ fontSize: 11, color: '#5C6B62', marginBottom: 1 }}>Username</Text>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1A2E22' }}>
                   {userData?.username || '—'}
                 </Text>
               </View>

@@ -281,24 +281,26 @@ const GatePassGuardTab = () => {
 
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
-          {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={gp.accent} />
-            </View>
-          ) : (
-            <DataTable
-              columns={columns}
-              data={items}
-              keyExtractor={(item) => String(item.id)}
-              emptyText={
-                view === 'dispatch'
-                  ? 'No passes waiting for dispatch'
-                  : view === 'inward'
-                    ? 'No returnable passes waiting for inward'
-                    : 'No cancelled passes (only passes cancelled after release appear here)'
-              }
-            />
-          )}
+          <View style={styles.formCard}>
+            {loading ? (
+              <View style={styles.loadingBox}>
+                <ActivityIndicator size="large" color={gp.accent} />
+              </View>
+            ) : (
+              <DataTable
+                columns={columns}
+                data={items}
+                keyExtractor={(item) => String(item.id)}
+                emptyText={
+                  view === 'dispatch'
+                    ? 'No passes waiting for dispatch'
+                    : view === 'inward'
+                      ? 'No returnable passes waiting for inward'
+                      : 'No cancelled passes (only passes cancelled after release appear here)'
+                }
+              />
+            )}
+          </View>
         </View>
       </View>
 
