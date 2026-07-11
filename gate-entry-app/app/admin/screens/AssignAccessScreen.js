@@ -268,7 +268,7 @@ const AssignAccessScreen = () => {
 
       {/* ── LEFT PANEL ── */}
       <View style={styles.leftPanel}>
-        <Text style={styles.panelTitle}>Search user</Text>
+        <Text style={styles.panelTitle}>Search User</Text>
 
         <View style={styles.searchWrapper}>
           <TextInput
@@ -334,8 +334,9 @@ const AssignAccessScreen = () => {
       <View style={styles.rightPanel}>
         {!selectedUser ? (
           <View style={styles.placeholder}>
+            <Text style={styles.placeholderIcon}>👤</Text>
             <Text style={styles.placeholderText}>
-              Search for a user on the left to assign or update their access
+              Search for a user on the left to assign or{'\n'}update their access
             </Text>
           </View>
         ) : (

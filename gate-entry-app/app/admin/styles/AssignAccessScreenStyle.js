@@ -11,23 +11,24 @@ export default StyleSheet.create({
 
   // ── Left panel ────────────────────────────────────────────────────────────
   leftPanel: {
-    width: 270,
+    width: 280,
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 0.5,
     borderColor: '#e0e0e0',
-    padding: 14,
+    padding: 16,
     flexShrink: 0,
   },
   panelTitle: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1a365d',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   searchWrapper: {
     position: 'relative',
-    marginBottom: 10,
+    marginBottom: 12,
+    zIndex: 99,
   },
   searchInput: {
     borderWidth: 0.5,
@@ -35,8 +36,8 @@ export default StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 9,
-    fontSize: 12,
-    color: '#1a365d',
+    fontSize: 13,
+    color: '#333',
     backgroundColor: '#fafafa',
   },
   searchSpinner: {
@@ -109,10 +110,11 @@ export default StyleSheet.create({
     fontWeight: '500',
   },
   emptyText: {
-    fontSize: 12,
-    color: '#bbb',
+    fontSize: 11,
+    color: '#ccc',
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: 20,
+    lineHeight: 17,
     paddingHorizontal: 8,
   },
 
@@ -157,7 +159,10 @@ export default StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+  },
+  placeholderIcon: {
+    fontSize: 36,
+    marginBottom: 12,
   },
   placeholderText: {
     fontSize: 13,
