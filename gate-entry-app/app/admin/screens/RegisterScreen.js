@@ -204,7 +204,7 @@ export default function RegisterScreen() {
             <TextInput style={S.input} placeholder="Email (optional)" value={form.email}
               onChangeText={v => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
             <TouchableOpacity style={[S.submitBtn, loading && S.submitBtnDis]} onPress={handleRegister} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.submitTxt}>Register Contractor</Text>}
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.submitTxt}>Register User</Text>}
             </TouchableOpacity>
           </View>
 
@@ -216,7 +216,7 @@ export default function RegisterScreen() {
                 <Text style={S.sectionTitle}>SCOPE</Text>
 
                 {needsWH && (
-                  <View style={{ marginBottom: 14 }}>
+                  <View style={{ marginBottom: 14, zIndex: showWH ? 100 : 2 }}>
                     <Text style={S.scopeSubLabel}>Warehouse *</Text>
                     <View style={S.whWrap}>
                       <TextInput style={[S.input, { marginBottom: 0 }]} placeholder="Type code or name..."
@@ -248,7 +248,7 @@ export default function RegisterScreen() {
                 )}
 
                 {needsGuardGPLoc && (
-                  <View style={{ marginBottom: 14 }}>
+                  <View style={{ marginBottom: 14, zIndex: 1 }}>
                     <Text style={S.scopeSubLabel}>Security Guard</Text>
                     <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
                       onSelect={v => set('gatePassLocation', v)} placeholder="Select gate location..." />
@@ -256,7 +256,7 @@ export default function RegisterScreen() {
                 )}
 
                 {needsGP && (
-                  <View style={{ marginBottom: 14 }}>
+                  <View style={{ marginBottom: 14, zIndex: 1 }}>
                     <Text style={S.scopeSubLabel}>Gate Pass User</Text>
                     <InlineDropdown label="Department *" value={form.department} options={deptOpts}
                       onSelect={v => set('department', v)} placeholder="Select department..." />
@@ -266,7 +266,7 @@ export default function RegisterScreen() {
                 )}
 
                 {needsCP && (
-                  <View>
+                  <View style={{ zIndex: 1 }}>
                     <Text style={S.scopeSubLabel}>Co Packer</Text>
                     <View style={S.cpNote}><Text style={S.cpNoteText}>⚠ Exclusive — no other roles</Text></View>
                     <Text style={S.fieldLabel}>Location *</Text>

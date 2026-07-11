@@ -427,7 +427,7 @@ const AssignAccessScreen = () => {
 
                   {/* Warehouse */}
                   {needsWarehouse && (
-                    <View style={{ marginBottom: 16 }}>
+                    <View style={{ marginBottom: 16, zIndex: showWarehouseDropdown ? 100 : 2 }}>
                       <Text style={styles.scopeSubLabel}>Warehouse *</Text>
                       <View style={styles.dropdownWrapper}>
                         <TextInput style={styles.input} placeholder="Type code or name..."
@@ -465,7 +465,7 @@ const AssignAccessScreen = () => {
 
                   {/* Security Guard — Gate Pass Location */}
                   {needsGuardGPLoc && (
-                    <View style={{ marginBottom: 16 }}>
+                    <View style={{ marginBottom: 16, zIndex: 1 }}>
                       <Text style={styles.scopeSubLabel}>Security Guard</Text>
                       <Text style={styles.fieldLabel}>Gate Pass Location *</Text>
                       <ScopeDropdown
@@ -479,7 +479,7 @@ const AssignAccessScreen = () => {
 
                   {/* Co Packer */}
                   {roles.includes('Co Packer') && (
-                    <View style={{ marginBottom: 16 }}>
+                    <View style={{ marginBottom: 16, zIndex: 1 }}>
                       <Text style={styles.scopeSubLabel}>Co Packer</Text>
                       <Text style={styles.fieldLabel}>Location *</Text>
                       <TextInput style={styles.input} placeholder="Enter copacker location..."
@@ -489,7 +489,7 @@ const AssignAccessScreen = () => {
 
                   {/* Gate Pass User */}
                   {needsGpScope && (
-                    <View>
+                    <View style={{ zIndex: 1 }}>
                       <Text style={styles.scopeSubLabel}>Gate Pass User</Text>
                       {/* Department dropdown */}
                       <Text style={styles.fieldLabel}>Department *</Text>
