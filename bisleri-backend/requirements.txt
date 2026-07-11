@@ -10,3 +10,7 @@ python-multipart==0.0.32
 python-dotenv==1.0.0
 alembic==1.18.4
 apscheduler==3.11.3
+
+# Testing (Q13)
+pytest==8.3.4
+httpx==0.28.1
