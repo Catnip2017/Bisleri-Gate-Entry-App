@@ -28,23 +28,23 @@ const GatePassDashboard = () => {
   const [activeKey, setActiveKey] = useState('new');
   const [refreshKey, setRefreshKey] = useState(0);
   const [dueItems, setDueItems] = useState([]);
-  const [isItAdmin, setIsItAdmin]         = useState(false);
-  const [isGuard, setIsGuard]             = useState(false);
-  const [guardBlocked, setGuardBlocked]   = useState(false); // guard with no gate_pass_location
+  const [isItAdmin, setIsItAdmin]       = useState(false);
+  const [isGuard, setIsGuard]           = useState(false);
+  const [guardBlocked, setGuardBlocked] = useState(false); // any role blocked due to no gate_pass_location
 
   useEffect(() => {
     getCurrentUser().then((u) => {
       const roles = u?.roles || [];
       const guard = roles.includes('securityguard');
-      setIsItAdmin(roles.includes('itadmin'));
+      const itadmin = roles.includes('itadmin');
+      setIsItAdmin(itadmin);
       setIsGuard(guard);
-      if (guard) {
-        if (!u?.gate_pass_location) {
-          setGuardBlocked(true);   // block the entire dashboard
-        } else {
-          setActiveKey('released');
-        }
+      // Hard block for ANY role without gate_pass_location
+      if (!u?.gate_pass_location) {
+        setGuardBlocked(true);
+        return;
       }
+      if (guard) setActiveKey('released');
     });
   }, []);
 
@@ -73,16 +73,23 @@ const GatePassDashboard = () => {
   // Guard with no gate_pass_location — full-page block, no API calls made
   if (guardBlocked) {
     return (
-      <AppShell>
+      <AppShell
+        title={isItAdmin ? 'Gate Pass' : undefined}
+        backLabel={isItAdmin ? 'Admin Hub' : undefined}
+        onBack={isItAdmin ? () => router.replace('/admin-hub') : undefined}
+      >
         <View style={styles.guardBlockedContainer}>
           <View style={styles.guardBlockedCard}>
             <Text style={styles.guardBlockedIcon}>🚫</Text>
-            <Text style={styles.guardBlockedTitle}>No Gate Location Assigned</Text>
+            <Text style={styles.guardBlockedTitle}>No Gate Pass Location Assigned</Text>
             <Text style={styles.guardBlockedBody}>
-              Your profile does not have a gate pass location assigned.
-              You cannot access gate passes until an IT Admin assigns your location.
+              {isItAdmin
+                ? 'Your profile does not have a Gate Pass Location assigned. Go to User Management → Assign Access, search your username, and assign a Gate Pass Location before using this module.'
+                : 'Your profile does not have a gate pass location assigned. You cannot access gate passes until an IT Admin assigns your location.'}
             </Text>
-            <Text style={styles.guardBlockedHint}>Contact IT Admin to resolve this.</Text>
+            <Text style={styles.guardBlockedHint}>
+              {isItAdmin ? 'You can assign it to yourself via User Management.' : 'Contact IT Admin to resolve this.'}
+            </Text>
           </View>
         </View>
       </AppShell>

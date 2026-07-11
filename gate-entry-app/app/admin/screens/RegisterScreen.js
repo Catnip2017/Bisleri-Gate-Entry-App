@@ -98,7 +98,7 @@ export default function RegisterScreen() {
 
   const needsWH         = roles.some(r => GUARD_ROLES.includes(r));
   const needsGuardGPLoc = roles.includes('Security Guard');
-  const needsGP         = roles.includes('Gate Pass User') || roles.includes('IT Admin');
+  const needsGP         = roles.includes('Gate Pass User');
   const needsCP         = roles.includes('Co Packer');
   const needsScope      = needsWH || needsGP || needsCP;
   const cpOn      = roles.includes('Co Packer');
@@ -116,9 +116,8 @@ export default function RegisterScreen() {
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
     if (needsGuardGPLoc && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required for Security Guard'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
-    const isGpUserOnly = needsGP && !roles.includes('IT Admin');
-    if (isGpUserOnly && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
-    if (isGpUserOnly && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required'); return; }
+    if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
+    if (needsGP && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required'); return; }
 
     setLoading(true);
     try {
@@ -258,16 +257,10 @@ export default function RegisterScreen() {
 
                 {needsGP && (
                   <View style={{ marginBottom: 14, zIndex: 1 }}>
-                    <Text style={S.scopeSubLabel}>
-                      {roles.includes('IT Admin') && !roles.includes('Gate Pass User') ? 'IT Admin — Gate Pass' : 'Gate Pass User'}
-                    </Text>
-                    <InlineDropdown
-                      label={roles.includes('IT Admin') && !roles.includes('Gate Pass User') ? 'Department' : 'Department *'}
-                      value={form.department} options={deptOpts}
+                    <Text style={S.scopeSubLabel}>Gate Pass User</Text>
+                    <InlineDropdown label="Department *" value={form.department} options={deptOpts}
                       onSelect={v => set('department', v)} placeholder="Select department..." />
-                    <InlineDropdown
-                      label={roles.includes('IT Admin') && !roles.includes('Gate Pass User') ? 'Gate Pass Location' : 'Gate Pass Location *'}
-                      value={form.gatePassLocation} options={locOpts}
+                    <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
                       onSelect={v => set('gatePassLocation', v)} placeholder="Select location..." />
                   </View>
                 )}

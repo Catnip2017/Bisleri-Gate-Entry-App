@@ -84,7 +84,7 @@ const AssignAccessScreen = () => {
 
   const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
   const needsGuardGPLoc = roles.includes('Security Guard');
-  const needsGpScope     = roles.includes('Gate Pass User') || roles.includes('IT Admin');
+  const needsGpScope     = roles.includes('Gate Pass User');
 
   // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = async (query) => {
@@ -225,11 +225,10 @@ const AssignAccessScreen = () => {
     if (needsGuardGPLoc && !gatePassLocation)
       return showAlert('Validation Error', 'Gate Pass Location is required for Security Guard');
 
-    const isGpUserOnly = needsGpScope && !roles.includes('IT Admin');
-    if (isGpUserOnly && !department)
+    if (needsGpScope && !department)
       return showAlert('Validation Error', 'Department is required for Gate Pass User');
 
-    if (isGpUserOnly && !gatePassLocation)
+    if (needsGpScope && !gatePassLocation)
       return showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass User');
 
     setSaving(true);
@@ -488,12 +487,10 @@ const AssignAccessScreen = () => {
                     </View>
                   )}
 
-                  {/* Gate Pass scope (Gate Pass User + IT Admin) */}
+                  {/* Gate Pass User */}
                   {needsGpScope && (
                     <View style={{ zIndex: 1 }}>
-                      <Text style={styles.scopeSubLabel}>
-                        {roles.includes('IT Admin') && !roles.includes('Gate Pass User') ? 'IT Admin — Gate Pass' : 'Gate Pass User'}
-                      </Text>
+                      <Text style={styles.scopeSubLabel}>Gate Pass User</Text>
                       {/* Department dropdown */}
                       <Text style={styles.fieldLabel}>Department *</Text>
                       <ScopeDropdown

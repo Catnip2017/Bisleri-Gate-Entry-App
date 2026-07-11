@@ -77,10 +77,18 @@ export default function LoginScreen() {
 
       // Decode role from the new token and route accordingly
       const userData = await getCurrentUser();
-      const route = userData?.roles
-        ? getRoleBasedRoute(userData.roles)
-        : '/landing/';
 
+      // Block login entirely if no role has been assigned
+      if (!userData?.roles || userData.roles.length === 0) {
+        await storage.removeItem('access_token');
+        showAlert(
+          'Access Not Assigned',
+          'Your account has not been given any access yet. Contact your IT Admin to assign you a role before you can use this application.'
+        );
+        return;
+      }
+
+      const route = getRoleBasedRoute(userData.roles);
       router.replace(route);
 
     } catch (error) {
