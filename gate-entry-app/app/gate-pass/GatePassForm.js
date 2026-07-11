@@ -360,7 +360,7 @@ const GatePassForm = ({ onCreated }) => {
         </View>
         <View style={[styles.fieldThird, { zIndex: locDropdownOpen ? 200 : 20 }]}>
           <Text style={styles.fieldLabel}>Location *</Text>
-          <View style={{ position: 'relative' }}>
+          <View style={{ position: 'relative', overflow: 'visible' }}>
             <TouchableOpacity
               style={[styles.input, styles.dropdownTrigger]}
               onPress={() => { setLocDropdownOpen((o) => !o); setDeptDropdownOpen(false); }}
@@ -374,14 +374,14 @@ const GatePassForm = ({ onCreated }) => {
               <Text style={{ color: gp.textMuted, fontSize: 12 }}>{locDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {locDropdownOpen && (
-              <View style={styles.lookupPanel}>
+              <View style={[styles.uomMenu, { left: 0, right: 0, minWidth: '100%' }]}>
                 {locations.map((loc) => (
                   <TouchableOpacity
                     key={loc.location_code}
-                    style={[styles.dropdownItem, locationCode === loc.location_code && styles.dropdownItemActive]}
+                    style={[styles.uomItem, locationCode === loc.location_code && styles.uomItemActive]}
                     onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
                   >
-                    <Text style={[styles.dropdownItemText, locationCode === loc.location_code && styles.dropdownItemTextActive]}>
+                    <Text style={[styles.uomItemText, locationCode === loc.location_code && styles.uomItemTextActive]}>
                       {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
                     </Text>
                   </TouchableOpacity>
@@ -431,7 +431,7 @@ const GatePassForm = ({ onCreated }) => {
       <View style={styles.fieldRow}>
         <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
-          <View style={{ position: 'relative' }}>
+          <View style={{ position: 'relative', overflow: 'visible' }}>
             <TouchableOpacity
               style={[styles.input, styles.dropdownTrigger]}
               onPress={() => { setDeptDropdownOpen((o) => !o); setLocDropdownOpen(false); }}
@@ -444,14 +444,14 @@ const GatePassForm = ({ onCreated }) => {
               <Text style={{ color: gp.textMuted, fontSize: 12 }}>{deptDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {deptDropdownOpen && (
-              <View style={styles.lookupPanel}>
+              <View style={[styles.uomMenu, { left: 0, right: 0, minWidth: '100%' }]}>
                 {departments.map((d) => (
                   <TouchableOpacity
                     key={d}
-                    style={[styles.dropdownItem, department === d && styles.dropdownItemActive]}
+                    style={[styles.uomItem, department === d && styles.uomItemActive]}
                     onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
                   >
-                    <Text style={[styles.dropdownItemText, department === d && styles.dropdownItemTextActive]}>{d}</Text>
+                    <Text style={[styles.uomItemText, department === d && styles.uomItemTextActive]}>{d}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

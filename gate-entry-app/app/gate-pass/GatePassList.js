@@ -48,6 +48,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [noGpLocation, setNoGpLocation] = useState(false);
 
   // Cancel modal state (reason is MANDATORY — picked from the master list)
   const [cancelTarget, setCancelTarget] = useState(null);
@@ -63,6 +64,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
 
   const load = useCallback(async () => {
     setLoading(true);
+    setNoGpLocation(false);
     try {
       const filters = { limit: 100 };
       if (fixedStatus) filters.status = fixedStatus;
@@ -72,7 +74,14 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       setItems(data.items || []);
       setTotalCount(data.total_count || 0);
     } catch (error) {
-      showError(handleAPIError(error));
+      const msg = error?.response?.data?.detail || error?.detail || '';
+      if (msg === 'NO_GP_LOCATION') {
+        setNoGpLocation(true);
+        setItems([]);
+        setTotalCount(0);
+      } else {
+        showError(handleAPIError(error));
+      }
     } finally {
       setLoading(false);
     }
@@ -243,6 +252,15 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
 
   return (
     <View>
+      {/* NO_GP_LOCATION banner — guard profile has no gate location assigned */}
+      {noGpLocation && (
+        <View style={styles.noLocBanner}>
+          <Text style={styles.noLocBannerText}>
+            ⚠ No gate pass location is assigned to your profile. Contact IT Admin to assign a location before you can process passes.
+          </Text>
+        </View>
+      )}
+
       {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
       {showFilters && (
         <View style={styles.filterRow}>

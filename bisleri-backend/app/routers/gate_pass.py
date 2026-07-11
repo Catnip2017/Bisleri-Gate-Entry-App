@@ -66,16 +66,19 @@ def _is_itadmin(user: UsersMaster) -> bool:
     return "itadmin" in _roles(user)
 
 
-def _guard_warehouse_filter(query, user: UsersMaster):
-    """Guards see only passes whose location maps to their warehouse.
-    IT Admin sees all. Passes at locations with no mapping yet (placeholder
-    master) are visible to all guards so the flow is testable pre-mapping."""
+def _guard_location_filter(query, user: UsersMaster):
+    """Guards see only passes for their assigned gate_pass_location.
+    IT Admin bypasses the filter entirely.
+    Raises 403 (sentinel: NO_GP_LOCATION) if the guard profile has no
+    gate_pass_location — admin must assign one before the guard can operate."""
     if _is_itadmin(user):
         return query
-    return query.filter(
-        (GatePassHeader.warehouse_code == user.warehouse_code)
-        | (GatePassHeader.warehouse_code.is_(None))
-    )
+    if not user.gate_pass_location:
+        raise HTTPException(
+            status_code=403,
+            detail="NO_GP_LOCATION",
+        )
+    return query.filter(GatePassHeader.location_code == user.gate_pass_location)
 
 
 # ── Numbering (atomic, incremental, never reused) ───────────────────────────
@@ -342,8 +345,18 @@ def list_gate_passes(
     query = db.query(GatePassHeader).options(
         joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason)
     )
-    # TEMP scoping: IT Admin sees all. When the Gate Pass User role lands,
-    # scope to the user's department + assigned locations here.
+    # Scoping: IT Admin sees all passes (full visibility for admin ops).
+    # Gate Pass User (TEMP: itadmin stands in) sees only passes for their
+    # assigned gate_pass_location and department. When the real gatepassuser
+    # role lands, replace _is_itadmin check with role-based check here.
+    # TEMP: currently all itadmin users see everything — replace with below
+    # once Gate Pass User role is distinct:
+    #   roles = _roles(current_user)
+    #   if 'gatepassuser' in roles and not _is_itadmin(current_user):
+    #       if current_user.gate_pass_location:
+    #           query = query.filter(GatePassHeader.location_code == current_user.gate_pass_location)
+    #       if current_user.department:
+    #           query = query.filter(GatePassHeader.department == current_user.department)
     if status_filter:
         query = query.filter(GatePassHeader.status == status_filter)
     if pass_type:
@@ -409,7 +422,7 @@ def guard_pending(
     else:
         raise HTTPException(status_code=400, detail="view must be 'dispatch', 'inward' or 'cancelled'")
 
-    query = _guard_warehouse_filter(query, current_user)
+    query = _guard_location_filter(query, current_user)
     today = date.today()
     rows = query.order_by(GatePassHeader.released_at.asc()).limit(200).all()
     return GatePassListResponse(total_count=len(rows), items=[_to_list_item(r, today) for r in rows])
@@ -438,7 +451,7 @@ def due_notifications(
         )
     )
     if "securityguard" in roles and not _is_itadmin(current_user):
-        query = _guard_warehouse_filter(query, current_user)
+        query = _guard_location_filter(query, current_user)
 
     items = []
     for gp in query.order_by(GatePassHeader.expected_inward_date.asc()).limit(100).all():
@@ -483,8 +496,10 @@ def get_gate_pass(
             raise HTTPException(status_code=403, detail="No access to this gate pass")
         if gp.status == GP_OPEN:
             raise HTTPException(status_code=403, detail="No access to this gate pass")
-        if gp.warehouse_code is not None and gp.warehouse_code != current_user.warehouse_code:
-            raise HTTPException(status_code=403, detail="No access to this gate pass")
+        if not current_user.gate_pass_location:
+            raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+        if gp.location_code != current_user.gate_pass_location:
+            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
 
     today = date.today()
     base = _to_list_item(gp, today)
@@ -592,12 +607,11 @@ def dispatch_gate_pass(
         gp = _locked_pass(db, pass_id)
         if gp.status != GP_RELEASED:
             raise HTTPException(status_code=409, detail=f"Pass is {gp.status} — only a Released pass can be dispatched")
-        if (
-            not _is_itadmin(current_user)
-            and gp.warehouse_code is not None
-            and gp.warehouse_code != current_user.warehouse_code
-        ):
-            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        if not _is_itadmin(current_user):
+            if not current_user.gate_pass_location:
+                raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+            if gp.location_code != current_user.gate_pass_location:
+                raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
 
         gp.status = GP_DISPATCHED
         gp.dispatched_by = current_user.username
@@ -635,12 +649,11 @@ def inward_gate_pass(
             raise HTTPException(status_code=409, detail="Non-returnable passes have no inward leg")
         if gp.status not in (GP_DISPATCHED, GP_PARTIAL):
             raise HTTPException(status_code=409, detail=f"Pass is {gp.status} — inward applies to Dispatched or Partially Received passes")
-        if (
-            not _is_itadmin(current_user)
-            and gp.warehouse_code is not None
-            and gp.warehouse_code != current_user.warehouse_code
-        ):
-            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        if not _is_itadmin(current_user):
+            if not current_user.gate_pass_location:
+                raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+            if gp.location_code != current_user.gate_pass_location:
+                raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
 
         lines_by_id = {l.id: l for l in gp.lines}
         receipt_details = []

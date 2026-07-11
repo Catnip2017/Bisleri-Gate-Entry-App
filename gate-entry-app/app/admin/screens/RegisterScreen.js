@@ -96,10 +96,11 @@ export default function RegisterScreen() {
     setShowWH(false); setFilteredWH([]);
   };
 
-  const needsWH   = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGP   = roles.includes('Gate Pass User');
-  const needsCP   = roles.includes('Co Packer');
-  const needsScope= needsWH || needsGP || needsCP;
+  const needsWH         = roles.some(r => GUARD_ROLES.includes(r));
+  const needsGuardGPLoc = roles.includes('Security Guard');
+  const needsGP         = roles.includes('Gate Pass User');
+  const needsCP         = roles.includes('Co Packer');
+  const needsScope      = needsWH || needsGP || needsCP;
   const cpOn      = roles.includes('Co Packer');
   const hasNonCP  = roles.some(r => r !== 'Co Packer');
 
@@ -113,6 +114,7 @@ export default function RegisterScreen() {
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
     if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) { showAlert('Validation Error', 'Enter a valid 10-digit mobile'); return; }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
+    if (needsGuardGPLoc && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required for Security Guard'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
     if (needsGP && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required'); return; }
@@ -124,6 +126,7 @@ export default function RegisterScreen() {
         first_name: form.firstName.trim(), last_name: form.lastName.trim(),
         role: roles.join(', '),
         ...(needsWH && { warehouse_code: form.warehouseCode, site_code: form.siteCode }),
+        ...(needsGuardGPLoc && { gate_pass_location: form.gatePassLocation }),
         ...(needsCP && { copacker_location: form.copackerLocation.trim() }),
         ...(needsGP && { department: form.department, gate_pass_location: form.gatePassLocation }),
         ...(form.email?.trim() && { email: form.email.trim() }),
@@ -241,6 +244,14 @@ export default function RegisterScreen() {
                         <TextInput style={[S.input, S.inputDis, { marginBottom: 0 }]} value={form.siteCode} editable={false} />
                       </View>
                     </View>
+                  </View>
+                )}
+
+                {needsGuardGPLoc && (
+                  <View style={{ marginBottom: 14 }}>
+                    <Text style={S.scopeSubLabel}>Security Guard</Text>
+                    <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
+                      onSelect={v => set('gatePassLocation', v)} placeholder="Select gate location..." />
                   </View>
                 )}
 

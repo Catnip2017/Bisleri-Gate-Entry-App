@@ -82,8 +82,9 @@ const AssignAccessScreen = () => {
 
   const hasNoRoles = (user) => !user.role || user.role.trim() === '';
 
-  const needsWarehouse = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGpScope = roles.includes('Gate Pass User');
+  const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
+  const needsGuardGPLoc = roles.includes('Security Guard');
+  const needsGpScope     = roles.includes('Gate Pass User');
 
   // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = async (query) => {
@@ -221,6 +222,9 @@ const AssignAccessScreen = () => {
     if (needsWarehouse && (!warehouseCode || !warehouseName))
       return showAlert('Validation Error', 'Please select a valid warehouse for Security roles');
 
+    if (needsGuardGPLoc && !gatePassLocation)
+      return showAlert('Validation Error', 'Gate Pass Location is required for Security Guard');
+
     if (needsGpScope && !department)
       return showAlert('Validation Error', 'Department is required for Gate Pass User');
 
@@ -235,7 +239,7 @@ const AssignAccessScreen = () => {
         copacker_location: roles.includes('Co Packer') ? copackerLocation.trim() : null,
         warehouse_code: needsWarehouse ? warehouseCode.trim() : null,
         department: needsGpScope ? department : null,
-        gate_pass_location: needsGpScope ? gatePassLocation : null,
+        gate_pass_location: (needsGuardGPLoc || needsGpScope) ? gatePassLocation : null,
       });
 
       // Update personal details
@@ -415,7 +419,7 @@ const AssignAccessScreen = () => {
             </ScrollView>
 
             {/* ── SCOPE COLUMN (right side, only when needed) ── */}
-            {(needsWarehouse || needsGpScope || roles.includes('Co Packer')) && (
+            {(needsWarehouse || needsGuardGPLoc || needsGpScope || roles.includes('Co Packer')) && (
               <>
                 <View style={styles.scopeDivider} />
                 <ScrollView style={styles.scopeCol} contentContainerStyle={{ padding: 16 }}>
@@ -456,6 +460,20 @@ const AssignAccessScreen = () => {
                           </View>
                         </View>
                       </View>
+                    </View>
+                  )}
+
+                  {/* Security Guard — Gate Pass Location */}
+                  {needsGuardGPLoc && (
+                    <View style={{ marginBottom: 16 }}>
+                      <Text style={styles.scopeSubLabel}>Security Guard</Text>
+                      <Text style={styles.fieldLabel}>Gate Pass Location *</Text>
+                      <ScopeDropdown
+                        value={gatePassLocation}
+                        options={gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }))}
+                        onSelect={setGatePassLocation}
+                        placeholder="Select gate location..."
+                      />
                     </View>
                   )}
 
