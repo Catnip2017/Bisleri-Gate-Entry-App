@@ -345,7 +345,7 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      <View style={styles.fieldRow}>
+      <View style={[styles.fieldRow, { zIndex: locDropdownOpen ? 200 : 1 }]}>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Status</Text>
           <TextInput style={[styles.input, styles.inputDisabled]} value="Open" editable={false} />
@@ -393,7 +393,7 @@ const GatePassForm = ({ onCreated }) => {
       </View>
 
       {/* Party lookup */}
-      <View style={styles.fieldRow}>
+      <View style={[styles.fieldRow, { zIndex: partyResults.length > 0 ? 150 : 1 }]}>
         <View style={[styles.fieldHalf, { zIndex: partyResults.length > 0 ? 150 : 1 }]}>
           <Text style={styles.fieldLabel}>Party Code *</Text>
           <View style={{ position: 'relative' }}>
@@ -428,7 +428,7 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      <View style={styles.fieldRow}>
+      <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
         <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
           <View style={{ position: 'relative', overflow: 'visible' }}>
