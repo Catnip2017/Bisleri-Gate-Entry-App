@@ -44,6 +44,8 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
         "warehouse_code": user.warehouse_code,
         "site_code": user.site_code,
         "copacker_location": user.copacker_location,
+        "gate_pass_location": user.gate_pass_location,
+        "department": user.department,
     })
 
     return {"access_token": access_token, "token_type": "bearer"}

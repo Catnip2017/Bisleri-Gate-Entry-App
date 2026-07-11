@@ -73,27 +73,18 @@ export const ROLE_LABELS = {
 };
 
 /**
- * Role-relevant detail rows for the sidebar, from the decoded user.
- * Guards/admins see warehouse + site; copackers see their location.
+ * Sidebar detail rows — identical set for every role.
+ * Fields with no value show '—'; no row is hidden based on role.
  */
 export const getUserDetails = (user) => {
   if (!user) return [];
-  const roles = user.roles || [];
-  const details = [];
-  if (roles.includes('copacker')) {
-    details.push(['Location', user.copackerLocation || '—']);
-  } else {
-    // Gate Entry scope (warehouse master) and Gate Pass scope (separate
-    // gate pass location master) are DIFFERENT masters — shown separately.
-    details.push(['Gate Entry WH', user.warehouseCode || '—']);
-    details.push(['Site Code', user.siteCode || '—']);
-    if (roles.includes('gatepassuser') || roles.includes('itadmin')) {
-      // gatePassLocation comes from the future user↔location assignment;
-      // '—' until the backend adds it to the user profile.
-      details.push(['Gate Pass Loc', user.gatePassLocation || '—']);
-    }
-  }
-  return details;
+  return [
+    ['Gate Entry WH',  user.warehouseCode    || '—'],
+    ['Site Code',      user.siteCode         || '—'],
+    ['Gate Pass Loc',  user.gatePassLocation || '—'],
+    ['Department',     user.department       || '—'],
+    ['CP Location',    user.copackerLocation || '—'],
+  ];
 };
 
 export const getNavLinksForRoles = (roles = []) =>

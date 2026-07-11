@@ -174,6 +174,8 @@ export const getCurrentUser = async () => {
       warehouseCode: payload.warehouse_code,
       siteCode: payload.site_code,
       copackerLocation: payload.copacker_location || null,
+      gatePassLocation: payload.gate_pass_location || null,
+      department: payload.department || null,
       fullName: `${payload.first_name || ""} ${payload.last_name || ""}`.trim(),
       exp: payload.exp
     };
