@@ -24,6 +24,7 @@ const GatePassGuardTab = () => {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dueItems, setDueItems] = useState([]);
+  const [noGpLocation, setNoGpLocation] = useState(false);
 
   // Dispatch modal (confirm + security remarks)
   const [dispatchTarget, setDispatchTarget] = useState(null);
@@ -37,25 +38,33 @@ const GatePassGuardTab = () => {
   const [receiving, setReceiving] = useState(false);
 
   const load = useCallback(async () => {
+    if (noGpLocation) return;
     setLoading(true);
     try {
       const data = await gatePassAPI.getGuardPending(view);
       setItems(data.items || []);
     } catch (error) {
-      showError(handleAPIError(error));
+      const detail = error?.response?.data?.detail || error?.detail || '';
+      if (detail === 'NO_GP_LOCATION') {
+        setNoGpLocation(true);
+        setItems([]);
+      } else {
+        showError(handleAPIError(error));
+      }
     } finally {
       setLoading(false);
     }
-  }, [view]);
+  }, [view, noGpLocation]);
 
   const loadDue = useCallback(async () => {
+    if (noGpLocation) return;
     try {
       const data = await gatePassAPI.getDueNotifications();
       setDueItems(data.items || []);
     } catch (error) {
       setDueItems([]);
     }
-  }, []);
+  }, [noGpLocation]);
 
   useEffect(() => {
     load();
@@ -203,6 +212,22 @@ const GatePassGuardTab = () => {
     { key: 'created_by', title: 'Created By', priority: 2 },
     { key: 'location_code', title: 'Location', priority: 2 },
   ];
+
+  if (noGpLocation) {
+    return (
+      <View style={styles.guardBlockedContainer}>
+        <View style={styles.guardBlockedCard}>
+          <Text style={styles.guardBlockedIcon}>🚫</Text>
+          <Text style={styles.guardBlockedTitle}>No Gate Location Assigned</Text>
+          <Text style={styles.guardBlockedBody}>
+            Your profile does not have a gate pass location assigned.
+            You cannot process gate passes until an IT Admin assigns your location.
+          </Text>
+          <Text style={styles.guardBlockedHint}>Contact IT Admin to resolve this.</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View>
