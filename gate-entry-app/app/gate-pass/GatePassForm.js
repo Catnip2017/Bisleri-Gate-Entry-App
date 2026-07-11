@@ -375,19 +375,17 @@ const GatePassForm = ({ onCreated }) => {
             </TouchableOpacity>
             {locDropdownOpen && (
               <View style={styles.lookupPanel}>
-                <ScrollView style={{ maxHeight: 180 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                  {locations.map((loc) => (
-                    <TouchableOpacity
-                      key={loc.location_code}
-                      style={[styles.lookupRow, locationCode === loc.location_code && styles.lookupRowActive]}
-                      onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
-                    >
-                      <Text style={locationCode === loc.location_code ? styles.lookupCode : styles.lookupName}>
-                        {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {locations.map((loc) => (
+                  <TouchableOpacity
+                    key={loc.location_code}
+                    style={[styles.dropdownItem, locationCode === loc.location_code && styles.dropdownItemActive]}
+                    onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
+                  >
+                    <Text style={[styles.dropdownItemText, locationCode === loc.location_code && styles.dropdownItemTextActive]}>
+                      {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>
@@ -408,14 +406,12 @@ const GatePassForm = ({ onCreated }) => {
             />
             {partyResults.length > 0 && (
               <View style={styles.lookupPanel}>
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                  {partyResults.map((p) => (
-                    <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
-                      <Text style={styles.lookupCode}>{p.party_code}</Text>
-                      <Text style={styles.lookupName}>{p.party_name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {partyResults.map((p) => (
+                  <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
+                    <Text style={styles.lookupCode}>{p.party_code}</Text>
+                    <Text style={styles.lookupName}>{p.party_name}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>
@@ -449,17 +445,15 @@ const GatePassForm = ({ onCreated }) => {
             </TouchableOpacity>
             {deptDropdownOpen && (
               <View style={styles.lookupPanel}>
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                  {departments.map((d) => (
-                    <TouchableOpacity
-                      key={d}
-                      style={[styles.lookupRow, department === d && styles.lookupRowActive]}
-                      onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
-                    >
-                      <Text style={department === d ? styles.lookupCode : styles.lookupName}>{d}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                {departments.map((d) => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.dropdownItem, department === d && styles.dropdownItemActive]}
+                    onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
+                  >
+                    <Text style={[styles.dropdownItemText, department === d && styles.dropdownItemTextActive]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>
@@ -547,7 +541,7 @@ const GatePassForm = ({ onCreated }) => {
         </View>
 
         {lines.map((line, index) => (
-          <View key={index}>
+          <View key={index} style={{ position: 'relative' }}>
             {/* Single-row line item */}
             <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index) ? 100 : 1 }]}>
 
@@ -692,17 +686,15 @@ const GatePassForm = ({ onCreated }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Item lookup dropdown — absolute overlay anchored under Item Code cell */}
+            {/* Item search results — anchored to row wrapper (position:relative above) */}
             {itemSearchLine === index && itemResults.length > 0 && (
-              <View style={[styles.lookupPanel, { left: 4, right: 'auto', minWidth: 280, zIndex: 999 }]}>
-                <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                  {itemResults.map((it) => (
-                    <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
-                      <Text style={styles.lookupCode}>{it.item_code}</Text>
-                      <Text style={styles.lookupName}>{it.item_name} ({it.item_type})</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              <View style={[styles.lookupPanel, { left: 4, right: 'auto', minWidth: 300 }]}>
+                {itemResults.map((it) => (
+                  <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
+                    <Text style={styles.lookupCode}>{it.item_code}</Text>
+                    <Text style={styles.lookupName}>{it.item_name}{it.item_type ? ` (${it.item_type})` : ''}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
           </View>

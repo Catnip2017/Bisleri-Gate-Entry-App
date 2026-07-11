@@ -16,7 +16,6 @@ import styles from './styles/gatePassStyles';
 const MENU = [
   { key: 'new', label: '+ New Gate Pass' },
   { key: 'all', label: 'View All Passes' },
-  { key: 'open', label: 'Pending Release', status: 'Open' },
   { key: 'released', label: 'Pending Dispatch', status: 'Released' },
   { key: 'dispatched', label: 'Dispatched', status: 'Dispatched' },
   { key: 'partial', label: 'Partially Received', status: 'Partially Received' },
@@ -58,10 +57,9 @@ const GatePassDashboard = () => {
   }, [loadDue, refreshKey]);
 
   const bump = () => setRefreshKey((k) => k + 1);
-  // Guards see status views relevant to gate operations — not New Pass or Pending Release
-  // (Pending Release is an internal dept approval workflow; guard has nothing to do there)
+  // Guards see status views only — not New Gate Pass (they don't create passes)
   const visibleMenu = isGuard
-    ? MENU.filter((m) => m.key !== 'new' && m.key !== 'open')
+    ? MENU.filter((m) => m.key !== 'new')
     : MENU;
   const activeMenu = visibleMenu.find((m) => m.key === activeKey) || visibleMenu[0];
 

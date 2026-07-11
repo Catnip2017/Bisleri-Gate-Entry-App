@@ -234,11 +234,12 @@ export default StyleSheet.create({
   chipText: { color: gp.textMuted, fontSize: 13 },
   chipActiveText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
 
-  // ── Absolute-overlay dropdown panel (all dropdowns use this) ─────────────
-  // position: 'relative' must be on the direct parent of lookupPanel
+  // ── Absolute-overlay dropdown panel ──────────────────────────────────────
+  // Requires parent View to have position: 'relative'.
+  // top: '100%' sits flush below the trigger regardless of its height.
   lookupPanel: {
     position: 'absolute',
-    top: 44,          // sits flush under a standard 44px trigger/input
+    top: '100%',
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
@@ -251,20 +252,36 @@ export default StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
+    maxHeight: 280,
+    overflow: 'hidden',
   },
+  // Single-text dropdown item (Location, Dept) — no flex:1 on Text
+  dropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF1F5',
+    minHeight: 38,
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  dropdownItemActive: { backgroundColor: '#EBF4FF' },
+  dropdownItemText: { fontSize: 13, color: gp.text },
+  dropdownItemTextActive: { color: gp.accent, fontWeight: 'bold' },
+  // Two-column lookup row (Party search, Item search)
   lookupRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#EDF1F5',
     minHeight: TOUCH_TARGET - 8,
     alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FFFFFF',
   },
-  lookupRowActive: { backgroundColor: '#f0f7ff' },
-  lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 13 },
-  lookupName: { color: gp.text, fontSize: 13, flex: 1 },
+  lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 13, flexShrink: 0 },
+  lookupName: { color: gp.text, fontSize: 13, flexShrink: 1, flexGrow: 1 },
   autoFilledNote: { color: gp.textMuted, fontSize: 12, marginBottom: spacing.sm },
 
   // ── Items table (wireframe: blue header, white rows) ──────────────────────
