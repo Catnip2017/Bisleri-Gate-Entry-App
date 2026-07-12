@@ -12,22 +12,17 @@ router = APIRouter(tags=["Authentication"])
 
 @router.post("/login", response_model=Token)
 def login(login_data: LoginRequest, db: Session = Depends(get_db)):
-    # Look up user first so we can give distinct messages
+    # Single generic failure message for both "no such user" and "wrong
+    # password" — prevents account enumeration (an attacker must not be able
+    # to tell whether a username exists from the login response).
     db_user = db.query(UsersMaster).filter(
         UsersMaster.username == login_data.username.strip()
     ).first()
 
-    if not db_user:
+    if not db_user or not verify_password(login_data.password, db_user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Username not found. Please check your username.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    if not verify_password(login_data.password, db_user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect password. Please try again.",
+            detail="Invalid username or password.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
