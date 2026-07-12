@@ -191,10 +191,10 @@ def get_filtered_rm_entries(
         result_list = []
         for entry in entries:
             # Check if entry can be edited (48-hour window — app/utils/edit_window.py)
-            # IT Admin: view-only. Security Admin / Security Guard: same warehouse only.
+            # ONLY Security Guards edit (12 Jul 2026); admin roles view-only.
             can_edit = (
                 is_within_edit_window(entry.date_time) and
-                "itadmin" not in normalized_roles and
+                "securityguard" in normalized_roles and
                 entry.warehouse_code == current_user.warehouse_code
             )
             time_remaining = get_time_remaining(entry.date_time)
@@ -256,11 +256,12 @@ def update_rm_entry(
                 detail=f"Edit window expired. Records can only be edited within {EDIT_WINDOW_HOURS} hours."
             )
 
-        # Check permissions — warehouse-based
-        if "itadmin" in normalize_roles(current_user.role):
+        # Check permissions — ONLY Security Guards edit (12 Jul 2026);
+        # IT Admin and Security Admin are view-only.
+        if "securityguard" not in normalize_roles(current_user.role):
             raise HTTPException(
                 status_code=403,
-                detail="IT Admins can only view entries. Editing is disabled."
+                detail="Only Security Guards can edit entries. Admin roles are view-only."
             )
         if rm_entry.warehouse_code != current_user.warehouse_code:
             raise HTTPException(
@@ -458,10 +459,10 @@ def get_admin_filtered_rm_entries(
         result_list = []
         for entry in entries:
             # Check if entry can be edited (48-hour window — app/utils/edit_window.py)
-            # IT Admin: view-only. Security Admin: same warehouse only.
+            # ONLY Security Guards edit (12 Jul 2026); admin roles view-only.
             can_edit = (
                 is_within_edit_window(entry.date_time) and
-                "itadmin" not in roles and
+                "securityguard" in roles and
                 entry.warehouse_code == current_user.warehouse_code
             )
             time_remaining = get_time_remaining(entry.date_time)

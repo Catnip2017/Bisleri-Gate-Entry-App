@@ -61,12 +61,11 @@ def can_be_edited(record, current_user_username, current_user_role,
                   current_user_warehouse_code=None) -> bool:
     """Check if the record can be edited by the given user.
 
-    Rules (unchanged from the old model method, but now multi-role aware):
+    Rules (decision 12 Jul 2026 — oversight roles never mutate):
     - must be inside the 48-hour window
-    - IT Admin is view-only — unless the user ALSO holds an operational
-      role (Security Guard / Security Admin), in which case the
-      operational role wins
-    - warehouse staff can edit entries from their own warehouse
+    - ONLY Security Guards may edit; IT Admin and Security Admin are
+      view-only (a combo user holding securityguard keeps edit rights)
+    - guards edit entries from their own warehouse
     - the creator can always edit their own entry
     """
     if get_edit_status(record) == 'expired':
@@ -74,11 +73,11 @@ def can_be_edited(record, current_user_username, current_user_role,
 
     roles = normalize_roles(current_user_role)
 
-    # IT Admin: view-only (operational roles override for combo users)
-    if "itadmin" in roles and not ({"securityguard", "securityadmin"} & set(roles)):
+    # Only Security Guards edit. IT Admin / Security Admin: view-only.
+    if "securityguard" not in roles:
         return False
 
-    # Security Guard / Security Admin: any entry from their own warehouse
+    # Guard: any entry from their own warehouse
     if current_user_warehouse_code and record.warehouse_code == current_user_warehouse_code:
         return True
 

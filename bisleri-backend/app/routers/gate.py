@@ -25,6 +25,15 @@ from pydantic import BaseModel
 router = APIRouter(tags=["Gate Operations"])
 
 
+def _require_gate_operator(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:
+    """Gate entries are created at the gate by Security Guards. IT Admin and
+    Security Admin are VIEW-ONLY (decision 12 Jul 2026) — the UI already
+    disables the form for them; this enforces it server-side."""
+    if "securityguard" not in normalize_roles(current_user.role):
+        raise HTTPException(status_code=403, detail="Only Security Guards can create gate entries")
+    return current_user
+
+
 def check_document_movement_allowed(db: Session, document_no: str, movement_type: str):
     """
     Document-level gate entry lock.
@@ -206,7 +215,7 @@ def get_vehicle_status(
 def create_enhanced_batch_gate_entry(
     entry: EnhancedGateEntryCreate,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Enhanced batch gate entry with optional operational data capture"""
     
@@ -439,7 +448,7 @@ def create_enhanced_batch_gate_entry(
 def create_batch_gate_entry(
     entry: BatchGateEntryCreate,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Batch gate entry with RAW SQL gate entry number generation"""
     
@@ -602,7 +611,7 @@ def create_batch_gate_entry(
 def create_enhanced_manual_gate_entry(
     entry: EnhancedManualGateEntryCreate,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Enhanced manual gate entry with operational data capture"""
     
@@ -717,7 +726,7 @@ def create_enhanced_manual_gate_entry(
 def create_manual_gate_entry(
     entry: ManualGateEntryCreate,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Manual gate entry with RAW SQL gate entry number generation"""
     
@@ -912,7 +921,7 @@ def get_unassigned_documents_for_vehicle(
 def assign_document_to_manual_entry(
     assignment_data: dict,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Assign a document from document_data to a manual insights entry"""
     
@@ -1185,7 +1194,7 @@ def get_operational_data_summary(
 def create_multi_document_manual_entry(
     entry: MultiDocumentManualEntryCreate,
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(get_current_user)
+    current_user: UsersMaster = Depends(_require_gate_operator)
 ):
     """Create multiple manual gate entries with same gate entry number OR single empty vehicle entry"""
     
