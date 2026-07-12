@@ -1,4 +1,11 @@
 -- ============================================================
+-- SUPERSEDED — do NOT use. Kept for historical reference only.
+-- The current authoritative main-DB schema is:
+--   DB Schemas/schema_bisleri_01.sql  (generated from the ORM, 25 tables)
+-- This file describes the old 8-table gate-entry schema.
+-- ============================================================
+
+-- ============================================================
 --  BISLERI GATE ENTRY APP — Full Database Schema
 --  PostgreSQL >= 14
 --
