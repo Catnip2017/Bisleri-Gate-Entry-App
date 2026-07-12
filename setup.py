@@ -23,7 +23,7 @@ def main():
     backend_path = os.path.join(BASE_DIR, "bisleri-backend")
     deps_file    = os.path.join(backend_path, "requirements.txt")
 
-    print("\n[1/3] Installing Python packages ...")
+    print("\n[1/4] Installing Python packages ...")
     if os.path.isfile(deps_file):
         result = run(f'"{sys.executable}" -m pip install -r "{deps_file}"')
         if result != 0:
@@ -34,7 +34,7 @@ def main():
         print("      requirements.txt not found — skipping.")
 
     # 2. Alembic migrations
-    print("\n[2/3] Running database migrations (Alembic) ...")
+    print("\n[2/4] Running database migrations (Alembic) ...")
     if os.path.isdir(backend_path):
         result = run(f'"{sys.executable}" -m alembic upgrade head', cwd=backend_path)
         if result != 0:
@@ -48,7 +48,7 @@ def main():
 
     # 3. Frontend npm packages (Expo / React Native)
     frontend_path = os.path.join(BASE_DIR, "gate-entry-app")
-    print("\n[3/3] Installing frontend npm packages ...")
+    print("\n[3/4] Installing frontend npm packages ...")
     if os.path.isdir(frontend_path):
         result = run("npm install --legacy-peer-deps", cwd=frontend_path)
         if result != 0:
@@ -58,8 +58,35 @@ def main():
     else:
         print("      /gate-entry-app folder not found — skipping.")
 
+    # 4. Dashboard web app (Vite/React) — built into dashboard-web/dist,
+    #    which the backend serves at /dashboard. Without this build the
+    #    /dashboard route 404s (the mount is guarded by os.path.isdir).
+    dashboard_path = os.path.join(BASE_DIR, "dashboard-web")
+    print("\n[4/4] Installing + building dashboard web app ...")
+    if os.path.isdir(dashboard_path):
+        result = run("npm install", cwd=dashboard_path)
+        if result != 0:
+            print("      FAILED (npm install) — check Node.js / npm is installed.")
+            sys.exit(result)
+        result = run("npm run build", cwd=dashboard_path)
+        if result != 0:
+            print("      FAILED (npm run build) — /dashboard will be unavailable until built.")
+            print("      You can build it manually later:")
+            print("        cd dashboard-web && npm install && npm run build")
+        else:
+            print("      Done.")
+    else:
+        print("      /dashboard-web folder not found — skipping.")
+
     print("\n" + DIVIDER)
     print("  Setup complete!")
+    print()
+    print("  ── DATABASES ──────────────────────────────────────")
+    print("  Main DB (Bisleri_dev/Bisleri_01) must exist before the")
+    print("  Alembic step above succeeds:")
+    print('    psql -U postgres -c "CREATE DATABASE Bisleri_dev;"')
+    print("  Bisleri_dashboard self-provisions via the ETL; RPA_Automation")
+    print("  is external (read-only). See DB Schemas/ for reference DDL.")
     print()
     print("  ── LOCAL DEVELOPMENT ──────────────────────────────")
     print("  Backend  : cd bisleri-backend")
