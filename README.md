@@ -1,34 +1,33 @@
 # Bisleri Gate Entry App
 
-A digital gate entry management system for Bisleri plant operations. Tracks all Finished Goods (FG) and Raw Materials (RM) vehicle movements — Gate-In and Gate-Out — replacing manual paper-based gate registers. Also includes a Co-Packer quality capture module and IBM WatsonX OCR integration for automated document reading.
+A digital gate-entry management system for Bisleri plant and warehouse operations. It records every Finished Goods (FG) and Raw Materials (RM) vehicle movement — Gate-In and Gate-Out — replacing manual paper gate registers, and adds a Gate Pass module (returnable / non-returnable material passes), a Co-Packer quality-capture module, RPA dashboards, and IBM WatsonX OCR for automated document reading.
+
+The backend is a FastAPI service backed by PostgreSQL; the frontend is a single Expo React Native codebase that runs both as a web app (desktops) and on Android tablets. The system integrates with the Mfabric ERP feed to validate documents (Delivery Challans, Invoices, Transfer Orders, RGP) against vehicles at the gate.
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
 - [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
 - [Project Structure](#project-structure)
-- [User Roles](#user-roles)
-- [Features](#features)
-- [Network & Deployment](#network--deployment)
+- [Modules](#modules)
+- [User Roles & Access Model](#user-roles--access-model)
+- [Authentication & Authorization](#authentication--authorization)
+- [Data Model](#data-model)
+- [API Surface](#api-surface)
+- [Mfabric ERP Sync](#mfabric-erp-sync)
 - [Prerequisites](#prerequisites)
-- [Infrastructure Setup](#infrastructure-setup)
+- [Backend Setup](#backend-setup)
+- [Frontend Setup](#frontend-setup)
 - [Environment Configuration](#environment-configuration)
-- [Database Setup](#database-setup)
+- [Database Setup & Migrations](#database-setup--migrations)
 - [Running the App](#running-the-app)
+- [Testing](#testing)
+- [Logging & Error Handling](#logging--error-handling)
+- [Network & Deployment](#network--deployment)
 - [Supported Devices](#supported-devices)
-- [Key Notes for Developers](#key-notes-for-developers)
-
----
-
-## Overview
-
-The Bisleri Gate Entry App is used at plant/warehouse locations to record every vehicle entering or exiting the gate. Security guards log entries in real time from Android tablets. Supervisors and admins view insights, manage users, and track operational data from Windows desktops via a web browser.
-
-The system integrates with the Mfabric ERP to validate documents (Delivery Challans, Invoices, Transfer Orders, RGP) against incoming/outgoing vehicles. A background scheduler syncs Mfabric data into local staging tables automatically every 10 minutes.
-
-JWT token revocation is enforced via Redis — logging out, resetting a password, or changing a user's role immediately invalidates their active session on all devices.
+- [Developer Notes & Conventions](#developer-notes--conventions)
 
 ---
 
@@ -36,17 +35,29 @@ JWT token revocation is enforced via Redis — logging out, resetting a password
 
 | Layer | Technology |
 |---|---|
-| Frontend | React Native + Expo (web + Android) |
-| Backend | FastAPI (Python 3.10+) |
+| Frontend | React Native + Expo (Expo Router), runs on web + Android |
+| Backend | FastAPI (Python 3.10+), Uvicorn ASGI server |
 | Database | PostgreSQL 14+ |
-| ORM | SQLAlchemy |
-| Migrations | Alembic |
-| Reverse Proxy | Nginx |
-| Authentication | JWT (python-jose + passlib bcrypt) |
-| Token Revocation | Redis (blocklist keyed by JWT `jti` claim) |
-| Background Jobs | APScheduler (Mfabric sync every 10 minutes) |
+| ORM | SQLAlchemy 2.x |
+| Validation | Pydantic v2 / pydantic-settings |
+| Auth | JWT (python-jose) + password hashing (passlib / bcrypt) |
+| Background jobs | APScheduler (Mfabric sync on an interval) |
 | OCR | IBM WatsonX (llama-4-maverick via IBM Cloud) |
-| ERP Integration | Mfabric (Azure Blob / data sync service) |
+| ERP integration | Mfabric staging tables + data-sync service |
+| Reverse proxy | Nginx (TLS termination, path routing) |
+| Tests | pytest + Starlette TestClient (SQLite-backed) |
+| Secondary dashboards | `dashboard-web/` — separately built static bundle for RPA / load analytics |
+
+---
+
+## Architecture
+
+Two independently deployable pieces behind one Nginx reverse proxy:
+
+- **`bisleri-backend/`** — the FastAPI application. Owns the database, authentication, all business logic, the Mfabric sync scheduler, and the WatsonX OCR calls. Stateless HTTP; every request carries a JWT.
+- **`gate-entry-app/`** — the Expo React Native client. One codebase serves the browser (Expo web) and Android tablets (Expo Go / dev client). It holds no business rules of its own — every action is validated server-side; the UI only reflects what the API permits.
+
+The client never touches the database directly. All reads and writes go through the API, which is the single authority for access control, validation, and data integrity.
 
 ---
 
@@ -55,270 +66,254 @@ JWT token revocation is enforced via Redis — logging out, resetting a password
 ```
 Bisleri-Gate-Entry-App/
 │
-├── bisleri-backend/                   # FastAPI backend
+├── bisleri-backend/                     # FastAPI backend
 │   ├── app/
-│   │   ├── main.py                    # App entry, CORS, router registration,
-│   │   │                              # APScheduler startup, Redis auto-start
-│   │   ├── auth.py                    # JWT creation, password hashing,
-│   │   │                              # get_current_user (with Redis blocklist check)
-│   │   ├── redis_client.py            # Shared Redis connection + token revocation helpers
-│   │   ├── config.py                  # All settings loaded from .env (pydantic-settings)
-│   │   ├── database.py                # SQLAlchemy engine + session factory
+│   │   ├── main.py                      # App entry: FastAPI() config, CORS, router
+│   │   │                                # registration, APScheduler lifespan, logging
+│   │   ├── auth.py                      # JWT create/verify, password hashing,
+│   │   │                                # get_current_user dependency (per-request checks)
+│   │   ├── config.py                    # Settings from .env (pydantic-settings)
+│   │   ├── database.py                  # SQLAlchemy engine, session factory, Base, get_db
 │   │   │
-│   │   ├── models/                    # SQLAlchemy ORM table definitions
-│   │   │   ├── users.py               # UsersMaster, LocationMaster
-│   │   │   ├── insights.py            # InsightsData (FG gate entry log)
-│   │   │   ├── documents.py           # DocumentData, Mfabric staging tables
-│   │   │   ├── raw_materials.py       # RawMaterialsData (RM gate entry log)
-│   │   │   └── copacker.py            # CopackerEntry, CopackerLocation
+│   │   ├── models/                      # SQLAlchemy ORM tables
+│   │   │   ├── users.py                 # UsersMaster, LocationMaster
+│   │   │   ├── insights.py              # InsightsData (FG gate-entry log)
+│   │   │   ├── raw_materials.py         # RawMaterialsData (RM gate-entry log)
+│   │   │   ├── documents.py             # DocumentData + Mfabric staging tables
+│   │   │   ├── gate_pass.py             # Gate Pass header/line/event/sequence/party/
+│   │   │   │                            # item/cancel-reason/location + UserGatePassLocation
+│   │   │   └── copacker.py              # CopackerEntry, CopackerLocation, sessions
 │   │   │
-│   │   ├── routers/                   # FastAPI route handlers
-│   │   │   ├── auth.py                # POST /login  — issues JWT + stores jti in Redis
-│   │   │   │                          # POST /logout — revokes token in Redis
-│   │   │   ├── gate.py                # FG gate entry creation
-│   │   │   ├── insights.py            # FG movement insights + operational edit
-│   │   │   ├── admin.py               # User management (IT Admin only)
-│   │   │   │                          # reset-password / modify-user revoke active tokens
-│   │   │   ├── documents.py           # Mfabric document lookup
-│   │   │   ├── raw_materials.py       # RM entry endpoints
-│   │   │   ├── copacker.py            # Co-packer entries + authenticated image serving
-│   │   │   ├── sync.py                # Manual sync trigger + logs (IT Admin only)
-│   │   │   └── ping.py                # Health check endpoints
+│   │   ├── routers/                     # HTTP route handlers (one module per area)
+│   │   │   ├── auth.py                  # POST /login, POST /logout
+│   │   │   ├── gate.py                  # FG gate-entry creation (batch / manual / multi-doc)
+│   │   │   ├── insights.py              # FG movement lists + operational edit
+│   │   │   ├── raw_materials.py         # RM entry create + lists (/rm/*)
+│   │   │   ├── gate_pass.py             # Gate Pass lifecycle (create/release/dispatch/
+│   │   │   │                            # inward/cancel/force-close) + lookups
+│   │   │   ├── admin.py                 # User management, dashboard stats (IT Admin)
+│   │   │   ├── documents.py             # Mfabric document lookup / consolidation
+│   │   │   ├── copacker.py              # Co-packer entries + authenticated image serving
+│   │   │   ├── dashboard.py             # RPA / load dashboard API
+│   │   │   ├── rpa.py                   # RPA data endpoints
+│   │   │   ├── sync.py                  # Manual Mfabric sync trigger + status/logs
+│   │   │   └── ping.py                  # Health checks
 │   │   │
-│   │   ├── schemas/                   # Pydantic request/response models
-│   │   │   ├── user_schemas.py
-│   │   │   ├── gate_schemas.py
-│   │   │   ├── document_schemas.py
+│   │   ├── schemas/                     # Pydantic request/response models
+│   │   │   ├── user_schemas.py          # UserCreate/Response/RoleUpdate, GP location assignment
+│   │   │   ├── gate_schemas.py          # Gate entry + operational-edit schemas
+│   │   │   ├── gate_pass_schemas.py     # Gate Pass typed request/response (Pydantic v2)
 │   │   │   ├── raw_materials_schemas.py
-│   │   │   ├── copacker_schemas.py
+│   │   │   ├── document_schemas.py
+│   │   │   ├── filter_schemas.py        # MovementFilters (typed list filters + pagination)
 │   │   │   └── token_schemas.py
 │   │   │
-│   │   ├── services/                  # Business logic
-│   │   │   ├── data_sync_service.py   # Mfabric → document_data sync logic
-│   │   │   ├── db_service.py          # Shared DB helpers
-│   │   │   └── watsonx_ocr.py         # IBM WatsonX OCR API integration
+│   │   ├── services/                    # Business logic (kept out of routers/models)
+│   │   │   ├── data_sync_service.py     # Mfabric → document_data sync
+│   │   │   ├── db_service.py            # Shared DB helpers
+│   │   │   ├── edit_service.py          # 3-colour edit-window logic for InsightsData
+│   │   │   └── watsonx_ocr.py           # IBM WatsonX OCR integration
 │   │   │
-│   │   └── utils/
-│   │       ├── helpers.py             # Shared utility functions
-│   │       └── security.py            # Role checking helpers
+│   │   ├── utils/
+│   │   │   ├── roles.py                 # normalize_roles() — single source for role parsing
+│   │   │   ├── edit_window.py           # 48-hour edit-window helpers (single source)
+│   │   │   ├── errors.py                # Safe error responses (ref-ID + server-side logging)
+│   │   │   ├── helpers.py               # Gate-entry number generation, misc helpers
+│   │   │   └── security.py              # Role-check helpers
+│   │   │
+│   │   └── dashboard/etl/               # RPA/load dashboard ETL jobs
 │   │
-│   ├── csv_to_DB.py                   # Mfabric CSV → PostgreSQL push script
-│   │                                  # Auto-imported by APScheduler on startup
-│   ├── scheduler.py                   # Standalone scheduler (legacy, not used in prod)
-│   ├── migrations/                    # Alembic migration versions
-│   ├── alembic.ini
-│   ├── requirements.txt               # Python dependencies
-│   └── .env                           # Backend secrets — NEVER commit this file
+│   ├── tests/                           # pytest suite (SQLite-backed TestClient)
+│   │   ├── conftest.py                  # Fixtures: in-memory DB, role-switching client
+│   │   ├── test_roles.py                # utils/roles unit tests
+│   │   ├── test_edit_window.py          # utils/edit_window unit tests
+│   │   ├── test_edit_service.py         # 3-colour edit logic
+│   │   ├── test_errors.py               # safe-error / ref-ID behaviour
+│   │   ├── test_filter_endpoints.py     # typed filters + GET list endpoints
+│   │   ├── test_pagination.py           # skip/limit + total_count
+│   │   ├── test_dashboard_stats.py      # aggregated admin stats
+│   │   ├── test_gate_pass_flow.py       # Gate Pass lifecycle + access rules
+│   │   ├── test_gatepassuser_role.py    # Gate Pass User role + multi-location
+│   │   ├── test_security_admin_viewonly.py
+│   │   └── test_is_active.py            # account activation / kill switch
+│   │
+│   ├── csv_to_DB.py                     # Mfabric staging → document_data push
+│   │                                    # (imported and run by the APScheduler job)
+│   ├── pytest.ini                       # Test configuration
+│   ├── requirements.txt                 # Python dependencies
+│   ├── alembic.ini + migrations/        # Alembic (baseline; see SQL migrations note below)
+│   ├── .env.example                     # Backend config template
+│   └── .env                             # Backend secrets — NEVER commit
 │
-├── gate-entry-app/                    # Expo React Native frontend
-│   ├── app/
-│   │   ├── index.js                   # Root entry point / auth redirect
-│   │   ├── LoginScreen.js             # Login page
+├── gate-entry-app/                      # Expo React Native frontend
+│   ├── app/                             # Expo Router routes (file-based)
+│   │   ├── LoginScreen.js
+│   │   ├── index.js                     # Root redirect / auth gate
+│   │   ├── landing/                     # Post-login role-based routing
+│   │   ├── security/                    # Security dashboard (gate entry + insights tabs)
+│   │   │   └── components/              # GateEntryTab, RM tabs, insights, guard gate-pass tab
+│   │   ├── gate-pass/                   # Gate Pass module (dashboard, form, list, print)
+│   │   ├── admin/ + admin-hub/          # User management + admin hub tiles
+│   │   ├── copacker/                    # Co-Packer capture module
+│   │   └── rpa/                         # RPA dashboard screens
 │   │   │
-│   │   ├── landing/                   # Post-login role selection screen
-│   │   │   └── LandingScreen.js
-│   │   │
-│   │   ├── security/                  # Security Guard dashboard
-│   │   │   ├── SecurityDashboard.js
-│   │   │   ├── components/
-│   │   │   │   ├── GateEntryTab.js         # FG vehicle entry form
-│   │   │   │   ├── SecurityInsightsTab.js  # FG history + 48h edit window
-│   │   │   │   ├── RMInsightsTab.js        # RM movement history
-│   │   │   │   ├── RMEntryTab.js           # RM vehicle entry form
-│   │   │   │   ├── OperationalEditModal.js # Driver/KM/loader data completion
-│   │   │   │   ├── Header.js
-│   │   │   │   ├── Sidebar.js
-│   │   │   │   └── TabNavigation.js
-│   │   │   └── manual-entry/               # Manual gate entry flow
-│   │   │       ├── ManualEntryScreen.js
-│   │   │       └── ManualEntryForm.js
-│   │   │
-│   │   ├── admin/                     # Admin dashboard (IT Admin / Security Admin)
-│   │   │   ├── AdminDashboard.js
-│   │   │   └── screens/
-│   │   │       ├── AdminInsightsScreen.js  # Full movement history, all warehouses
-│   │   │       ├── RegisterScreen.js       # Create new users
-│   │   │       ├── ModifyUserScreen.js     # Edit user details / roles
-│   │   │       └── ResetPasswordScreen.js  # Reset any user's password
-│   │   │
-│   │   └── copacker/                  # Co-Packer quality capture module
-│   │       └── CoPackerDashboard.js   # Session-based capture, photo upload, image preview
-│   │
-│   ├── services/
-│   │   └── api.js                     # Axios client — auto-attaches Bearer token to all requests
-│   │
+│   ├── config/navConfig.js              # Role → menu / landing routing config
+│   ├── services/api.js                  # Axios client — attaches Bearer token to requests
 │   ├── utils/
-│   │   ├── jwtUtils.js                # Token decode + current user helper
-│   │   ├── storage.js                 # expo-secure-store wrapper
-│   │   └── customModal.js             # Cross-platform alert helper
-│   │
-│   ├── .env                           # Frontend API URL — NEVER commit this
-│   ├── .env.example                   # Template — commit this instead
-│   └── .gitignore
+│   │   ├── jwtUtils.js                  # Token decode + current-user helper + role routing
+│   │   ├── storage.js                   # expo-secure-store (mobile) / localStorage (web)
+│   │   ├── printGatePass.js             # Printable gate pass (web)
+│   │   └── customModal.js               # Cross-platform alert
+│   ├── .env.example                     # Frontend config template
+│   └── .env                             # Frontend API URL — NEVER commit
 │
-├── schema.sql                         # Full PostgreSQL schema + seed data
+├── dashboard-web/                       # Separately built static dashboard bundle (RPA/load)
+│
+├── schema.sql                           # Full base schema + seed data
+├── gate_pass_migration.sql             # Gate Pass tables + master seeds
+├── user_scope_fields_migration.sql     # department + gate_pass_location on users_master
+├── user_gate_pass_locations_migration.sql   # user↔location junction (multi-location)
+├── users_is_active_migration.sql       # is_active column on users_master
+├── insights_rm_indexes_migration.sql   # Performance indexes on FG/RM tables
+├── copacker_migration.sql              # Co-Packer tables
+├── copacker_session_migration.sql      # Co-Packer session capture
+├── add_shift_to_sessions_migration.sql # Shift column on co-packer sessions
 └── README.md
 ```
 
 ---
 
-## User Roles
+## Modules
 
-Roles are stored as comma-separated strings in `users_master.role`. A user can hold multiple roles (e.g. `Security Guard, Security Admin`). All role checks in the backend normalize to lowercase with spaces removed (e.g. `securityguard`, `itadmin`).
+**FG Gate Entry** — Log Finished Goods movements (Gate-In / Gate-Out). Searches and validates against Mfabric documents; supports WatsonX OCR for reading document numbers from photos; supports a manual-entry path when ERP data is unavailable.
 
-| Role | Access |
+**RM Gate Entry** — Log Raw Materials vehicle entries with document reference, party, description, and quantity.
+
+**Insights (FG & RM)** — Filterable movement history (date range, vehicle, warehouse, site, movement type), paginated, warehouse-scoped by role. FG insights include the 3-colour operational-edit system within a 48-hour window.
+
+**3-Colour Edit System** — Each FG record surfaces an edit control coloured by state:
+
+| Colour | Meaning |
 |---|---|
-| `Security Guard` | FG Gate Entry, FG Insights, RM Insights, RM Entry tabs |
-| `Security Admin` | Admin Dashboard → Admin Insights tab only |
-| `IT Admin` | Full access — all tabs + Register / Modify / Reset Password + Sync controls |
-| `Co Packer` | Co-Packer Dashboard only — quality capture and image review for their assigned location |
+| Yellow | Inside the 48-hour window, required operational fields (driver, KM, loaders) missing |
+| Green | Inside the window, all fields complete |
+| Black | 48-hour window expired — view only |
 
-> **Co Packer is an exclusive role** and cannot be combined with any other role. A Co Packer user must be assigned a `copacker_location` when the role is set. This is enforced on both the backend and the Modify User screen.
+The window and all edit-permission logic are computed server-side (`utils/edit_window.py` + `services/edit_service.py`); the button config the API returns is what the UI renders.
 
----
+**Gate Pass** — Returnable (R) and Non-Returnable (NR) material passes with a strict lifecycle: `Open → Released → Dispatched`, and for returnable passes `→ [Partially Received →] Inward Received`. Passes are never edited — a wrong pass is cancelled (with a mandatory reason) and recreated. Pass numbers are assigned at submit under a row lock, incremental per (location, type), and never reused. Returnable passes support line-level partial returns (append-only receipt events) and an admin force-close for material that will never return.
 
-## Features
+**Co-Packer** — Session-based quality capture per co-packer location: product, batch, inspector details, and inline photos. Images are stored on the server filesystem and served through an authenticated endpoint (never as public static files).
 
-### Security Guard Dashboard
+**User Management (Admin Hub)** — Assign Access, Register User, and Reset Password screens. Handles roles, warehouse scope, gate-pass location scope, department, and account activation.
 
-**FG Gate Entry** — Log Finished Goods vehicle movements (Gate-In / Gate-Out). Searches and validates against Mfabric documents (Delivery Challan, Invoice, Transfer Order, RGP). Supports IBM WatsonX OCR for automated document number reading from photos.
-
-**RM Entry** — Log Raw Materials vehicle entries with document reference and weights.
-
-**FG Insights** — View historical FG gate entries with date/vehicle filters. Supports operational data completion within a 48-hour edit window.
-
-**RM Insights** — View Raw Materials vehicle movement history.
-
-**Manual Entry** — Bypass document lookup and create a gate entry record manually when ERP data is unavailable.
-
-### 3-Colour Edit System (FG Insights)
-
-Each gate entry record shows an edit button coloured by completion status:
-
-| Colour | Meaning | Action |
-|---|---|---|
-| Yellow | Missing operational data (Driver Name, KM Reading, Loader Names) | Must complete |
-| Green | All data complete, within 48-hour window | Can edit optionally |
-| Black | 48-hour edit window expired | View only, no edit |
-
-### Admin Dashboard
-
-**Admin Insights** — Full movement history across all warehouses with site/warehouse filters and export.
-
-**Register Users** — Create new user accounts with role and warehouse assignment *(IT Admin only)*.
-
-**Modify Users** — Update existing user roles and details. Changing a role immediately revokes the user's active token — they must re-login to get a token reflecting the updated role *(IT Admin only)*.
-
-**Reset Password** — Reset any user's password. Immediately revokes the affected user's active token so they must re-login with the new credentials *(IT Admin only)*.
-
-### Co-Packer Dashboard
-
-Session-based quality capture for co-packer locations. Each session records product, batch, date, inspector details, and inline quality check photos. Images are stored on the server filesystem and served via an authenticated endpoint — never as public static files.
-
-### Mfabric ERP Integration
-
-Delivery Challan, Invoice, Transfer Order, and RGP data is synced from Mfabric into local `document_data` staging tables. Documents validate and auto-fill vehicle details during gate entry.
-
-**Sync runs automatically every 10 minutes** via APScheduler (started with the backend). An initial sync runs on startup. IT Admins can also trigger a manual sync or view sync logs via the `/sync` endpoints.
-
-### JWT Token Revocation (Redis)
-
-Every token contains a unique `jti` (JWT ID). On login, the `jti` is stored in Redis with a TTL matching the token lifetime. On logout, password reset, role change, or user deletion — the `jti` is added to a Redis blocklist and all subsequent requests using that token are rejected with HTTP 401, even if the token has not expired yet. Redis starts automatically with the backend — no manual management required.
+**RPA / Load Dashboards** — Analytics served from `dashboard.py` / `rpa.py` and the `dashboard-web/` static bundle.
 
 ---
 
-## Network & Deployment
+## User Roles & Access Model
 
-```
-Internet / Bisleri Network
-        │
-        ▼
-   Nginx (192.168.1.56 / 123.63.20.237)
-        │
-        ├── Port 19000 (HTTPS — Public URL)
-        │       ├── /api/*  →  FastAPI backend  (127.0.0.1:8000)
-        │       └── /*      →  Expo Web App     (127.0.0.1:8081)
-        │
-        └── Port 443 (HTTPS — Streamlit apps)
-```
+Roles are stored as a comma-separated display string in `users_master.role` (e.g. `IT Admin, Security Guard`). A user may hold multiple roles. Every backend check normalizes roles to lowercase-no-spaces (`itadmin`, `securityguard`, `securityadmin`, `gatepassuser`, `copacker`) via `app/utils/roles.py` — never compare `current_user.role` to a literal.
 
-| URL | Used By | Access |
-|---|---|---|
-| `https://123.63.20.237:19000` | All users (tablets + desktops) | Public internet / Bisleri network |
-| `http://192.168.1.56:8081` | Developers / IT (direct frontend) | Bisleri network or VPN only |
+| Role | Capability |
+|---|---|
+| `Security Guard` | Create/edit FG & RM gate entries (own warehouse, within the 48-hour window); process the Gate Pass guard worklist (dispatch / inward) at their assigned gate-pass location(s). |
+| `Security Admin` | Oversight, view-only: reads gate-entry insights scoped to their warehouse/site; the Gate Entry form is view-only; no edit controls; no Gate Pass access. |
+| `IT Admin` | Full administration: user management, dashboards, sync controls, Gate Pass administration. View-only in the gate-entry form. |
+| `Gate Pass User` | Create / release / cancel gate passes for their department at their assigned location(s); sees only their own department + location passes. |
+| `Co Packer` | Co-Packer capture for their assigned location. Exclusive role — cannot be combined with any other, and requires a `copacker_location`. |
 
-> The internal URL (`192.168.1.56:8081`) is accessible only from within the Bisleri office network or over VPN. API calls from both URLs route through Nginx to the backend.
+Two scoping attributes accompany roles: **warehouse** (gate-entry visibility/edit) and **gate-pass location(s)** (Gate Pass visibility/actions). A user can be assigned multiple gate-pass locations via the `user_gate_pass_locations` junction table, exactly one marked as the default.
+
+---
+
+## Authentication & Authorization
+
+- **Login** issues a signed JWT (`sub` = username, plus role and scope claims). Tokens are bearer tokens sent in the `Authorization` header. Lifetime is configurable (`ACCESS_TOKEN_EXPIRE_MINUTES`, default 480 = 8h).
+- **Token storage (client):** `expo-secure-store` on Android; browser storage on web (`utils/storage.js` abstracts both).
+- **`get_current_user`** (in `app/auth.py`) is the shared dependency for every protected route. It decodes the JWT, loads the user from the database on each request, and enforces the account-activation check — so an account switched off takes effect on the user's next request, not only at next login.
+- **Role gates** are applied per router/endpoint using the normalized-role helpers. Access decisions are always server-side; the frontend menu (`config/navConfig.js`) mirrors them for UX only.
+- **No-role users** are blocked at login with a clear message and never reach the app shell.
+
+---
+
+## Data Model
+
+Core tables (see `schema.sql` and the `*_migration.sql` files for the authoritative DDL):
+
+- **`users_master`** — username (PK), first/last name, `role` (CSV string), `password` (bcrypt hash), `warehouse_code` / `warehouse_name` / `site_code`, `copacker_location`, `department`, `gate_pass_location`, `is_active`, `last_login`.
+- **`location_master`** — warehouse code → name / site mappings.
+- **`insights_data`** — FG gate-entry log: gate entry no, document type/no, vehicle, warehouse, date/time, movement type, operational fields (driver, KM, loaders), edit tracking. Indexed on `warehouse_code`, `date`, `movement_type` (+ composite).
+- **`raw_materials_data`** — RM gate-entry log: gate entry no, gate type, vehicle, document, party, description, quantity, date_time, warehouse/site. Indexed similarly.
+- **`document_data`** + **`mfabric_*` staging tables** — consolidated ERP documents and their raw staging feeds.
+- **Gate Pass tables** — `gate_pass_headers`, `gate_pass_lines`, `gate_pass_events`, `gate_pass_sequences` (numbering), `gate_pass_parties`, `gate_pass_items`, `gate_pass_cancel_reasons`, `gate_pass_locations`, and `user_gate_pass_locations` (user↔location junction with a default flag).
+- **Co-Packer tables** — entries, locations, and session capture (with shift).
+
+---
+
+## API Surface
+
+Route modules and their prefixes (paths below are as seen by FastAPI; Nginx strips the `/api/` prefix before forwarding):
+
+| Router | Prefix / examples |
+|---|---|
+| `auth.py` | `POST /login`, `POST /logout` |
+| `gate.py` | `POST /manual-gate-entry`, `/batch-gate-entry`, `/enhanced-*`, `/multi-document-manual-entry`, `GET /search-recent-documents/{vehicle}` |
+| `insights.py` | `GET /movements` (filtered, paginated), `PUT /update-operational-data`, edit statistics |
+| `raw_materials.py` | `POST /rm/create-entry`, `GET /rm/entries`, `GET /rm/admin-entries`, `PUT /rm/update-entry` |
+| `gate_pass.py` | `GET /gate-pass` (list), `POST /gate-pass`, `POST /gate-pass/{id}/release|cancel|dispatch|inward|force-close`, `GET /gate-pass/{id}`, `GET /gate-pass/my-locations`, lookups (`/locations`, `/departments`, `/parties`, `/items`, `/cancel-reasons`), `GET /gate-pass/guard/pending` |
+| `admin.py` | `POST /register`, `PUT /modify-user/{username}`, `PUT /users/{username}/update`, `POST /reset-password`, `GET /list-users`, `GET /search-users`, `GET /admin-dashboard-stats`, `GET /admin-rm-statistics` |
+| `documents.py` | Mfabric document lookup / consolidation |
+| `copacker.py` | Co-packer entries + `GET /copacker/image/{path}` (authenticated) |
+| `sync.py` | `POST /sync/manual`, `GET /sync/status`, `GET /sync/logs` (IT Admin) |
+| `dashboard.py` / `rpa.py` | RPA / load analytics |
+| `ping.py` | Health checks |
+
+List endpoints accept typed query filters (`from_date`, `to_date`, `warehouse_code`, `site_code`, `vehicle_no`, `movement_type`) and `skip` / `limit` pagination; responses include `count`, `total_count`, `skip`, and `limit`.
+
+---
+
+## Mfabric ERP Sync
+
+Delivery Challan, Invoice, Transfer Order, and RGP records arrive in `mfabric_*` staging tables. `csv_to_DB.py` aggregates them (one row per document) and upserts into the consolidated `document_data` table, which gate entry searches against.
+
+The sync runs on a fixed interval via **APScheduler**, started with the backend in `main.py`, with an initial run on startup. IT Admins can also trigger a manual sync or read sync status/logs through the `/sync/*` endpoints. `csv_to_DB.py` uses a dedicated named logger (`logging.getLogger("csv_to_DB")`, `propagate=False`) so its output is preserved when imported by FastAPI — do not convert it to `logging.basicConfig()`.
 
 ---
 
 ## Prerequisites
 
-Install all of the following on the Windows Server before setting up the application.
+Install on the host before setup:
 
-| Tool | Minimum Version | Download |
-|---|---|---|
-| Python | 3.10+ | python.org |
-| Node.js | 18+ | nodejs.org |
-| PostgreSQL | 14+ | postgresql.org |
-| Redis | 5.0+ | github.com/tporadowski/redis/releases |
+| Tool | Minimum version |
+|---|---|
+| Python | 3.10+ |
+| Node.js | 18+ |
+| PostgreSQL | 14+ |
 
 ---
 
-## Infrastructure Setup
-
-### Step 1 — Clone the Repository
-
-```
-git clone <repo-url>
-cd Bisleri-Gate-Entry-App
-```
-
-### Step 2 — Install Redis
-
-1. Download `Redis-x64-5.0.14.1.zip` (or later) from:
-   `https://github.com/tporadowski/redis/releases`
-
-2. Extract to a permanent folder — the project expects it at:
-   `C:\Automation\Redis-x64-5.0.14.1\`
-
-3. Verify it works — open Command Prompt:
-   ```
-   C:\Automation\Redis-x64-5.0.14.1\redis-server.exe
-   ```
-   You should see Redis start with its logo and `Ready to accept connections`.
-
-4. Open a second Command Prompt to confirm:
-   ```
-   C:\Automation\Redis-x64-5.0.14.1\redis-cli.exe ping
-   ```
-   Should return `PONG`. Press Ctrl+C to stop — the backend manages starting it automatically.
-
-5. If you install Redis to a different folder, update `_REDIS_EXE` in `bisleri-backend/app/main.py`.
-
-### Step 3 — Backend Python Environment
+## Backend Setup
 
 ```
 cd bisleri-backend
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-pip install redis
 ```
 
-Key packages:
-- `fastapi`, `uvicorn` — web server
-- `sqlalchemy`, `alembic`, `psycopg2-binary` — database
-- `python-jose[cryptography]`, `passlib[bcrypt]` — JWT auth
-- `apscheduler` — background sync scheduler
-- `redis` — token revocation
-- `ibm-watsonx-ai` — OCR integration
+Key packages: `fastapi`, `uvicorn`, `sqlalchemy`, `psycopg2-binary`, `pydantic` / `pydantic-settings`, `python-jose[cryptography]`, `passlib[bcrypt]`, `apscheduler`, `python-dotenv`, `alembic`, plus `pytest` + `httpx` for the test suite.
 
-### Step 4 — Frontend Node Environment
+---
+
+## Frontend Setup
 
 ```
 cd gate-entry-app
 npm install --legacy-peer-deps
 ```
+
+If Expo reports SDK/package version mismatches, run `npx expo install --fix` locally.
 
 ---
 
@@ -326,87 +321,91 @@ npm install --legacy-peer-deps
 
 ### Backend — `bisleri-backend/.env`
 
-Create this file manually. **Never commit it to Git.**
+Copy `.env.example` to `.env` and fill in real values. **Never commit `.env`.**
 
 ```env
-# ── Database ──────────────────────────────────────────────────────────────────
+# Database
 DB_USER=postgres
 DB_PASSWORD=your_db_password
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=Bisleri_01
 
-# ── JWT Authentication ────────────────────────────────────────────────────────
-# Generate with: python -c "import secrets; print(secrets.token_hex(32))"
+# JWT — generate with: python -c "import secrets; print(secrets.token_hex(32))"
 SECRET_KEY=paste_generated_secret_here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 
-# ── Co-Packer Feature ─────────────────────────────────────────────────────────
+# Historical / dashboard DB (RPA + load analytics)
+HISTORICAL_DB_USER=postgres
+HISTORICAL_DB_PASSWORD=your_db_password
+HISTORICAL_DB_HOST=localhost
+HISTORICAL_DB_PORT=5432
+HISTORICAL_DB_NAME=Bisleri_dashboard
+
+# Co-Packer
 COPACKER_FEATURE_ENABLED=true
 COPACKER_IMAGE_PATH=C:\path\to\copacker_images
-ENABLE_FIELD_EDIT=false
 
-# ── IBM WatsonX OCR ───────────────────────────────────────────────────────────
+# IBM WatsonX OCR
 IBM_API_KEY=your_ibm_api_key
 IBM_SERVICE_URL=https://eu-de.ml.cloud.ibm.com
 IBM_PROJECT_ID=your_ibm_project_id
 WATSONX_MODEL=meta-llama/llama-4-maverick-17b-128e-instruct-fp8
+
+# Optional: persistent log file (see Logging section)
+FILE_LOGGING=false
 ```
 
 | Variable | Description |
 |---|---|
-| `SECRET_KEY` | Used to sign all JWT tokens. Must be a random 32-byte hex string. A weak value allows anyone to forge tokens. |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes. Default 480 (8 hours). Redis blocklist entries use the same TTL. |
-| `COPACKER_IMAGE_PATH` | Absolute path on the server where co-packer images are stored. The directory is created automatically on startup. |
-| `IBM_API_KEY` | IBM Cloud API key for WatsonX OCR. Rotate regularly in the IBM Cloud console. |
+| `SECRET_KEY` | Signs all JWTs. Must be a random 32-byte hex string. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token lifetime in minutes (default 480 = 8h). |
+| `COPACKER_IMAGE_PATH` | Absolute server path for co-packer images; created on startup. |
+| `IBM_API_KEY` / `IBM_PROJECT_ID` | IBM Cloud credentials for WatsonX OCR. |
+| `FILE_LOGGING` | `true` writes a rotating log file; console logging is always on. |
 
 ### Frontend — `gate-entry-app/.env`
 
-Copy `.env.example` to `.env`. **Never commit `.env` to Git.**
+Copy `.env.example` to `.env`. **Never commit `.env`.**
 
 ```env
 # Production (through Nginx)
-EXPO_PUBLIC_API_URL=https://123.63.20.237:19000/api
+EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
-# Local development (use your PC's actual LAN IP — not localhost)
+# Local development — use your PC's LAN IP, never localhost (tablets can't reach it)
 # EXPO_PUBLIC_API_URL=http://192.168.1.XX:8000
 ```
 
-> When testing on a physical Android tablet, never use `localhost`. The tablet is a separate device and cannot reach your PC on `localhost`. Use the PC's actual local IP address (find it with `ipconfig`).
-
 ---
 
-## Database Setup
+## Database Setup & Migrations
 
-### Fresh Installation
-
-```bash
-# 1. Create the database
-psql -U postgres -c "CREATE DATABASE Bisleri_01;" -W
-
-# 2. Run the schema (creates all tables + seeds warehouse data + default IT Admin)
-psql -U postgres -d Bisleri_01 -f schema.sql -W
-```
-
-The `schema.sql` file creates all tables, seeds 555 warehouse locations, and creates a default IT Admin user.
-
-**Default login after fresh install:**
-```
-Username : itadmin
-Password : Admin@123
-```
-
-Change this password immediately after first login via Admin → Reset Password.
-
-### Existing Installation — Apply Migrations Only
+### Fresh installation
 
 ```bash
-cd bisleri-backend
-alembic upgrade head
+psql -U postgres -c "CREATE DATABASE Bisleri_01;"
+psql -U postgres -d Bisleri_01 -f schema.sql
 ```
 
-Run this any time you pull code that changes model files.
+`schema.sql` creates the base tables and seed data (warehouse locations and a default IT Admin). Change the default admin password immediately after first login.
+
+### Feature migrations (SQL files)
+
+Feature tables and columns added after the base schema ship as standalone, idempotent SQL files at the repo root. Apply the ones your database does not yet have:
+
+```bash
+psql -U postgres -d Bisleri_01 -f gate_pass_migration.sql
+psql -U postgres -d Bisleri_01 -f user_scope_fields_migration.sql
+psql -U postgres -d Bisleri_01 -f user_gate_pass_locations_migration.sql
+psql -U postgres -d Bisleri_01 -f users_is_active_migration.sql
+psql -U postgres -d Bisleri_01 -f insights_rm_indexes_migration.sql
+psql -U postgres -d Bisleri_01 -f copacker_migration.sql
+psql -U postgres -d Bisleri_01 -f copacker_session_migration.sql
+psql -U postgres -d Bisleri_01 -f add_shift_to_sessions_migration.sql
+```
+
+Each file uses `IF NOT EXISTS` guards, so re-running is safe. Alembic is present (`alembic.ini`, `migrations/`) as a baseline; the feature tables above are managed via these SQL files rather than Alembic revisions.
 
 ---
 
@@ -420,22 +419,7 @@ venv\Scripts\activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-On startup the backend will automatically:
-
-1. Start Redis (if not already running at the configured path)
-2. Start the APScheduler background job (Mfabric sync every 10 minutes, IST)
-3. Run an immediate Mfabric sync so data is fresh before the first request
-
-Confirm everything started correctly — you should see these lines in the console:
-
-```
-[Redis] Redis ready after 2s.
-Background sync scheduler started — runs every 10 minutes (IST).
-Running initial sync on startup...
-Application startup complete.
-```
-
-If you see `[Redis] store_active_jti failed` warnings, Redis did not start. Check that the path in `_REDIS_EXE` in `app/main.py` matches your actual Redis installation folder.
+On startup the backend starts the APScheduler Mfabric sync job and runs an initial sync so document data is fresh before the first request.
 
 ### Frontend
 
@@ -446,44 +430,73 @@ npx expo start -c
 
 | Platform | How to open |
 |---|---|
-| Web browser | Press `w` in the terminal after `expo start` |
-| Android tablet | Press `a` or scan the QR code with Expo Go |
+| Web browser | Press `w` in the Expo terminal |
+| Android tablet | Press `a`, or scan the QR code with Expo Go |
+
+Tablets load the JavaScript bundle from the running Expo server, so a reload always fetches the latest client code.
+
+---
+
+## Testing
+
+The backend has a pytest suite under `bisleri-backend/tests/`, run against an in-memory SQLite database with the FastAPI routers mounted and auth/DB dependency-overridden (no Postgres or live JWT required).
+
+```
+cd bisleri-backend
+pip install pytest httpx          # once per environment (also in requirements.txt)
+pytest                            # runs the whole suite
+pytest tests/test_gate_pass_flow.py   # a single file
+```
+
+The tests double as executable specifications of the business rules (role scoping, the gate-pass lifecycle, the edit window, pagination, and input validation).
+
+---
+
+## Logging & Error Handling
+
+- **Console logging** is always on.
+- **Safe errors:** unhandled exceptions return a generic client message with a short reference ID; the full stack trace is written server-side under the same ID (`app/utils/errors.py` + a global handler in `main.py`). Set `DEBUG_ERRORS=true` in `.env` to include raw exception text in responses during local development only.
+- **Optional file logging:** set `FILE_LOGGING=true` and restart to also write a rotating log file at `bisleri-backend/logs/app.log` (5 MB per file, 5 backups). The `logs/` directory is gitignored.
+
+---
+
+## Network & Deployment
+
+```
+Bisleri Network
+      │
+      ▼
+   Nginx (TLS)
+      │
+      ├── /api/*  →  FastAPI backend  (127.0.0.1:8000)
+      └── /*      →  Expo web app     (127.0.0.1:8081)
+```
+
+Nginx terminates TLS and strips the `/api/` prefix before forwarding to FastAPI — backend routes do not include `/api/`. The Expo web build is served for all non-API paths.
 
 ---
 
 ## Supported Devices
 
-| Device | Access Method |
+| Device | Access |
 |---|---|
-| Android tablets (plant floor / co-packer) | Expo Go app or installed APK |
-| Windows desktops (office / admin) | Web browser — Chrome recommended |
+| Android tablets (gate / plant floor) | Expo Go or a dev/standalone build |
+| Windows desktops (office / admin) | Web browser (Chrome recommended) |
 
-iOS is not supported. The application is designed for the Bisleri internal network environment.
+iOS is not a target. The app is designed for the Bisleri internal network.
 
 ---
 
-## Key Notes for Developers
+## Developer Notes & Conventions
 
-**Never commit `.env` files.** They contain the database password, the JWT secret key, and IBM API credentials. Only `.env.example` goes to Git.
-
-**Always run `alembic upgrade head` after pulling.** Any code change that modifies a model file requires this command inside `bisleri-backend/` before starting the server.
-
-**The `/api/` Nginx prefix is stripped.** The proxy removes `/api/` before forwarding to FastAPI. Backend routes do not include `/api/` in their paths.
-
-**Redis is required for token revocation.** If Redis cannot be started, all authentication still works (fail-open by design) but logout and forced token invalidation will not take effect. Check the uvicorn console for `[Redis] WARNING` lines if you suspect an issue.
-
-**Redis path must match your installation.** The executable path is hardcoded in `app/main.py` as `_REDIS_EXE = r"C:\Automation\Redis-x64-5.0.14.1\redis-server.exe"`. If you move or upgrade Redis, update this line.
-
-**Co-packer images are not public.** Images are served via `GET /copacker/image/{path}` which requires a valid Bearer token with `copacker` or `itadmin` role. Path traversal is also blocked server-side. The `StaticFiles` mount has been removed.
-
-**Sync endpoints require IT Admin.** `POST /sync/manual`, `GET /sync/status`, and `GET /sync/logs` all require an authenticated IT Admin token.
-
-**Token lifetime is 480 minutes (8 hours).** Configured via `ACCESS_TOKEN_EXPIRE_MINUTES` in `.env`. Redis blocklist entries expire at the same time as the token they block — Redis never accumulates stale data.
-
-**Role format in the database.** Roles are stored as comma-separated display strings, e.g. `IT Admin, Security Guard`. All role checks in the codebase normalize to lowercase with spaces removed before comparing (`itadmin`, `securityguard`). Never compare `current_user.role` directly to a string literal.
-
-**The 48-hour edit window is server-enforced.** Gate entry records cannot be edited after 48 hours regardless of what the frontend shows. The timestamp check runs on the backend on every edit request.
-
-**`csv_to_DB.py` uses a named logger.** It uses `logging.getLogger("csv_to_DB")` with `propagate=False` so its file handler is not silently skipped when the module is imported by FastAPI. Do not change it back to `logging.basicConfig()`.
-
-**`dump.rdb` in the backend folder.** This is Redis's default persistence file written to whichever directory the process runs from. It is harmless — the blocklist data in it expires naturally and does not need to be preserved across restarts. You can safely add `dump.rdb` to `.gitignore`.
+- **Never commit `.env` files.** They hold the DB password, the JWT secret, and IBM credentials. Only `.env.example` belongs in Git.
+- **Role checks always normalize.** Use `app/utils/roles.py`; never compare `current_user.role` to a string literal. Roles are CSV display strings; comparisons run on the lowercase-no-space form.
+- **The 48-hour edit window is server-enforced.** All window math lives in `app/utils/edit_window.py`; edit permissions in `app/services/edit_service.py`. The frontend renders the button config the API returns — it does not decide edit rights.
+- **Access control is server-side.** The frontend menu (`config/navConfig.js`) reflects permissions for UX; the API is the authority. Any new endpoint must apply its own role/scope check via `get_current_user`.
+- **Gate passes are immutable.** No edit path exists by design — cancel (with a reason) and recreate. Pass numbers are assigned at submit under a row lock and never reused.
+- **List endpoints are typed and paginated.** Filters use the `MovementFilters` schema (unknown fields are rejected); always pass `skip`/`limit` for large result sets.
+- **`csv_to_DB.py` is live code**, imported and run by the APScheduler sync job — it is not a throwaway script. Keep its named logger (`propagate=False`); do not switch it to `basicConfig()`.
+- **Feature DB changes ship as idempotent SQL files** at the repo root (see [Database Setup & Migrations](#database-setup--migrations)). Add new ones the same way and list them in that section.
+- **Co-packer images are private**, served only via the authenticated `GET /copacker/image/{path}` endpoint with server-side path-traversal protection — never as static files.
+- **Run the test suite before committing backend changes:** `pytest` in `bisleri-backend/`.
+```
