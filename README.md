@@ -355,6 +355,9 @@ WATSONX_MODEL=meta-llama/llama-4-maverick-17b-128e-instruct-fp8
 
 # Optional: persistent log file (see Logging section)
 FILE_LOGGING=false
+
+# Optional: expose Swagger / API docs. Keep false in production.
+ENABLE_DOCS=false
 ```
 
 | Variable | Description |
@@ -364,6 +367,7 @@ FILE_LOGGING=false
 | `COPACKER_IMAGE_PATH` | Absolute server path for co-packer images; created on startup. |
 | `IBM_API_KEY` / `IBM_PROJECT_ID` | IBM Cloud credentials for WatsonX OCR. |
 | `FILE_LOGGING` | `true` writes a rotating log file; console logging is always on. |
+| `ENABLE_DOCS` | `true` exposes `/docs`, `/redoc`, `/openapi.json`; `false` (default) returns 404 for all three. Keep `false` in production; set `true` for local dev. Read once at startup — restart uvicorn after changing. |
 
 ### Frontend — `gate-entry-app/.env`
 

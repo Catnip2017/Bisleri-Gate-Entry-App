@@ -111,12 +111,22 @@ async def lifespan(app: FastAPI):
     logger.info("Scheduler stopped. Application shutdown complete.")
 
 
+# ── Swagger toggle (#8): docs are OFF by default and only exposed when
+# ENABLE_DOCS=true in .env. Secure-by-default — a missing/false flag on the
+# production server hides /docs, /redoc and /openapi.json (all return 404).
+# Read once at startup, so flipping the flag needs a uvicorn restart.
+_docs_enabled = _settings.ENABLE_DOCS
 app = FastAPI(
     title="Bisleri Backend API",
     description="Backend API for Bisleri with automated data synchronization",
     version="1.0.4-merged-insights",
     lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
+if not _docs_enabled:
+    logger.info("API docs disabled (ENABLE_DOCS=false) — /docs, /redoc, /openapi.json return 404")
 
 
 # ── Global safety net (Q5): any unhandled exception is fully logged with a

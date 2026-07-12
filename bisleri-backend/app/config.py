@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # Flip to true in .env + restart uvicorn to activate.
     FILE_LOGGING: bool = Field(default=False, env="FILE_LOGGING")
 
+    # Swagger / API docs toggle. When false (the secure default), /docs,
+    # /redoc and /openapi.json all return 404 so the API surface is hidden
+    # in production. Set ENABLE_DOCS=true in .env for local development, then
+    # restart uvicorn — FastAPI reads the docs URLs once at startup.
+    ENABLE_DOCS: bool = Field(default=False, env="ENABLE_DOCS")
+
     # Co Packer Feature
     COPACKER_FEATURE_ENABLED: bool = Field(default=True, env="COPACKER_FEATURE_ENABLED")
     COPACKER_IMAGE_PATH: str = Field(default="/copacker_images", env="COPACKER_IMAGE_PATH")
