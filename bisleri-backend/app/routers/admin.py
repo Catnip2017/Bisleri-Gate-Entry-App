@@ -5,13 +5,13 @@ from typing import List
 import traceback
 import logging
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
 from app.utils.errors import internal_error
-from sqlalchemy import func, or_
+from sqlalchemy import and_, case, distinct, func, or_
 from app.utils.roles import normalize_roles, normalize_role_list
 
 # Set up logging
@@ -386,8 +386,8 @@ def update_user_details(
 def get_dashboard_stats(
     site_code: Optional[str] = None,
     warehouse_code: Optional[str] = None,
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
     current_user: UsersMaster = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -410,61 +410,54 @@ def get_dashboard_stats(
             if warehouse_code:
                 base_query = base_query.filter(InsightsData.warehouse_code == warehouse_code)
         
-        # ✅ NEW: Date range filtering (default to last 7 days if not provided)
+        # ✅ Date range filtering (default to last 7 days if not provided);
+        # params are typed `date` (Q6 style) so bad input is a 422, not a 500.
         if not from_date or not to_date:
             end_date = datetime.now().date()
             start_date = end_date - timedelta(days=7)
         else:
-            start_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+            start_date = from_date
+            end_date = to_date
         
+        # Half-open range: includes ALL of end_date regardless of the time
+        # part (old `<= end_date` only worked because rows store midnight).
         base_query = base_query.filter(
             InsightsData.date >= start_date,
-            InsightsData.date <= end_date
+            InsightsData.date < end_date + timedelta(days=1),
         )
         
-        # Calculate stats
+        # Calculate stats — Q7/Q15: ONE aggregation query instead of
+        # 1 count + 4 full-table .all() loads + Python sets. NULLIF drops
+        # empty strings, matching the old `if r.vehicle_no` / `if r.gate_entry_no`
+        # checks. CASE(...)->NULL rows are skipped by COUNT(DISTINCT).
         today = datetime.now().date()
-        today_query = base_query.filter(InsightsData.date == today)
-        
-        total_movements = base_query.count()
-        unique_vehicles = len(set([r.vehicle_no for r in base_query.all() if r.vehicle_no]))
-        
-        # gate_in_today = today_query.filter(InsightsData.movement_type == "Gate-In").count()
-        # gate_out_today = today_query.filter(InsightsData.movement_type == "Gate-Out").count()
-        
-        # gate_in_total = base_query.filter(InsightsData.movement_type == "Gate-In").count()
-        # gate_out_total = base_query.filter(InsightsData.movement_type == "Gate-Out").count()
 
-        # Count UNIQUE gate_entry_no for Gate-In
-        gate_in_today = len(set([
-            r.gate_entry_no for r in today_query.all() 
-            if r.movement_type == "Gate-In" and r.gate_entry_no
-        ]))
+        def _distinct_entry_no(*conditions):
+            return func.count(distinct(case(
+                (and_(*conditions), func.nullif(InsightsData.gate_entry_no, ''))
+            )))
 
-        gate_out_today = len(set([
-            r.gate_entry_no for r in today_query.all() 
-            if r.movement_type == "Gate-Out" and r.gate_entry_no
-        ]))
+        stats = base_query.with_entities(
+            func.count().label("total_movements"),
+            func.count(distinct(func.nullif(InsightsData.vehicle_no, ''))).label("unique_vehicles"),
+            _distinct_entry_no(InsightsData.movement_type == "Gate-In").label("gate_in_total"),
+            _distinct_entry_no(InsightsData.movement_type == "Gate-Out").label("gate_out_total"),
+            _distinct_entry_no(InsightsData.movement_type == "Gate-In",
+                               InsightsData.date >= today,
+                               InsightsData.date < today + timedelta(days=1)).label("gate_in_today"),
+            _distinct_entry_no(InsightsData.movement_type == "Gate-Out",
+                               InsightsData.date >= today,
+                               InsightsData.date < today + timedelta(days=1)).label("gate_out_today"),
+        ).one()
 
-        gate_in_total = len(set([
-            r.gate_entry_no for r in base_query.all() 
-            if r.movement_type == "Gate-In" and r.gate_entry_no
-        ]))
-
-        gate_out_total = len(set([
-            r.gate_entry_no for r in base_query.all() 
-            if r.movement_type == "Gate-Out" and r.gate_entry_no
-        ]))
-        
         return {
-            "total_movements": total_movements,
-            "unique_vehicles": unique_vehicles,
-            "gate_in": gate_in_total,
-            "gate_out": gate_out_total,
+            "total_movements": stats.total_movements,
+            "unique_vehicles": stats.unique_vehicles,
+            "gate_in": stats.gate_in_total,
+            "gate_out": stats.gate_out_total,
             "today": {
-                "gate_in": gate_in_today,
-                "gate_out": gate_out_today
+                "gate_in": stats.gate_in_today,
+                "gate_out": stats.gate_out_today
             },
             "period": {
                 "from_date": start_date.isoformat(),
@@ -487,8 +480,8 @@ def get_dashboard_stats(
 def get_admin_rm_statistics(
     site_code: Optional[str] = None,
     warehouse_code: Optional[str] = None,
-    from_date: Optional[str] = None,
-    to_date: Optional[str] = None,
+    from_date: Optional[date] = None,
+    to_date: Optional[date] = None,
     current_user: UsersMaster = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -509,40 +502,35 @@ def get_admin_rm_statistics(
             if warehouse_code:
                 base_query = base_query.filter(RawMaterialsData.warehouse_code == warehouse_code)
         
-        # Date filtering
+        # Date filtering (typed `date` params: bad input -> 422, not 500)
         if not from_date or not to_date:
             end_date = datetime.now().date()
             start_date = end_date - timedelta(days=7)
         else:
-            start_date = datetime.strptime(from_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(to_date, '%Y-%m-%d').date()
+            start_date = from_date
+            end_date = to_date
         
         base_query = base_query.filter(
             func.DATE(RawMaterialsData.date_time) >= start_date,
             func.DATE(RawMaterialsData.date_time) <= end_date
         )
         
-        recent_records = base_query.all()
+        # Q7/Q15: one aggregation instead of loading all rows into Python.
+        # NOTE: unique_vehicles keeps the OLD semantics deliberately (plain
+        # DISTINCT, empty string counts as a value — the old set() did too).
+        rm = base_query.with_entities(
+            func.count().label("total_entries"),
+            func.count(case((RawMaterialsData.gate_type == "Gate-In", 1))).label("gate_in_count"),
+            func.count(case((RawMaterialsData.gate_type == "Gate-Out", 1))).label("gate_out_count"),
+            func.count(distinct(RawMaterialsData.vehicle_no)).label("unique_vehicles"),
+            func.count(case((func.coalesce(RawMaterialsData.edit_count, 0) > 0, 1))).label("edited_entries"),
+        ).one()
 
-        if not recent_records:
-            return {
-                "total_entries": 0,
-                "gate_in_count": 0,
-                "gate_out_count": 0,
-                "unique_vehicles": 0,
-                "edited_entries": 0,
-                "period": f"{start_date} to {end_date}",
-                "filters_applied": {
-                    "site_code": site_code,
-                    "warehouse_code": warehouse_code
-                }
-            }
-
-        total_entries = len(recent_records)
-        gate_in_count = len([r for r in recent_records if r.gate_type == "Gate-In"])
-        gate_out_count = len([r for r in recent_records if r.gate_type == "Gate-Out"])
-        unique_vehicles = len(set(r.vehicle_no for r in recent_records))
-        edited_entries = len([r for r in recent_records if (r.edit_count or 0) > 0])
+        total_entries = rm.total_entries
+        gate_in_count = rm.gate_in_count
+        gate_out_count = rm.gate_out_count
+        unique_vehicles = rm.unique_vehicles
+        edited_entries = rm.edited_entries
 
         return {
             "total_entries": total_entries,
