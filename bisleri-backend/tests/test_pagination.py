@@ -62,7 +62,7 @@ def pclient():
 # ── Q8: movements paging ─────────────────────────────────────────────────────
 def test_default_behaviour_unchanged(pclient):
     """No paging fields sent (today's frontend) -> everything, as before."""
-    r = pclient.post("/filtered-movements", json={}).json()
+    r = pclient.get("/movements").json()
     assert r["count"] == 15
     assert r["total_count"] == 15
 
@@ -91,8 +91,6 @@ def test_last_page_is_short(pclient):
 
 def test_limit_too_large_is_422(pclient):
     assert pclient.get("/movements", params={"limit": 9999}).status_code == 422
-    r = pclient.post("/filtered-movements", json={"limit": 9999})
-    assert r.status_code == 422
 
 
 def test_negative_skip_is_422(pclient):

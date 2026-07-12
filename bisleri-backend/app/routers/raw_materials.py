@@ -137,7 +137,8 @@ def get_rm_entries(
     return get_filtered_rm_entries(filters, db, current_user)
 
 
-@router.post("/filtered-entries", deprecated=True)  # Q11: use GET /rm/entries
+# Q11 phase 2 (12 Jul 2026): POST /rm/filtered-entries route RETIRED — GET
+# /rm/entries above calls this implementation directly.
 def get_filtered_rm_entries(
     filters: MovementFilters,
     db: Session = Depends(get_db),
@@ -399,7 +400,8 @@ def get_rm_admin_entries(
     return get_admin_filtered_rm_entries(filters, db, current_user)
 
 
-@router.post("/admin-filtered-entries", deprecated=True)  # Q11: use GET /rm/admin-entries
+# Q11 phase 2 (12 Jul 2026): POST /rm/admin-filtered-entries route RETIRED —
+# GET /rm/admin-entries above calls this implementation directly.
 def get_admin_filtered_rm_entries(
     filters: MovementFilters,
     db: Session = Depends(get_db),

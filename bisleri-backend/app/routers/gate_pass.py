@@ -85,6 +85,32 @@ def _user_gp_locations(db: Session, user: UsersMaster) -> list:
     return [user.gate_pass_location] if user.gate_pass_location else []
 
 
+def _check_pass_view_access(db: Session, gp, user: UsersMaster):
+    """Who may open (and print) one specific pass — mirrors list scoping.
+    IT Admin: any pass. Gate Pass User: own location(s) + department.
+    Security Guard: own location(s), from Released onward."""
+    roles = _roles(user)
+    if "itadmin" in roles:
+        return
+    if "gatepassuser" in roles:
+        gpu_locations = _user_gp_locations(db, user)
+        if gpu_locations and gp.location_code not in gpu_locations:
+            raise HTTPException(status_code=403, detail="This pass belongs to another location")
+        if user.department and gp.department != user.department:
+            raise HTTPException(status_code=403, detail="This pass belongs to another department")
+        return
+    if "securityguard" in roles:
+        if gp.status == GP_OPEN:
+            raise HTTPException(status_code=403, detail="No access to this gate pass")
+        guard_locations = _user_gp_locations(db, user)
+        if not guard_locations:
+            raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+        if gp.location_code not in guard_locations:
+            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        return
+    raise HTTPException(status_code=403, detail="No access to this gate pass")
+
+
 def _guard_location_filter(db: Session, query, user: UsersMaster):
     """Guards see only passes for their assigned gate_pass_location.
     IT Admin bypasses the filter entirely.
@@ -559,27 +585,7 @@ def get_gate_pass(
     if gp is None:
         raise HTTPException(status_code=404, detail="Gate pass not found")
 
-    roles = _roles(current_user)
-    if "itadmin" not in roles:
-        if "gatepassuser" in roles:
-            # Initiators open detail for passes in their own location(s)
-            # and department — the same boundaries as their list view.
-            gpu_locations = _user_gp_locations(db, current_user)
-            if gpu_locations and gp.location_code not in gpu_locations:
-                raise HTTPException(status_code=403, detail="This pass belongs to another location")
-            if current_user.department and gp.department != current_user.department:
-                raise HTTPException(status_code=403, detail="This pass belongs to another department")
-        elif "securityguard" in roles:
-            # Guards may open detail only for passes in their scope, from Released on
-            if gp.status == GP_OPEN:
-                raise HTTPException(status_code=403, detail="No access to this gate pass")
-            guard_locations = _user_gp_locations(db, current_user)
-            if not guard_locations:
-                raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
-            if gp.location_code not in guard_locations:
-                raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
-        else:
-            raise HTTPException(status_code=403, detail="No access to this gate pass")
+    _check_pass_view_access(db, gp, current_user)
 
     today = date.today()
     base = _to_list_item(gp, today)

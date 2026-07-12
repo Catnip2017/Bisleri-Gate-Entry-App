@@ -184,7 +184,7 @@ export const insightsAPI = {
       movement_type: filters.movement_type || null,
       vehicle_no: filters.vehicle_no || null,
     };
-    const response = await api.post('/filtered-movements', filterData);
+    const response = await api.get('/movements', { params: filterData });
     return response.data;
   },
 
@@ -251,7 +251,7 @@ getAdminDashboardStats: async (filters = {}) => {
   },
 
   getAdminInsights: async (filters) => {
-    const response = await api.post('/filtered-movements', filters);
+    const response = await api.get('/movements', { params: filters });
     return response.data;
   },
   searchUsers: async (query) => {
@@ -260,7 +260,7 @@ getAdminDashboardStats: async (filters = {}) => {
   },
 
  getAdminRMInsights: async (filters) => {
-    const response = await api.post('/rm/filtered-entries', filters);
+    const response = await api.get('/rm/entries', { params: filters });
     return response.data;
   },
 
@@ -329,7 +329,7 @@ export const rmAPI = {
   },
 
  getAdminFilteredRMEntries: async (filters) => {
-    const response = await api.post('/rm/admin-filtered-entries', filters);
+    const response = await api.get('/rm/admin-entries', { params: filters });
     return response.data;
   },
 
@@ -352,7 +352,7 @@ export const rmAPI = {
       vehicle_no: filters.vehicle_no || null,
       movement_type: filters.movement_type || null
     };
-    const response = await api.post('/rm/filtered-entries', filterData);
+    const response = await api.get('/rm/entries', { params: filterData });
     return response.data;
   },
 

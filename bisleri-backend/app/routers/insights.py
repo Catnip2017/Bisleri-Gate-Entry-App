@@ -39,7 +39,9 @@ def get_movements(
     return get_enhanced_filtered_movements(filters, db, current_user)
 
 
-@router.post("/filtered-movements", deprecated=True)  # Q11: use GET /movements
+# Q11 phase 2 (12 Jul 2026): POST /filtered-movements route RETIRED — all
+# clients (Expo Go, always-fresh bundles) now use GET /movements above, which
+# calls this implementation directly.
 def get_enhanced_filtered_movements(
     filters: MovementFilters,
     db: Session = Depends(get_db),

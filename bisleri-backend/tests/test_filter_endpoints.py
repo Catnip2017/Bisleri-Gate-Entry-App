@@ -75,47 +75,49 @@ def fclient():
 
 # ── Q6/Q10: validation instead of 500s / silence ────────────────────────────
 def test_bad_date_is_422_not_500(fclient):
-    r = fclient.post("/filtered-movements", json={"from_date": "01-07-2026"})
+    r = fclient.get("/movements", params={"from_date": "01-07-2026"})
     assert r.status_code == 422
     assert "from_date" in r.text
 
 
 def test_bad_date_on_rm_is_422_not_500(fclient):
-    r = fclient.post("/rm/filtered-entries", json={"from_date": "not-a-date"})
+    r = fclient.get("/rm/entries", params={"from_date": "not-a-date"})
     assert r.status_code == 422
 
 
-def test_typo_field_name_is_rejected_not_ignored(fclient):
-    r = fclient.post("/filtered-movements", json={"vehcile_no": "MH01"})
-    assert r.status_code == 422
-    assert "vehcile_no" in r.text
+def test_typo_field_name_rejected_by_schema():
+    """extra='forbid' regression at the schema level (the HTTP POST route
+    that carried this body is retired; the GET twins use typed params)."""
+    import pytest as _pytest
+    from pydantic import ValidationError
+    from app.schemas.filter_schemas import MovementFilters
+    with _pytest.raises(ValidationError, match="vehcile_no"):
+        MovementFilters(vehcile_no="MH01")
 
 
-def test_valid_post_still_works(fclient):
-    r = fclient.post("/filtered-movements", json={"vehicle_no": "MH01"})
+def test_valid_get_works(fclient):
+    r = fclient.get("/movements", params={"vehicle_no": "MH01"})
     assert r.status_code == 200
     assert r.json()["count"] == 1
     assert r.json()["results"][0]["vehicle_no"] == "MH01AB1234"
 
 
-def test_empty_body_returns_everything_for_admin(fclient):
-    r = fclient.post("/filtered-movements", json={})
+def test_no_filters_returns_everything_for_admin(fclient):
+    r = fclient.get("/movements")
     assert r.status_code == 200
     assert r.json()["count"] == 2
 
 
-# ── Q11: GET twins return identical results ──────────────────────────────────
-def test_get_movements_matches_post(fclient):
-    post = fclient.post("/filtered-movements", json={"vehicle_no": "MH01"}).json()
-    get = fclient.get("/movements", params={"vehicle_no": "MH01"}).json()
-    assert get["count"] == post["count"] == 1
-    assert get["results"][0]["gate_entry_no"] == post["results"][0]["gate_entry_no"]
+# ── Q11 phase 2: deprecated POST routes are RETIRED ──────────────────────────
+def test_post_routes_are_gone(fclient):
+    assert fclient.post("/filtered-movements", json={}).status_code in (404, 405)
+    assert fclient.post("/rm/filtered-entries", json={}).status_code in (404, 405)
+    assert fclient.post("/rm/admin-filtered-entries", json={}).status_code in (404, 405)
 
 
-def test_get_rm_entries_matches_post(fclient):
-    post = fclient.post("/rm/filtered-entries", json={"vehicle_no": "KA05CD"}).json()
+def test_get_rm_entries_works(fclient):
     get = fclient.get("/rm/entries", params={"vehicle_no": "KA05CD"}).json()
-    assert get["count"] == post["count"] == 1
+    assert get["count"] == 1
 
 
 def test_get_admin_entries_works(fclient):
