@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import logging
 import os
-from app.routers import auth, documents, gate, insights, ping, admin, sync, raw_materials, rpa, gate_pass, dashboard
+from app.routers import auth, documents, gate, insights, admin, sync, raw_materials, rpa, gate_pass, dashboard
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -171,7 +171,6 @@ app.include_router(auth.router)
 app.include_router(documents.router)
 app.include_router(gate.router)
 app.include_router(insights.router)
-app.include_router(ping.router)
 app.include_router(admin.router)
 app.include_router(sync.router)
 app.include_router(raw_materials.router)

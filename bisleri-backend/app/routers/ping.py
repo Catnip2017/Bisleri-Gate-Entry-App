@@ -1,17 +1,11 @@
 # app/routers/ping.py
-
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app.utils.errors import log_exception
-
-router = APIRouter(prefix="/ping", tags=["Ping"])
-
-@router.get("/db")
-def ping_db(db: Session = Depends(get_db)):
-    try:
-        db.execute("SELECT 1")
-        return {"status": "success", "message": "Database connection is healthy!"}
-    except Exception:
-        ref = log_exception("DB health check failed")
-        return {"status": "error", "message": f"Database connection failed (ref: {ref})"}
+#
+# REMOVED (security finding F17). The old public GET /ping/db endpoint was an
+# unauthenticated, DB-touching health check that nothing in the app called
+# (and it was broken on SQLAlchemy 2.x — raw "SELECT 1" needs text()).
+#
+# For a real database connectivity check, use the standalone diagnostic:
+#     python scripts/check_db.py
+#
+# This file is intentionally empty and no longer registered in main.py.
+# Safe to delete.

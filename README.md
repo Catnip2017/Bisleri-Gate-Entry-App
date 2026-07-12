@@ -169,15 +169,16 @@ Bisleri-Gate-Entry-App/
 │
 ├── dashboard-web/                       # Separately built static dashboard bundle (RPA/load)
 │
-├── schema.sql                           # Full base schema + seed data
-├── gate_pass_migration.sql             # Gate Pass tables + master seeds
-├── user_scope_fields_migration.sql     # department + gate_pass_location on users_master
-├── user_gate_pass_locations_migration.sql   # user↔location junction (multi-location)
-├── users_is_active_migration.sql       # is_active column on users_master
-├── insights_rm_indexes_migration.sql   # Performance indexes on FG/RM tables
-├── copacker_migration.sql              # Co-Packer tables
-├── copacker_session_migration.sql      # Co-Packer session capture
-├── add_shift_to_sessions_migration.sql # Shift column on co-packer sessions
+├── DB Schemas/                          # Authoritative schema references (per database)
+│   ├── schema_bisleri_01.sql           # Main DB — generated from the ORM (25 tables)
+│   ├── schema_bisleri_dashboard.sql    # Vehicle/load dashboard DB (ETL-defined)
+│   └── schema_rpa_automation.sql       # RPA DB reference (externally owned, read-only)
+│
+├── legacy_sql/                          # Archived pre-Alembic migrations — DO NOT run
+│   ├── README.md                       # Why they're archived (effects already applied)
+│   ├── schema.sql                      # Old 8-table schema (SUPERSEDED)
+│   └── *_migration.sql                 # The hand-written feature migrations
+│
 └── README.md
 ```
 
@@ -239,7 +240,7 @@ Two scoping attributes accompany roles: **warehouse** (gate-entry visibility/edi
 
 ## Data Model
 
-Core tables (see `schema.sql` and the `*_migration.sql` files for the authoritative DDL):
+Core tables (see `DB Schemas/schema_bisleri_01.sql` — generated from the ORM models — for the authoritative DDL):
 
 - **`users_master`** — username (PK), first/last name, `role` (CSV string), `password` (bcrypt hash), `warehouse_code` / `warehouse_name` / `site_code`, `copacker_location`, `department`, `gate_pass_location`, `is_active`, `last_login`.
 - **`location_master`** — warehouse code → name / site mappings.
@@ -385,31 +386,38 @@ EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
 ## Database Setup & Migrations
 
+The project is migrating to **Alembic as the single source of truth** for the main database. Schema changes are driven by the SQLAlchemy ORM models; Alembic autogenerates and tracks the migrations.
+
+> **Note:** the hand-written `*_migration.sql` files that were previously applied by hand have been archived to `legacy_sql/` (their effects are already baked into existing databases — **do not re-run them**). The current authoritative schema lives in `DB Schemas/schema_bisleri_01.sql`, generated from the ORM.
+
 ### Fresh installation
 
-```bash
-psql -U postgres -c "CREATE DATABASE Bisleri_01;"
-psql -U postgres -d Bisleri_01 -f schema.sql
-```
-
-`schema.sql` creates the base tables and seed data (warehouse locations and a default IT Admin). Change the default admin password immediately after first login.
-
-### Feature migrations (SQL files)
-
-Feature tables and columns added after the base schema ship as standalone, idempotent SQL files at the repo root. Apply the ones your database does not yet have:
+Create the database, then let Alembic build the schema from the models:
 
 ```bash
-psql -U postgres -d Bisleri_01 -f gate_pass_migration.sql
-psql -U postgres -d Bisleri_01 -f user_scope_fields_migration.sql
-psql -U postgres -d Bisleri_01 -f user_gate_pass_locations_migration.sql
-psql -U postgres -d Bisleri_01 -f users_is_active_migration.sql
-psql -U postgres -d Bisleri_01 -f insights_rm_indexes_migration.sql
-psql -U postgres -d Bisleri_01 -f copacker_migration.sql
-psql -U postgres -d Bisleri_01 -f copacker_session_migration.sql
-psql -U postgres -d Bisleri_01 -f add_shift_to_sessions_migration.sql
+psql -U postgres -c "CREATE DATABASE Bisleri_dev;"   # or your target DB
+# with the backend .env pointing at that DB:
+cd bisleri-backend
+alembic upgrade head
 ```
 
-Each file uses `IF NOT EXISTS` guards, so re-running is safe. Alembic is present (`alembic.ini`, `migrations/`) as a baseline; the feature tables above are managed via these SQL files rather than Alembic revisions.
+`DB Schemas/schema_bisleri_01.sql` is the human-readable reference for the resulting 25-table schema. After first login, change the default admin password.
+
+### Ongoing schema changes (Alembic workflow)
+
+```bash
+# 1. edit the ORM model(s) under app/models/
+# 2. autogenerate a migration
+alembic revision --autogenerate -m "describe the change"
+# 3. review the generated file in migrations/versions/, then apply
+alembic upgrade head
+```
+
+Helpers: `alembic current` (where a DB is), `alembic history` (revision list), `alembic downgrade -1` (roll back one). The full adoption plan (squash to a clean baseline + the pending `copacker_captures` fix) is documented in `DB_Schema_Alembic_Migration_Plan.pdf`.
+
+### Other databases
+
+`Bisleri_dashboard` (vehicle/load analytics) self-provisions its tables via the ETL code and is **not** managed by Alembic. `RPA_Automation` is owned by external RPA jobs and is read-only to this app. See `DB Schemas/` for reference DDL of both.
 
 ---
 
@@ -500,7 +508,7 @@ iOS is not a target. The app is designed for the Bisleri internal network.
 - **Gate passes are immutable.** No edit path exists by design — cancel (with a reason) and recreate. Pass numbers are assigned at submit under a row lock and never reused.
 - **List endpoints are typed and paginated.** Filters use the `MovementFilters` schema (unknown fields are rejected); always pass `skip`/`limit` for large result sets.
 - **`csv_to_DB.py` is live code**, imported and run by the APScheduler sync job — it is not a throwaway script. Keep its named logger (`propagate=False`); do not switch it to `basicConfig()`.
-- **Feature DB changes ship as idempotent SQL files** at the repo root (see [Database Setup & Migrations](#database-setup--migrations)). Add new ones the same way and list them in that section.
+- **DB changes go through Alembic.** Edit the ORM models, then `alembic revision --autogenerate` and review the result (see [Database Setup & Migrations](#database-setup--migrations)). The old hand-written `*_migration.sql` files are archived in `legacy_sql/` and must not be re-run.
 - **Co-packer images are private**, served only via the authenticated `GET /copacker/image/{path}` endpoint with server-side path-traversal protection — never as static files.
 - **Run the test suite before committing backend changes:** `pytest` in `bisleri-backend/`.
 ```
