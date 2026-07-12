@@ -74,6 +74,8 @@ const AssignAccessScreen = () => {
   const [gpLocations, setGpLocations] = useState([]);
   // Gate Pass User multi-location: [{ location_code, is_default }]
   const [gpLocSelections, setGpLocSelections] = useState([]);
+  // Deactivate-don't-delete: account on/off switch
+  const [isActive, setIsActive] = useState(true);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -127,6 +129,7 @@ const AssignAccessScreen = () => {
     setWarehouseSearch(user.warehouse_code || '');
     setDepartment(user.department || '');
     setGatePassLocation(user.gate_pass_location || '');
+    setIsActive(user.is_active !== false);   // NULL/undefined = active
     try {
       const mine = await adminAPI.getUserGpLocations(user.username);
       setGpLocSelections(mine.locations || []);
@@ -252,6 +255,7 @@ const AssignAccessScreen = () => {
         // syncs users_master.gate_pass_location to the starred default).
         gate_pass_location: (needsGuardGPLoc && !needsGpScope) ? gatePassLocation : null,
         gate_pass_locations: needsGpScope ? gpLocSelections : null,
+        is_active: isActive,
       });
 
       // Update personal details
@@ -365,10 +369,31 @@ const AssignAccessScreen = () => {
                 <View style={styles.userHeaderInfo}>
                   <Text style={styles.userHeaderName}>{firstName} {lastName}</Text>
                   <Text style={styles.userHeaderSub}>{selectedUser.email || selectedUser.username}</Text>
-                  <View style={[styles.authBadge, selectedUser.auth_type !== 'ad' && styles.authBadgeLocal]}>
-                    <Text style={[styles.authBadgeText, selectedUser.auth_type !== 'ad' && styles.authBadgeLocalText]}>
-                      {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={[styles.authBadge, selectedUser.auth_type !== 'ad' && styles.authBadgeLocal]}>
+                      <Text style={[styles.authBadgeText, selectedUser.auth_type !== 'ad' && styles.authBadgeLocalText]}>
+                        {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
+                      </Text>
+                    </View>
+                    {/* Deactivate-don't-delete: takes effect on the user's NEXT
+                        request (server checks every call). Self-deactivation is
+                        rejected by the backend. */}
+                    <TouchableOpacity
+                      onPress={() => setIsActive((a) => !a)}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: isActive }}
+                      style={{
+                        marginLeft: 8, paddingHorizontal: 10, paddingVertical: 3,
+                        borderRadius: 10, borderWidth: 1,
+                        borderColor: isActive ? '#00843D' : '#c0392b',
+                        backgroundColor: isActive ? '#e6f4ec' : '#fdecea',
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: '700',
+                        color: isActive ? '#00843D' : '#c0392b' }}>
+                        {isActive ? '● Active' : '○ Deactivated'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
                 {hasNoRoles(selectedUser) && (

@@ -55,6 +55,17 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
 
+    # is_active kill switch: checked on EVERY request (not just login), so
+    # deactivation bites mid-session despite 8h tokens. 401 (not 403) on
+    # purpose — the frontend interceptor auto-clears the token and returns
+    # the user to the login screen. NULL/legacy rows count as active.
+    if user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Account deactivated — contact your IT Admin.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # 🔥 Normalize roles into list (single source of truth: app/utils/roles.py)
     user.roles = normalize_roles(user.role)
 

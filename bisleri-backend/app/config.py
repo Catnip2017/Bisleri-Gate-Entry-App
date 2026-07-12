@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
+    # Q18: persistent log file (logs/app.log, 5MB x5 rotation). Console
+    # logging is ALWAYS on regardless; this flag only adds the file.
+    # Flip to true in .env + restart uvicorn to activate.
+    FILE_LOGGING: bool = Field(default=False, env="FILE_LOGGING")
+
     # Co Packer Feature
     COPACKER_FEATURE_ENABLED: bool = Field(default=True, env="COPACKER_FEATURE_ENABLED")
     COPACKER_IMAGE_PATH: str = Field(default="/copacker_images", env="COPACKER_IMAGE_PATH")

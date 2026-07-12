@@ -31,6 +31,13 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    # is_active: refuse deactivated accounts before any token is issued.
+    if db_user.is_active is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account deactivated — contact your IT Admin.",
+        )
+
     user = db_user
     # Update last login
     user.last_login = datetime.utcnow()

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -28,5 +28,8 @@ class UsersMaster(Base):
     # Gate Pass User scope fields (added for AD integration + gate pass module)
     department = Column(String(50), nullable=True, default=None)
     gate_pass_location = Column(String(50), nullable=True, default=None)
+    # Deactivate-don't-delete (12 Jul 2026). NULL (pre-migration rows) is
+    # treated as active everywhere — only an explicit False blocks access.
+    is_active = Column(Boolean, nullable=True, default=True)
 
     location = relationship("LocationMaster")

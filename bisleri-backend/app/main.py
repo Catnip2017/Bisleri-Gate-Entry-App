@@ -16,6 +16,25 @@ from app.config import settings as _settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# ── Q18: optional persistent log file (FILE_LOGGING=true in .env) ────────────
+# Console logging above always stays. When enabled, everything (incl. the
+# ref-ID error tracebacks from app.utils.errors) ALSO lands in logs/app.log,
+# rolling over at 5 MB with 5 backups — so "ref a3f8c2 from yesterday"
+# survives terminal restarts. Disabled by default until the user flips it.
+from app.config import settings as _settings  # noqa: E402
+if _settings.FILE_LOGGING:
+    from logging.handlers import RotatingFileHandler
+    _log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+    os.makedirs(_log_dir, exist_ok=True)
+    _fh = RotatingFileHandler(
+        os.path.join(_log_dir, "app.log"),
+        maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8",
+    )
+    _fh.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logging.getLogger().addHandler(_fh)
+    logger.info("FILE_LOGGING enabled -> %s", os.path.join(_log_dir, "app.log"))
+
 # Suppress passlib/bcrypt version-mismatch warning (bcrypt 4.x removed __about__)
 logging.getLogger('passlib').setLevel(logging.ERROR)
 # Silence APScheduler's own verbose logging

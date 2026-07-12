@@ -48,6 +48,7 @@ class UserRoleUpdate(BaseModel):
     department: Optional[str] = None
     gate_pass_location: Optional[str] = None                       # legacy single
     gate_pass_locations: Optional[List[GatePassLocationAssignment]] = None  # multi (wins)
+    is_active: Optional[bool] = None                                # deactivate-don't-delete
 
     class Config:
         from_attributes = True
@@ -73,6 +74,7 @@ class UserSearchResponse(BaseModel):
     copacker_location: Optional[str] = None
     department: Optional[str] = None
     gate_pass_location: Optional[str] = None
+    is_active: Optional[bool] = True
 
     class Config:
         from_attributes = True

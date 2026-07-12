@@ -311,6 +311,13 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
             user.warehouse_name = None
             user.site_code = None
 
+    # Handle is_active (deactivate-don't-delete). Self-deactivation is
+    # blocked so the last IT Admin can't lock everyone out with a misclick.
+    if update_data.is_active is not None:
+        if update_data.is_active is False and user.username == current_user.username:
+            raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+        user.is_active = update_data.is_active
+
     # Handle department (Gate Pass User scope)
     if update_data.department is not None:
         user.department = update_data.department or None
