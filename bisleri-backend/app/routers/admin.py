@@ -8,6 +8,7 @@ from typing import Optional
 from datetime import datetime, timedelta, date
 from app.database import get_db
 from app.models import UsersMaster, LocationMaster, InsightsData, RawMaterialsData
+from app.models.gate_pass import UserGatePassLocation
 from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate, UserUpdate,UserSearchResponse
 from app.auth import get_current_user, get_password_hash
 from app.utils.errors import internal_error
@@ -227,6 +228,30 @@ def get_warehouses(db: Session = Depends(get_db), current_user: UsersMaster = De
     ]
 
 # ✅ Modify User
+@router.get("/user-gp-locations/{username}")
+def get_user_gp_locations(username: str, db: Session = Depends(get_db),
+                          current_user: UsersMaster = Depends(get_current_user)):
+    """Junction rows for one user (Assign Access screen). Falls back to the
+    legacy users_master.gate_pass_location column."""
+    roles = normalize_roles(current_user.role)
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail="Only ITAdmins can view user assignments")
+    rows = (
+        db.query(UserGatePassLocation)
+        .filter(UserGatePassLocation.username == username)
+        .order_by(UserGatePassLocation.is_default.desc(), UserGatePassLocation.location_code)
+        .all()
+    )
+    if rows:
+        return {"locations": [
+            {"location_code": r.location_code, "is_default": r.is_default} for r in rows
+        ]}
+    user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
+    if user and user.gate_pass_location:
+        return {"locations": [{"location_code": user.gate_pass_location, "is_default": True}]}
+    return {"locations": []}
+
+
 @router.put("/modify-user/{username}", response_model=UserResponse)
 def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
     roles = normalize_roles(current_user.role)
@@ -290,9 +315,37 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
     if update_data.department is not None:
         user.department = update_data.department or None
 
-    # Handle gate pass location (Gate Pass User scope)
-    if update_data.gate_pass_location is not None:
+    # Handle gate pass locations (Gate Pass User / Security Guard scope).
+    # Multi-location list wins when provided; else legacy single value.
+    # Junction table and users_master.gate_pass_location are kept in sync
+    # (legacy column holds the starred default).
+    if update_data.gate_pass_locations is not None:
+        locs = update_data.gate_pass_locations
+        db.query(UserGatePassLocation).filter(
+            UserGatePassLocation.username == user.username).delete()
+        default_code = None
+        if locs:
+            if not any(l.is_default for l in locs):
+                locs[0].is_default = True          # guarantee exactly one star
+            for l in locs:
+                db.add(UserGatePassLocation(
+                    username=user.username,
+                    location_code=l.location_code,
+                    is_default=l.is_default,
+                ))
+                if l.is_default:
+                    default_code = l.location_code
+        user.gate_pass_location = default_code
+    elif update_data.gate_pass_location is not None:
         user.gate_pass_location = update_data.gate_pass_location or None
+        db.query(UserGatePassLocation).filter(
+            UserGatePassLocation.username == user.username).delete()
+        if user.gate_pass_location:
+            db.add(UserGatePassLocation(
+                username=user.username,
+                location_code=user.gate_pass_location,
+                is_default=True,
+            ))
 
     db.commit()
     db.refresh(user)

@@ -33,6 +33,8 @@ const GatePassForm = ({ onCreated }) => {
   const [departments, setDepartments] = useState([]);
   const [locationCode, setLocationCode] = useState('');
   const [department, setDepartment] = useState('');
+  const [deptLocked, setDeptLocked] = useState(false); // GPU: dept comes from profile, read-only
+  const [myLocations, setMyLocations] = useState([]);  // user's assigned GP locations (junction)
   const [partyQuery, setPartyQuery] = useState('');
   const [partyResults, setPartyResults] = useState([]);
   const [selectedParty, setSelectedParty] = useState(null);
@@ -69,16 +71,36 @@ const GatePassForm = ({ onCreated }) => {
   useEffect(() => {
     (async () => {
       try {
-        const [locs, depts, user] = await Promise.all([
+        const [locs, depts, user, mine] = await Promise.all([
           gatePassAPI.getLocations(),
           gatePassAPI.getDepartments(),
           getCurrentUser(),
+          gatePassAPI.getMyLocations().catch(() => ({ locations: [] })),
         ]);
         setLocations(locs);
         setDepartments(depts.departments || []);
         setUsername(user?.username || '');
-        if (locs.length > 0) setLocationCode(locs[0].location_code);
-        if (depts.departments?.length > 0) setDepartment(depts.departments[0]);
+
+        // Location: starred default from the user's own assignments wins;
+        // GPUs are restricted to their assigned locations.
+        const mineList = mine?.locations || [];
+        setMyLocations(mineList);
+        const starred = mineList.find((l) => l.is_default) || mineList[0];
+        if (starred) {
+          setLocationCode(starred.location_code);
+        } else if (locs.length > 0) {
+          setLocationCode(locs[0].location_code);
+        }
+
+        // Department: a Gate Pass User's own department is auto-filled and
+        // locked (profile is the source of truth). Others start empty and
+        // must actively choose — no more silent first-item default.
+        const roles = user?.roles || [];
+        const isGpu = roles.includes('gatepassuser') && !roles.includes('itadmin');
+        if (isGpu && user?.department) {
+          setDepartment(user.department);
+          setDeptLocked(true);
+        }
       } catch (error) {
         showError(handleAPIError(error));
       } finally {
@@ -375,7 +397,10 @@ const GatePassForm = ({ onCreated }) => {
             </TouchableOpacity>
             {locDropdownOpen && (
               <View style={[styles.uomMenu, { left: 0, right: 0, minWidth: '100%' }]}>
-                {locations.map((loc) => (
+                {(deptLocked && myLocations.length
+                  ? locations.filter((l) => myLocations.some((m) => m.location_code === l.location_code))
+                  : locations
+                ).map((loc) => (
                   <TouchableOpacity
                     key={loc.location_code}
                     style={[styles.uomItem, locationCode === loc.location_code && styles.uomItemActive]}
@@ -431,6 +456,12 @@ const GatePassForm = ({ onCreated }) => {
       <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
         <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
+          {deptLocked ? (
+            <View style={[styles.input, styles.dropdownTrigger, { backgroundColor: gp.bgMuted || '#f4f6f8' }]}>
+              <Text style={{ fontSize: 14, color: gp.text }}>{department}</Text>
+              <Text style={{ color: gp.textMuted, fontSize: 11 }}>from profile</Text>
+            </View>
+          ) : (
           <View style={{ position: 'relative', overflow: 'visible' }}>
             <TouchableOpacity
               style={[styles.input, styles.dropdownTrigger]}
@@ -457,6 +488,7 @@ const GatePassForm = ({ onCreated }) => {
               </View>
             )}
           </View>
+          )}
         </View>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>

@@ -1,6 +1,6 @@
 from pydantic import BaseModel,EmailStr,StringConstraints
 from datetime import datetime
-from typing import Optional,Annotated
+from typing import List, Optional,Annotated
 
 # Fixed USER SCHEMAS - add missing fields and make optional fields truly optional
 class UserCreate(BaseModel):
@@ -36,12 +36,18 @@ class PasswordReset(BaseModel):
     new_password: str
     confirm_password: str
 
+class GatePassLocationAssignment(BaseModel):
+    location_code: str
+    is_default: bool = False
+
+
 class UserRoleUpdate(BaseModel):
     role: Optional[str] = None
     warehouse_code: Optional[str] = None
     copacker_location: Optional[str] = None
     department: Optional[str] = None
-    gate_pass_location: Optional[str] = None
+    gate_pass_location: Optional[str] = None                       # legacy single
+    gate_pass_locations: Optional[List[GatePassLocationAssignment]] = None  # multi (wins)
 
     class Config:
         from_attributes = True

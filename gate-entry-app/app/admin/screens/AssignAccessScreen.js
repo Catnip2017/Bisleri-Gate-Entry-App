@@ -72,6 +72,8 @@ const AssignAccessScreen = () => {
   const [department, setDepartment] = useState('');
   const [gatePassLocation, setGatePassLocation] = useState('');
   const [gpLocations, setGpLocations] = useState([]);
+  // Gate Pass User multi-location: [{ location_code, is_default }]
+  const [gpLocSelections, setGpLocSelections] = useState([]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -125,6 +127,13 @@ const AssignAccessScreen = () => {
     setWarehouseSearch(user.warehouse_code || '');
     setDepartment(user.department || '');
     setGatePassLocation(user.gate_pass_location || '');
+    try {
+      const mine = await adminAPI.getUserGpLocations(user.username);
+      setGpLocSelections(mine.locations || []);
+    } catch (e) {
+      setGpLocSelections(user.gate_pass_location
+        ? [{ location_code: user.gate_pass_location, is_default: true }] : []);
+    }
 
     if (!warehouses.length) {
       try {
@@ -228,8 +237,8 @@ const AssignAccessScreen = () => {
     if (needsGpScope && !department)
       return showAlert('Validation Error', 'Department is required for Gate Pass User');
 
-    if (needsGpScope && !gatePassLocation)
-      return showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass User');
+    if (needsGpScope && gpLocSelections.length === 0)
+      return showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass User');
 
     setSaving(true);
     try {
@@ -239,7 +248,10 @@ const AssignAccessScreen = () => {
         copacker_location: roles.includes('Co Packer') ? copackerLocation.trim() : null,
         warehouse_code: needsWarehouse ? warehouseCode.trim() : null,
         department: needsGpScope ? department : null,
-        gate_pass_location: (needsGuardGPLoc || needsGpScope) ? gatePassLocation : null,
+        // Guards: legacy single value. GPU: multi-location list (backend
+        // syncs users_master.gate_pass_location to the starred default).
+        gate_pass_location: (needsGuardGPLoc && !needsGpScope) ? gatePassLocation : null,
+        gate_pass_locations: needsGpScope ? gpLocSelections : null,
       });
 
       // Update personal details
@@ -500,14 +512,47 @@ const AssignAccessScreen = () => {
                         onSelect={setDepartment}
                         placeholder="Select department..."
                       />
-                      {/* GP Location dropdown */}
-                      <Text style={styles.fieldLabel}>Gate Pass Location *</Text>
-                      <ScopeDropdown
-                        value={gatePassLocation}
-                        options={gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }))}
-                        onSelect={setGatePassLocation}
-                        placeholder="Select location..."
-                      />
+                      {/* GP Locations: multi-select with one starred default */}
+                      <Text style={styles.fieldLabel}>Gate Pass Locations * (tap to assign, ★ = default)</Text>
+                      {gpLocations.map((l) => {
+                        const sel = gpLocSelections.find((x) => x.location_code === l.location_code);
+                        return (
+                          <View key={l.location_code}
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                            <TouchableOpacity
+                              style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                              onPress={() => {
+                                setGpLocSelections((prev) => {
+                                  const exists = prev.find((x) => x.location_code === l.location_code);
+                                  if (exists) {
+                                    const next = prev.filter((x) => x.location_code !== l.location_code);
+                                    // keep exactly one star if any remain
+                                    if (exists.is_default && next.length > 0) next[0] = { ...next[0], is_default: true };
+                                    return next;
+                                  }
+                                  return [...prev, { location_code: l.location_code, is_default: prev.length === 0 }];
+                                });
+                              }}
+                            >
+                              <Text style={{ fontSize: 15, width: 22 }}>{sel ? '☑' : '☐'}</Text>
+                              <Text style={{ fontSize: 13, color: '#333' }}>
+                                {l.location_code} — {l.location_name}
+                              </Text>
+                            </TouchableOpacity>
+                            {sel && (
+                              <TouchableOpacity
+                                onPress={() => setGpLocSelections((prev) =>
+                                  prev.map((x) => ({ ...x, is_default: x.location_code === l.location_code })))}
+                                accessibilityLabel={`Make ${l.location_code} the default`}
+                              >
+                                <Text style={{ fontSize: 16, color: sel.is_default ? '#f5a623' : '#c8c8c8' }}>
+                                  {sel.is_default ? '★' : '☆'}
+                                </Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </ScrollView>

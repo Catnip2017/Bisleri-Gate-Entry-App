@@ -160,6 +160,13 @@ def check_target_table_before():
 # ---------------------------------------------------------------------------
 
 def push_to_document_data():
+    # Q17 (closed 12 Jul 2026): document_no is treated as globally unique
+    # across all three source tables because D365 numbering series per
+    # document type are DISJOINT (confirmed by business + zero-row duplicate
+    # check on Bisleri_dev, 12 Jul 2026). If that assumption ever changes
+    # (new doc type, company/site migration, number-sequence change in D365),
+    # the ON CONFLICT (document_no) upserts below will SILENTLY OVERWRITE
+    # cross-type collisions — revisit Q17 (composite key) before that happens.
     try:
         source_counts = check_source_tables()
         initial_count = check_target_table_before()

@@ -222,3 +222,21 @@ class GatePassEvent(Base):
     details_json = Column(Text, nullable=True)            # e.g. inward line receipts
 
     header = relationship("GatePassHeader", back_populates="events")
+
+
+class UserGatePassLocation(Base):
+    """One user -> N gate pass locations (Meena case), exactly one starred
+    default per user (enforced by partial unique index in the migration).
+    users_master.gate_pass_location stays as legacy fallback during
+    transition — see user_gate_pass_locations_migration.sql."""
+    __tablename__ = "user_gate_pass_locations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(50), ForeignKey("users_master.username", ondelete="CASCADE"),
+                      nullable=False, index=True)
+    location_code = Column(String(10), ForeignKey("gate_pass_locations.location_code"),
+                           nullable=False)
+    is_default = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("username", "location_code"),)

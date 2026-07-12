@@ -204,6 +204,10 @@ export const insightsAPI = {
 
 // ✅ MERGED: Complete Admin APIs
 export const adminAPI = {
+  getUserGpLocations: async (username) => {
+    const response = await api.get(`/user-gp-locations/${username}`);
+    return response.data;
+  },
   registerUser: async (userData) => {
     const response = await api.post("/register", userData);
     return response.data;
@@ -711,6 +715,10 @@ export const gatePassAPI = {
   },
   getDepartments: async () => {
     const response = await api.get('/gate-pass/departments');
+    return response.data;
+  },
+  getMyLocations: async () => {
+    const response = await api.get('/gate-pass/my-locations');
     return response.data;
   },
   getCancelReasons: async () => {
