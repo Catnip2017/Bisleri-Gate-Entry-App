@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from typing import List
@@ -168,11 +168,23 @@ def reset_password(
 
 # ✅ List Users
 @router.get("/list-users", response_model=List[UserResponse])
-def list_users(db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
+def list_users(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Q16: paginated; ordered by username so pages are deterministic."""
     roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only ITAdmins can list users")
-    return db.query(UsersMaster).all()
+    return (
+        db.query(UsersMaster)
+        .order_by(UsersMaster.username)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 # ✅ Get User
 @router.get("/user/{username}", response_model=UserResponse)

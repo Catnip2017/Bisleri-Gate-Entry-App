@@ -22,3 +22,7 @@ class MovementFilters(BaseModel):
     site_code: Optional[str] = Field(None, max_length=50)
     vehicle_no: Optional[str] = Field(None, max_length=50)
     movement_type: Optional[str] = Field(None, max_length=20)
+    # Q8: pagination. Default matches the old 5000 cap so existing callers
+    # see zero change; new callers page with e.g. skip=0&limit=200.
+    skip: int = Field(0, ge=0)
+    limit: int = Field(5000, ge=1, le=5000)

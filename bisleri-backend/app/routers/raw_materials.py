@@ -123,6 +123,8 @@ def get_rm_entries(
     site_code: str | None = Query(None, max_length=50),
     vehicle_no: str | None = Query(None, max_length=50),
     movement_type: str | None = Query(None, max_length=20),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(5000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
@@ -130,6 +132,7 @@ def get_rm_entries(
     filters = MovementFilters(
         from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
         site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+        skip=skip, limit=limit,
     )
     return get_filtered_rm_entries(filters, db, current_user)
 
@@ -175,9 +178,13 @@ def get_filtered_rm_entries(
             query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
         
         # Execute query
-        entries = query.order_by(
-            RawMaterialsData.date_time.desc()
-        ).limit(5000).all()
+        total_count = query.count()   # Q8: rows matching, before paging
+        entries = (
+            query.order_by(RawMaterialsData.date_time.desc())
+            .offset(filters.skip)
+            .limit(filters.limit)
+            .all()
+        )
         
         # Format response with edit status
         result_list = []
@@ -212,7 +219,10 @@ def get_filtered_rm_entries(
             })
         
         return {
-            "count": len(result_list),
+            "count": len(result_list),        # rows in this page
+            "total_count": total_count,       # rows matching overall (Q8)
+            "skip": filters.skip,
+            "limit": filters.limit,
             "results": result_list,
             "filters_applied": filters
         }
@@ -375,6 +385,8 @@ def get_rm_admin_entries(
     site_code: str | None = Query(None, max_length=50),
     vehicle_no: str | None = Query(None, max_length=50),
     movement_type: str | None = Query(None, max_length=20),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(5000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
@@ -382,6 +394,7 @@ def get_rm_admin_entries(
     filters = MovementFilters(
         from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
         site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+        skip=skip, limit=limit,
     )
     return get_admin_filtered_rm_entries(filters, db, current_user)
 
@@ -431,9 +444,13 @@ def get_admin_filtered_rm_entries(
             query = query.filter(RawMaterialsData.gate_type == filters.movement_type)
         
         # Execute query
-        entries = query.order_by(
-            RawMaterialsData.date_time.desc()
-        ).limit(5000).all()
+        total_count = query.count()   # Q8: rows matching, before paging
+        entries = (
+            query.order_by(RawMaterialsData.date_time.desc())
+            .offset(filters.skip)
+            .limit(filters.limit)
+            .all()
+        )
         
         # Format response with edit status
         result_list = []
@@ -468,7 +485,10 @@ def get_admin_filtered_rm_entries(
             })
         
         return {
-            "count": len(result_list),
+            "count": len(result_list),        # rows in this page
+            "total_count": total_count,       # rows matching overall (Q8)
+            "skip": filters.skip,
+            "limit": filters.limit,
             "results": result_list,
             "filters_applied": filters,
             "user_role": current_user.role,

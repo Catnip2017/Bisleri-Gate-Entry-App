@@ -25,6 +25,8 @@ def get_movements(
     site_code: Optional[str] = Query(None, max_length=50),
     vehicle_no: Optional[str] = Query(None, max_length=50),
     movement_type: Optional[str] = Query(None, max_length=20),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(5000, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
@@ -32,6 +34,7 @@ def get_movements(
     filters = MovementFilters(
         from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
         site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+        skip=skip, limit=limit,
     )
     return get_enhanced_filtered_movements(filters, db, current_user)
 
@@ -76,10 +79,13 @@ def get_enhanced_filtered_movements(
         
         
         # Execute query
-        movements = query.order_by(
-            InsightsData.date.desc(), 
-            InsightsData.time.desc()
-        ).all()
+        total_count = query.count()   # Q8: rows matching, before paging
+        movements = (
+            query.order_by(InsightsData.date.desc(), InsightsData.time.desc())
+            .offset(filters.skip)
+            .limit(filters.limit)
+            .all()
+        )
         
         # ✅ NEW: Enhanced response with operational edit status
         result_list = []
@@ -138,7 +144,10 @@ def get_enhanced_filtered_movements(
             })
         
         return {
-            "count": len(result_list),
+            "count": len(result_list),        # rows in this page
+            "total_count": total_count,       # rows matching overall (Q8)
+            "skip": filters.skip,
+            "limit": filters.limit,
             "results": result_list,
             "filters_applied": filters
         }
