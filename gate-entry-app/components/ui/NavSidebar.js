@@ -7,11 +7,11 @@
 //   3. Role-relevant detail rows (WH/site, or copacker location)
 //   4. Pinned red Logout with confirmation — the single logout in the app
 //   5. Footer: app version + connected server
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, TouchableOpacity, ScrollView } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { authAPI, API_BASE_URL } from '../../services/api';
+import { authAPI, gatePassAPI, API_BASE_URL } from '../../services/api';
 import { storage } from '../../utils/storage';
 import { confirmAction } from '../../utils/customModal';
 import {
@@ -25,11 +25,39 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
   const router = useRouter();
   const pathname = usePathname();
 
+  // Multi-location: the JWT only carries the legacy single gate_pass_location
+  // (the ★ default). The full assigned list lives in the junction table, so
+  // fetch it when the sidebar opens for guards / gate pass users. Skipped for
+  // other roles (ITA without assignments would get the whole master back).
+  const rolesForFetch = userData?.roles || [];
+  const hasGpRole =
+    rolesForFetch.includes('securityguard') || rolesForFetch.includes('gatepassuser');
+  const [gpLocationList, setGpLocationList] = useState(null);
+  useEffect(() => {
+    if (!isVisible || !hasGpRole) return;
+    let cancelled = false;
+    gatePassAPI.getMyLocations()
+      .then((d) => { if (!cancelled) setGpLocationList(d.locations || []); })
+      .catch(() => { if (!cancelled) setGpLocationList(null); });
+    return () => { cancelled = true; };
+  }, [isVisible, hasGpRole]);
+
   if (!isVisible) return null;
 
   const roles = userData?.roles || [];
   const links = getNavLinksForRoles(roles);
-  const details = getUserDetails(userData);
+  let details = getUserDetails(userData);
+  // Replace the single legacy value with the full assigned list (★ = default).
+  if (gpLocationList && gpLocationList.length > 0) {
+    const joined = gpLocationList
+      .map((l) => l.location_code + (l.is_default && gpLocationList.length > 1 ? ' ★' : ''))
+      .join(', ');
+    details = details.map(([label, value]) =>
+      label === 'Gate Pass Location'
+        ? [gpLocationList.length > 1 ? 'Gate Pass Locations' : 'Gate Pass Location', joined]
+        : [label, value]
+    );
+  }
   const initials = (userData?.fullName || userData?.username || '?')
     .split(' ')
     .map((part) => part[0])
