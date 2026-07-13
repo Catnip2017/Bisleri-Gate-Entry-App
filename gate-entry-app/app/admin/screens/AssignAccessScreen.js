@@ -40,6 +40,98 @@ function ScopeDropdown({ value, options, onSelect, placeholder = 'Select...' }) 
   );
 }
 
+// Multi-select dropdown for gate pass locations. Built for scale: the
+// location master will hold 500+ rows once the Fabric pipeline lands, so
+// options live inside a searchable, scrollable menu — never a flat list.
+// selections: [{ location_code, is_default }]; ★ only rendered when
+// showStar (GPU present) — guards' worklist defaults to All, no star needed.
+function LocationMultiSelect({ options, selections, onChange, showStar }) {
+  const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
+  const term = search.trim().toLowerCase();
+  const filtered = term
+    ? options.filter(l =>
+        (l.location_code || '').toLowerCase().includes(term) ||
+        (l.location_name || '').toLowerCase().includes(term))
+    : options;
+
+  const toggle = (code) => {
+    const exists = selections.find(x => x.location_code === code);
+    if (exists) {
+      const next = selections.filter(x => x.location_code !== code);
+      // keep exactly one star if any remain
+      if (exists.is_default && next.length > 0) next[0] = { ...next[0], is_default: true };
+      onChange(next);
+    } else {
+      onChange([...selections, { location_code: code, is_default: selections.length === 0 }]);
+    }
+  };
+
+  const setStar = (code) =>
+    onChange(selections.map(x => ({ ...x, is_default: x.location_code === code })));
+
+  const summary = selections.length
+    ? selections
+        .map(s => s.location_code + (showStar && s.is_default ? ' ★' : ''))
+        .join(', ')
+    : null;
+
+  return (
+    <View style={{ marginBottom: 12, zIndex: open ? 998 : 1 }}>
+      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+        <Text style={[styles.ddTriggerText, !summary && { color: '#bbb' }]} numberOfLines={1}>
+          {summary || 'Select locations...'}
+        </Text>
+        <Text style={{ color: '#aaa', fontSize: 10 }}>{open ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.ddMenu}>
+          <TextInput
+            style={[styles.input, { marginHorizontal: 6, marginTop: 6, marginBottom: 2 }]}
+            placeholder="Search code or name..."
+            placeholderTextColor="#aaa"
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="characters"
+          />
+          <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {filtered.map((l) => {
+              const sel = selections.find(x => x.location_code === l.location_code);
+              return (
+                <View key={l.location_code}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7 }}>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                    onPress={() => toggle(l.location_code)}
+                  >
+                    <Text style={{ fontSize: 15, width: 22 }}>{sel ? '☑' : '☐'}</Text>
+                    <Text style={{ fontSize: 13, color: '#333' }} numberOfLines={1}>
+                      {l.location_code} — {l.location_name}
+                    </Text>
+                  </TouchableOpacity>
+                  {sel && showStar && (
+                    <TouchableOpacity
+                      onPress={() => setStar(l.location_code)}
+                      accessibilityLabel={`Make ${l.location_code} the default`}
+                    >
+                      <Text style={{ fontSize: 16, color: sel.is_default ? '#f5a623' : '#c8c8c8' }}>
+                        {sel.is_default ? '★' : '☆'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+            {filtered.length === 0 && (
+              <Text style={{ fontSize: 12, color: '#999', padding: 10 }}>No locations match your search</Text>
+            )}
+          </ScrollView>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const AVAILABLE_ROLES = ['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
@@ -533,51 +625,20 @@ const AssignAccessScreen = () => {
                           />
                         </>
                       )}
-                      {/* GP Locations: multi-select, one starred default (GPU only) */}
+                      {/* GP Locations: searchable multi-select dropdown
+                          (scales to 500+ locations once the pipeline lands);
+                          one starred default, star shown for GPU only */}
                       <Text style={styles.fieldLabel}>
                         {needsGpScope
-                          ? 'Gate Pass Locations * (tap to assign, ★ = default)'
-                          : 'Gate Pass Locations * (tap to assign)'}
+                          ? 'Gate Pass Locations * (★ = default)'
+                          : 'Gate Pass Locations *'}
                       </Text>
-                      {gpLocations.map((l) => {
-                        const sel = gpLocSelections.find((x) => x.location_code === l.location_code);
-                        return (
-                          <View key={l.location_code}
-                            style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
-                            <TouchableOpacity
-                              style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                              onPress={() => {
-                                setGpLocSelections((prev) => {
-                                  const exists = prev.find((x) => x.location_code === l.location_code);
-                                  if (exists) {
-                                    const next = prev.filter((x) => x.location_code !== l.location_code);
-                                    // keep exactly one star if any remain
-                                    if (exists.is_default && next.length > 0) next[0] = { ...next[0], is_default: true };
-                                    return next;
-                                  }
-                                  return [...prev, { location_code: l.location_code, is_default: prev.length === 0 }];
-                                });
-                              }}
-                            >
-                              <Text style={{ fontSize: 15, width: 22 }}>{sel ? '☑' : '☐'}</Text>
-                              <Text style={{ fontSize: 13, color: '#333' }}>
-                                {l.location_code} — {l.location_name}
-                              </Text>
-                            </TouchableOpacity>
-                            {sel && needsGpScope && (
-                              <TouchableOpacity
-                                onPress={() => setGpLocSelections((prev) =>
-                                  prev.map((x) => ({ ...x, is_default: x.location_code === l.location_code })))}
-                                accessibilityLabel={`Make ${l.location_code} the default`}
-                              >
-                                <Text style={{ fontSize: 16, color: sel.is_default ? '#f5a623' : '#c8c8c8' }}>
-                                  {sel.is_default ? '★' : '☆'}
-                                </Text>
-                              </TouchableOpacity>
-                            )}
-                          </View>
-                        );
-                      })}
+                      <LocationMultiSelect
+                        options={gpLocations}
+                        selections={gpLocSelections}
+                        onChange={setGpLocSelections}
+                        showStar={needsGpScope}
+                      />
                     </View>
                   )}
                 </ScrollView>
