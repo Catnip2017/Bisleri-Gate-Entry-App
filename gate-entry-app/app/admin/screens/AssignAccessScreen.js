@@ -89,6 +89,11 @@ const AssignAccessScreen = () => {
   const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
   const needsGuardGPLoc = roles.includes('Security Guard');
   const needsGpScope     = roles.includes('Gate Pass User');
+  // ONE shared location list per user (junction table) covering both hats:
+  // guard worklist access AND GPU initiation. The ★ default only matters to
+  // GPUs (pre-selects the New Pass form); guards' worklist shows all their
+  // locations, so the star is hidden when the user isn't a GPU.
+  const needsGpLocations = needsGuardGPLoc || needsGpScope;
 
   // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = async (query) => {
@@ -234,14 +239,11 @@ const AssignAccessScreen = () => {
     if (needsWarehouse && (!warehouseCode || !warehouseName))
       return showAlert('Validation Error', 'Please select a valid warehouse for Security roles');
 
-    if (needsGuardGPLoc && !gatePassLocation)
-      return showAlert('Validation Error', 'Gate Pass Location is required for Security Guard');
-
     if (needsGpScope && !department)
       return showAlert('Validation Error', 'Department is required for Gate Pass User');
 
-    if (needsGpScope && gpLocSelections.length === 0)
-      return showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass User');
+    if (needsGpLocations && gpLocSelections.length === 0)
+      return showAlert('Validation Error', 'At least one Gate Pass Location is required');
 
     setSaving(true);
     try {
@@ -251,10 +253,11 @@ const AssignAccessScreen = () => {
         copacker_location: roles.includes('Co Packer') ? copackerLocation.trim() : null,
         warehouse_code: needsWarehouse ? warehouseCode.trim() : null,
         department: needsGpScope ? department : null,
-        // Guards: legacy single value. GPU: multi-location list (backend
-        // syncs users_master.gate_pass_location to the starred default).
-        gate_pass_location: (needsGuardGPLoc && !needsGpScope) ? gatePassLocation : null,
-        gate_pass_locations: needsGpScope ? gpLocSelections : null,
+        // Guards AND GPUs both use the junction-table list (one shared list
+        // per user). Backend syncs users_master.gate_pass_location to the
+        // starred default. Legacy single-value field no longer sent.
+        gate_pass_location: null,
+        gate_pass_locations: needsGpLocations ? gpLocSelections : null,
         is_active: isActive,
       });
 
@@ -501,20 +504,6 @@ const AssignAccessScreen = () => {
                     </View>
                   )}
 
-                  {/* Security Guard — Gate Pass Location */}
-                  {needsGuardGPLoc && (
-                    <View style={{ marginBottom: 16, zIndex: 1 }}>
-                      <Text style={styles.scopeSubLabel}>Security Guard</Text>
-                      <Text style={styles.fieldLabel}>Gate Pass Location *</Text>
-                      <ScopeDropdown
-                        value={gatePassLocation}
-                        options={gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }))}
-                        onSelect={setGatePassLocation}
-                        placeholder="Select gate location..."
-                      />
-                    </View>
-                  )}
-
                   {/* Co Packer */}
                   {roles.includes('Co Packer') && (
                     <View style={{ marginBottom: 16, zIndex: 1 }}>
@@ -525,20 +514,31 @@ const AssignAccessScreen = () => {
                     </View>
                   )}
 
-                  {/* Gate Pass User */}
-                  {needsGpScope && (
+                  {/* Gate Pass — ONE shared location list for both hats:
+                      guard worklist (dispatch/inward) + GPU initiation.
+                      Department applies to GPUs only; the ★ default only
+                      pre-selects the GPU New Pass form, so it's hidden for
+                      guard-only users (their worklist defaults to All). */}
+                  {needsGpLocations && (
                     <View style={{ zIndex: 1 }}>
-                      <Text style={styles.scopeSubLabel}>Gate Pass User</Text>
-                      {/* Department dropdown */}
-                      <Text style={styles.fieldLabel}>Department *</Text>
-                      <ScopeDropdown
-                        value={department}
-                        options={DEPARTMENTS.map(d => ({ label: d, value: d }))}
-                        onSelect={setDepartment}
-                        placeholder="Select department..."
-                      />
-                      {/* GP Locations: multi-select with one starred default */}
-                      <Text style={styles.fieldLabel}>Gate Pass Locations * (tap to assign, ★ = default)</Text>
+                      <Text style={styles.scopeSubLabel}>Gate Pass</Text>
+                      {needsGpScope && (
+                        <>
+                          <Text style={styles.fieldLabel}>Department *</Text>
+                          <ScopeDropdown
+                            value={department}
+                            options={DEPARTMENTS.map(d => ({ label: d, value: d }))}
+                            onSelect={setDepartment}
+                            placeholder="Select department..."
+                          />
+                        </>
+                      )}
+                      {/* GP Locations: multi-select, one starred default (GPU only) */}
+                      <Text style={styles.fieldLabel}>
+                        {needsGpScope
+                          ? 'Gate Pass Locations * (tap to assign, ★ = default)'
+                          : 'Gate Pass Locations * (tap to assign)'}
+                      </Text>
                       {gpLocations.map((l) => {
                         const sel = gpLocSelections.find((x) => x.location_code === l.location_code);
                         return (
@@ -564,7 +564,7 @@ const AssignAccessScreen = () => {
                                 {l.location_code} — {l.location_name}
                               </Text>
                             </TouchableOpacity>
-                            {sel && (
+                            {sel && needsGpScope && (
                               <TouchableOpacity
                                 onPress={() => setGpLocSelections((prev) =>
                                   prev.map((x) => ({ ...x, is_default: x.location_code === l.location_code })))}

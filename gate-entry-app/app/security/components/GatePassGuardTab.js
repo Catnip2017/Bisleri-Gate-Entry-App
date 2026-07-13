@@ -26,6 +26,14 @@ const GatePassGuardTab = () => {
   const [dueItems, setDueItems] = useState([]);
   const [noGpLocation, setNoGpLocation] = useState(false);
 
+  // Location filter (shared-gate guards can hold multiple GP locations).
+  // Defaults to All — at a gate serving two warehouses the pass in the
+  // driver's hand can be from either location, so nothing is hidden by
+  // default. Single-location guards see one fixed chip. Filtering is
+  // client-side; the server already returns the union of assigned locations.
+  const [myLocations, setMyLocations] = useState([]);
+  const [locationFilter, setLocationFilter] = useState('all');
+
   // Dispatch modal (confirm + security remarks)
   const [dispatchTarget, setDispatchTarget] = useState(null);
   const [dispatchRemarks, setDispatchRemarks] = useState('');
@@ -70,6 +78,18 @@ const GatePassGuardTab = () => {
     load();
     loadDue();
   }, [load, loadDue]);
+
+  // Assigned locations (once) — powers the filter chips.
+  useEffect(() => {
+    gatePassAPI.getMyLocations()
+      .then((d) => setMyLocations(d.locations || []))
+      .catch(() => setMyLocations([]));
+  }, []);
+
+  const visibleItems =
+    locationFilter === 'all'
+      ? items
+      : items.filter((i) => i.location_code === locationFilter);
 
   // ── Dispatch flow ─────────────────────────────────────────────────────────
   const openDispatch = (pass) => {
@@ -282,6 +302,45 @@ const GatePassGuardTab = () => {
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
           <View style={styles.formCard}>
+            {/* Location filter — only meaningful for multi-location guards.
+                Single location renders one fixed chip (no choice to make). */}
+            {myLocations.length > 0 && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Text style={{ fontSize: 12, color: gp.textMuted, marginRight: 2 }}>Location:</Text>
+                {myLocations.length > 1 ? (
+                  ['all', ...myLocations.map((l) => l.location_code)].map((code) => {
+                    const active = locationFilter === code;
+                    return (
+                      <TouchableOpacity
+                        key={code}
+                        onPress={() => setLocationFilter(code)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        style={{
+                          paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
+                          borderWidth: 1,
+                          borderColor: active ? gp.accent : '#D6DEE6',
+                          backgroundColor: active ? gp.accent : '#fff',
+                        }}
+                      >
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : '#333' }}>
+                          {code === 'all' ? 'All' : code}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <View style={{
+                    paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
+                    borderWidth: 1, borderColor: '#D6DEE6', backgroundColor: '#F2F5F8',
+                  }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#333' }}>
+                      {myLocations[0].location_code}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             {loading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color={gp.accent} />
@@ -289,14 +348,16 @@ const GatePassGuardTab = () => {
             ) : (
               <DataTable
                 columns={columns}
-                data={items}
+                data={visibleItems}
                 keyExtractor={(item) => String(item.id)}
                 emptyText={
-                  view === 'dispatch'
-                    ? 'No passes waiting for dispatch'
-                    : view === 'inward'
-                      ? 'No returnable passes waiting for inward'
-                      : 'No cancelled passes (only passes cancelled after release appear here)'
+                  locationFilter !== 'all' && items.length > 0
+                    ? `No passes at ${locationFilter} — switch the filter to All to see other locations`
+                    : view === 'dispatch'
+                      ? 'No passes waiting for dispatch'
+                      : view === 'inward'
+                        ? 'No returnable passes waiting for inward'
+                        : 'No cancelled passes (only passes cancelled after release appear here)'
                 }
               />
             )}
