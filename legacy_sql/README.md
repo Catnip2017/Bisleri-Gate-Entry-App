@@ -10,3 +10,7 @@ exists) or double-apply. Schema changes from here on go through Alembic
 
 `schema.sql` here is the old stale 8-table schema — superseded by
 `DB Schemas/schema_bisleri_01.sql`.
+
+`role_redesign_migration.sql` — role model redesign (14 Jul 2026): 'Gate Pass
+User' split into Creator/Dispatcher, 'Security Admin' removed. Data-only,
+idempotent-safe but already RUN on Bisleri_dev — archived like the rest.

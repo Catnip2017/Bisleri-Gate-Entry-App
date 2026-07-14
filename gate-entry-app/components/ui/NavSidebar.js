@@ -136,10 +136,10 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {roles.map((role) => (
                 <View key={role} style={{
-                  backgroundColor: '#EAF7EF', borderRadius: 8,
-                  paddingHorizontal: 6, paddingVertical: 2,
+                  backgroundColor: '#00843D', borderRadius: 10,
+                  paddingHorizontal: 9, paddingVertical: 3,
                 }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#064D28' }}>
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', letterSpacing: 0.2 }}>
                     {ROLE_LABELS[role] || role}
                   </Text>
                 </View>

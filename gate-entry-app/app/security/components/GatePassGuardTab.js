@@ -32,7 +32,8 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   // default. Single-location guards see one fixed chip. Filtering is
   // client-side; the server already returns the union of assigned locations.
   const [myLocations, setMyLocations] = useState([]);
-  const [locationFilter, setLocationFilter] = useState('all');
+  const [selectedLocs, setSelectedLocs] = useState([]);   // [] = All locations
+  const [locMenuOpen, setLocMenuOpen] = useState(false);
 
   // Dispatch modal (confirm + security remarks)
   const [dispatchTarget, setDispatchTarget] = useState(null);
@@ -88,9 +89,16 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   }, []);
 
   const visibleItems =
-    locationFilter === 'all'
+    selectedLocs.length === 0
       ? items
-      : items.filter((i) => i.location_code === locationFilter);
+      : items.filter((i) => selectedLocs.includes(i.location_code));
+
+  const toggleLoc = (code) =>
+    setSelectedLocs((prev) =>
+      prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]);
+
+  const locSummary =
+    selectedLocs.length === 0 ? 'All locations' : selectedLocs.join(', ');
 
   // ── Dispatch flow ─────────────────────────────────────────────────────────
   const openDispatch = (pass) => {
@@ -324,33 +332,63 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
           <View style={styles.formCard}>
-            {/* Location filter — only meaningful for multi-location guards.
-                Single location renders one fixed chip (no choice to make). */}
+            {/* Location filter — dropdown checkbox list (scales to many
+                locations). Empty selection = All. Single location renders a
+                fixed label (no choice to make). */}
             {myLocations.length > 0 && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Text style={{ fontSize: 12, color: gp.textMuted, marginRight: 2 }}>Location:</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, zIndex: 50 }}>
+                <Text style={{ fontSize: 12, color: gp.textMuted }}>Location:</Text>
                 {myLocations.length > 1 ? (
-                  ['all', ...myLocations.map((l) => l.location_code)].map((code) => {
-                    const active = locationFilter === code;
-                    return (
-                      <TouchableOpacity
-                        key={code}
-                        onPress={() => setLocationFilter(code)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        style={{
-                          paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: active ? gp.accent : '#D6DEE6',
-                          backgroundColor: active ? gp.accent : '#fff',
-                        }}
-                      >
-                        <Text style={{ fontSize: 12, fontWeight: '600', color: active ? '#fff' : '#333' }}>
-                          {code === 'all' ? 'All' : code}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })
+                  <View style={{ minWidth: 220, maxWidth: 340 }}>
+                    <TouchableOpacity
+                      onPress={() => setLocMenuOpen((o) => !o)}
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: locMenuOpen }}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                        borderWidth: 1, borderColor: '#C8D4DE', borderRadius: 8,
+                        paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff',
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }} numberOfLines={1}>
+                        {locSummary}
+                      </Text>
+                      <Text style={{ fontSize: 10, color: gp.textMuted, marginLeft: 8 }}>
+                        {locMenuOpen ? '▲' : '▼'}
+                      </Text>
+                    </TouchableOpacity>
+                    {locMenuOpen && (
+                      <View style={{
+                        position: 'absolute', top: 38, left: 0, right: 0,
+                        backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
+                        borderRadius: 8, elevation: 6, zIndex: 100,
+                        shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 3 },
+                      }}>
+                        <TouchableOpacity
+                          onPress={() => setSelectedLocs([])}
+                          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                        >
+                          <Text style={{ fontSize: 15, width: 24 }}>{selectedLocs.length === 0 ? '☑' : '☐'}</Text>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>All locations</Text>
+                        </TouchableOpacity>
+                        <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
+                        {myLocations.map((l) => {
+                          const on = selectedLocs.includes(l.location_code);
+                          return (
+                            <TouchableOpacity
+                              key={l.location_code}
+                              onPress={() => toggleLoc(l.location_code)}
+                              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                            >
+                              <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
+                              <Text style={{ fontSize: 13, color: '#1A2E22' }}>{l.location_code}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
                 ) : (
                   <View style={{
                     paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
@@ -373,8 +411,8 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 data={visibleItems}
                 keyExtractor={(item) => String(item.id)}
                 emptyText={
-                  locationFilter !== 'all' && items.length > 0
-                    ? `No passes at ${locationFilter} — switch the filter to All to see other locations`
+                  selectedLocs.length > 0 && items.length > 0
+                    ? `No passes at ${selectedLocs.join(', ')} — set the filter to All locations to see the rest`
                     : view === 'dispatch'
                       ? 'No passes waiting for dispatch'
                       : view === 'inward'
