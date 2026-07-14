@@ -132,7 +132,7 @@ def test_get_movements_bad_date_is_422(fclient):
 
 # ── security scoping survives the refactor ───────────────────────────────────
 def test_non_admin_stays_warehouse_locked_even_when_asking_for_more(fclient):
-    fclient.login(make_user("sa1", "Security Admin", warehouse="WH1"))
+    fclient.login(make_user("g2", "Security Guard", warehouse="WH1"))
     r = fclient.get("/movements", params={"warehouse_code": "WH2"})
     assert r.status_code == 200
     rows = r.json()["results"]

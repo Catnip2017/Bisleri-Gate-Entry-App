@@ -197,13 +197,13 @@ export const hasRole = async (requiredRole) => {
 };
 
 /**
- * Check if user is admin (Security Admin or IT Admin)
+ * Check if user is admin (IT Admin — Security Admin removed 14 Jul 2026)
  */
 export const isAdmin = async () => {
   const user = await getCurrentUser();
   if (!user || !user.roles) return false;
-  
-  return user.roles.includes('securityadmin') || user.roles.includes('itadmin');
+
+  return user.roles.includes('itadmin');
 };
 
 /**
@@ -216,8 +216,12 @@ export const isSecurityGuard = async () => {
 /**
  * ✅ MERGED: Additional role check helpers
  */
-export const isSecurityAdmin = async () => {
-  return await hasRole('Security Admin');
+export const isGatePassCreator = async () => {
+  return await hasRole('Gate Pass Creator');
+};
+
+export const isGatePassDispatcher = async () => {
+  return await hasRole('Gate Pass Dispatcher');
 };
 
 export const isITAdmin = async () => {
@@ -225,14 +229,12 @@ export const isITAdmin = async () => {
 };
 
 /**
- * Determine the correct home route based on a user's normalised roles array.
+ * Home route from the user's normalised roles (role model LOCKED 14 Jul 2026).
  *
- * Priority rules (agreed with product):
- *  • itadmin (alone, or + securityadmin)        → /admin-hub
- *  • itadmin + securityguard (± securityadmin)  → /admin-hub
- *  • securityguard + securityadmin (no itadmin) → /landing   (dual-access user)
- *  • securityadmin only                         → /admin     (Admin Insights only)
- *  • securityguard only / anything else         → /security
+ *  • copacker (exclusive)               → /copacker
+ *  • gatepasscreator without itadmin    → /gate-pass  (form directly)
+ *  • itadmin (alone or + gatepasscreator) → /admin-hub
+ *  • securityguard (± gatepassdispatcher) → /security
  *
  * @param {string[]} roles - Normalised roles array from getCurrentUser()
  * @returns {string} Expo-router path to replace() into
@@ -241,21 +243,15 @@ export const getRoleBasedRoute = (roles = []) => {
   // Copacker only → straight to copacker dashboard (exclusive role)
   if (roles.includes('copacker')) return '/copacker';
 
-  // Gate Pass User ONLY (no admin/guard role) → straight to the Gate Pass
-  // form. A combined role (e.g. IT Admin + Gate Pass User) falls through to
-  // its normal landing and reaches Gate Pass via the Admin Hub tile/sidebar.
-  const hasOtherRole = ['itadmin', 'securityadmin', 'securityguard'].some((r) =>
-    roles.includes(r)
-  );
-  if (roles.includes('gatepassuser') && !hasOtherRole) return '/gate-pass';
+  // Gate Pass Creator without ITA → straight to the Gate Pass form.
+  // ITA+GPC lands on the Admin Hub and reaches Gate Pass via tile/sidebar.
+  if (roles.includes('gatepasscreator') && !roles.includes('itadmin')) return '/gate-pass';
 
   // Any user with itadmin always lands on the Admin Hub,
   // regardless of additional security roles.
   if (roles.includes('itadmin')) return '/admin-hub';
 
-  // Everyone else (guard, security admin, or both) → the ONE gate
-  // dashboard. Admins land on the Insights tab in view-only mode;
-  // guards land on Gate Entry. (Admin Insights retired July 2026.)
+  // Everyone else (guards ± dispatcher) → the ONE gate dashboard.
   return '/security';
 };
 
@@ -263,13 +259,13 @@ export const getRoleBasedRoute = (roles = []) => {
  * Determine whether the Gate Entry tab should be in restricted
  * (read-only / vehicle-search-only) mode for this user.
  *
- * Any admin role (itadmin or securityadmin) viewing the Gate Entry tab
- * is restricted — that tab is only their primary workspace if they are
- * a securityguard with NO admin role.
+ * IT Admin viewing the Gate Entry tab is restricted (view-only) —
+ * that tab is only a workspace for Security Guards. (Security Admin
+ * removed 14 Jul 2026; ITA+SG is an illegal combo, so no conflict.)
  *
  * @param {string[]} roles - Normalised roles array from getCurrentUser()
  * @returns {boolean}
  */
 export const isGateEntryRestricted = (roles = []) => {
-  return roles.includes('itadmin') || roles.includes('securityadmin');
+  return roles.includes('itadmin');
 };

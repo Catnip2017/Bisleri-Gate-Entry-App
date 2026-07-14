@@ -63,13 +63,16 @@ def make_user(username, role, gp_loc=None, department=None, warehouse=None):
 def users():
     """The cast of characters used across gate pass tests."""
     return {
-        # TEMP: itadmin stands in for the future gatepassuser initiator role
-        "initiator": make_user("init1", "IT Admin", department="IT", gp_loc="HO"),
+        # Role model LOCKED 14 Jul 2026: GPC creates, SG+GPD dispatches,
+        # ITA alone has NO gate pass access, ITA+GPC is scoped like any GPC.
+        "initiator": make_user("init1", "Gate Pass Creator", department="IT", gp_loc="HO"),
         "admin": make_user("admin1", "IT Admin"),
-        "guard_ho": make_user("guard1", "Security Guard", gp_loc="HO"),
-        "guard_chn": make_user("guard2", "Security Guard", gp_loc="CHN"),
-        "guard_no_loc": make_user("guard3", "Security Guard", gp_loc=None),
-        "outsider": make_user("sales1", "Security Admin"),
+        "admin_creator": make_user("admin2", "IT Admin, Gate Pass Creator", department="IT", gp_loc="HO"),
+        "guard_ho": make_user("guard1", "Security Guard, Gate Pass Dispatcher", gp_loc="HO"),
+        "guard_chn": make_user("guard2", "Security Guard, Gate Pass Dispatcher", gp_loc="CHN"),
+        "guard_no_loc": make_user("guard3", "Security Guard, Gate Pass Dispatcher", gp_loc=None),
+        "guard_no_gpd": make_user("guard4", "Security Guard", gp_loc="HO"),
+        "outsider": make_user("sales1", "Co Packer"),
     }
 
 
@@ -154,7 +157,8 @@ def dispatch(client, users, pass_id, who="guard_ho"):
 
 
 def get_line_ids(client, users, pass_id):
-    client.login(users["admin"])
+    # ITA alone sees no passes (locked model) — view as ITA+GPC (IT dept, HO)
+    client.login(users["admin_creator"])
     r = client.get(f"/gate-pass/{pass_id}")
     assert r.status_code == 200, r.text
     return {l["line_no"]: l["id"] for l in r.json()["lines"]}

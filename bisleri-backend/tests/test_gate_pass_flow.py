@@ -209,7 +209,12 @@ def test_force_close_admin_only(client, users):
     denied = client.post(f"/gate-pass/{gp['id']}/force-close",
                          json={"close_reason": "items written off"})
     assert denied.status_code == 403
+    # plain ITA (no GPC -> no scoped view) is also denied under the locked model
     client.login(users["admin"])
+    denied2 = client.post(f"/gate-pass/{gp['id']}/force-close",
+                          json={"close_reason": "items written off"})
+    assert denied2.status_code == 403
+    client.login(users["admin_creator"])
     ok = client.post(f"/gate-pass/{gp['id']}/force-close",
                      json={"close_reason": "items written off"})
     assert ok.status_code == 200
@@ -220,7 +225,7 @@ def test_force_close_needs_dispatched_returnable(client, users):
     nr = create_pass(client, users, "NR")
     release(client, users, nr["id"])
     dispatch(client, users, nr["id"])
-    client.login(users["admin"])
+    client.login(users["admin_creator"])
     r = client.post(f"/gate-pass/{nr['id']}/force-close",
                     json={"close_reason": "items written off"})
     assert r.status_code == 409  # NR can never be force closed

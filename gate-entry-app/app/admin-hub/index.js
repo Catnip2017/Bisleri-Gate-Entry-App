@@ -22,7 +22,7 @@ import styles from './AdminHubStyles';
 // non-itadmin can't reach the data even by guessing the route/URL directly.
 const getTiles = (roles = []) => {
   const isItAdmin = roles.includes('itadmin');
-  const isGatePassUser = roles.includes('gatepassuser'); // future role
+  const isGatePassCreator = roles.includes('gatepasscreator');
 
   return [
     {
@@ -58,7 +58,7 @@ const getTiles = (roles = []) => {
       iconBg: '#E6F1FB',
       route: '/gate-pass',
       disabled: false,
-      hidden: !isItAdmin && !isGatePassUser,
+      hidden: !isItAdmin && !isGatePassCreator,
     },
     {
       key: 'copacker',

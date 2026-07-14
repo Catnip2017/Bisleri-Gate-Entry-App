@@ -1,8 +1,9 @@
-# tests/test_security_admin_viewonly.py
-"""Security Admin is fully VIEW-ONLY (decisions 12 Jul 2026):
+# tests/test_oversight_viewonly.py
+"""Oversight roles are VIEW-ONLY in gate entry (role model LOCKED 14 Jul 2026,
+Security Admin REMOVED — IT Admin is now the only oversight role):
 (1) edit buttons disabled — only Security Guards edit operational data;
-(2) gate entry creation locked server-side behind the view-only pill;
-(3) no gate pass access at all (covered in test_gatepassuser_role)."""
+(2) gate entry creation locked server-side;
+(3) ITA gate pass access covered in test_gatepassuser_role."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -17,7 +18,6 @@ from app.routers import insights as insights_module
 from app.routers import raw_materials as rm_module
 from tests.conftest import TestingSession, engine, make_user
 
-SA = lambda: make_user("sa1", "Security Admin", warehouse="WH1")
 GUARD = lambda: make_user("guard1", "Security Guard", warehouse="WH1")
 ITADMIN = lambda: make_user("admin1", "IT Admin", warehouse="WH1")
 
@@ -48,7 +48,7 @@ def vclient():
     app.include_router(insights_module.router)
     app.include_router(rm_module.router)
     app.include_router(gate_module.router)
-    current = {"user": SA()}
+    current = {"user": ITADMIN()}
 
     def override_db():
         session = TestingSession()
@@ -66,7 +66,7 @@ def vclient():
 
 
 # ═══ (1) edit buttons disabled for admin roles ═══════════════════════════════
-def test_sa_sees_movements_but_edit_button_is_disabled(vclient):
+def test_ita_sees_movements_but_edit_button_is_disabled(vclient):
     r = vclient.get("/movements").json()
     assert r["count"] == 1                                  # oversight: sees it
     row = r["results"][0]
@@ -74,20 +74,20 @@ def test_sa_sees_movements_but_edit_button_is_disabled(vclient):
     assert row["edit_button_config"]["enabled"] is False
 
 
-def test_sa_cannot_update_operational_data(vclient):
+def test_ita_cannot_update_operational_data(vclient):
     r = vclient.put("/update-operational-data", json={
         "gate_entry_no": "GE-1", "driver_name": "Hacked"})
     assert r.status_code == 403
 
 
-def test_sa_cannot_update_rm_entry(vclient):
+def test_ita_cannot_update_rm_entry(vclient):
     r = vclient.put("/rm/update-entry", json={
         "gate_entry_no": "RM-1", "quantity": "999"})
     assert r.status_code == 403
     assert "view-only" in r.json()["detail"]
 
 
-def test_sa_rm_list_shows_can_edit_false(vclient):
+def test_ita_rm_list_shows_can_edit_false(vclient):
     r = vclient.get("/rm/entries").json()
     assert r["count"] == 1
     assert r["results"][0]["can_edit"] is False
@@ -119,7 +119,7 @@ CREATE_ENDPOINTS = [
 ]
 
 
-def test_sa_blocked_from_all_gate_entry_creation(vclient):
+def test_ita_blocked_from_all_gate_entry_creation(vclient):
     for ep in CREATE_ENDPOINTS:
         r = vclient.post(ep, json={})
         assert r.status_code == 403, f"{ep} -> {r.status_code}"
@@ -138,6 +138,6 @@ def test_guard_passes_the_role_gate(vclient):
     assert vclient.post("/manual-gate-entry", json={}).status_code == 422
 
 
-def test_gpu_blocked_from_gate_entry_creation(vclient):
-    vclient.login(make_user("rakesh", "Gate Pass User", department="Finance"))
+def test_gpc_blocked_from_gate_entry_creation(vclient):
+    vclient.login(make_user("rakesh", "Gate Pass Creator", department="Finance"))
     assert vclient.post("/manual-gate-entry", json={}).status_code == 403

@@ -23,7 +23,7 @@ export const NAV_LINKS = [
     label: 'Gate Entry & Insights',
     icon: 'local-shipping',
     route: '/security',
-    roles: ['securityguard', 'securityadmin', 'itadmin'],
+    roles: ['securityguard', 'itadmin'],
   },
   {
     key: 'user-management',
@@ -47,13 +47,14 @@ export const NAV_LINKS = [
     roles: ['itadmin'],
   },
   {
-    // Gate Pass (RGP / Non-RGP) — initiator module. TEMP: itadmin stands in
-    // for the future 'gatepassuser' role; add it here when the role lands.
+    // Gate Pass (RGP / Non-RGP) — initiator module. Role model LOCKED
+    // 14 Jul 2026: only Gate Pass Creators (incl. ITA+GPC) open this.
+    // Plain ITA has NO gate pass access.
     key: 'gate-pass',
     label: 'Gate Pass',
     icon: 'assignment',
     route: '/gate-pass',
-    roles: ['itadmin', 'gatepassuser'],
+    roles: ['gatepasscreator'],
   },
   {
     key: 'copacker',
@@ -66,10 +67,11 @@ export const NAV_LINKS = [
 
 export const ROLE_LABELS = {
   itadmin: 'IT Admin',
-  securityadmin: 'Security Admin',
+
   securityguard: 'Security Guard',
   copacker: 'Co-Packer',
-  gatepassuser: 'Gate Pass User',
+  gatepasscreator: 'Gate Pass Creator',
+  gatepassdispatcher: 'Gate Pass Dispatcher',
 };
 
 /**

@@ -56,3 +56,27 @@ def test_whole_string_is_never_one_token():
     roles = normalize_roles("IT Admin, Security Guard")
     assert "itadmin,securityguard" not in roles
     assert "itadmin" in roles
+
+
+
+# ═══ Role combo validation (LOCKED 14 Jul 2026 — structural SOD) ═════════════
+from app.utils.roles import validate_role_combo
+
+
+def test_legal_combos_pass():
+    for combo in (["securityguard"], ["securityguard", "gatepassdispatcher"],
+                  ["gatepasscreator"], ["itadmin"], ["itadmin", "gatepasscreator"],
+                  ["copacker"]):
+        assert validate_role_combo(combo) is None, combo
+
+
+def test_illegal_combos_rejected():
+    for combo in (["gatepassdispatcher"],                       # GPD needs SG
+                  ["gatepasscreator", "securityguard"],         # creator != guard
+                  ["securityguard", "gatepassdispatcher", "gatepasscreator"],
+                  ["itadmin", "securityguard"],                 # admin != guard
+                  ["itadmin", "gatepassdispatcher", "securityguard"],
+                  ["securityadmin"],                            # role removed
+                  ["gatepassuser"],                             # legacy name retired
+                  ["copacker", "itadmin"]):                     # copacker exclusive
+        assert validate_role_combo(combo) is not None, combo

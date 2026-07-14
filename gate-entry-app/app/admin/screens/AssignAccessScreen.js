@@ -132,8 +132,12 @@ function LocationMultiSelect({ options, selections, onChange, showStar }) {
   );
 }
 
-const AVAILABLE_ROLES = ['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'];
-const GUARD_ROLES = ['Security Guard', 'Security Admin'];
+// Role model LOCKED 14 Jul 2026: Security Admin removed; Gate Pass User
+// split into Creator (initiates; alone or with ITA) and Dispatcher (gate
+// actions; only with Security Guard). Illegal combos are blocked here with
+// explanatory popups AND server-side (validate_role_combo).
+const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
+const GUARD_ROLES = ['Security Guard'];
 const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
 
 const AssignAccessScreen = () => {
@@ -179,8 +183,8 @@ const AssignAccessScreen = () => {
   const hasNoRoles = (user) => !user.role || user.role.trim() === '';
 
   const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGuardGPLoc = roles.includes('Security Guard');
-  const needsGpScope     = roles.includes('Gate Pass User');
+  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher');
+  const needsGpScope     = roles.includes('Gate Pass Creator');
   // ONE shared location list per user (junction table) covering both hats:
   // guard worklist access AND GPU initiation. The ★ default only matters to
   // GPUs (pre-selects the New Pass form); guards' worklist shows all their
@@ -254,16 +258,44 @@ const AssignAccessScreen = () => {
     }
   };
 
-  // ── Role toggle ───────────────────────────────────────────────────────────
+  // ── Role toggle with combo rules (LOCKED 14 Jul 2026) ────────────────────
+  // Structural SOD: the creator of a pass can never be its dispatcher, so
+  // the combos below are impossible to even assign. Server enforces the
+  // same matrix (validate_role_combo) — the popups are the friendly layer.
   const toggleRole = (role) => {
     if (role === 'Co Packer') {
       setRoles(prev => prev.includes(role) ? [] : ['Co Packer']);
+      return;
+    }
+    const selected = roles.includes(role);
+    if (!selected) {
+      if (role === 'Gate Pass Dispatcher' && !roles.includes('Security Guard'))
+        return showAlert('Not Allowed',
+          'Gate Pass Dispatcher can only be assigned together with Security Guard. Tick Security Guard first.');
+      if (role === 'Gate Pass Creator' &&
+          (roles.includes('Security Guard') || roles.includes('Gate Pass Dispatcher')))
+        return showAlert('Not Allowed',
+          'Gate Pass Creator cannot be combined with Security Guard or Gate Pass Dispatcher — the person who creates a pass can never be the one who dispatches or receives it.');
+      if (role === 'IT Admin' &&
+          (roles.includes('Security Guard') || roles.includes('Gate Pass Dispatcher')))
+        return showAlert('Not Allowed',
+          'IT Admin cannot be combined with Security Guard or Gate Pass Dispatcher.');
+      if (role === 'Security Guard' && roles.includes('Gate Pass Creator'))
+        return showAlert('Not Allowed',
+          'Security Guard cannot be combined with Gate Pass Creator — the person who creates a pass can never be the one who dispatches or receives it.');
+      if (role === 'Security Guard' && roles.includes('IT Admin'))
+        return showAlert('Not Allowed',
+          'Security Guard cannot be combined with IT Admin.');
+      setRoles(prev => [...prev.filter(r => r !== 'Co Packer'), role]);
     } else {
       setRoles(prev => {
-        const withoutCopacker = prev.filter(r => r !== 'Co Packer');
-        return withoutCopacker.includes(role)
-          ? withoutCopacker.filter(r => r !== role)
-          : [...withoutCopacker, role];
+        let next = prev.filter(r => r !== role);
+        // Removing Security Guard also removes Gate Pass Dispatcher —
+        // GPD can never stand alone.
+        if (role === 'Security Guard' && next.includes('Gate Pass Dispatcher')) {
+          next = next.filter(r => r !== 'Gate Pass Dispatcher');
+        }
+        return next;
       });
     }
   };
@@ -332,7 +364,7 @@ const AssignAccessScreen = () => {
       return showAlert('Validation Error', 'Please select a valid warehouse for Security roles');
 
     if (needsGpScope && !department)
-      return showAlert('Validation Error', 'Department is required for Gate Pass User');
+      return showAlert('Validation Error', 'Department is required for the Gate Pass Creator role');
 
     if (needsGpLocations && gpLocSelections.length === 0)
       return showAlert('Validation Error', 'At least one Gate Pass Location is required');

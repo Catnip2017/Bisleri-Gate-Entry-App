@@ -13,7 +13,7 @@ from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate,
 from app.auth import get_current_user, get_password_hash
 from app.utils.errors import internal_error
 from sqlalchemy import and_, case, distinct, func, or_
-from app.utils.roles import normalize_roles, normalize_role_list
+from app.utils.roles import normalize_roles, normalize_role_list, validate_role_combo
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -47,14 +47,12 @@ def register_user(
         roles_requested = [r.strip() for r in user.role.split(",")]
         normalized_roles = normalize_role_list(roles_requested)
 
-        # ✅ Copacker exclusivity: cannot be combined with any other role
-        if "copacker" in normalized_roles and len(normalized_roles) > 1:
-            raise HTTPException(
-                status_code=400,
-                detail="Co Packer role cannot be combined with any other role."
-            )
+        # ✅ Role combo rules (LOCKED 14 Jul 2026 — structural SOD, see roles.py)
+        combo_error = validate_role_combo(normalized_roles)
+        if combo_error:
+            raise HTTPException(status_code=400, detail=combo_error)
 
-        needs_warehouse = any(r in ["securityadmin", "securityguard"] for r in normalized_roles)
+        needs_warehouse = "securityguard" in normalized_roles
         needs_copacker_location = "copacker" in normalized_roles
 
         # ✅ Warehouse handling
@@ -147,15 +145,12 @@ def reset_password(
 ):
     try:
         roles = normalize_roles(current_user.role)
-        if not any(r in ["itadmin", "securityadmin"] for r in roles):
-            raise HTTPException(status_code=403, detail="Only ITAdmins or SecurityAdmins can reset passwords")
+        if "itadmin" not in roles:
+            raise HTTPException(status_code=403, detail="Only ITAdmins can reset passwords")
 
         user = db.query(UsersMaster).filter(UsersMaster.username.ilike(reset_data.username.strip())).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-
-        if "securityadmin" in roles and user.warehouse_code != current_user.warehouse_code:
-            raise HTTPException(status_code=403, detail="Cannot reset password outside your warehouse")
 
         if reset_data.new_password != reset_data.confirm_password:
             raise HTTPException(status_code=400, detail="Passwords do not match")
@@ -191,8 +186,8 @@ def list_users(
 @router.get("/user/{username}", response_model=UserResponse)
 def get_user(username: str, db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
     roles = normalize_roles(current_user.role)
-    if not any(r in ["itadmin", "securityadmin"] for r in roles):
-        raise HTTPException(status_code=403, detail="Only ITAdmins or SecurityAdmins can fetch user details")
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail="Only ITAdmins can fetch user details")
 
     user = db.query(UsersMaster).filter(UsersMaster.username.ilike(username.strip())).first()
     if not user:
@@ -215,8 +210,8 @@ def get_user(username: str, db: Session = Depends(get_db), current_user: UsersMa
 @router.get("/warehouses")
 def get_warehouses(db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
     roles = normalize_roles(current_user.role)
-    if not any(r in ["securityadmin", "itadmin"] for r in roles):
-        raise HTTPException(status_code=403, detail=f"Only Admin/ITAdmin can fetch warehouses. Your roles: {current_user.role}")
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail=f"Only ITAdmin can fetch warehouses. Your roles: {current_user.role}")
 
     warehouses = db.query(LocationMaster).all()
     if not warehouses:
@@ -266,12 +261,22 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
         roles_cleaned = [r.strip() for r in update_data.role.split(",")]
         normalized_new_roles = normalize_role_list(roles_cleaned)
 
-        # Copacker exclusivity check
-        if "copacker" in normalized_new_roles and len(normalized_new_roles) > 1:
-            raise HTTPException(
-                status_code=400,
-                detail="Co Packer role cannot be combined with any other role."
-            )
+        # Role combo rules (LOCKED 14 Jul 2026 — structural SOD, see roles.py)
+        combo_error = validate_role_combo(normalized_new_roles)
+        if combo_error:
+            raise HTTPException(status_code=400, detail=combo_error)
+
+        # Gate Pass Creator requires a fixed department + >=1 location for
+        # EVERY holder (ITA included — no bypass, per locked spec).
+        if "gatepasscreator" in normalized_new_roles:
+            dept_after = update_data.department if update_data.department is not None else user.department
+            if not dept_after:
+                raise HTTPException(status_code=400,
+                    detail="Department is required for the Gate Pass Creator role.")
+            locs_after = update_data.gate_pass_locations
+            if locs_after is not None and len(locs_after) == 0:
+                raise HTTPException(status_code=400,
+                    detail="At least one Gate Pass Location is required for the Gate Pass Creator role.")
 
         user.role = ", ".join(roles_cleaned)
 
@@ -452,18 +457,15 @@ def get_dashboard_stats(
     db: Session = Depends(get_db)
 ):
     roles = normalize_roles(current_user.role)
-    if not any(r in ["securityadmin", "itadmin"] for r in roles):
-        raise HTTPException(status_code=403, detail=f"Only Admin/ITAdmin can view dashboard stats. Your roles: {current_user.role}")
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail=f"Only ITAdmin can view dashboard stats. Your roles: {current_user.role}")
 
     try:
         # Build base query
         base_query = db.query(InsightsData)
         
-        # ✅ NEW: Role-based filtering
-        if "securityadmin" in roles and "itadmin" not in roles:
-            # Security Admin: only their warehouse
-            base_query = base_query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
-        elif site_code or warehouse_code:
+        # Role-based filtering (Security Admin removed 14 Jul 2026)
+        if site_code or warehouse_code:
             # IT Admin: apply site/warehouse filters if provided
             if site_code:
                 base_query = base_query.filter(InsightsData.site_code == site_code)
@@ -548,19 +550,16 @@ def get_admin_rm_statistics(
     """Get RM statistics for admin with filtering"""
     try:
         roles = normalize_roles(current_user.role)
-        if not any(r in ["securityadmin", "itadmin"] for r in roles):
+        if "itadmin" not in roles:
             raise HTTPException(status_code=403, detail="Access denied")
         
         base_query = db.query(RawMaterialsData)
         
-        # Role-based filtering
-        if "securityadmin" in roles and "itadmin" not in roles:
-            base_query = base_query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
-        else:
-            if site_code:
-                base_query = base_query.filter(RawMaterialsData.site_code == site_code)
-            if warehouse_code:
-                base_query = base_query.filter(RawMaterialsData.warehouse_code == warehouse_code)
+        # Role-based filtering (Security Admin removed 14 Jul 2026)
+        if site_code:
+            base_query = base_query.filter(RawMaterialsData.site_code == site_code)
+        if warehouse_code:
+            base_query = base_query.filter(RawMaterialsData.warehouse_code == warehouse_code)
         
         # Date filtering (typed `date` params: bad input -> 422, not 500)
         if not from_date or not to_date:

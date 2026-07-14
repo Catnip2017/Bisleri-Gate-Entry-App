@@ -47,7 +47,7 @@ const RMInsightsTab = () => {
 
   const userRoles = userData?.roles || [];
   const isITAdmin = userRoles.includes('itadmin');
-  const isAdminViewer = isITAdmin || userRoles.includes('securityadmin');
+  const isAdminViewer = isITAdmin; // Security Admin removed 14 Jul 2026
 
   // Edit form state
   const [editFormData, setEditFormData] = useState({

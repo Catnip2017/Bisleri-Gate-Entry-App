@@ -66,7 +66,7 @@ const SecurityInsightsTab = () => {
 
   const userRoles = userData?.roles || [];
   const isITAdmin = userRoles.includes('itadmin');
-  const isAdminViewer = isITAdmin || userRoles.includes('securityadmin');
+  const isAdminViewer = isITAdmin; // Security Admin removed 14 Jul 2026
 
   // Load initial data.
   // ✅ FIX: user data must load BEFORE the first movements fetch — previously

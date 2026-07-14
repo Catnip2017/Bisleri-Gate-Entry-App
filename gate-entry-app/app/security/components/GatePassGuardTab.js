@@ -19,7 +19,7 @@ const VIEWS = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
-const GatePassGuardTab = () => {
+const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [view, setView] = useState('dispatch');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,7 @@ const GatePassGuardTab = () => {
   const [receiving, setReceiving] = useState(false);
 
   const load = useCallback(async () => {
-    if (noGpLocation) return;
+    if (!hasGpdRole || noGpLocation) return;
     setLoading(true);
     try {
       const data = await gatePassAPI.getGuardPending(view);
@@ -62,17 +62,17 @@ const GatePassGuardTab = () => {
     } finally {
       setLoading(false);
     }
-  }, [view, noGpLocation]);
+  }, [view, noGpLocation, hasGpdRole]);
 
   const loadDue = useCallback(async () => {
-    if (noGpLocation) return;
+    if (!hasGpdRole || noGpLocation) return;
     try {
       const data = await gatePassAPI.getDueNotifications();
       setDueItems(data.items || []);
     } catch (error) {
       setDueItems([]);
     }
-  }, [noGpLocation]);
+  }, [noGpLocation, hasGpdRole]);
 
   useEffect(() => {
     load();
@@ -81,6 +81,7 @@ const GatePassGuardTab = () => {
 
   // Assigned locations (once) — powers the filter chips.
   useEffect(() => {
+    if (!hasGpdRole) return;
     gatePassAPI.getMyLocations()
       .then((d) => setMyLocations(d.locations || []))
       .catch(() => setMyLocations([]));
@@ -232,6 +233,27 @@ const GatePassGuardTab = () => {
     { key: 'created_by', title: 'Created By', priority: 2 },
     { key: 'location_code', title: 'Location', priority: 2 },
   ];
+
+  // Show-and-explain (decided 14 Jul 2026): every guard sees this tab;
+  // without the Gate Pass Dispatcher role it explains exactly what to ask
+  // for — a different message (and fix) than the no-location card below.
+  if (!hasGpdRole) {
+    return (
+      <View style={styles.guardBlockedContainer}>
+        <View style={styles.guardBlockedCard}>
+          <Text style={styles.guardBlockedIcon}>🔒</Text>
+          <Text style={styles.guardBlockedTitle}>Gate Pass Dispatcher Role Required</Text>
+          <Text style={styles.guardBlockedBody}>
+            Gate pass processing (dispatch and inward) requires the Gate Pass
+            Dispatcher role, which your account does not have.
+          </Text>
+          <Text style={styles.guardBlockedHint}>
+            Ask your IT Admin to assign the Gate Pass Dispatcher role in Assign Access.
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (noGpLocation) {
     return (

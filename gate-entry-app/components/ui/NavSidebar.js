@@ -31,7 +31,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
   // other roles (ITA without assignments would get the whole master back).
   const rolesForFetch = userData?.roles || [];
   const hasGpRole =
-    rolesForFetch.includes('securityguard') || rolesForFetch.includes('gatepassuser');
+    rolesForFetch.includes('securityguard') || rolesForFetch.includes('gatepasscreator');
   const [gpLocationList, setGpLocationList] = useState(null);
   useEffect(() => {
     if (!isVisible || !hasGpRole) return;

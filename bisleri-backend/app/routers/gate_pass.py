@@ -48,22 +48,29 @@ def _roles(user: UsersMaster):
     return normalize_roles(user.role)
 
 
-INITIATOR_ROLES = ("itadmin", "gatepassuser")
+# Role model redesign (LOCKED 14 Jul 2026 — CONTEXT_SUMMARY §11):
+# gatepasscreator (GPC) originates passes; gatepassdispatcher (GPD, guards
+# only) confirms movements at the gate. ITA alone has NO gate pass access —
+# an admin who needs to create passes holds ITA+GPC and is scoped exactly
+# like any other creator. Nobody sees all locations (SUPERADMIN parked).
+INITIATOR_ROLES = ("gatepasscreator",)
 
 
 def _require_initiator(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:
     """Who may create/release/cancel passes and see the initiator views:
-    Gate Pass Users (department initiators) and IT Admins (admin ops)."""
+    Gate Pass Creators only (including ITA+GPC combos — same scoping)."""
     if not any(r in INITIATOR_ROLES for r in _roles(current_user)):
         raise HTTPException(status_code=403, detail="You do not have access to create gate passes")
     return current_user
 
 
 def _require_guard(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:
-    """Who may dispatch and mark inward: security guards (and IT Admin as override)."""
-    roles = _roles(current_user)
-    if "securityguard" not in roles and "itadmin" not in roles:
-        raise HTTPException(status_code=403, detail="Only Security Guards can perform gate actions")
+    """Who may dispatch and mark inward: Gate Pass Dispatchers (SG+GPD)."""
+    if "gatepassdispatcher" not in _roles(current_user):
+        raise HTTPException(
+            status_code=403,
+            detail="NO_GPD_ROLE: gate pass processing requires the Gate Pass Dispatcher role",
+        )
     return current_user
 
 
@@ -87,19 +94,17 @@ def _user_gp_locations(db: Session, user: UsersMaster) -> list:
 
 def _check_pass_view_access(db: Session, gp, user: UsersMaster):
     """Who may open (and print) one specific pass — mirrors list scoping.
-    IT Admin: any pass. Gate Pass User: own location(s) + department.
-    Security Guard: own location(s), from Released onward."""
+    Creator: own location(s) + department. Dispatcher: own location(s),
+    from Released onward. Nobody sees everything (SUPERADMIN parked)."""
     roles = _roles(user)
-    if "itadmin" in roles:
-        return
-    if "gatepassuser" in roles:
+    if "gatepasscreator" in roles:
         gpu_locations = _user_gp_locations(db, user)
         if gpu_locations and gp.location_code not in gpu_locations:
             raise HTTPException(status_code=403, detail="This pass belongs to another location")
         if user.department and gp.department != user.department:
             raise HTTPException(status_code=403, detail="This pass belongs to another department")
         return
-    if "securityguard" in roles:
+    if "gatepassdispatcher" in roles:
         if gp.status == GP_OPEN:
             raise HTTPException(status_code=403, detail="No access to this gate pass")
         guard_locations = _user_gp_locations(db, user)
@@ -116,8 +121,6 @@ def _guard_location_filter(db: Session, query, user: UsersMaster):
     IT Admin bypasses the filter entirely.
     Raises 403 (sentinel: NO_GP_LOCATION) if the guard profile has no
     gate_pass_location — admin must assign one before the guard can operate."""
-    if _is_itadmin(user):
-        return query
     locations = _user_gp_locations(db, user)
     if not locations:
         raise HTTPException(
@@ -242,16 +245,6 @@ def my_gate_pass_locations(
         return {"locations": [
             {"location_code": current_user.gate_pass_location, "is_default": True}
         ]}
-    if _is_itadmin(current_user):
-        all_locs = (
-            db.query(GatePassLocation)
-            .filter(GatePassLocation.is_active.is_(True))
-            .order_by(GatePassLocation.location_code)
-            .all()
-        )
-        return {"locations": [
-            {"location_code": l.location_code, "is_default": False} for l in all_locs
-        ]}
     return {"locations": []}
 
 
@@ -326,22 +319,27 @@ def create_gate_pass(
     if payload.department not in DEPARTMENTS:
         raise HTTPException(status_code=400, detail="Invalid department")
 
-    # GPU passes are always filed under the user's own department and at one
-    # of the user's own gate pass locations — the profile is the source of
-    # truth, not the payload.
-    creator_roles = _roles(current_user)
-    if "gatepassuser" in creator_roles and not _is_itadmin(current_user):
-        if current_user.department and payload.department != current_user.department:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Department must be your own ({current_user.department})",
-            )
-        allowed_locations = _user_gp_locations(db, current_user)
-        if allowed_locations and payload.location_code not in allowed_locations:
-            raise HTTPException(
-                status_code=403,
-                detail="You are not assigned to this gate pass location",
-            )
+    # Passes are ALWAYS filed under the creator's own fixed department and
+    # at one of their assigned locations — profile is the source of truth,
+    # not the payload. Applies to EVERY creator, ITA+GPC included (no bypass).
+    if not current_user.department:
+        raise HTTPException(
+            status_code=400,
+            detail="Your profile has no department assigned — ask an IT Admin to set it in Assign Access",
+        )
+    if payload.department != current_user.department:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Department must be your own ({current_user.department})",
+        )
+    allowed_locations = _user_gp_locations(db, current_user)
+    if not allowed_locations:
+        raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+    if payload.location_code not in allowed_locations:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not assigned to this gate pass location",
+        )
 
     # Party must exist in the master; name is filled server-side from the code
     party = (
@@ -443,16 +441,15 @@ def list_gate_passes(
     query = db.query(GatePassHeader).options(
         joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason)
     )
-    # Scoping: IT Admin sees all passes (full visibility for admin ops).
-    # Gate Pass User sees only passes for their assigned gate pass
-    # location(s) (junction table, legacy column fallback) and department.
-    roles = _roles(current_user)
-    if "gatepassuser" in roles and not _is_itadmin(current_user):
-        gpu_locations = _user_gp_locations(db, current_user)
-        if gpu_locations:
-            query = query.filter(GatePassHeader.location_code.in_(gpu_locations))
-        if current_user.department:
-            query = query.filter(GatePassHeader.department == current_user.department)
+    # Scoping (LOCKED 14 Jul 2026): EVERY creator — ITA+GPC included — sees
+    # only passes at their assigned location(s) and own department. Nobody
+    # sees all locations (SUPERADMIN parked, not built).
+    gpu_locations = _user_gp_locations(db, current_user)
+    if not gpu_locations:
+        raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+    query = query.filter(GatePassHeader.location_code.in_(gpu_locations))
+    if current_user.department:
+        query = query.filter(GatePassHeader.department == current_user.department)
     if status_filter:
         query = query.filter(GatePassHeader.status == status_filter)
     if pass_type:
@@ -533,7 +530,7 @@ def due_notifications(
     with quantities still outstanding. Guards get their location's set;
     initiators get theirs (all, until department scoping lands)."""
     roles = _roles(current_user)
-    if "securityguard" not in roles and "itadmin" not in roles:
+    if "gatepassdispatcher" not in roles and "gatepasscreator" not in roles:
         raise HTTPException(status_code=403, detail="No access to gate pass notifications")
 
     today = date.today()
@@ -546,8 +543,10 @@ def due_notifications(
             GatePassHeader.expected_inward_date <= today,
         )
     )
-    if "securityguard" in roles and not _is_itadmin(current_user):
-        query = _guard_location_filter(db, query, current_user)
+    # Dispatchers: their gate location(s). Creators: their locations + dept.
+    query = _guard_location_filter(db, query, current_user)
+    if "gatepasscreator" in roles and current_user.department:
+        query = query.filter(GatePassHeader.department == current_user.department)
 
     items = []
     for gp in query.order_by(GatePassHeader.expected_inward_date.asc()).limit(100).all():
@@ -693,12 +692,12 @@ def dispatch_gate_pass(
         gp = _locked_pass(db, pass_id)
         if gp.status != GP_RELEASED:
             raise HTTPException(status_code=409, detail=f"Pass is {gp.status} — only a Released pass can be dispatched")
-        if not _is_itadmin(current_user):
-            guard_locations = _user_gp_locations(db, current_user)
-            if not guard_locations:
-                raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
-            if gp.location_code not in guard_locations:
-                raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        # Location check applies to EVERY dispatcher (no admin bypass)
+        guard_locations = _user_gp_locations(db, current_user)
+        if not guard_locations:
+            raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+        if gp.location_code not in guard_locations:
+            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
 
         # Segregation of duties (agreed RBAC rule): you cannot dispatch a
         # pass you yourself created or released (SG+GPU combo users).
@@ -744,12 +743,18 @@ def inward_gate_pass(
             raise HTTPException(status_code=409, detail="Non-returnable passes have no inward leg")
         if gp.status not in (GP_DISPATCHED, GP_PARTIAL):
             raise HTTPException(status_code=409, detail=f"Pass is {gp.status} — inward applies to Dispatched or Partially Received passes")
-        if not _is_itadmin(current_user):
-            guard_locations = _user_gp_locations(db, current_user)
-            if not guard_locations:
-                raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
-            if gp.location_code not in guard_locations:
-                raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        guard_locations = _user_gp_locations(db, current_user)
+        if not guard_locations:
+            raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+        if gp.location_code not in guard_locations:
+            raise HTTPException(status_code=403, detail="This pass belongs to another location's gate")
+        # SOD tripwire (structural rule makes this unreachable via the app:
+        # creators can never hold GPD — kept against hand-edited DB roles)
+        if current_user.username in (gp.created_by, gp.released_by):
+            raise HTTPException(
+                status_code=403,
+                detail="SOD_VIOLATION: you cannot receive a pass you created or released",
+            )
 
         lines_by_id = {l.id: l for l in gp.lines}
         receipt_details = []
@@ -808,6 +813,9 @@ def force_close_gate_pass(
         raise HTTPException(status_code=403, detail="Only IT Admins can force close a gate pass")
     try:
         gp = _locked_pass(db, pass_id)
+        # Scoped like any creator view: ITA needs GPC + the pass's location
+        # (nobody force-closes outside their own scoped view).
+        _check_pass_view_access(db, gp, current_user)
         if gp.pass_type != PASS_TYPE_RETURNABLE or gp.status not in (GP_DISPATCHED, GP_PARTIAL):
             raise HTTPException(
                 status_code=409,

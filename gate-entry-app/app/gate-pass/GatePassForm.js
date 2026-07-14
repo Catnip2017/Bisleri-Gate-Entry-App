@@ -96,8 +96,10 @@ const GatePassForm = ({ onCreated }) => {
         // locked (profile is the source of truth). Others start empty and
         // must actively choose — no more silent first-item default.
         const roles = user?.roles || [];
-        const isGpu = roles.includes('gatepassuser') && !roles.includes('itadmin');
-        if (isGpu && user?.department) {
+        // LOCKED 14 Jul 2026: department is fixed for EVERY creator —
+        // ITA+GPC included. No bypass anywhere.
+        const isCreator = roles.includes('gatepasscreator');
+        if (isCreator && user?.department) {
           setDepartment(user.department);
           setDeptLocked(true);
         }

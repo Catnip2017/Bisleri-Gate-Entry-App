@@ -8,8 +8,9 @@ import { validateUsername, validatePassword, validateName, validatePasswordMatch
 import { showAlert } from '../../../utils/customModal';
 
 const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
-const ALL_ROLES   = ['Security Guard', 'Security Admin', 'IT Admin', 'Gate Pass User', 'Co Packer'];
-const GUARD_ROLES = ['Security Guard', 'Security Admin'];
+// Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
+const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
+const GUARD_ROLES = ['Security Guard'];
 
 const EMPTY = {
   username: '', password: '', confirmPassword: '',
@@ -79,7 +80,36 @@ export default function RegisterScreen() {
         return ['Co Packer'];
       }
       const noCp = prev.filter(r => r !== 'Co Packer');
-      return noCp.includes(role) ? noCp.filter(r => r !== role) : [...noCp, role];
+      if (noCp.includes(role)) {
+        let next = noCp.filter(r => r !== role);
+        // GPD can never stand alone — removing SG removes it too
+        if (role === 'Security Guard') next = next.filter(r => r !== 'Gate Pass Dispatcher');
+        return next;
+      }
+      // Combo rules (LOCKED 14 Jul 2026) — mirrored server-side
+      if (role === 'Gate Pass Dispatcher' && !noCp.includes('Security Guard')) {
+        showAlert('Not Allowed',
+          'Gate Pass Dispatcher can only be assigned together with Security Guard. Tick Security Guard first.');
+        return prev;
+      }
+      if (role === 'Gate Pass Creator' &&
+          (noCp.includes('Security Guard') || noCp.includes('Gate Pass Dispatcher'))) {
+        showAlert('Not Allowed',
+          'Gate Pass Creator cannot be combined with Security Guard or Gate Pass Dispatcher — the person who creates a pass can never be the one who dispatches or receives it.');
+        return prev;
+      }
+      if (role === 'IT Admin' &&
+          (noCp.includes('Security Guard') || noCp.includes('Gate Pass Dispatcher'))) {
+        showAlert('Not Allowed', 'IT Admin cannot be combined with Security Guard or Gate Pass Dispatcher.');
+        return prev;
+      }
+      if (role === 'Security Guard' &&
+          (noCp.includes('Gate Pass Creator') || noCp.includes('IT Admin'))) {
+        showAlert('Not Allowed',
+          'Security Guard cannot be combined with IT Admin or Gate Pass Creator.');
+        return prev;
+      }
+      return [...noCp, role];
     });
   };
 
@@ -97,8 +127,8 @@ export default function RegisterScreen() {
   };
 
   const needsWH         = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGuardGPLoc = roles.includes('Security Guard');
-  const needsGP         = roles.includes('Gate Pass User');
+  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher');
+  const needsGP         = roles.includes('Gate Pass Creator');
   const needsCP         = roles.includes('Co Packer');
   const needsScope      = needsWH || needsGP || needsCP;
   const cpOn      = roles.includes('Co Packer');
@@ -114,7 +144,7 @@ export default function RegisterScreen() {
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
     if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) { showAlert('Validation Error', 'Enter a valid 10-digit mobile'); return; }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
-    if (needsGuardGPLoc && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required for Security Guard'); return; }
+    if (needsGuardGPLoc && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass Dispatcher'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
     if (needsGP && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required'); return; }
@@ -249,7 +279,7 @@ export default function RegisterScreen() {
 
                 {needsGuardGPLoc && (
                   <View style={{ marginBottom: 14, zIndex: 1 }}>
-                    <Text style={S.scopeSubLabel}>Security Guard</Text>
+                    <Text style={S.scopeSubLabel}>Gate Pass Dispatcher</Text>
                     <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
                       onSelect={v => set('gatePassLocation', v)} placeholder="Select gate location..." />
                   </View>
@@ -257,7 +287,7 @@ export default function RegisterScreen() {
 
                 {needsGP && (
                   <View style={{ marginBottom: 14, zIndex: 1 }}>
-                    <Text style={S.scopeSubLabel}>Gate Pass User</Text>
+                    <Text style={S.scopeSubLabel}>Gate Pass Creator</Text>
                     <InlineDropdown label="Department *" value={form.department} options={deptOpts}
                       onSelect={v => set('department', v)} placeholder="Select department..." />
                     <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}

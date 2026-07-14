@@ -88,11 +88,11 @@ def test_all_six_numbers_match_hand_count(sclient):
     assert r["today"]["gate_out"] == 1
 
 
-def test_security_admin_locked_to_own_warehouse(sclient):
+def test_legacy_security_admin_string_denied(sclient):
+    """SA removed 14 Jul 2026: a leftover 'Security Admin' role string no
+    longer grants dashboard access (admin stats are ITA-only)."""
     sclient.login(make_user("sa1", "Security Admin", warehouse="WH2"))
-    r = sclient.get("/admin-dashboard-stats").json()
-    assert r["total_movements"] == 1          # only the WH2 noise row
-    assert r["gate_in"] == 1
+    assert sclient.get("/admin-dashboard-stats").status_code == 403
 
 
 def test_empty_window_returns_zeros(sclient):

@@ -413,17 +413,14 @@ def get_admin_filtered_rm_entries(
         # Normalize roles
         roles = normalize_roles(current_user.role)
         
-        if not any(r in ["securityadmin", "itadmin"] for r in roles):
+        if "itadmin" not in roles:
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Build dynamic query
         query = db.query(RawMaterialsData)
         
-        # ✅ NEW: Role-based filtering
-        if "securityadmin" in roles and "itadmin" not in roles:
-            # Security Admin: only their warehouse
-            query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
-        else:
+        # Role-based filtering (Security Admin removed 14 Jul 2026)
+        if True:
             # IT Admin: can filter by site/warehouse if provided
             if filters.site_code:
                 query = query.filter(RawMaterialsData.site_code == filters.site_code)
@@ -495,7 +492,7 @@ def get_admin_filtered_rm_entries(
             "results": result_list,
             "filters_applied": filters,
             "user_role": current_user.role,
-            "access_level": "itadmin" if "itadmin" in roles else "securityadmin"
+            "access_level": "itadmin"
         }
         
     except HTTPException:
