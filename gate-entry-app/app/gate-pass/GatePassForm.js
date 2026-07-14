@@ -5,7 +5,7 @@
 // table (Description of Goods | Qty | Unit), wireframe action buttons.
 // A wrong pass is cancelled and recreated — there is no edit path anywhere.
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, Modal } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
@@ -14,7 +14,7 @@ import styles, { gp } from './styles/gatePassStyles';
 
 const EMPTY_LINE = () => ({
   item_code: '',
-  item_type: null,
+  item_type: 'Item',   // 'Item' = free text; 'Fixed Asset' = from master
   description: '',
   serial_no: '',
   uom: 'NOS',
@@ -25,6 +25,89 @@ const EMPTY_LINE = () => ({
 
 const UOM_OPTIONS = ['NOS', 'KG', 'LTR', 'BOX', 'SET'];
 const CHARGEABLE_OPTIONS = ['Chargeable', 'Non-chargeable'];
+const LINE_TYPES = ['Item', 'Fixed Asset'];
+
+// Navision-style lookup window (14 Jul 2026): search box + column table in a
+// modal. Used for Party and Fixed Asset selection. Search is server-side so
+// 500+ pipeline rows stay fast; after picking, the form shows just the code.
+function LookupModal({ visible, title, columns, fetchRows, keyField, onPick, onClose }) {
+  const [query, setQuery] = React.useState('');
+  const [rows, setRows] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!visible) return;
+    setQuery('');
+    setRows([]);
+    let dead = false;
+    setBusy(true);
+    fetchRows('').then((r) => { if (!dead) setRows(r || []); })
+      .catch(() => { if (!dead) setRows([]); })
+      .finally(() => { if (!dead) setBusy(false); });
+    return () => { dead = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  const runSearch = (q) => {
+    setQuery(q);
+    setBusy(true);
+    fetchRows(q).then((r) => setRows(r || [])).catch(() => setRows([])).finally(() => setBusy(false));
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={[styles.modalCard, { maxWidth: 640, width: '92%' }]}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <TextInput
+            style={styles.input}
+            value={query}
+            onChangeText={runSearch}
+            placeholder="Search code or name..."
+            placeholderTextColor={gp.textMuted}
+            autoFocus
+          />
+          {/* header row */}
+          <View style={{ flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#C8D4DE' }}>
+            {columns.map((c) => (
+              <Text key={c.key} style={{ flex: c.flex, fontSize: 11, fontWeight: 'bold', color: gp.textMuted }} numberOfLines={1}>
+                {c.label}
+              </Text>
+            ))}
+          </View>
+          <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {busy ? (
+              <ActivityIndicator style={{ marginVertical: 16 }} color={gp.accent} />
+            ) : rows.length === 0 ? (
+              <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
+                No matches — refine your search
+              </Text>
+            ) : (
+              rows.map((r) => (
+                <TouchableOpacity
+                  key={r[keyField]}
+                  onPress={() => onPick(r)}
+                  style={{ flexDirection: 'row', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#EEF2F5' }}
+                >
+                  {columns.map((c) => (
+                    <Text key={c.key} style={{ flex: c.flex, fontSize: 12, color: '#1A2E22', paddingRight: 6 }} numberOfLines={1}>
+                      {r[c.key] || '—'}
+                    </Text>
+                  ))}
+                </TouchableOpacity>
+              ))
+            )}
+          </ScrollView>
+          <View style={styles.actionRow}>
+            <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={onClose}>
+              <Text style={styles.wfButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 const GatePassForm = ({ onCreated }) => {
   const [passType, setPassType] = useState('NR');
@@ -35,9 +118,8 @@ const GatePassForm = ({ onCreated }) => {
   const [department, setDepartment] = useState('');
   const [deptLocked, setDeptLocked] = useState(false); // GPU: dept comes from profile, read-only
   const [myLocations, setMyLocations] = useState([]);  // user's assigned GP locations (junction)
-  const [partyQuery, setPartyQuery] = useState('');
-  const [partyResults, setPartyResults] = useState([]);
   const [selectedParty, setSelectedParty] = useState(null);
+  const [partyModalOpen, setPartyModalOpen] = useState(false);
   const [modeOfTransport, setModeOfTransport] = useState('Hand Delivery');
   const [vehicleNo, setVehicleNo] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -47,8 +129,8 @@ const GatePassForm = ({ onCreated }) => {
   );
   const [remarks, setRemarks] = useState('');
   const [lines, setLines] = useState([EMPTY_LINE()]);
-  const [itemResults, setItemResults] = useState([]);
-  const [itemSearchLine, setItemSearchLine] = useState(null);
+  const [assetModalLine, setAssetModalLine] = useState(null);  // line index picking an asset
+  const [openTypeLine, setOpenTypeLine] = useState(null);      // line with Type dropdown open
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
   const [locDropdownOpen, setLocDropdownOpen] = useState(false);
   const [openUomLine, setOpenUomLine] = useState(null);          // index of line with UOM dropdown open
@@ -111,60 +193,38 @@ const GatePassForm = ({ onCreated }) => {
     })();
   }, []);
 
-  // ── Party lookup (code <-> name bidirectional) ────────────────────────────
-  const searchParties = useCallback(async (q) => {
-    setPartyQuery(q);
-    setSelectedParty(null);
-    if (!q || q.length < 2) {
-      setPartyResults([]);
-      return;
-    }
-    try {
-      const results = await gatePassAPI.searchParties(q);
-      setPartyResults(results);
-    } catch (error) {
-      setPartyResults([]);
-    }
-  }, []);
-
+  // ── Navision-style modal pickers (14 Jul 2026) ────────────────────────────
+  // Party and Fixed Asset selection happen in LookupModal windows showing the
+  // full pipeline columns; after picking, the form shows just the code.
   const pickParty = (party) => {
     setSelectedParty(party);
-    setPartyQuery(`${party.party_code} — ${party.party_name}`);
-    setPartyResults([]);
+    setPartyModalOpen(false);
   };
 
-  // ── Item lookup per line ──────────────────────────────────────────────────
-  const searchItems = async (lineIndex, q) => {
-    updateLine(lineIndex, { item_code: q, item_type: null });
-    setItemSearchLine(lineIndex);
-    if (!q || q.length < 2) {
-      setItemResults([]);
-      return;
-    }
-    try {
-      const results = await gatePassAPI.searchItems(q);
-      setItemResults(results);
-    } catch (error) {
-      setItemResults([]);
-    }
-  };
-
-  const pickItem = (lineIndex, item) => {
+  const pickAsset = (lineIndex, item) => {
     setLines((prev) =>
       prev.map((l, i) =>
         i === lineIndex
           ? {
               ...l,
               item_code: item.item_code,
-              item_type: item.item_type,
-              description: l.description || item.item_name,
-              uom: item.uom || 'NOS',
+              item_type: 'Fixed Asset',
+              // Master is the truth for FA lines — description locked on form,
+              // server re-asserts it and snapshots fa_class_code at creation.
+              description: item.item_name,
             }
           : l
       )
     );
-    setItemResults([]);
-    setItemSearchLine(null);
+    setAssetModalLine(null);
+  };
+
+  const setLineType = (index, type) => {
+    // Switching type resets the code/description pairing:
+    // Item = free text, no code; Fixed Asset = pick from master.
+    setLines((prev) => prev.map((l, i) =>
+      i === index ? { ...l, item_type: type, item_code: '', description: '' } : l));
+    setOpenTypeLine(null);
   };
 
   const updateLine = (index, patch) => {
@@ -191,6 +251,8 @@ const GatePassForm = ({ onCreated }) => {
     }
     for (let i = 0; i < lines.length; i += 1) {
       const l = lines[i];
+      if (l.item_type === 'Fixed Asset' && !l.item_code)
+        return `Line ${i + 1}: select an Asset No. from the lookup`;
       if (!l.description.trim()) return `Line ${i + 1}: description is required`;
       const qty = parseInt(l.quantity, 10);
       if (!qty || qty <= 0) return `Line ${i + 1}: quantity must be a positive number`;
@@ -224,7 +286,6 @@ const GatePassForm = ({ onCreated }) => {
 
   const resetForm = () => {
     setSelectedParty(null);
-    setPartyQuery('');
     setVehicleNo('');
     setSenderName('');
     setApproverName('');
@@ -419,29 +480,20 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      {/* Party lookup */}
-      <View style={[styles.fieldRow, { zIndex: partyResults.length > 0 ? 150 : 1 }]}>
-        <View style={[styles.fieldHalf, { zIndex: partyResults.length > 0 ? 150 : 1 }]}>
+      {/* Party lookup — Navision-style modal (full columns while choosing,
+          code-only display after selection) */}
+      <View style={styles.fieldRow}>
+        <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Party Code *</Text>
-          <View style={{ position: 'relative' }}>
-            <TextInput
-              style={styles.input}
-              value={partyQuery}
-              onChangeText={searchParties}
-              placeholder="-- Select (type code or name) --"
-              placeholderTextColor={gp.textMuted}
-            />
-            {partyResults.length > 0 && (
-              <View style={styles.lookupPanel}>
-                {partyResults.map((p) => (
-                  <TouchableOpacity key={p.party_code} style={styles.lookupRow} onPress={() => pickParty(p)}>
-                    <Text style={styles.lookupCode}>{p.party_code}</Text>
-                    <Text style={styles.lookupName}>{p.party_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
+          <TouchableOpacity
+            style={[styles.input, { justifyContent: 'center' }]}
+            onPress={() => setPartyModalOpen(true)}
+            accessibilityRole="button"
+          >
+            <Text style={{ fontSize: 14, color: selectedParty ? gp.text : gp.textMuted }}>
+              {selectedParty ? selectedParty.party_code : '-- Select party --'}
+            </Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.fieldHalf}>
           <Text style={styles.fieldLabel}>Party Name</Text>
@@ -564,7 +616,8 @@ const GatePassForm = ({ onCreated }) => {
       <View style={styles.itemsTable}>
         {/* Header */}
         <View style={styles.itemsHeaderRow}>
-          <Text style={[styles.itemsHeaderCell, { flex: 1.0 }]}>Item Code</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 0.85 }]}>Type</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 1.0 }]}>Asset No.</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 2.0 }]}>Description of Goods</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 0.9 }]}>Serial No.</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 0.35 }]}>Qty</Text>
@@ -577,28 +630,58 @@ const GatePassForm = ({ onCreated }) => {
         {lines.map((line, index) => (
           <View key={index} style={{ position: 'relative' }}>
             {/* Single-row line item */}
-            <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index) ? 100 : 1 }]}>
+            <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index || openTypeLine === index) ? 100 : 1 }]}>
 
-              {/* Item Code */}
-              <View style={[styles.itemsCell, { flex: 1.0 }]}>
-                <TextInput
-                  style={styles.cellInput}
-                  value={line.item_code}
-                  onChangeText={(q) => searchItems(index, q)}
-                  placeholder="Code"
-                  placeholderTextColor={gp.textMuted}
-                  autoCapitalize="characters"
-                />
+              {/* Type — Item (free text) | Fixed Asset (from master) */}
+              <View style={[styles.itemsCell, { flex: 0.85, position: 'relative', overflow: 'visible' }]}>
+                <TouchableOpacity
+                  style={styles.uomTrigger}
+                  onPress={() => setOpenTypeLine(openTypeLine === index ? null : index)}
+                >
+                  <Text style={styles.uomTriggerText}>{line.item_type || 'Item'}</Text>
+                  <Text style={{ fontSize: 9, color: gp.textMuted }}>{openTypeLine === index ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+                {openTypeLine === index && (
+                  <View style={styles.uomMenu}>
+                    {LINE_TYPES.map((t) => (
+                      <TouchableOpacity
+                        key={t}
+                        style={[styles.uomItem, line.item_type === t && styles.uomItemActive]}
+                        onPress={() => setLineType(index, t)}
+                      >
+                        <Text style={[styles.uomItemText, line.item_type === t && styles.uomItemTextActive]}>{t}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              {/* Description */}
+              {/* Asset No. — modal picker for Fixed Asset lines; Item lines have no code */}
+              <View style={[styles.itemsCell, { flex: 1.0 }]}>
+                {line.item_type === 'Fixed Asset' ? (
+                  <TouchableOpacity
+                    style={[styles.cellInput, { justifyContent: 'center' }]}
+                    onPress={() => setAssetModalLine(index)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={{ fontSize: 12, color: line.item_code ? gp.text : gp.textMuted }} numberOfLines={1}>
+                      {line.item_code || 'Select…'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={{ fontSize: 12, color: gp.textMuted, textAlign: 'center' }}>—</Text>
+                )}
+              </View>
+
+              {/* Description — free text for Item lines; master-locked for FA */}
               <View style={[styles.itemsCell, { flex: 2.0 }]}>
                 <TextInput
-                  style={styles.cellInput}
+                  style={[styles.cellInput, line.item_type === 'Fixed Asset' && { color: gp.textMuted }]}
                   value={line.description}
                   onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
-                  placeholder="Description"
+                  placeholder={line.item_type === 'Fixed Asset' ? 'From asset master' : 'Description'}
                   placeholderTextColor={gp.textMuted}
+                  editable={line.item_type !== 'Fixed Asset'}
                 />
               </View>
 
@@ -720,17 +803,6 @@ const GatePassForm = ({ onCreated }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Item search results — anchored to row wrapper (position:relative above) */}
-            {itemSearchLine === index && itemResults.length > 0 && (
-              <View style={[styles.lookupPanel, { left: 4, right: 'auto', minWidth: 300 }]}>
-                {itemResults.map((it) => (
-                  <TouchableOpacity key={it.item_code} style={styles.lookupRow} onPress={() => pickItem(index, it)}>
-                    <Text style={styles.lookupCode}>{it.item_code}</Text>
-                    <Text style={styles.lookupName}>{it.item_name}{it.item_type ? ` (${it.item_type})` : ''}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
         ))}
 
@@ -782,6 +854,37 @@ const GatePassForm = ({ onCreated }) => {
         Dispatch, Inward and Print become available after release — Dispatch/Inward on the security
         guard's screen, Print from the pass lists.
       </Text>
+
+      {/* ── Navision-style lookup modals ── */}
+      <LookupModal
+        visible={partyModalOpen}
+        title="Select Party"
+        keyField="party_code"
+        columns={[
+          { key: 'party_code', label: 'No.', flex: 0.9 },
+          { key: 'party_name', label: 'Name', flex: 2.0 },
+          { key: 'city', label: 'City', flex: 1.0 },
+          { key: 'post_code', label: 'Post Code', flex: 0.8 },
+          { key: 'phone_no', label: 'Phone No.', flex: 1.0 },
+          { key: 'contact', label: 'Contact', flex: 1.0 },
+        ]}
+        fetchRows={(q) => gatePassAPI.searchParties(q)}
+        onPick={pickParty}
+        onClose={() => setPartyModalOpen(false)}
+      />
+      <LookupModal
+        visible={assetModalLine !== null}
+        title="Select Fixed Asset"
+        keyField="item_code"
+        columns={[
+          { key: 'item_code', label: 'No.', flex: 1.0 },
+          { key: 'item_name', label: 'Description', flex: 2.0 },
+          { key: 'fa_class_code', label: 'FA Class Code', flex: 0.9 },
+        ]}
+        fetchRows={(q) => gatePassAPI.searchItems(q)}
+        onPick={(item) => pickAsset(assetModalLine, item)}
+        onClose={() => setAssetModalLine(null)}
+      />
     </View>
   );
 };

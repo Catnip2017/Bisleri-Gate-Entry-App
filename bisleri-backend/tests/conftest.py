@@ -85,8 +85,10 @@ def client(users):
     db.add_all([
         GatePassLocation(location_code="HO", location_name="Head Office", warehouse_code="WH-HO"),
         GatePassLocation(location_code="CHN", location_name="Chennai", warehouse_code=None),
-        GatePassParty(party_code="P001", party_name="Acme Services"),
-        GatePassItem(item_code="FA-LAP-001", item_name="Dell Laptop", item_type="Fixed Asset", uom="NOS"),
+        GatePassParty(party_code="P001", party_name="Acme Services",
+                      city="Mumbai", post_code="400099", phone_no="9920988105",
+                      contact="R. Mehta"),
+        GatePassItem(item_code="FA-LAP-001", item_name="Dell Laptop", fa_class_code="COMP"),
         GatePassCancelReason(id=1, reason_text="Wrong party selected", sort_order=1),
         GatePassCancelReason(id=2, reason_text="Duplicate pass", sort_order=2),
     ])

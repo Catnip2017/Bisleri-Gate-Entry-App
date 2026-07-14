@@ -362,13 +362,6 @@ def create_gate_pass(
     if payload.mode_of_transport == "Vehicle" and not (payload.vehicle_no or "").strip():
         raise HTTPException(status_code=400, detail="Vehicle number is required when mode of transport is Vehicle")
 
-    # Item codes, when given, must exist (manual description lines have no code)
-    for line in payload.lines:
-        if line.item_code:
-            item = db.query(GatePassItem).filter(GatePassItem.item_code == line.item_code).first()
-            if item is None:
-                raise HTTPException(status_code=400, detail=f"Unknown item code: {line.item_code}")
-
     try:
         now = datetime.now()
         gate_pass_no = _next_pass_number(db, payload.location_code, payload.pass_type)
@@ -396,12 +389,43 @@ def create_gate_pass(
         db.flush()
 
         for idx, line in enumerate(payload.lines, start=1):
+            # Fixed Asset lines come from the asset master (pipeline-fed):
+            # code must exist + be active; description is the master's name
+            # (read-only on the form); FA class is snapshotted at creation.
+            # Item lines are free text: no code, description as typed.
+            fa_class = None
+            description = line.description.strip()
+            if line.item_type == "Fixed Asset":
+                if not line.item_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Line {idx}: Fixed Asset lines must reference an Asset No. from the master",
+                    )
+                master = (
+                    db.query(GatePassItem)
+                    .filter(GatePassItem.item_code == line.item_code,
+                            GatePassItem.is_active.is_(True))
+                    .first()
+                )
+                if master is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Line {idx}: unknown or inactive Asset No. '{line.item_code}'",
+                    )
+                fa_class = master.fa_class_code
+                description = master.item_name        # master is the truth for FA lines
+            elif line.item_code:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Line {idx}: only Fixed Asset lines may carry an item code — Item lines are free text",
+                )
             db.add(GatePassLine(
                 gate_pass_id=gp.id,
                 line_no=idx,
                 item_code=line.item_code,
                 item_type=line.item_type,
-                description=line.description.strip(),
+                fa_class_code=fa_class,
+                description=description,
                 serial_no=line.serial_no,
                 uom=line.uom,
                 quantity=line.quantity,

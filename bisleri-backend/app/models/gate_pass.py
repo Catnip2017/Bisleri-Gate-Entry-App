@@ -56,25 +56,35 @@ class GatePassLocation(Base):
 
 
 class GatePassParty(Base):
-    """PLACEHOLDER party master — will be replaced/fed by the daily
-    incremental Microsoft Fabric pipeline (bidirectional code<->name lookup)."""
+    """Party master — fed by the daily incremental Fabric pipeline.
+    Feed columns (Navision): No. -> party_code, Name -> party_name,
+    City, Post Code, Phone No., Contact. Phone is VARCHAR by decision
+    (leading zeros, +91, slashes; int32 overflows on real numbers).
+    Deletes arrive as is_active=false — rows are never removed, so old
+    passes can always live-lookup current contact details (no snapshot)."""
     __tablename__ = "gate_pass_parties"
 
     party_code = Column(String(50), primary_key=True)
     party_name = Column(String(255), nullable=False)
+    city = Column(String(100), nullable=True)
+    post_code = Column(String(20), nullable=True)
+    phone_no = Column(String(20), nullable=True)
+    contact = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
 
 
 class GatePassItem(Base):
-    """PLACEHOLDER item master (Fixed Assets + Items) — will be fed by the
-    Fabric pipeline. If an item code doesn't exist the user types the
-    description manually and leaves item_code empty on the line."""
+    """FIXED ASSET master — fed by the daily incremental Fabric pipeline.
+    Feed columns (Navision): Asset No. -> item_code, Description ->
+    item_name, FA Class Code -> fa_class_code. ONLY fixed assets are
+    mastered; 'Item' lines are free text stored on the pass line itself
+    (uom/item_type dropped 14 Jul 2026 — uom is chosen per line via the
+    Unit dropdown, and every mastered row is a Fixed Asset by definition)."""
     __tablename__ = "gate_pass_items"
 
-    item_code = Column(String(50), primary_key=True)     # e.g. FA-COM-0412
-    item_name = Column(String(255), nullable=False)
-    item_type = Column(String(20), nullable=False, default="Item")  # 'Fixed Asset' | 'Item'
-    uom = Column(String(20), nullable=True)
+    item_code = Column(String(50), primary_key=True)     # Asset No., e.g. FA-COM-0412
+    item_name = Column(String(255), nullable=False)      # Description
+    fa_class_code = Column(String(50), nullable=True)    # e.g. COMP
     is_active = Column(Boolean, nullable=False, default=True)
 
 
@@ -186,6 +196,10 @@ class GatePassLine(Base):
     line_no = Column(Integer, nullable=False)
     item_code = Column(String(50), nullable=True)         # empty = manual description
     item_type = Column(String(20), nullable=True)         # 'Fixed Asset' | 'Item'
+    # Snapshot of the asset's FA class at creation (decision 14 Jul 2026):
+    # master rows are updated by the pipeline over time, but the class a
+    # pass moved under is a historical fact — frozen here, never updated.
+    fa_class_code = Column(String(50), nullable=True)
     description = Column(String(250), nullable=False)     # Navision parity: 250 chars
     serial_no = Column(String(100), nullable=True)
     uom = Column(String(20), nullable=False, default="NOS")

@@ -21,6 +21,10 @@ class GatePassLocationResponse(BaseModel):
 class PartyResponse(BaseModel):
     party_code: str
     party_name: str
+    city: Optional[str] = None
+    post_code: Optional[str] = None
+    phone_no: Optional[str] = None
+    contact: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -29,8 +33,7 @@ class PartyResponse(BaseModel):
 class ItemResponse(BaseModel):
     item_code: str
     item_name: str
-    item_type: str
-    uom: Optional[str] = None
+    fa_class_code: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -128,6 +131,7 @@ class GatePassLineResponse(BaseModel):
     line_no: int
     item_code: Optional[str] = None
     item_type: Optional[str] = None
+    fa_class_code: Optional[str] = None
     description: str
     serial_no: Optional[str] = None
     uom: str
