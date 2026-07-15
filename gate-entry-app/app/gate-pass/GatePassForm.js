@@ -542,9 +542,9 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      {/* ── Row: Mode of Transport chips | Vehicle No (only when Vehicle) ── */}
+      {/* ── Row: Mode of Transport (1/4) | Vehicle No (1/4) | empty (2/4) ── */}
       <View style={styles.fieldRow}>
-        <View style={styles.fieldThird}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
@@ -558,8 +558,8 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-        {modeOfTransport === 'Vehicle' && (
-          <View style={styles.fieldThird}>
+        {modeOfTransport === 'Vehicle' ? (
+          <View style={{ flex: 1 }}>
             <Text style={styles.fieldLabel}>Vehicle No. *</Text>
             <TextInput
               style={styles.input}
@@ -571,7 +571,8 @@ const GatePassForm = ({ onCreated }) => {
               editable
             />
           </View>
-        )}
+        ) : null}
+        <View style={{ flex: modeOfTransport === 'Vehicle' ? 2 : 3 }} />
       </View>
 
       {/* ── Row: Sender Name | Approver Name | Expected Inward Date (R only) ── */}
@@ -596,15 +597,16 @@ const GatePassForm = ({ onCreated }) => {
             placeholderTextColor={gp.textMuted}
           />
         </View>
-        {isReturnable && (
-          <View style={styles.fieldThird}>
+        {/* Always reserve the 3rd column — shows date only when Returnable */}
+        <View style={styles.fieldThird}>
+          {isReturnable && (
             <DateField
               label="Expected Inward Date *"
               value={expectedInwardDate}
               onChange={setExpectedInwardDate}
             />
-          </View>
-        )}
+          )}
+        </View>
       </View>
 
       {/* ── Items table (wireframe: blue header) ── */}
