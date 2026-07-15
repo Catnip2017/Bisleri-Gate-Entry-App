@@ -542,9 +542,9 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      {/* ── Row: Mode of Transport (chips only) ── */}
+      {/* ── Row: Mode of Transport chips | Vehicle No (only when Vehicle) ── */}
       <View style={styles.fieldRow}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
@@ -558,11 +558,7 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-      </View>
-
-      {/* ── Vehicle No — only shown when Vehicle is selected ── */}
-      {modeOfTransport === 'Vehicle' && (
-        <View style={styles.fieldRow}>
+        {modeOfTransport === 'Vehicle' && (
           <View style={styles.fieldThird}>
             <Text style={styles.fieldLabel}>Vehicle No. *</Text>
             <TextInput
@@ -575,8 +571,8 @@ const GatePassForm = ({ onCreated }) => {
               editable
             />
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* ── Row: Sender Name | Approver Name | Expected Inward Date (R only) ── */}
       <View style={styles.fieldRow}>
