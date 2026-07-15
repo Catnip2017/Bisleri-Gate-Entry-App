@@ -480,10 +480,9 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      {/* Party lookup — Navision-style modal (full columns while choosing,
-          code-only display after selection) */}
-      <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
+      {/* ── Row: Party Code | Party Name | Dept. Code ── */}
+      <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Party Code *</Text>
           <TouchableOpacity
             style={[styles.input, { justifyContent: 'center' }]}
@@ -495,7 +494,7 @@ const GatePassForm = ({ onCreated }) => {
             </Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.fieldHalf}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Party Name</Text>
           <TextInput
             style={[styles.input, styles.inputDisabled]}
@@ -505,9 +504,6 @@ const GatePassForm = ({ onCreated }) => {
             editable={false}
           />
         </View>
-      </View>
-
-      <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
         <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
           {deptLocked ? (
@@ -544,7 +540,11 @@ const GatePassForm = ({ onCreated }) => {
           </View>
           )}
         </View>
-        <View style={styles.fieldThird}>
+      </View>
+
+      {/* ── Row: Mode of Transport (chips only) ── */}
+      <View style={styles.fieldRow}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
@@ -558,24 +558,29 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-        <View style={styles.fieldThird}>
-          <Text style={styles.fieldLabel}>
-            Vehicle No. {modeOfTransport === 'Vehicle' ? '*' : ''}
-          </Text>
-          <TextInput
-            style={[styles.input, modeOfTransport !== 'Vehicle' && styles.inputDisabled]}
-            value={vehicleNo}
-            onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
-            placeholder={modeOfTransport === 'Vehicle' ? 'e.g. MH12AB1234' : 'N/A'}
-            placeholderTextColor={gp.textMuted}
-            autoCapitalize="characters"
-            editable={modeOfTransport === 'Vehicle'}
-          />
-        </View>
       </View>
 
+      {/* ── Vehicle No — only shown when Vehicle is selected ── */}
+      {modeOfTransport === 'Vehicle' && (
+        <View style={styles.fieldRow}>
+          <View style={styles.fieldThird}>
+            <Text style={styles.fieldLabel}>Vehicle No. *</Text>
+            <TextInput
+              style={styles.input}
+              value={vehicleNo}
+              onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
+              placeholder="e.g. MH12AB1234"
+              placeholderTextColor={gp.textMuted}
+              autoCapitalize="characters"
+              editable
+            />
+          </View>
+        </View>
+      )}
+
+      {/* ── Row: Sender Name | Approver Name | Expected Inward Date (R only) ── */}
       <View style={styles.fieldRow}>
-        <View style={styles.fieldHalf}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Sender Name</Text>
           <TextInput
             style={styles.input}
@@ -585,7 +590,7 @@ const GatePassForm = ({ onCreated }) => {
             placeholderTextColor={gp.textMuted}
           />
         </View>
-        <View style={styles.fieldHalf}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Approver Name</Text>
           <TextInput
             style={styles.input}
@@ -595,10 +600,7 @@ const GatePassForm = ({ onCreated }) => {
             placeholderTextColor={gp.textMuted}
           />
         </View>
-      </View>
-
-      {isReturnable && (
-        <View style={styles.fieldRow}>
+        {isReturnable && (
           <View style={styles.fieldThird}>
             <DateField
               label="Expected Inward Date *"
@@ -606,8 +608,8 @@ const GatePassForm = ({ onCreated }) => {
               onChange={setExpectedInwardDate}
             />
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
       {/* ── Items table (wireframe: blue header) ── */}
       <View style={styles.sectionBar}>
