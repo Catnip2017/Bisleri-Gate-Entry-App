@@ -4,7 +4,10 @@
 --
 --  AUTO-GENERATED from the SQLAlchemy ORM models (app/models/*).
 --  This is the authoritative structure the application expects.
---  Generated: 2026-07-13
+--  Generated: 2026-07-15
+--  Updated:   pipeline_masters_migration applied (gate_pass_parties +4 cols,
+--             gate_pass_items uom/item_type dropped + fa_class_code added,
+--             gate_pass_lines fa_class_code added)
 --
 --  Provision:
 --    psql -U postgres -c "CREATE DATABASE \"Bisleri_01\";"
@@ -121,11 +124,10 @@ CREATE TABLE gate_pass_cancel_reasons (
 );
 
 CREATE TABLE gate_pass_items (
-	item_code VARCHAR(50) NOT NULL, 
-	item_name VARCHAR(255) NOT NULL, 
-	item_type VARCHAR(20) NOT NULL, 
-	uom VARCHAR(20), 
-	is_active BOOLEAN NOT NULL, 
+	item_code    VARCHAR(50)  NOT NULL,
+	item_name    VARCHAR(255) NOT NULL,
+	fa_class_code VARCHAR(50),
+	is_active    BOOLEAN      NOT NULL,
 	PRIMARY KEY (item_code)
 );
 
@@ -141,9 +143,13 @@ CREATE TABLE gate_pass_locations (
 );
 
 CREATE TABLE gate_pass_parties (
-	party_code VARCHAR(50) NOT NULL, 
-	party_name VARCHAR(255) NOT NULL, 
-	is_active BOOLEAN NOT NULL, 
+	party_code  VARCHAR(50)  NOT NULL,
+	party_name  VARCHAR(255) NOT NULL,
+	city        VARCHAR(100),
+	post_code   VARCHAR(20),
+	phone_no    VARCHAR(20),
+	contact     VARCHAR(255),
+	is_active   BOOLEAN      NOT NULL,
 	PRIMARY KEY (party_code)
 );
 
@@ -426,20 +432,21 @@ CREATE TABLE gate_pass_events (
 CREATE INDEX ix_gate_pass_events_gate_pass_id ON gate_pass_events (gate_pass_id);
 
 CREATE TABLE gate_pass_lines (
-	id SERIAL NOT NULL, 
-	gate_pass_id INTEGER NOT NULL, 
-	line_no INTEGER NOT NULL, 
-	item_code VARCHAR(50), 
-	item_type VARCHAR(20), 
-	description VARCHAR(250) NOT NULL, 
-	serial_no VARCHAR(100), 
-	uom VARCHAR(20) NOT NULL, 
-	quantity INTEGER NOT NULL, 
-	amount NUMERIC(14, 2), 
-	chargeable VARCHAR(20), 
-	received_qty INTEGER NOT NULL, 
-	PRIMARY KEY (id), 
-	CONSTRAINT uq_gate_pass_line_no UNIQUE (gate_pass_id, line_no), 
+	id            SERIAL         NOT NULL,
+	gate_pass_id  INTEGER        NOT NULL,
+	line_no       INTEGER        NOT NULL,
+	item_code     VARCHAR(50),
+	item_type     VARCHAR(20),
+	description   VARCHAR(250)   NOT NULL,
+	serial_no     VARCHAR(100),
+	uom           VARCHAR(20)    NOT NULL,
+	quantity      INTEGER        NOT NULL,
+	amount        NUMERIC(14, 2),
+	chargeable    VARCHAR(20),
+	received_qty  INTEGER        NOT NULL,
+	fa_class_code VARCHAR(50),
+	PRIMARY KEY (id),
+	CONSTRAINT uq_gate_pass_line_no UNIQUE (gate_pass_id, line_no),
 	FOREIGN KEY(gate_pass_id) REFERENCES gate_pass_headers (id) ON DELETE CASCADE
 );
 CREATE INDEX ix_gate_pass_lines_gate_pass_id ON gate_pass_lines (gate_pass_id);
