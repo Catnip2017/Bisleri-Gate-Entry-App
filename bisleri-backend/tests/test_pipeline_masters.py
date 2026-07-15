@@ -13,14 +13,17 @@ def _fa_line(**over):
     return base
 
 
-def test_fa_line_snapshots_class_and_uses_master_description(client, users):
-    gp = create_pass(client, users, "NR", lines=[_fa_line()])
+def test_fa_line_snapshots_class_and_keeps_user_description(client, users):
+    # User may edit the auto-filled description (decision 14 Jul 2026):
+    # typed text is kept; the class snapshot still comes from the master.
+    gp = create_pass(client, users, "NR", lines=[
+        _fa_line(description="Dell Laptop - with charger and bag")])
     client.login(users["initiator"])
     detail = client.get(f"/gate-pass/{gp['id']}").json()
     line = detail["lines"][0]
     assert line["item_code"] == "FA-LAP-001"
     assert line["fa_class_code"] == "COMP"           # snapshotted from master
-    assert line["description"] == "Dell Laptop"      # master name, not user text
+    assert line["description"] == "Dell Laptop - with charger and bag"
 
 
 def test_fa_line_unknown_code_rejected(client, users):

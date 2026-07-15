@@ -209,8 +209,8 @@ const GatePassForm = ({ onCreated }) => {
               ...l,
               item_code: item.item_code,
               item_type: 'Fixed Asset',
-              // Master is the truth for FA lines — description locked on form,
-              // server re-asserts it and snapshots fa_class_code at creation.
+              // Description pre-fills from the master and stays EDITABLE —
+              // server keeps the user's text and snapshots fa_class_code.
               description: item.item_name,
             }
           : l
@@ -643,15 +643,17 @@ const GatePassForm = ({ onCreated }) => {
                 </TouchableOpacity>
                 {openTypeLine === index && (
                   <View style={styles.uomMenu}>
-                    {LINE_TYPES.map((t) => (
-                      <TouchableOpacity
-                        key={t}
-                        style={[styles.uomItem, line.item_type === t && styles.uomItemActive]}
-                        onPress={() => setLineType(index, t)}
-                      >
-                        <Text style={[styles.uomItemText, line.item_type === t && styles.uomItemTextActive]}>{t}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    <ScrollView style={{ maxHeight: 160 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {LINE_TYPES.map((t) => (
+                        <TouchableOpacity
+                          key={t}
+                          style={[styles.uomItem, line.item_type === t && styles.uomItemActive]}
+                          onPress={() => setLineType(index, t)}
+                        >
+                          <Text style={[styles.uomItemText, line.item_type === t && styles.uomItemTextActive]}>{t}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                   </View>
                 )}
               </View>
@@ -673,15 +675,16 @@ const GatePassForm = ({ onCreated }) => {
                 )}
               </View>
 
-              {/* Description — free text for Item lines; master-locked for FA */}
+              {/* Description — Item: free text. FA: auto-filled from the
+                  master on pick, then editable (user may append detail like
+                  "with charger"; decision 14 Jul 2026) */}
               <View style={[styles.itemsCell, { flex: 2.0 }]}>
                 <TextInput
-                  style={[styles.cellInput, line.item_type === 'Fixed Asset' && { color: gp.textMuted }]}
+                  style={styles.cellInput}
                   value={line.description}
                   onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
-                  placeholder={line.item_type === 'Fixed Asset' ? 'From asset master' : 'Description'}
+                  placeholder={line.item_type === 'Fixed Asset' ? 'Auto-fills from asset master' : 'Description'}
                   placeholderTextColor={gp.textMuted}
-                  editable={line.item_type !== 'Fixed Asset'}
                 />
               </View>
 

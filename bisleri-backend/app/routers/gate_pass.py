@@ -413,7 +413,11 @@ def create_gate_pass(
                         detail=f"Line {idx}: unknown or inactive Asset No. '{line.item_code}'",
                     )
                 fa_class = master.fa_class_code
-                description = master.item_name        # master is the truth for FA lines
+                # Description pre-fills from the master on the form but stays
+                # editable (decision 14 Jul 2026) - keep the user's text,
+                # fall back to the master name only if somehow blank.
+                if not description:
+                    description = master.item_name
             elif line.item_code:
                 raise HTTPException(
                     status_code=400,
