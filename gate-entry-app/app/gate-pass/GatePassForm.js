@@ -628,12 +628,21 @@ const GatePassForm = ({ onCreated }) => {
         </View>
 
         {lines.map((line, index) => (
-          <View key={index} style={{ position: 'relative' }}>
+          <View
+            key={index}
+            style={{
+              position: 'relative',
+              // Lift the whole row above later rows and the Add Line button
+              // while one of its dropdown menus is open — otherwise the menu
+              // paints underneath them (RN-web sibling stacking).
+              zIndex: (openUomLine === index || openChargeableLine === index || openTypeLine === index) ? 300 : 1,
+            }}
+          >
             {/* Single-row line item */}
             <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index || openTypeLine === index) ? 100 : 1 }]}>
 
               {/* Type — Item (free text) | Fixed Asset (from master) */}
-              <View style={[styles.itemsCell, { flex: 0.85, position: 'relative', overflow: 'visible' }]}>
+              <View style={[styles.itemsCell, { flex: 0.85, position: 'relative', overflow: 'visible', zIndex: openTypeLine === index ? 300 : 1 }]}>
                 <TouchableOpacity
                   style={styles.uomTrigger}
                   onPress={() => setOpenTypeLine(openTypeLine === index ? null : index)}
