@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import ReactECharts from 'echarts-for-react'
 import { useAuth } from '../../lib/auth'
@@ -47,6 +47,10 @@ export default function TripTable({
   const { dateRange } = useFilters()
   const [page, setPage] = useState(1)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+
+  useEffect(() => {
+    setPage(1)
+  }, [vehicleNo, warehouseName, dateRange])
 
   const list = useQuery<PaginatedResult<LoadTripRow>, ApiError>({
     queryKey: ['load', 'trips', pageContext, vehicleNo, warehouseName, dateRange, page],

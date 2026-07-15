@@ -7,6 +7,13 @@
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8123"],
       "cwd": "bisleri-backend",
       "port": 8123
+    },
+    {
+      "name": "dashboard-web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "dashboard-web",
+      "port": 5173
     }
   ]
 }

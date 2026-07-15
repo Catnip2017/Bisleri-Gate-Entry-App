@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { useFilters } from '../../lib/filters'
 import {
   apiFetch,
-  withWarehouses,
+  buildQuery,
   type ApiError,
   type LoadStats,
   type DocumentTypeStat,
@@ -26,12 +26,13 @@ interface LoadTrendPoint {
   avg_load: number
 }
 
-function useLoadQuery<T>(key: string, path: string) {
+function useLoadQuery<T>(key: string, path: string, extra?: Record<string, string | number>) {
   const { token } = useAuth()
-  const { selectedWarehouses } = useFilters()
+  const { selectedWarehouses, dateRange } = useFilters()
   return useQuery<T, ApiError>({
-    queryKey: ['load', 'analytics', key, selectedWarehouses],
-    queryFn: () => apiFetch<T>(withWarehouses(path, selectedWarehouses), token),
+    queryKey: ['load', 'analytics', key, selectedWarehouses, dateRange],
+    queryFn: () =>
+      apiFetch<T>(buildQuery(path, { warehouses: selectedWarehouses, dateRange, extra }), token),
     enabled: !!token,
   })
 }
@@ -39,7 +40,7 @@ function useLoadQuery<T>(key: string, path: string) {
 export default function LoadAnalytics() {
   const [trendGranularity, setTrendGranularity] = useState<'daily' | 'monthly'>('daily')
   const { token } = useAuth()
-  const { selectedWarehouses } = useFilters()
+  const { selectedWarehouses, dateRange } = useFilters()
 
   const stats = useLoadQuery<LoadStats>('stats', '/load/analytics/stats')
   const docTypes = useLoadQuery<DocumentTypeStat[]>('document-types', '/load/analytics/document-types')
@@ -49,13 +50,21 @@ export default function LoadAnalytics() {
   const scatter = useLoadQuery<ScatterRow[]>('scatter', '/load/analytics/scatter')
   const repeatOffenders = useLoadQuery<RepeatOffenderRow[]>(
     'repeat-offenders',
-    '/load/analytics/repeat-offenders?limit=15',
+    '/load/analytics/repeat-offenders',
+    { limit: 15 },
   )
 
   const trend = useQuery<LoadTrendPoint[], ApiError>({
-    queryKey: ['load', 'analytics', 'trend', trendGranularity, selectedWarehouses],
+    queryKey: ['load', 'analytics', 'trend', trendGranularity, selectedWarehouses, dateRange],
     queryFn: () =>
-      apiFetch(withWarehouses(`/load/analytics/trend?granularity=${trendGranularity}`, selectedWarehouses), token),
+      apiFetch(
+        buildQuery('/load/analytics/trend', {
+          warehouses: selectedWarehouses,
+          dateRange,
+          extra: { granularity: trendGranularity },
+        }),
+        token,
+      ),
     enabled: !!token,
   })
 

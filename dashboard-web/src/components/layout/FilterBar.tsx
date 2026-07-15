@@ -124,7 +124,14 @@ export default function FilterBar() {
         <input
           type="date"
           value={dateRange.start ?? ''}
-          onChange={(e) => setDateRange({ ...dateRange, start: e.target.value || null })}
+          max={dateRange.end ?? undefined}
+          onChange={(e) => {
+            const start = e.target.value || null
+            // Keep "to" >= "from": if the existing end date is now before the
+            // new start date, clear it rather than silently filtering to zero rows.
+            const end = start && dateRange.end && dateRange.end < start ? null : dateRange.end
+            setDateRange({ start, end })
+          }}
           className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm outline-none focus:border-[var(--brand-mid)]"
         />
       </div>
@@ -134,6 +141,7 @@ export default function FilterBar() {
         <input
           type="date"
           value={dateRange.end ?? ''}
+          min={dateRange.start ?? undefined}
           onChange={(e) => setDateRange({ ...dateRange, end: e.target.value || null })}
           className="rounded-lg border border-[var(--border)] px-2 py-2 text-sm outline-none focus:border-[var(--brand-mid)]"
         />

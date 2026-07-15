@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth'
 import { useFilters } from '../../lib/filters'
 import {
   apiFetch,
-  withWarehouses,
+  buildQuery,
   type ApiError,
   type OverviewStats,
   type DocumentTypeStat,
@@ -22,10 +22,11 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function useOverviewQuery<T>(key: string, path: string) {
   const { token } = useAuth()
-  const { selectedWarehouses } = useFilters()
+  const { selectedWarehouses, dateRange } = useFilters()
   return useQuery<T, ApiError>({
-    queryKey: ['overview', key, selectedWarehouses],
-    queryFn: () => apiFetch<T>(withWarehouses(path, selectedWarehouses), token),
+    queryKey: ['overview', key, selectedWarehouses, dateRange],
+    queryFn: () =>
+      apiFetch<T>(buildQuery(path, { warehouses: selectedWarehouses, dateRange }), token),
     enabled: !!token,
   })
 }
@@ -44,12 +45,16 @@ export default function OverviewPage() {
   const heatmap = useOverviewQuery<HeatmapCell[]>('activity-heatmap', '/overview/activity-heatmap')
 
   const { token } = useAuth()
-  const { selectedWarehouses } = useFilters()
+  const { selectedWarehouses, dateRange } = useFilters()
   const trend = useQuery<(DailyTrendPoint | MonthlyTrendPoint)[], ApiError>({
-    queryKey: ['overview', 'trend', trendGranularity, selectedWarehouses],
+    queryKey: ['overview', 'trend', trendGranularity, selectedWarehouses, dateRange],
     queryFn: () =>
       apiFetch(
-        withWarehouses(`/overview/trend?granularity=${trendGranularity}`, selectedWarehouses),
+        buildQuery('/overview/trend', {
+          warehouses: selectedWarehouses,
+          dateRange,
+          extra: { granularity: trendGranularity },
+        }),
         token,
       ),
     enabled: !!token,

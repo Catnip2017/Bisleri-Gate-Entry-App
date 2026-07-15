@@ -52,6 +52,22 @@ def _warehouse_filter_clause(selected_warehouses: List[str], column: str = "ware
     return f"AND {column} IN ({placeholders})", list(selected_warehouses)
 
 
+def _date_range_clause(start_date: Optional[str], end_date: Optional[str], column: str = "date") -> tuple:
+    """From/To date filter. Each side applies independently — picking only a
+    'from' (or only a 'to') date still filters, instead of requiring both."""
+    conditions = []
+    params: list = []
+    if start_date:
+        conditions.append(f"{column} >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append(f"{column} < %s::date + INTERVAL '1 day'")
+        params.append(end_date)
+    if not conditions:
+        return "", []
+    return "AND " + " AND ".join(conditions), params
+
+
 def _query(sql: str, params: list):
     conn = None
     try:
@@ -90,11 +106,14 @@ def list_warehouses(current_user: UsersMaster = Depends(get_current_user)):
 @router.get("/overview/stats")
 def overview_stats(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """Enterprise-level KPI numbers — 1:1 port of get_enterprise_stats."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         rows = _query(f"""
             SELECT
@@ -106,8 +125,8 @@ def overview_stats(
                 COUNT(DISTINCT warehouse_name) as total_warehouses,
                 MAX(date) as last_updated
             FROM {TABLES['insights']}
-            WHERE 1=1 {wf}
-        """, params)
+            WHERE 1=1 {wf} {df}
+        """, params + dparams)
         return rows[0] if rows else None
     except HTTPException:
         raise
@@ -119,21 +138,24 @@ def overview_stats(
 @router.get("/overview/document-types")
 def overview_document_types(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_enterprise_document_type_stats."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
                 COALESCE(document_type, 'Unknown') as document_type,
                 COUNT(DISTINCT gate_entry_no) as trip_count
             FROM {TABLES['insights']}
-            WHERE 1=1 {wf}
+            WHERE 1=1 {wf} {df}
             GROUP BY document_type
             ORDER BY trip_count DESC
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -144,11 +166,14 @@ def overview_document_types(
 @router.get("/overview/vehicle-ownership")
 def overview_vehicle_ownership(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_enterprise_vehicle_ownership."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [], column="i.warehouse_name")
+    df, dparams = _date_range_clause(start_date, end_date, column="i.date")
     try:
         return _query(f"""
             SELECT
@@ -160,10 +185,10 @@ def overview_vehicle_ownership(
             FROM {TABLES['insights']} i
             LEFT JOIN {TABLES['vehicle_master']} vm
                 ON TRIM(UPPER(i.vehicle_no)) = TRIM(UPPER(vm.registration_no))
-            WHERE 1=1 {wf}
+            WHERE 1=1 {wf} {df}
             GROUP BY ownership_type
             ORDER BY vehicle_count DESC
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -174,21 +199,24 @@ def overview_vehicle_ownership(
 @router.get("/overview/movement-stats")
 def overview_movement_stats(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_enterprise_movement_stats."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
                 movement_type,
                 COUNT(DISTINCT gate_entry_no) as trip_count
             FROM {TABLES['insights']}
-            WHERE movement_type IS NOT NULL {wf}
+            WHERE movement_type IS NOT NULL {wf} {df}
             GROUP BY movement_type
             ORDER BY trip_count DESC
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -200,11 +228,14 @@ def overview_movement_stats(
 def overview_trend(
     granularity: str = Query("daily", pattern="^(daily|monthly)$"),
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_enterprise_daily_trend / get_enterprise_monthly_trend."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         if granularity == "monthly":
             return _query(f"""
@@ -212,10 +243,10 @@ def overview_trend(
                     DATE_TRUNC('month', date) as trip_month,
                     COUNT(DISTINCT gate_entry_no) as trip_count
                 FROM {TABLES['insights']}
-                WHERE 1=1 {wf}
+                WHERE 1=1 {wf} {df}
                 GROUP BY DATE_TRUNC('month', date)
                 ORDER BY DATE_TRUNC('month', date)
-            """, params)
+            """, params + dparams)
         return _query(f"""
             SELECT
                 DATE(date) as trip_date,
@@ -223,10 +254,10 @@ def overview_trend(
                 COUNT(DISTINCT CASE WHEN movement_type = 'Gate-In' THEN gate_entry_no END) as gate_in,
                 COUNT(DISTINCT CASE WHEN movement_type = 'Gate-Out' THEN gate_entry_no END) as gate_out
             FROM {TABLES['insights']}
-            WHERE 1=1 {wf}
+            WHERE 1=1 {wf} {df}
             GROUP BY DATE(date)
             ORDER BY DATE(date)
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -237,12 +268,15 @@ def overview_trend(
 @router.get("/overview/warehouse-distribution")
 def overview_warehouse_distribution(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_enterprise_warehouse_distribution (also used for the
     top-warehouses ranking — already sorted trip_count DESC)."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -251,10 +285,10 @@ def overview_warehouse_distribution(
                 COUNT(DISTINCT CASE WHEN movement_type = 'Gate-In' THEN gate_entry_no END) as gate_in,
                 COUNT(DISTINCT CASE WHEN movement_type = 'Gate-Out' THEN gate_entry_no END) as gate_out
             FROM {TABLES['insights']}
-            WHERE warehouse_name IS NOT NULL {wf}
+            WHERE warehouse_name IS NOT NULL {wf} {df}
             GROUP BY warehouse_name
             ORDER BY trip_count DESC
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -265,12 +299,15 @@ def overview_warehouse_distribution(
 @router.get("/overview/activity-heatmap")
 def overview_activity_heatmap(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """New (approved during planning): gate-in/gate-out volume by day-of-week
     x hour-of-day, to spot congestion patterns."""
     _require_itadmin(current_user)
     wf, params = _warehouse_filter_clause(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -278,10 +315,10 @@ def overview_activity_heatmap(
                 EXTRACT(HOUR FROM time)::int as hour_of_day,
                 COUNT(DISTINCT gate_entry_no) as trip_count
             FROM {TABLES['insights']}
-            WHERE date IS NOT NULL AND time IS NOT NULL {wf}
+            WHERE date IS NOT NULL AND time IS NOT NULL {wf} {df}
             GROUP BY day_of_week, hour_of_day
             ORDER BY day_of_week, hour_of_day
-        """, params)
+        """, params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -331,9 +368,12 @@ def _doc_tat_filters(
         conditions.append(f"document_type IN ({placeholders})")
         params.extend(document_types)
 
-    if start_date and end_date:
-        conditions.append("DATE(gate_entry_datetime) >= %s AND DATE(gate_entry_datetime) <= %s")
-        params.extend([start_date, end_date])
+    if start_date:
+        conditions.append("DATE(gate_entry_datetime) >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append("DATE(gate_entry_datetime) <= %s")
+        params.append(end_date)
 
     return (" AND ".join(conditions) if conditions else "1=1"), params
 
@@ -356,9 +396,12 @@ def _veh_tat_filters(
         conditions.append("UPPER(vehicle_no) = UPPER(%s)")
         params.append(vehicle_no.strip())
 
-    if start_date and end_date:
-        conditions.append("entry_date >= %s AND entry_date <= %s")
-        params.extend([start_date, end_date])
+    if start_date:
+        conditions.append("entry_date >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append("entry_date <= %s")
+        params.append(end_date)
 
     return (" AND ".join(conditions) if conditions else "1=1"), params
 
@@ -801,11 +844,14 @@ def load_warehouses(current_user: UsersMaster = Depends(get_current_user)):
 @router.get("/load/analytics/stats")
 def load_analytics_stats(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_load_summary_stats."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         rows = _query(f"""
             SELECT
@@ -820,8 +866,8 @@ def load_analytics_stats(
                 COUNT(CASE WHEN total_weight_kg = 0 OR maximum_load_kg = 0 THEN 1 END) as zero_weight_trips,
                 MAX(date) as last_updated
             FROM {TABLES['consolidated']}
-            WHERE date >= %s {wf}
-        """, [LOAD_DATA_START_DATE] + params)
+            WHERE date >= %s {wf} {df}
+        """, [LOAD_DATA_START_DATE] + params + dparams)
         return rows[0] if rows else None
     except HTTPException:
         raise
@@ -833,11 +879,14 @@ def load_analytics_stats(
 @router.get("/load/analytics/document-types")
 def load_analytics_document_types(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_load_document_type_stats."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [], alias="v")
+    df, dparams = _date_range_clause(start_date, end_date, column="v.date")
     try:
         return _query(f"""
             SELECT
@@ -845,10 +894,10 @@ def load_analytics_document_types(
                 COUNT(DISTINCT v.gate_entry_no) as trip_count
             FROM {TABLES['consolidated']} v
             JOIN {TABLES['insights']} i ON v.gate_entry_no = i.gate_entry_no
-            WHERE v.date >= %s AND i.document_type IS NOT NULL {wf}
+            WHERE v.date >= %s AND i.document_type IS NOT NULL {wf} {df}
             GROUP BY i.document_type
             ORDER BY trip_count DESC
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -859,11 +908,14 @@ def load_analytics_document_types(
 @router.get("/load/analytics/vehicle-ownership")
 def load_analytics_vehicle_ownership(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_load_vehicle_ownership."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [], alias="vls")
+    df, dparams = _date_range_clause(start_date, end_date, column="vls.date")
     try:
         return _query(f"""
             SELECT
@@ -875,10 +927,10 @@ def load_analytics_vehicle_ownership(
             FROM {TABLES['consolidated']} vls
             LEFT JOIN {TABLES['vehicle_master']} vm
                 ON TRIM(UPPER(vls.vehicle_no)) = TRIM(UPPER(vm.registration_no))
-            WHERE vls.date >= %s {wf}
+            WHERE vls.date >= %s {wf} {df}
             GROUP BY ownership_type
             ORDER BY vehicle_count DESC
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -889,11 +941,14 @@ def load_analytics_vehicle_ownership(
 @router.get("/load/analytics/movement-stats")
 def load_analytics_movement_stats(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_load_movement_stats."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -901,10 +956,10 @@ def load_analytics_movement_stats(
                 COUNT(*) as trip_count,
                 AVG(load_percentage) as avg_load
             FROM {TABLES['consolidated']}
-            WHERE date >= %s AND movement_type IS NOT NULL {wf}
+            WHERE date >= %s AND movement_type IS NOT NULL {wf} {df}
             GROUP BY movement_type
             ORDER BY trip_count DESC
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -916,11 +971,14 @@ def load_analytics_movement_stats(
 def load_analytics_trend(
     granularity: str = Query("daily", pattern="^(daily|monthly)$"),
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """1:1 port of get_load_daily_trend / get_load_monthly_trend."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         if granularity == "monthly":
             return _query(f"""
@@ -929,10 +987,10 @@ def load_analytics_trend(
                     COUNT(*) as trip_count,
                     AVG(load_percentage) as avg_load
                 FROM {TABLES['consolidated']}
-                WHERE date >= %s {wf}
+                WHERE date >= %s {wf} {df}
                 GROUP BY DATE_TRUNC('month', date)
                 ORDER BY DATE_TRUNC('month', date)
-            """, [LOAD_DATA_START_DATE] + params)
+            """, [LOAD_DATA_START_DATE] + params + dparams)
         return _query(f"""
             SELECT
                 DATE(date) as trip_date,
@@ -941,10 +999,10 @@ def load_analytics_trend(
                 COUNT(CASE WHEN movement_type = 'Gate-Out' THEN 1 END) as gate_out,
                 AVG(load_percentage) as avg_load
             FROM {TABLES['consolidated']}
-            WHERE date >= %s {wf}
+            WHERE date >= %s {wf} {df}
             GROUP BY DATE(date)
             ORDER BY DATE(date)
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -955,6 +1013,8 @@ def load_analytics_trend(
 @router.get("/load/analytics/boxplot")
 def load_analytics_boxplot(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """New (approved during planning): load % distribution per warehouse —
@@ -967,6 +1027,7 @@ def load_analytics_boxplot(
     already surfaced separately via the "Zero Weight Trips" KPI."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -978,10 +1039,10 @@ def load_analytics_boxplot(
                 MAX(load_percentage) as max
             FROM {TABLES['consolidated']}
             WHERE date >= %s AND warehouse_name IS NOT NULL
-              AND total_weight_kg > 0 AND maximum_load_kg > 0 {wf}
+              AND total_weight_kg > 0 AND maximum_load_kg > 0 {wf} {df}
             GROUP BY warehouse_name
             ORDER BY warehouse_name
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -992,6 +1053,8 @@ def load_analytics_boxplot(
 @router.get("/load/analytics/scatter")
 def load_analytics_scatter(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """New (approved during planning): weight-vs-capacity per vehicle, to
@@ -999,6 +1062,7 @@ def load_analytics_scatter(
     vehicles (by trip count) so the payload/chart stay usable."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -1008,11 +1072,11 @@ def load_analytics_scatter(
                 COUNT(*) as trip_count,
                 COUNT(CASE WHEN load_percentage > {LOAD_THRESHOLDS['overloaded']} THEN 1 END) as overloaded_count
             FROM {TABLES['consolidated']}
-            WHERE date >= %s AND maximum_load_kg > 0 {wf}
+            WHERE date >= %s AND maximum_load_kg > 0 {wf} {df}
             GROUP BY vehicle_no
             ORDER BY trip_count DESC
             LIMIT 1000
-        """, [LOAD_DATA_START_DATE] + params)
+        """, [LOAD_DATA_START_DATE] + params + dparams)
     except HTTPException:
         raise
     except Exception:
@@ -1023,12 +1087,15 @@ def load_analytics_scatter(
 @router.get("/load/analytics/repeat-offenders")
 def load_analytics_repeat_offenders(
     warehouses: Optional[List[str]] = Query(None),
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
     limit: int = Query(20, ge=1, le=100),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """New (approved during planning): vehicles most frequently overloaded."""
     _require_itadmin(current_user)
     wf, params = _load_warehouse_filter(warehouses or [])
+    df, dparams = _date_range_clause(start_date, end_date)
     try:
         return _query(f"""
             SELECT
@@ -1037,12 +1104,12 @@ def load_analytics_repeat_offenders(
                 COUNT(CASE WHEN load_percentage > {LOAD_THRESHOLDS['overloaded']} THEN 1 END) as overloaded_count,
                 AVG(load_percentage) as avg_load
             FROM {TABLES['consolidated']}
-            WHERE date >= %s {wf}
+            WHERE date >= %s {wf} {df}
             GROUP BY vehicle_no
             HAVING COUNT(CASE WHEN load_percentage > {LOAD_THRESHOLDS['overloaded']} THEN 1 END) > 0
             ORDER BY overloaded_count DESC
             LIMIT %s
-        """, [LOAD_DATA_START_DATE] + params + [limit])
+        """, [LOAD_DATA_START_DATE] + params + dparams + [limit])
     except HTTPException:
         raise
     except Exception:
@@ -1059,11 +1126,9 @@ def load_warehouse_analytics(
 ):
     """1:1 port of get_warehouse_analytics (Warehouse View drill-down)."""
     _require_itadmin(current_user)
-    date_filter = ""
     params = [warehouse_name, LOAD_DATA_START_DATE]
-    if start_date and end_date:
-        date_filter = "AND date BETWEEN %s AND %s"
-        params.extend([start_date, end_date])
+    date_filter, dparams = _date_range_clause(start_date, end_date)
+    params.extend(dparams)
     try:
         rows = _query(f"""
             SELECT
@@ -1096,11 +1161,9 @@ def load_warehouse_trend(
 ):
     """1:1 port of get_warehouse_daily_trend."""
     _require_itadmin(current_user)
-    date_filter = ""
     params = [warehouse_name, LOAD_DATA_START_DATE]
-    if start_date and end_date:
-        date_filter = "AND date BETWEEN %s AND %s"
-        params.extend([start_date, end_date])
+    date_filter, dparams = _date_range_clause(start_date, end_date)
+    params.extend(dparams)
     try:
         return _query(f"""
             SELECT
@@ -1171,9 +1234,12 @@ def load_trips(
     if warehouse_name:
         conditions.append("warehouse_name = %s")
         params.append(warehouse_name)
-    if start_date and end_date:
-        conditions.append("date >= %s AND date < %s + INTERVAL '1 day'")
-        params.extend([start_date, end_date])
+    if start_date:
+        conditions.append("date >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append("date < %s::date + INTERVAL '1 day'")
+        params.append(end_date)
 
     where = " AND ".join(conditions)
     offset = (page - 1) * RECORDS_PER_PAGE
@@ -1219,9 +1285,12 @@ def _loader_filters(
     conditions = []
     params: list = []
 
-    if start_date and end_date:
-        conditions.append("entry_date >= %s AND entry_date <= %s")
-        params.extend([start_date, end_date])
+    if start_date:
+        conditions.append("entry_date >= %s")
+        params.append(start_date)
+    if end_date:
+        conditions.append("entry_date <= %s")
+        params.append(end_date)
 
     if sites:
         placeholders = ", ".join(["%s"] * len(sites))

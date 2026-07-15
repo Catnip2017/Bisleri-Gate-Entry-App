@@ -14,12 +14,14 @@ import {
   type TatTrendPoint,
 } from '../../lib/api'
 import { KpiCard, ChartCard, ErrorNotice, Pagination, downloadCsv, boxplotAxisMax } from '../../components/ui/DashboardUI'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
 
 export default function VehicleTat() {
   const { token } = useAuth()
   const { selectedWarehouses, dateRange } = useFilters()
 
-  const [vehicleNo, setVehicleNo] = useState('')
+  const [vehicleNoInput, setVehicleNoInput] = useState('')
+  const vehicleNo = useDebouncedValue(vehicleNoInput)
   const [page, setPage] = useState(1)
 
   const extra = { vehicle_no: vehicleNo || null }
@@ -69,9 +71,9 @@ export default function VehicleTat() {
         <div className="max-w-xs">
           <label className="mb-1 block text-xs font-semibold text-[var(--muted)]">Vehicle Number</label>
           <input
-            value={vehicleNo}
+            value={vehicleNoInput}
             onChange={(e) => {
-              setVehicleNo(e.target.value.toUpperCase())
+              setVehicleNoInput(e.target.value.toUpperCase())
               setPage(1)
             }}
             placeholder="e.g., MH12AB1234"

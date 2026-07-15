@@ -14,6 +14,7 @@ import {
   type TatTrendPoint,
 } from '../../lib/api'
 import { KpiCard, ChartCard, ErrorNotice, Pagination, downloadCsv, boxplotAxisMax } from '../../components/ui/DashboardUI'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
 
 export default function DocumentTat() {
   const { token } = useAuth()
@@ -21,8 +22,10 @@ export default function DocumentTat() {
 
   const [site, setSite] = useState('')
   const [docTypes, setDocTypes] = useState<string[]>([])
-  const [vehicleNo, setVehicleNo] = useState('')
-  const [documentNo, setDocumentNo] = useState('')
+  const [vehicleNoInput, setVehicleNoInput] = useState('')
+  const [documentNoInput, setDocumentNoInput] = useState('')
+  const vehicleNo = useDebouncedValue(vehicleNoInput)
+  const documentNo = useDebouncedValue(documentNoInput)
   const [page, setPage] = useState(1)
 
   const extra = {
@@ -134,9 +137,9 @@ export default function DocumentTat() {
           <div>
             <label className="mb-1 block text-xs font-semibold text-[var(--muted)]">Vehicle Number</label>
             <input
-              value={vehicleNo}
+              value={vehicleNoInput}
               onChange={(e) => {
-                setVehicleNo(e.target.value.toUpperCase())
+                setVehicleNoInput(e.target.value.toUpperCase())
                 setPage(1)
               }}
               placeholder="e.g., MH12AB1234"
@@ -147,9 +150,9 @@ export default function DocumentTat() {
           <div>
             <label className="mb-1 block text-xs font-semibold text-[var(--muted)]">Document No</label>
             <input
-              value={documentNo}
+              value={documentNoInput}
               onChange={(e) => {
-                setDocumentNo(e.target.value.toUpperCase())
+                setDocumentNoInput(e.target.value.toUpperCase())
                 setPage(1)
               }}
               placeholder="e.g., TON26027193"
