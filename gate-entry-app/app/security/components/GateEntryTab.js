@@ -48,6 +48,7 @@ const GateEntryTab = ({
     km_reading: "",
     loader_count: "",   // ✅ ADD THIS
     loader_names: "",
+    interlayer_sheet_count: "0",   // ✅ ADD: compulsory, defaults to 0
   });
 
   const [validationErrors, setValidationErrors] = useState({
@@ -55,6 +56,7 @@ const GateEntryTab = ({
     km_reading: "",
     loader_count: "",   // ✅ ADD THIS
     loader_names: "",
+    interlayer_sheet_count: "",   // ✅ ADD
   });
 
   const [fieldValidation, setFieldValidation] = useState({
@@ -62,6 +64,7 @@ const GateEntryTab = ({
     km_reading: { isValid: false, touched: false },
     loader_count: { isValid: false, touched: false },  // ✅ ADD
     loader_names: { isValid: false, touched: false },
+    interlayer_sheet_count: { isValid: true, touched: false },   // ✅ ADD: defaults to 0, valid by default
   });
 
   // ✅ NEW: Validation functions matching OperationalEditModal
@@ -156,6 +159,17 @@ const GateEntryTab = ({
       case "loader_names":
         validation = validateLoaderNames(value);
         break;
+      case "interlayer_sheet_count":
+        cleanValue = value.replace(/[^0-9]/g, "");
+
+        if (cleanValue === "") {
+          validation = { isValid: false, error: "Interlayer sheet count is required" };
+        } else if (parseInt(cleanValue) < 0) {
+          validation = { isValid: false, error: "Interlayer sheet count cannot be negative" };
+        } else {
+          validation = { isValid: true, error: "" };
+        }
+      break;
       default:
         validation = { isValid: true, error: "" };
     }
@@ -442,6 +456,11 @@ const GateEntryTab = ({
       return;
     }
 
+    if (operationalData.interlayer_sheet_count === '' || operationalData.interlayer_sheet_count === null || operationalData.interlayer_sheet_count === undefined) {
+      showAlert('Validation Error', 'Interlayer sheet count is required');
+      return;
+    }
+
     if (gateHelpers.isEmptyVehicle(searchResults)) {
       showAlert(
         'Empty Vehicle Detected',
@@ -451,7 +470,7 @@ const GateEntryTab = ({
           { 
             text: 'Manual Entry', 
             onPress: () => {
-              router.push(`/security/manual-entry?vehicle=${encodeURIComponent(vehicleNo)}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`);
+              router.push(`/security/manual-entry?vehicle=${encodeURIComponent(vehicleNo)}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}&interlayerSheetCount=${encodeURIComponent(operationalData.interlayer_sheet_count || '0')}`);
             }
           }
         ]
@@ -488,7 +507,8 @@ const GateEntryTab = ({
         fieldValidation.driver_name.isValid &&
         fieldValidation.km_reading.isValid &&
         fieldValidation.loader_count.isValid &&
-        fieldValidation.loader_names.isValid;
+        fieldValidation.loader_names.isValid &&
+        fieldValidation.interlayer_sheet_count.isValid;
 
       if (!allFieldsValid) {
         showAlert(
@@ -507,6 +527,7 @@ const GateEntryTab = ({
         km_reading: operationalData.km_reading,
         loader_names: operationalData.loader_names.trim(),
         loader_count: operationalData.loader_count,   // ✅ ADD
+        interlayer_sheet_count: operationalData.interlayer_sheet_count ? parseInt(operationalData.interlayer_sheet_count) : 0,   // ✅ ADD
 
       };
 
@@ -538,6 +559,7 @@ const GateEntryTab = ({
         km_reading: "",
         loader_names: "",
         loader_count: "",
+        interlayer_sheet_count: "0",
       });
 
       setValidationErrors({
@@ -545,6 +567,7 @@ const GateEntryTab = ({
         km_reading: "",
         loader_names: "",
         loader_count: "",
+        interlayer_sheet_count: "",
       });
 
       setFieldValidation({
@@ -552,6 +575,7 @@ const GateEntryTab = ({
         km_reading: { isValid: false, touched: false },
         loader_count: { isValid: false, touched: false },
         loader_names: { isValid: false, touched: false },
+        interlayer_sheet_count: { isValid: true, touched: false },
       });
     } catch (error) {
       console.log("Batch gate entry submission failed:", error);
@@ -1026,6 +1050,34 @@ const GateEntryTab = ({
               ) : null}
             </View>
 
+            <View style={[styles.field10, { marginHorizontal: 4 }]}>
+              <Text style={styles.label}>Interlayer Sheet Count *</Text>
+
+              <TextInput
+                style={[
+                  styles.input,
+                  fieldValidation.interlayer_sheet_count.touched &&
+                    !fieldValidation.interlayer_sheet_count.isValid &&
+                    styles.inputError
+                ]}
+                placeholder="Count"
+                value={operationalData.interlayer_sheet_count}
+                onChangeText={(text) =>
+                  updateOperationalField("interlayer_sheet_count", text)
+                }
+                keyboardType="numeric"
+                maxLength={4}
+                editable={!isSubmitting && !isSearching}
+              />
+
+              {fieldValidation.interlayer_sheet_count.touched &&
+              validationErrors.interlayer_sheet_count ? (
+                <Text style={styles.errorText}>
+                  {validationErrors.interlayer_sheet_count}
+                </Text>
+              ) : null}
+            </View>
+
             <View style={styles.field25}>
               <Text style={styles.label}>Loader Names *</Text>
               <TextInput
@@ -1139,10 +1191,14 @@ const GateEntryTab = ({
                   showAlert('Validation Error', 'Loader names are required');
                   return;
                 }
+                if (operationalData.interlayer_sheet_count === '' || operationalData.interlayer_sheet_count === null || operationalData.interlayer_sheet_count === undefined) {
+                  showAlert('Validation Error', 'Interlayer sheet count is required');
+                  return;
+                }
 
                 // If all validations pass, navigate to manual entry
                 router.push(
-                    `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderCount=${encodeURIComponent(operationalData.loader_count || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}`
+                    `/security/manual-entry?vehicle=${encodeURIComponent(gateEntryData.vehicleNo || '')}&gateType=${gateEntryData.gateType}&driverName=${encodeURIComponent(operationalData.driver_name || '')}&kmReading=${encodeURIComponent(operationalData.km_reading || '')}&loaderCount=${encodeURIComponent(operationalData.loader_count || '')}&loaderNames=${encodeURIComponent(operationalData.loader_names || '')}&interlayerSheetCount=${encodeURIComponent(operationalData.interlayer_sheet_count || '0')}`
                 );
               }}
               disabled={isSubmitting || isSearching}

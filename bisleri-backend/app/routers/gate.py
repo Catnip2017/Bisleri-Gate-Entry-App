@@ -306,7 +306,9 @@ def create_enhanced_batch_gate_entry(
 
         if entry.loader_count is not None:
             operational_data['loader_count'] = entry.loader_count
-        
+
+        operational_data['interlayer_sheet_count'] = entry.interlayer_sheet_count if entry.interlayer_sheet_count is not None else 0
+
         # Process documents if provided
         if entry.document_nos:
             for document_no in entry.document_nos:
@@ -344,13 +346,14 @@ def create_enhanced_batch_gate_entry(
                         km_reading=operational_data.get('km_reading'),
                         loader_count=operational_data.get('loader_count'),   # ADD
                         loader_names=operational_data.get('loader_names'),
+                        interlayer_sheet_count=operational_data.get('interlayer_sheet_count', 0),   # ADD
                         edit_count=0,
                         last_edited_at=now if operational_data else None
                     )
-                    
+
                     db.add(insight_record)
                     records_processed += 1
-                    
+
                     processed_documents.append({
                         "document_no": document.document_no,
                         "document_type": document.document_type,
@@ -387,10 +390,11 @@ def create_enhanced_batch_gate_entry(
                 driver_name=operational_data.get('driver_name'),
                 km_reading=operational_data.get('km_reading'),
                 loader_names=operational_data.get('loader_names'),
+                interlayer_sheet_count=operational_data.get('interlayer_sheet_count', 0),   # ADD
                 edit_count=0,
                 last_edited_at=now if operational_data else None
             )
-            
+
             db.add(insight_record)
             records_processed = 1
         
@@ -699,10 +703,11 @@ def create_enhanced_manual_gate_entry(
             km_reading=operational_data.get('km_reading'),
             loader_count=entry.loader_count,   # ADD
             loader_names=operational_data.get('loader_names'),
+            interlayer_sheet_count=entry.interlayer_sheet_count if entry.interlayer_sheet_count is not None else 0,   # ADD
             edit_count=0,
             last_edited_at=now if operational_data else None
         )
-        
+
         db.add(insight_record)
         db.commit()
         
@@ -1106,6 +1111,7 @@ def get_vehicle_history(
                 "km_reading": move.km_reading,
                 "loader_count": move.loader_count,
                 "loader_names": move.loader_names,
+                "interlayer_sheet_count": move.interlayer_sheet_count,
                 "edit_count": move.edit_count or 0
             }
             for move in movements
@@ -1275,8 +1281,9 @@ def create_multi_document_manual_entry(
                 km_reading=entry.km_reading,
                 loader_count=entry.loader_count,   # ✅ ADD
                 loader_names=entry.loader_names,
+                interlayer_sheet_count=entry.interlayer_sheet_count if entry.interlayer_sheet_count is not None else 0,   # ✅ ADD
             )
-            
+
             db.add(insight_record)
             created_entries = [{
                 "sequence": 1,
@@ -1315,8 +1322,9 @@ def create_multi_document_manual_entry(
                     km_reading=entry.km_reading,
                     loader_count=entry.loader_count,   # ✅ IMPORTANT
                     loader_names=entry.loader_names,
+                    interlayer_sheet_count=entry.interlayer_sheet_count if entry.interlayer_sheet_count is not None else 0,   # ✅ ADD
                 )
-                
+
                 db.add(insight_record)
                 created_entries.append({
                     "sequence": i + 1,

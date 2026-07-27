@@ -28,6 +28,7 @@ const ManualEntryForm = ({ userData }) => {
   const preFilledKMReading = searchParams.kmReading || '';
   const preFilledLoaderNames = searchParams.loaderNames || '';
   const preFilledLoaderCount = searchParams.loaderCount || '';  // ✅ ADD
+  const preFilledInterlayerSheetCount = searchParams.interlayerSheetCount || '';  // ✅ ADD
 
   
   // ✅ UPDATED: Form state with new no_of_documents field (default 0 for empty vehicle)
@@ -40,6 +41,7 @@ const ManualEntryForm = ({ userData }) => {
     kmReading: preFilledKMReading,        // ✅ ADD
     loaderNames: preFilledLoaderNames,
     loaderCount: preFilledLoaderCount,   // ✅ ADD
+    interlayerSheetCount: preFilledInterlayerSheetCount || '0',   // ✅ ADD: compulsory, defaults to 0
 
     });
 
@@ -66,6 +68,11 @@ const ManualEntryForm = ({ userData }) => {
 
     if (!formData.loaderCount?.trim()) {
       showAlert('Validation Error', 'Loader count is required');
+      return false;
+    }
+
+    if (formData.interlayerSheetCount === '' || formData.interlayerSheetCount === null || formData.interlayerSheetCount === undefined) {
+      showAlert('Validation Error', 'Interlayer sheet count is required');
       return false;
     }
 
@@ -113,6 +120,7 @@ const ManualEntryForm = ({ userData }) => {
         km_reading: formData.kmReading || null,
         loader_count: formData.loaderCount ? parseInt(formData.loaderCount) : null,  // ✅ ADD
         loader_names: formData.loaderNames || null,
+        interlayer_sheet_count: formData.interlayerSheetCount !== '' ? parseInt(formData.interlayerSheetCount) : 0,  // ✅ ADD
       };
 
       const response = await gateAPI.createMultiDocumentManualEntry(multiEntryData);
@@ -321,8 +329,30 @@ const ManualEntryForm = ({ userData }) => {
             <Text style={styles.hintText}>✓ Pre-filled from Gate Entry</Text>
           ) : null}
         </View>
-      </View> 
-      
+      </View>
+
+      {/* Interlayer Sheet Count Field */}
+      <View style={styles.row}>
+        <View style={styles.fieldFull}>
+          <Text style={styles.label}>Interlayer Sheet Count *</Text>
+          <TextInput
+            style={[
+              styles.input,
+              preFilledInterlayerSheetCount ? styles.inputDisabled : null
+            ]}
+            value={formData.interlayerSheetCount}
+            onChangeText={(text) => updateField('interlayerSheetCount', text.replace(/[^0-9]/g, ''))}
+            placeholder="Enter interlayer sheet count"
+            keyboardType="numeric"
+            maxLength={4}
+            editable={!isSubmitting && !preFilledInterlayerSheetCount}
+          />
+          {preFilledInterlayerSheetCount ? (
+            <Text style={styles.hintText}>✓ Pre-filled from Gate Entry</Text>
+          ) : null}
+        </View>
+      </View>
+
       {/* Loader Names Field */}
       <View style={styles.row}>
         <View style={styles.fieldFull}>

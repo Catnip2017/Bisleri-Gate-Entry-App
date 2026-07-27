@@ -729,6 +729,7 @@ const SecurityInsightsTab = ({
               <Text style={[styles.tableHeaderCell, styles.colDriverName]}>Driver Name</Text>
               <Text style={[styles.tableHeaderCell, styles.colKMReading]}>KM Reading</Text>
               <Text style={[styles.tableHeaderCell, styles.colLoaderCount]}>Loader Count</Text>  {/* ✅ ADD */}
+              <Text style={[styles.tableHeaderCell, styles.colInterlayerSheetCount]}>Interlayer Sheet Count</Text>  {/* ✅ ADD */}
               <Text style={[styles.tableHeaderCell, styles.colLoaderNames]}>Loader Names</Text>
               
               <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>To Warehouse</Text>              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
@@ -796,11 +797,18 @@ const SecurityInsightsTab = ({
                           {movement.loader_count ?? '--'}
                         </Text>
                       </View>
-                      
+
+                      {/* ✅ ADD: Interlayer Sheet Count Cell */}
+                      <View style={[styles.tableCell, styles.colInterlayerSheetCount]}>
+                        <Text style={styles.tableCell}>
+                          {movement.interlayer_sheet_count ?? '--'}
+                        </Text>
+                      </View>
+
                       <View style={[styles.tableCell, styles.colLoaderNames]}>
                         {renderOperationalCell(movement, 'loader_names')}
                       </View>
-                      
+
                       <Text style={[styles.tableCell, styles.colWarehouse]}>{movement.to_warehouse_code || movement.warehouse_code || '--'}</Text>
                       <Text style={[styles.tableCell, styles.colSecurity]}>{movement.security_name}</Text>
                       

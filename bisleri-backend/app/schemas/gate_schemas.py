@@ -37,6 +37,7 @@ class EnhancedGateEntryCreate(BaseModel):
     km_reading: Optional[str] = None
     loader_count: Optional[int] = None   # ✅ ADD THIS
     loader_names: Optional[str] = None
+    interlayer_sheet_count: int = 0   # ✅ ADD: compulsory, defaults to 0
 
 class EnhancedManualGateEntryCreate(BaseModel):
     gate_type: str = "Gate-In"
@@ -59,6 +60,7 @@ class EnhancedManualGateEntryCreate(BaseModel):
     km_reading: Optional[str] = None
     loader_count: Optional[int] = None   # ✅ ADD THIS
     loader_names: Optional[str] = None
+    interlayer_sheet_count: int = 0   # ✅ ADD: compulsory, defaults to 0
 
 # Schema for Manual Gate Entry
 class ManualGateEntryCreate(BaseModel):
@@ -94,7 +96,8 @@ class MultiDocumentManualEntryCreate(BaseModel):
     km_reading: Optional[str] = None
     loader_count: Optional[int] = None   # ✅ ADD
     loader_names: Optional[str] = None
-    
+    interlayer_sheet_count: int = 0   # ✅ ADD: compulsory, defaults to 0
+
     # ✅ UPDATED: Validation for no_of_documents - now allows 0 for empty vehicles
     @validator('no_of_documents')
     def validate_no_of_documents(cls, v):
@@ -114,10 +117,11 @@ class OperationalDataEdit(BaseModel):
     
     # ✅ Operational fields (required for completion)
     driver_name: Optional[str] = None
-    km_reading: Optional[str] = None  
+    km_reading: Optional[str] = None
     loader_count: Optional[int] = None   # ✅ ADD
     loader_names: Optional[str] = None
-    
+    interlayer_sheet_count: Optional[int] = None   # ✅ ADD
+
     # ✅ Optional fields
     remarks: Optional[str] = None
     
@@ -143,6 +147,12 @@ class OperationalDataEdit(BaseModel):
                 raise ValueError('Driver name must be 2-50 characters')
         return v
     
+    @validator('interlayer_sheet_count')
+    def validate_interlayer_sheet_count(cls, v):
+        if v is not None and v < 0:
+            raise ValueError('Interlayer sheet count cannot be negative')
+        return v
+
     @validator('loader_names')
     def validate_loader_names(cls, v):
         if v is not None:
@@ -184,6 +194,7 @@ class EnhancedMovementResponse(BaseModel):
     km_reading: Optional[str]
     loader_names: Optional[str]
     loader_count: Optional[int] = None   # ✅ ADD
+    interlayer_sheet_count: Optional[int] = None   # ✅ ADD
     last_edited_at: Optional[str]
     edit_count: int
     

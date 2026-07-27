@@ -26,6 +26,7 @@ class InsightsData(Base):
     km_reading = Column(String(10))             # Required for completion (KM IN/OUT)
     loader_count = Column(Integer)        # NEW COLUMN
     loader_names = Column(String(200))          # Required for completion (comma-separated)
+    interlayer_sheet_count = Column(Integer, nullable=False, default=0, server_default='0')  # Required, defaults to 0
     last_edited_at = Column(DateTime)           # Track edit timestamps
     edit_count = Column(Integer, default=0)     # Track number of edits
     
@@ -38,7 +39,8 @@ class InsightsData(Base):
         return all([
             self.driver_name and self.driver_name.strip(),
             self.km_reading and self.km_reading.strip(),
-            self.loader_names and self.loader_names.strip()
+            self.loader_names and self.loader_names.strip(),
+            self.interlayer_sheet_count is not None
         ])
     
     def get_edit_status(self):
@@ -114,7 +116,10 @@ class InsightsData(Base):
         
         if not (self.loader_names and self.loader_names.strip()):
             missing.append('loader_names')
-        
+
+        if self.interlayer_sheet_count is None:
+            missing.append('interlayer_sheet_count')
+
         return missing
     
     def get_edit_button_config(self, current_user_username, current_user_role, current_user_warehouse_code=None):

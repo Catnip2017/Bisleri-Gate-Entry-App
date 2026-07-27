@@ -105,6 +105,7 @@ CREATE TABLE IF NOT EXISTS insights_data (
     km_reading          VARCHAR(10),                 -- KM-In or KM-Out reading
     loader_count        INTEGER,                     -- number of loaders
     loader_names        VARCHAR(200),                -- comma-separated loader names
+    interlayer_sheet_count INTEGER   NOT NULL DEFAULT 0,  -- compulsory, defaults to 0
     last_edited_at      TIMESTAMP,                   -- last operational edit timestamp
     edit_count          INTEGER      DEFAULT 0       -- total number of edits made
 );
@@ -129,6 +130,7 @@ COMMENT ON COLUMN insights_data.edit_count        IS 'Incremented on each operat
 COMMENT ON COLUMN insights_data.driver_name       IS 'Required to move from YELLOW to GREEN edit status';
 COMMENT ON COLUMN insights_data.km_reading        IS 'Required to move from YELLOW to GREEN edit status';
 COMMENT ON COLUMN insights_data.loader_names      IS 'Required to move from YELLOW to GREEN edit status';
+COMMENT ON COLUMN insights_data.interlayer_sheet_count IS 'Compulsory field, defaults to 0; required to move from YELLOW to GREEN edit status';
 
 
 -- ----------------------------------------------------------------
@@ -923,6 +925,12 @@ VALUES (
 ON CONFLICT (username) DO NOTHING;
 
 -- ================================================================
+-- DONE
+--
+--  Default login:   username → itadmin    password → Admin@123
+--  After first run: update the password via Admin → Reset Password
+-- ================================================================
+=========
 -- DONE
 --
 --  Default login:   username → itadmin    password → Admin@123
