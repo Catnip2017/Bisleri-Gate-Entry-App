@@ -36,13 +36,17 @@ DOCUMENT_DATA_COLUMNS = [
     "sub_document_type", "salesman",
 ]
 
-INSIGHTS_DATA_COLUMNS = [
+# interlayer_sheet_count doesn't exist on Bisleri_01 yet — that feature was
+# committed but never pulled/deployed to the live production server. Backfilled
+# as 0 on the target side, matching the target column's own NOT NULL DEFAULT 0.
+INSIGHTS_DATA_SOURCE_COLUMNS = [
     "id", "gate_entry_no", "document_type", "sub_document_type", "document_no",
     "vehicle_no", "warehouse_name", "date", "time", "movement_type", "remarks",
     "warehouse_code", "site_code", "security_name", "security_username",
     "document_date", "driver_name", "km_reading", "loader_count", "loader_names",
-    "interlayer_sheet_count", "last_edited_at", "edit_count",
+    "last_edited_at", "edit_count",
 ]
+INSIGHTS_DATA_TARGET_COLUMNS = INSIGHTS_DATA_SOURCE_COLUMNS + ["interlayer_sheet_count"]
 
 RAW_MATERIALS_DATA_COLUMNS = [
     "id", "gate_entry_no", "gate_type", "vehicle_no", "document_no",
@@ -74,10 +78,11 @@ def sync_document_data(source_conn, target_conn):
 
 def sync_insights_data(source_conn, target_conn):
     rows = _fetch_window(
-        source_conn, "insights_data", INSIGHTS_DATA_COLUMNS,
+        source_conn, "insights_data", INSIGHTS_DATA_SOURCE_COLUMNS,
         "date", f"now() - interval '{EDIT_WINDOW_HOURS} hours'",
     )
-    inserted, updated = upsert_rows(target_conn, "insights_data", INSIGHTS_DATA_COLUMNS, "id", rows)
+    rows = [row + (0,) for row in rows]  # backfill interlayer_sheet_count
+    inserted, updated = upsert_rows(target_conn, "insights_data", INSIGHTS_DATA_TARGET_COLUMNS, "id", rows)
     return inserted, updated
 
 

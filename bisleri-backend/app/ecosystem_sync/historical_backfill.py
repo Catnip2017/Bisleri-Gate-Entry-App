@@ -16,7 +16,8 @@ import logging
 from app.ecosystem_sync.connections import get_source_connection, get_target_connection
 from app.ecosystem_sync.incremental_sync import (
     DOCUMENT_DATA_COLUMNS,
-    INSIGHTS_DATA_COLUMNS,
+    INSIGHTS_DATA_SOURCE_COLUMNS,
+    INSIGHTS_DATA_TARGET_COLUMNS,
     RAW_MATERIALS_DATA_COLUMNS,
 )
 from app.ecosystem_sync.upsert import upsert_rows
@@ -37,12 +38,28 @@ def _backfill_table(source_conn, target_conn, table, columns, conflict_col):
     )
 
 
+def _backfill_insights_data(source_conn, target_conn):
+    """insights_data needs its own step: Bisleri_01 doesn't have
+    interlayer_sheet_count yet (that feature was never deployed there), so
+    it's backfilled as 0 on the way into bisleri_ecosystem."""
+    with source_conn.cursor() as cur:
+        cur.execute(f"SELECT {', '.join(INSIGHTS_DATA_SOURCE_COLUMNS)} FROM insights_data")
+        rows = cur.fetchall()
+    rows = [row + (0,) for row in rows]
+    inserted, updated = upsert_rows(target_conn, "insights_data", INSIGHTS_DATA_TARGET_COLUMNS, "id", rows)
+    target_conn.commit()
+    logger.info(
+        "insights_data: +%d inserted, ~%d updated (%d rows fetched from source)",
+        inserted, updated, len(rows),
+    )
+
+
 def main():
     source_conn = get_source_connection()
     target_conn = get_target_connection()
     try:
         _backfill_table(source_conn, target_conn, "document_data", DOCUMENT_DATA_COLUMNS, "document_no")
-        _backfill_table(source_conn, target_conn, "insights_data", INSIGHTS_DATA_COLUMNS, "id")
+        _backfill_insights_data(source_conn, target_conn)
         _backfill_table(source_conn, target_conn, "raw_materials_data", RAW_MATERIALS_DATA_COLUMNS, "id")
         logger.info("Historical backfill complete.")
     except Exception:
