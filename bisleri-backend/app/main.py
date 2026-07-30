@@ -67,6 +67,19 @@ def _run_dashboard_etl():
         logger.error(f"[Scheduler] Dashboard ETL failed: {exc}")
 
 
+def _run_ecosystem_sync():
+    """Called by APScheduler every 12 hours (and once at startup, in the
+    background). Read-only pull from the live Bisleri_01 DB into this app's
+    own bisleri_ecosystem DB — see app/ecosystem_sync/incremental_sync.py."""
+    logger.info("[Scheduler] Starting ecosystem incremental sync...")
+    try:
+        from app.ecosystem_sync.incremental_sync import run_ecosystem_incremental_sync
+        run_ecosystem_incremental_sync()
+        logger.info("[Scheduler] Ecosystem sync completed successfully.")
+    except Exception as exc:
+        logger.error(f"[Scheduler] Ecosystem sync failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
@@ -90,9 +103,18 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
         next_run_time=datetime.now(),  # fire once immediately, in the background
     )
+    scheduler.add_job(
+        _run_ecosystem_sync,
+        trigger="interval",
+        minutes=720,            # 12 hours
+        id="ecosystem_sync",
+        max_instances=1,       # never overlap two sync runs
+        replace_existing=True,
+        next_run_time=datetime.now(),  # fire once immediately, in the background
+    )
     scheduler.start()
     logger.info("Background sync scheduler started — mfabric_sync every 10 minutes, "
-                "dashboard_etl every 8 hours (IST).")
+                "dashboard_etl every 8 hours, ecosystem_sync every 12 hours (IST).")
 
     # Run one mfabric sync immediately (synchronously, it's fast) so
     # document_data is fresh on startup. The dashboard ETL's first run is

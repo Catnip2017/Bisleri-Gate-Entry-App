@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     HISTORICAL_DB_USER: str = Field(default="postgres", env="HISTORICAL_DB_USER")
     HISTORICAL_DB_PASSWORD: str = Field(default="", env="HISTORICAL_DB_PASSWORD")
 
+    # Bisleri Ecosystem sync — this app's own DB_* settings point at
+    # bisleri_ecosystem (read-write, what this app actually runs against).
+    # ECOSYSTEM_SOURCE_DB_* points at the live, currently-in-production
+    # Bisleri_01 database, which this job only ever reads from — see
+    # app/ecosystem_sync/connections.py for the enforced-read-only connection.
+    ECOSYSTEM_SOURCE_DB_HOST: str = Field(default="localhost", env="ECOSYSTEM_SOURCE_DB_HOST")
+    ECOSYSTEM_SOURCE_DB_PORT: int = Field(default=5432, env="ECOSYSTEM_SOURCE_DB_PORT")
+    ECOSYSTEM_SOURCE_DB_NAME: str = Field(default="bisleri_01", env="ECOSYSTEM_SOURCE_DB_NAME")
+    ECOSYSTEM_SOURCE_DB_USER: str = Field(default="postgres", env="ECOSYSTEM_SOURCE_DB_USER")
+    ECOSYSTEM_SOURCE_DB_PASSWORD: str = Field(default="", env="ECOSYSTEM_SOURCE_DB_PASSWORD")
+
     class Config:
         env_file = ".env"
 
