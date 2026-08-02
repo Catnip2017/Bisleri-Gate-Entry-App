@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     ECOSYSTEM_SOURCE_DB_USER: str = Field(default="postgres", env="ECOSYSTEM_SOURCE_DB_USER")
     ECOSYSTEM_SOURCE_DB_PASSWORD: str = Field(default="", env="ECOSYSTEM_SOURCE_DB_PASSWORD")
 
+    # Temporary toggle for the dashboard ETL's Stage 1 source (see
+    # app/dashboard/etl/connections.py). The mfabric_* tables in Bisleri_01
+    # are a rolling ~7-day pipeline (flushed/refreshed by an external
+    # process), not accumulated history — bisleri_ecosystem doesn't have a
+    # live feed for them yet. True (default) = read Stage 1's mfabric_*/
+    # insights_data source straight from Bisleri_01, same as before this
+    # migration work started. False = read from bisleri_ecosystem instead.
+    # Flip to False once a real mfabric feed lands in bisleri_ecosystem, or
+    # once bisleri_ecosystem is trusted as the production source of truth.
+    DASHBOARD_SOURCE_IS_BISLERI01: bool = Field(default=True, env="DASHBOARD_SOURCE_IS_BISLERI01")
+
     class Config:
         env_file = ".env"
 

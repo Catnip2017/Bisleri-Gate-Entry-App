@@ -4,18 +4,36 @@
 # touches, built from the app's single settings mechanism (matches the
 # pattern already established in app/routers/rpa.py for RPA_DB_*).
 #
-# SOURCE_DB  = the operational Bisleri_01 DB (same one app/database.py's
-#              SQLAlchemy engine points at) — READ-ONLY access only, ever.
+# SOURCE_DB — READ-ONLY access only, ever (see data_sync.py's
+# set_session(readonly=True)). Which database this actually points at is
+# controlled by DASHBOARD_SOURCE_IS_BISLERI01 (app/config.py):
+#   True  (current default) -> the real, live Bisleri_01 mfabric pipeline
+#           directly (ECOSYSTEM_SOURCE_DB_*), since that pipeline is a
+#           rolling ~7-day window with no equivalent feed into
+#           bisleri_ecosystem yet.
+#   False -> this app's own primary DB (DB_*), i.e. bisleri_ecosystem, once
+#           that has a real mfabric feed or is trusted as the production
+#           source of truth.
+#
 # HISTORICAL_DB = Bisleri_dashboard — the only DB this ETL ever writes to.
 from app.config import settings
 
-SOURCE_DB = {
-    "host": settings.DB_HOST,
-    "port": settings.DB_PORT,
-    "database": settings.DB_NAME,
-    "user": settings.DB_USER,
-    "password": settings.DB_PASSWORD,
-}
+if settings.DASHBOARD_SOURCE_IS_BISLERI01:
+    SOURCE_DB = {
+        "host": settings.ECOSYSTEM_SOURCE_DB_HOST,
+        "port": settings.ECOSYSTEM_SOURCE_DB_PORT,
+        "database": settings.ECOSYSTEM_SOURCE_DB_NAME,
+        "user": settings.ECOSYSTEM_SOURCE_DB_USER,
+        "password": settings.ECOSYSTEM_SOURCE_DB_PASSWORD,
+    }
+else:
+    SOURCE_DB = {
+        "host": settings.DB_HOST,
+        "port": settings.DB_PORT,
+        "database": settings.DB_NAME,
+        "user": settings.DB_USER,
+        "password": settings.DB_PASSWORD,
+    }
 
 HISTORICAL_DB = {
     "host": settings.HISTORICAL_DB_HOST,
