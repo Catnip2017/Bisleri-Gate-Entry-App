@@ -75,6 +75,17 @@ class Settings(BaseSettings):
     # once bisleri_ecosystem is trusted as the production source of truth.
     DASHBOARD_SOURCE_IS_BISLERI01: bool = Field(default=True, env="DASHBOARD_SOURCE_IS_BISLERI01")
 
+    # Active Directory (AD) authentication — currently only used by the
+    # standalone connectivity test (scripts/test_ad_connection.py), not yet
+    # wired into the login flow. Declared here so the app doesn't fail to
+    # start when these keys are present in .env.
+    AD_SERVER: str = Field(default="", env="AD_SERVER")
+    AD_PORT: int = Field(default=636, env="AD_PORT")
+    AD_USE_SSL: bool = Field(default=True, env="AD_USE_SSL")
+    AD_BIND_USER: str = Field(default="", env="AD_BIND_USER")
+    AD_BIND_PASSWORD: str = Field(default="", env="AD_BIND_PASSWORD")
+    AD_DOMAIN: str = Field(default="", env="AD_DOMAIN")
+
     class Config:
         env_file = ".env"
 
