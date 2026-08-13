@@ -31,6 +31,7 @@ from app.database import Base, get_db  # noqa: E402
 from app.models import UsersMaster  # noqa: E402
 from app.models.gate_pass import (  # noqa: E402
     GatePassCancelReason,
+    GatePassDepartment,
     GatePassItem,
     GatePassLocation,
     GatePassParty,
@@ -91,6 +92,12 @@ def client(users):
         GatePassItem(item_code="FA-LAP-001", item_name="Dell Laptop", fa_class_code="COMP"),
         GatePassCancelReason(id=1, reason_text="Wrong party selected", sort_order=1),
         GatePassCancelReason(id=2, reason_text="Duplicate pass", sort_order=2),
+        # Real master values (department table replaced the hardcoded list,
+        # 3 Aug 2026) — "Accounts" stands in for the old "Finance" test
+        # fixture value, which isn't in the real department master.
+        GatePassDepartment(department_name="IT", sort_order=1),
+        GatePassDepartment(department_name="Accounts", sort_order=2),
+        GatePassDepartment(department_name="HR", sort_order=3),
     ])
     db.commit()
     db.close()

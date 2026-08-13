@@ -11,12 +11,12 @@ from tests.conftest import TestingSession, create_pass, dispatch, gp_payload, ma
 
 @pytest.fixture()
 def gpu_user():
-    """Rakesh: Gate Pass Creator, Finance, HO (legacy single-column location)."""
-    return make_user("rakesh", "Gate Pass Creator", gp_loc="HO", department="Finance")
+    """Rakesh: Gate Pass Creator, Accounts, HO (legacy single-column location)."""
+    return make_user("rakesh", "Gate Pass Creator", gp_loc="HO", department="Accounts")
 
 
 def gpu_payload(**over):
-    base = {"department": "Finance"}
+    base = {"department": "Accounts"}
     base.update(over)
     return gp_payload("NR", **base)
 
@@ -60,16 +60,16 @@ def test_gpu_sees_only_own_department_and_location(client, users, gpu_user):
     # IT department pass at HO (created by the IT-department creator)
     create_pass(client, users, "NR")                       # department IT
     client.login(gpu_user)
-    client.post("/gate-pass", json=gpu_payload())          # Finance pass
+    client.post("/gate-pass", json=gpu_payload())          # Accounts pass
     listing = client.get("/gate-pass").json()
-    assert listing["total_count"] == 1                     # only Finance@HO
-    assert listing["items"][0]["department"] == "Finance"
+    assert listing["total_count"] == 1                     # only Accounts@HO
+    assert listing["items"][0]["department"] == "Accounts"
 
 
 def test_ita_gpc_list_scoped_not_global(client, users, gpu_user):
     """ITA+GPC no longer sees everything — scoped to own dept + locations."""
     client.login(gpu_user)
-    client.post("/gate-pass", json=gpu_payload())          # Finance@HO
+    client.post("/gate-pass", json=gpu_payload())          # Accounts@HO
     create_pass(client, users, "NR")                       # IT@HO by init1
     client.login(users["admin_creator"])                   # IT dept, HO
     listing = client.get("/gate-pass").json()
@@ -90,7 +90,7 @@ def test_gpu_can_open_own_pass_detail(client, users, gpu_user):
     gp = client.post("/gate-pass", json=gpu_payload()).json()
     r = client.get(f"/gate-pass/{gp['id']}")
     assert r.status_code == 200
-    assert r.json()["department"] == "Finance"
+    assert r.json()["department"] == "Accounts"
 
 
 def test_gpu_cannot_open_other_departments_pass(client, users, gpu_user):
@@ -104,7 +104,7 @@ def test_creator_guard_combo_cannot_dispatch_own_pass(client, users):
     """Hand-edited DB role string granting GPC+GPD: the SOD tripwire still
     blocks dispatching (and receiving) your own pass."""
     combo = make_user("combo1", "Security Guard, Gate Pass Dispatcher, Gate Pass Creator",
-                      gp_loc="HO", department="Finance")
+                      gp_loc="HO", department="Accounts")
     client.login(combo)
     gp = client.post("/gate-pass", json=gpu_payload()).json()
     client.post(f"/gate-pass/{gp['id']}/release")
@@ -119,9 +119,9 @@ def test_creator_guard_combo_cannot_dispatch_own_pass(client, users):
 def test_sod_tripwire_on_inward(client, users):
     """Same tripwire on the return leg: you cannot receive your own pass."""
     combo = make_user("combo2", "Security Guard, Gate Pass Dispatcher, Gate Pass Creator",
-                      gp_loc="HO", department="Finance")
+                      gp_loc="HO", department="Accounts")
     client.login(combo)
-    gp = client.post("/gate-pass", json=gp_payload("R", department="Finance")).json()
+    gp = client.post("/gate-pass", json=gp_payload("R", department="Accounts")).json()
     client.post(f"/gate-pass/{gp['id']}/release")
     dispatch(client, users, gp["id"], who="guard_ho")
     client.login(combo)
@@ -138,7 +138,7 @@ def test_gpu_cannot_file_under_another_department(client, users, gpu_user):
     client.login(gpu_user)
     r = client.post("/gate-pass", json=gpu_payload(department="HR"))
     assert r.status_code == 400
-    assert "your own (Finance)" in r.json()["detail"]
+    assert "your own (Accounts)" in r.json()["detail"]
 
 
 def test_ita_gpc_department_locked_too(client, users):
@@ -168,7 +168,7 @@ def _assign_locations(username, codes, default):
 
 
 def test_multi_location_user_can_create_at_both(client, users):
-    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Finance")
+    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Accounts")
     _assign_locations("meena", ["HO", "CHN"], default="HO")
     client.login(meena)
     assert client.post("/gate-pass", json=gpu_payload(location_code="HO")).status_code == 201
@@ -183,7 +183,7 @@ def test_gpu_blocked_at_unassigned_location(client, users, gpu_user):
 
 
 def test_multi_location_user_sees_both_locations_passes(client, users):
-    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Finance")
+    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Accounts")
     _assign_locations("meena", ["HO", "CHN"], default="HO")
     client.login(meena)
     client.post("/gate-pass", json=gpu_payload(location_code="HO"))
@@ -192,7 +192,7 @@ def test_multi_location_user_sees_both_locations_passes(client, users):
 
 
 def test_my_locations_returns_starred_default_first(client, users):
-    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Finance")
+    meena = make_user("meena", "Gate Pass Creator", gp_loc="HO", department="Accounts")
     _assign_locations("meena", ["CHN", "HO"], default="HO")
     client.login(meena)
     locs = client.get("/gate-pass/my-locations").json()["locations"]

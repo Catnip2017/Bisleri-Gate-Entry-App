@@ -37,8 +37,19 @@ GP_CLOSED = "Closed Without Return"      # terminal (force close, admin)
 PASS_TYPE_RETURNABLE = "R"
 PASS_TYPE_NON_RETURNABLE = "NR"
 
-# Fixed department list — NOT a master, per design decision.
-DEPARTMENTS = ["IT", "Finance", "Sales", "Marketing", "Admin", "HR"]
+class GatePassDepartment(Base):
+    """Department master — replaces the old hardcoded DEPARTMENTS list
+    (superseded 3 Aug 2026). Same admin-maintained pattern as
+    GatePassCancelReason: real values loaded from the business's department
+    master Excel, no gate pass accounts existed yet so no data migration
+    was needed — just a clean initial load."""
+    __tablename__ = "gate_pass_departments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    department_name = Column(String(100), unique=True, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class GatePassLocation(Base):

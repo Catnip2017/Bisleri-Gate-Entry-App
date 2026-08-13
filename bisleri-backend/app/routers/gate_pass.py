@@ -25,10 +25,10 @@ from app.models import UsersMaster
 from app.models.gate_pass import (
     UserGatePassLocation,
     GatePassLocation, GatePassParty, GatePassItem, GatePassCancelReason,
+    GatePassDepartment,
     GatePassSequence, GatePassHeader, GatePassLine, GatePassEvent,
     GP_OPEN, GP_RELEASED, GP_DISPATCHED, GP_PARTIAL, GP_RECEIVED,
     GP_CANCELLED, GP_CLOSED, PASS_TYPE_RETURNABLE, PASS_TYPE_NON_RETURNABLE,
-    DEPARTMENTS,
 )
 from app.schemas.gate_pass_schemas import (
     GatePassLocationResponse, PartyResponse, ItemResponse, CancelReasonResponse,
@@ -249,8 +249,20 @@ def my_gate_pass_locations(
 
 
 @router.get("/departments")
-def list_departments(current_user: UsersMaster = Depends(get_current_user)):
-    return {"departments": DEPARTMENTS}
+def list_departments(
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    # Sourced from gate_pass_departments (replaces the old hardcoded list,
+    # 3 Aug 2026). Response shape unchanged (plain list of names) so the
+    # existing frontend dropdown keeps working with no changes on that side.
+    rows = (
+        db.query(GatePassDepartment)
+        .filter(GatePassDepartment.is_active.is_(True))
+        .order_by(GatePassDepartment.sort_order, GatePassDepartment.department_name)
+        .all()
+    )
+    return {"departments": [r.department_name for r in rows]}
 
 
 @router.get("/cancel-reasons", response_model=list[CancelReasonResponse])
@@ -316,7 +328,17 @@ def create_gate_pass(
     if loc is None:
         raise HTTPException(status_code=400, detail="Invalid location")
 
-    if payload.department not in DEPARTMENTS:
+    # Department must exist and be active in the master (server never trusts
+    # the dropdown) — same pattern as the location check above.
+    dept = (
+        db.query(GatePassDepartment)
+        .filter(
+            GatePassDepartment.department_name == payload.department,
+            GatePassDepartment.is_active.is_(True),
+        )
+        .first()
+    )
+    if dept is None:
         raise HTTPException(status_code=400, detail="Invalid department")
 
     # Passes are ALWAYS filed under the creator's own fixed department and

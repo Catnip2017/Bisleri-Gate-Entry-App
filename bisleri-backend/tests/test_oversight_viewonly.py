@@ -139,5 +139,5 @@ def test_guard_passes_the_role_gate(vclient):
 
 
 def test_gpc_blocked_from_gate_entry_creation(vclient):
-    vclient.login(make_user("rakesh", "Gate Pass Creator", department="Finance"))
+    vclient.login(make_user("rakesh", "Gate Pass Creator", department="Accounts"))
     assert vclient.post("/manual-gate-entry", json={}).status_code == 403
