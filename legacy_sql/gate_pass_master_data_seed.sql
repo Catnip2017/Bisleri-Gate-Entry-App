@@ -1,12 +1,34 @@
 -- gate_pass_master_data_seed.sql
--- Seed data for gate_pass_departments and gate_pass_locations, sourced from
--- deaprtment_master.xlsx and gate_pass_location_master.xlsx.
--- Idempotent (ON CONFLICT DO NOTHING) — safe to run more than once.
---
--- Run AFTER your Alembic migration has created gate_pass_departments.
+-- Creates gate_pass_departments and gate_pass_locations (if not already
+-- present) and seeds them, sourced from deaprtment_master.xlsx and
+-- gate_pass_location_master.xlsx.
+-- Idempotent (CREATE TABLE IF NOT EXISTS + ON CONFLICT DO NOTHING) — safe to
+-- run more than once, and safe to run whether or not the matching Alembic
+-- migrations (213928c9dad2, 7b84e57cc45b) have already been applied on this
+-- database — the table shapes here match those migrations / app/models/gate_pass.py
+-- exactly, so this never fights with a later `alembic upgrade head`.
 --   "C:\Program Files\PostgreSQL\16\bin\psql" -U postgres -d Bisleri_dev -f gate_pass_master_data_seed.sql
 
 BEGIN;
+
+-- ── Table definitions (skipped if the Alembic migration already created them) ──
+
+CREATE TABLE IF NOT EXISTS gate_pass_departments (
+    id              SERIAL PRIMARY KEY,
+    department_name VARCHAR(100) NOT NULL UNIQUE,
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    sort_order      INTEGER NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS gate_pass_locations (
+    id              SERIAL PRIMARY KEY,
+    location_code   VARCHAR(10) NOT NULL UNIQUE,
+    location_name   VARCHAR(255) NOT NULL,
+    warehouse_code  VARCHAR(50),
+    is_active       BOOLEAN NOT NULL DEFAULT true,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
 
 -- ── Departments (20 rows, from deaprtment_master.xlsx) ──────────────────────
 INSERT INTO gate_pass_departments (department_name, sort_order) VALUES
