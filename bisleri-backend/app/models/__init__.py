@@ -9,6 +9,7 @@ from .copacker import (
     ItemMaster, CopackerSession, CopackerCapture, CopackerCaptureEditLog,
 )
 from .gate_pass import (
-    GatePassLocation, GatePassParty, GatePassItem, GatePassCancelReason,
+    GatePassLocation, GatePassVendor, GatePassCustomer, GatePassAsset,
+    GatePassItem, GatePassCancelReason,
     GatePassSequence, GatePassHeader, GatePassLine, GatePassEvent,
 )

@@ -30,11 +30,12 @@ from app.auth import get_current_user  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
 from app.models import UsersMaster  # noqa: E402
 from app.models.gate_pass import (  # noqa: E402
+    GatePassAsset,
     GatePassCancelReason,
+    GatePassCustomer,
     GatePassDepartment,
-    GatePassItem,
     GatePassLocation,
-    GatePassParty,
+    GatePassVendor,
 )
 from app.routers import gate_pass as gate_pass_module  # noqa: E402
 
@@ -86,10 +87,13 @@ def client(users):
     db.add_all([
         GatePassLocation(location_code="HO", location_name="Head Office", warehouse_code="WH-HO"),
         GatePassLocation(location_code="CHN", location_name="Chennai", warehouse_code=None),
-        GatePassParty(party_code="P001", party_name="Acme Services",
-                      city="Mumbai", post_code="400099", phone_no="9920988105",
-                      contact="R. Mehta"),
-        GatePassItem(item_code="FA-LAP-001", item_name="Dell Laptop", fa_class_code="COMP"),
+        GatePassVendor(vendor_code="P001", vendor_name="Acme Services",
+                       city="Mumbai", post_code="400099", phone_no="9920988105",
+                       contact="R. Mehta"),
+        GatePassCustomer(customer_code="C001", customer_name="Beta Retail",
+                         city="Pune", post_code="411001", phone_no="9920988106",
+                         contact="S. Rao"),
+        GatePassAsset(asset_code="FA-LAP-001", asset_name="Dell Laptop", fa_class_code="COMP"),
         GatePassCancelReason(id=1, reason_text="Wrong party selected", sort_order=1),
         GatePassCancelReason(id=2, reason_text="Duplicate pass", sort_order=2),
         # Real master values (department table replaced the hardcoded list,
@@ -132,6 +136,7 @@ def gp_payload(pass_type="NR", **overrides):
     payload = {
         "pass_type": pass_type,
         "location_code": "HO",
+        "party_type": "Vendor",
         "party_code": "P001",
         "department": "IT",
         "mode_of_transport": "Hand Delivery",

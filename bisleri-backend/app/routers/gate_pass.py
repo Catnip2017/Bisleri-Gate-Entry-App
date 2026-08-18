@@ -17,21 +17,26 @@ from datetime import datetime, date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.sql import func
+from sqlalchemy.exc import IntegrityError
 
 from app.auth import get_current_user
 from app.utils.roles import normalize_roles
 from app.database import get_db
 from app.models import UsersMaster
+
 from app.models.gate_pass import (
     UserGatePassLocation,
-    GatePassLocation, GatePassParty, GatePassItem, GatePassCancelReason,
+    GatePassLocation, GatePassVendor, GatePassCustomer, GatePassAsset,
+    GatePassItem, GatePassCancelReason,
     GatePassDepartment,
     GatePassSequence, GatePassHeader, GatePassLine, GatePassEvent,
     GP_OPEN, GP_RELEASED, GP_DISPATCHED, GP_PARTIAL, GP_RECEIVED,
     GP_CANCELLED, GP_CLOSED, PASS_TYPE_RETURNABLE, PASS_TYPE_NON_RETURNABLE,
 )
 from app.schemas.gate_pass_schemas import (
-    GatePassLocationResponse, PartyResponse, ItemResponse, CancelReasonResponse,
+    GatePassLocationResponse, VendorResponse, CustomerResponse, AssetResponse,
+    ItemResponse, CancelReasonResponse,
     GatePassCreate, GatePassCancelRequest, GatePassDispatchRequest,
     GatePassInwardRequest, GatePassForceCloseRequest,
     GatePassListItem, GatePassDetailResponse, GatePassListResponse,
@@ -190,6 +195,7 @@ def _to_list_item(gp: GatePassHeader, today: date) -> GatePassListItem:
         location_code=gp.location_code,
         document_date=gp.document_date,
         document_time=gp.document_time,
+        party_type=gp.party_type,
         party_code=gp.party_code,
         party_name=gp.party_name,
         department=gp.department,
@@ -278,20 +284,51 @@ def list_cancel_reasons(
     )
 
 
-@router.get("/parties", response_model=list[PartyResponse])
-def search_parties(
+@router.get("/vendors", response_model=list[VendorResponse])
+def search_vendors(
     q: str = Query("", max_length=100),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_initiator),
 ):
-    """Bidirectional lookup: matches code OR name (Fabric-fed master later)."""
-    query = db.query(GatePassParty).filter(GatePassParty.is_active.is_(True))
+    """Bidirectional lookup: matches code OR name (Fabric-fed master)."""
+    query = db.query(GatePassVendor).filter(GatePassVendor.is_active.is_(True))
     if q:
         like = f"%{q}%"
         query = query.filter(
-            (GatePassParty.party_code.ilike(like)) | (GatePassParty.party_name.ilike(like))
+            (GatePassVendor.vendor_code.ilike(like)) | (GatePassVendor.vendor_name.ilike(like))
         )
-    return query.order_by(GatePassParty.party_name).limit(20).all()
+    return query.order_by(GatePassVendor.vendor_name).limit(20).all()
+
+
+@router.get("/customers", response_model=list[CustomerResponse])
+def search_customers(
+    q: str = Query("", max_length=100),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(_require_initiator),
+):
+    """Bidirectional lookup: matches code OR name (Fabric-fed master)."""
+    query = db.query(GatePassCustomer).filter(GatePassCustomer.is_active.is_(True))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (GatePassCustomer.customer_code.ilike(like)) | (GatePassCustomer.customer_name.ilike(like))
+        )
+    return query.order_by(GatePassCustomer.customer_name).limit(20).all()
+
+
+@router.get("/assets", response_model=list[AssetResponse])
+def search_assets(
+    q: str = Query("", max_length=100),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(_require_initiator),
+):
+    query = db.query(GatePassAsset).filter(GatePassAsset.is_active.is_(True))
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (GatePassAsset.asset_code.ilike(like)) | (GatePassAsset.asset_name.ilike(like))
+        )
+    return query.order_by(GatePassAsset.asset_code).limit(20).all()
 
 
 @router.get("/items", response_model=list[ItemResponse])
@@ -300,13 +337,39 @@ def search_items(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_initiator),
 ):
+    """User-populated Item master (not Fabric-fed) — lets the initiator see
+    and reuse items already named by someone else before typing a new one."""
     query = db.query(GatePassItem).filter(GatePassItem.is_active.is_(True))
     if q:
-        like = f"%{q}%"
-        query = query.filter(
-            (GatePassItem.item_code.ilike(like)) | (GatePassItem.item_name.ilike(like))
+        query = query.filter(GatePassItem.item_name.ilike(f"%{q}%"))
+    return query.order_by(GatePassItem.item_name).limit(20).all()
+
+
+def _get_or_create_item(db: Session, item_name: str) -> GatePassItem:
+    """Case-insensitive match-or-create against the user-populated Item
+    master. item_id is always server-generated, item_name always unique.
+    Runs the create in a savepoint so a lost race on the unique constraint
+    only unwinds this lookup, not the whole gate-pass-create transaction."""
+    existing = (
+        db.query(GatePassItem)
+        .filter(func.lower(GatePassItem.item_name) == item_name.lower())
+        .first()
+    )
+    if existing is not None:
+        return existing
+    try:
+        with db.begin_nested():
+            item = GatePassItem(item_name=item_name, is_active=True)
+            db.add(item)
+            db.flush()
+        return item
+    except IntegrityError:
+        # Lost a race with another concurrent create of the same name.
+        return (
+            db.query(GatePassItem)
+            .filter(func.lower(GatePassItem.item_name) == item_name.lower())
+            .first()
         )
-    return query.order_by(GatePassItem.item_code).limit(20).all()
 
 
 # ═════════════════════════════ Create ════════════════════════════════════════
@@ -363,14 +426,26 @@ def create_gate_pass(
             detail="You are not assigned to this gate pass location",
         )
 
-    # Party must exist in the master; name is filled server-side from the code
-    party = (
-        db.query(GatePassParty)
-        .filter(GatePassParty.party_code == payload.party_code, GatePassParty.is_active.is_(True))
-        .first()
-    )
-    if party is None:
-        raise HTTPException(status_code=400, detail="Invalid party code")
+    # Party must exist in the master matching party_type; name is filled
+    # server-side from the code. Vendor and Customer are mutually exclusive.
+    if payload.party_type == "Vendor":
+        vendor = (
+            db.query(GatePassVendor)
+            .filter(GatePassVendor.vendor_code == payload.party_code, GatePassVendor.is_active.is_(True))
+            .first()
+        )
+        if vendor is None:
+            raise HTTPException(status_code=400, detail="Invalid vendor code")
+        party_code, party_name = vendor.vendor_code, vendor.vendor_name
+    else:
+        customer = (
+            db.query(GatePassCustomer)
+            .filter(GatePassCustomer.customer_code == payload.party_code, GatePassCustomer.is_active.is_(True))
+            .first()
+        )
+        if customer is None:
+            raise HTTPException(status_code=400, detail="Invalid customer code")
+        party_code, party_name = customer.customer_code, customer.customer_name
 
     # Expected inward date: required for R, forbidden for NR
     if payload.pass_type == PASS_TYPE_RETURNABLE:
@@ -396,8 +471,9 @@ def create_gate_pass(
             warehouse_code=loc.warehouse_code,
             document_date=now.date(),
             document_time=now.strftime("%H:%M:%S"),
-            party_code=party.party_code,
-            party_name=party.party_name,
+            party_type=payload.party_type,
+            party_code=party_code,
+            party_name=party_name,
             department=payload.department,
             mode_of_transport=payload.mode_of_transport,
             vehicle_no=(payload.vehicle_no or "").strip().upper() or None,
@@ -414,41 +490,52 @@ def create_gate_pass(
             # Fixed Asset lines come from the asset master (pipeline-fed):
             # code must exist + be active; description is the master's name
             # (read-only on the form); FA class is snapshotted at creation.
-            # Item lines are free text: no code, description as typed.
+            # Item lines come from the user-populated Item master: matched
+            # or created by name (no FA class — not applicable).
             fa_class = None
+            asset_code = None
+            item_id = None
             description = line.description.strip()
             if line.item_type == "Fixed Asset":
-                if not line.item_code:
+                if not line.asset_code:
                     raise HTTPException(
                         status_code=400,
                         detail=f"Line {idx}: Fixed Asset lines must reference an Asset No. from the master",
                     )
                 master = (
-                    db.query(GatePassItem)
-                    .filter(GatePassItem.item_code == line.item_code,
-                            GatePassItem.is_active.is_(True))
+                    db.query(GatePassAsset)
+                    .filter(GatePassAsset.asset_code == line.asset_code,
+                            GatePassAsset.is_active.is_(True))
                     .first()
                 )
                 if master is None:
                     raise HTTPException(
                         status_code=400,
-                        detail=f"Line {idx}: unknown or inactive Asset No. '{line.item_code}'",
+                        detail=f"Line {idx}: unknown or inactive Asset No. '{line.asset_code}'",
                     )
+                asset_code = master.asset_code
                 fa_class = master.fa_class_code
                 # Description pre-fills from the master on the form but stays
                 # editable (decision 14 Jul 2026) - keep the user's text,
                 # fall back to the master name only if somehow blank.
                 if not description:
-                    description = master.item_name
-            elif line.item_code:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Line {idx}: only Fixed Asset lines may carry an item code — Item lines are free text",
-                )
+                    description = master.asset_name
+            else:
+                if line.asset_code:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Line {idx}: only Fixed Asset lines may carry an Asset No. — Item lines use the Item master",
+                    )
+                if not description:
+                    raise HTTPException(status_code=400, detail=f"Line {idx}: description is required")
+                item = _get_or_create_item(db, description)
+                item_id = item.item_id
+                description = item.item_name
             db.add(GatePassLine(
                 gate_pass_id=gp.id,
                 line_no=idx,
-                item_code=line.item_code,
+                asset_code=asset_code,
+                item_id=item_id,
                 item_type=line.item_type,
                 fa_class_code=fa_class,
                 description=description,

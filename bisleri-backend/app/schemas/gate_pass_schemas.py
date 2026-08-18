@@ -18,9 +18,9 @@ class GatePassLocationResponse(BaseModel):
         from_attributes = True
 
 
-class PartyResponse(BaseModel):
-    party_code: str
-    party_name: str
+class VendorResponse(BaseModel):
+    vendor_code: str
+    vendor_name: str
     city: Optional[str] = None
     post_code: Optional[str] = None
     phone_no: Optional[str] = None
@@ -30,10 +30,30 @@ class PartyResponse(BaseModel):
         from_attributes = True
 
 
-class ItemResponse(BaseModel):
-    item_code: str
-    item_name: str
+class CustomerResponse(BaseModel):
+    customer_code: str
+    customer_name: str
+    city: Optional[str] = None
+    post_code: Optional[str] = None
+    phone_no: Optional[str] = None
+    contact: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AssetResponse(BaseModel):
+    asset_code: str
+    asset_name: str
     fa_class_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ItemResponse(BaseModel):
+    item_id: int
+    item_name: str
 
     class Config:
         from_attributes = True
@@ -49,7 +69,7 @@ class CancelReasonResponse(BaseModel):
 
 # ── Create ───────────────────────────────────────────────────────────────────
 class GatePassLineCreate(BaseModel):
-    item_code: Optional[str] = None
+    asset_code: Optional[str] = None         # Fixed Asset lines only (from GatePassAsset)
     item_type: Optional[str] = None          # 'Fixed Asset' | 'Item'
     description: str = Field(..., min_length=1, max_length=250)
     serial_no: Optional[str] = Field(None, max_length=100)
@@ -76,6 +96,7 @@ class GatePassLineCreate(BaseModel):
 class GatePassCreate(BaseModel):
     pass_type: str                            # 'R' | 'NR'
     location_code: str
+    party_type: str                           # 'Vendor' | 'Customer'
     party_code: str
     department: str
     mode_of_transport: str                    # 'Hand Delivery' | 'Vehicle'
@@ -98,6 +119,13 @@ class GatePassCreate(BaseModel):
     def validate_transport(cls, v):
         if v not in ("Hand Delivery", "Vehicle"):
             raise ValueError("mode_of_transport must be 'Hand Delivery' or 'Vehicle'")
+        return v
+
+    @field_validator("party_type")
+    @classmethod
+    def validate_party_type(cls, v):
+        if v not in ("Vendor", "Customer"):
+            raise ValueError("party_type must be 'Vendor' or 'Customer'")
         return v
 
 
@@ -129,7 +157,8 @@ class GatePassForceCloseRequest(BaseModel):
 class GatePassLineResponse(BaseModel):
     id: int
     line_no: int
-    item_code: Optional[str] = None
+    asset_code: Optional[str] = None
+    item_id: Optional[int] = None
     item_type: Optional[str] = None
     fa_class_code: Optional[str] = None
     description: str
@@ -164,6 +193,7 @@ class GatePassListItem(BaseModel):
     location_code: str
     document_date: date
     document_time: str
+    party_type: str
     party_code: str
     party_name: str
     department: str

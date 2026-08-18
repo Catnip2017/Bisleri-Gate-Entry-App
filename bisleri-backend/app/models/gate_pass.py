@@ -66,17 +66,19 @@ class GatePassLocation(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
-class GatePassParty(Base):
-    """Party master — fed by the daily incremental Fabric pipeline.
-    Feed columns (Navision): No. -> party_code, Name -> party_name,
+class GatePassVendor(Base):
+    """Vendor master — fed by the daily incremental Fabric pipeline.
+    Feed columns (Navision): No. -> vendor_code, Name -> vendor_name,
     City, Post Code, Phone No., Contact. Phone is VARCHAR by decision
     (leading zeros, +91, slashes; int32 overflows on real numbers).
     Deletes arrive as is_active=false — rows are never removed, so old
-    passes can always live-lookup current contact details (no snapshot)."""
-    __tablename__ = "gate_pass_parties"
+    passes can always live-lookup current contact details (no snapshot).
+    Mutually exclusive with GatePassCustomer on the create form — a pass
+    is filed against exactly one of the two (see GatePassHeader.party_type)."""
+    __tablename__ = "gate_pass_vendors"
 
-    party_code = Column(String(50), primary_key=True)
-    party_name = Column(String(255), nullable=False)
+    vendor_code = Column(String(50), primary_key=True)
+    vendor_name = Column(String(255), nullable=False)
     city = Column(String(100), nullable=True)
     post_code = Column(String(20), nullable=True)
     phone_no = Column(String(20), nullable=True)
@@ -84,18 +86,45 @@ class GatePassParty(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
 
-class GatePassItem(Base):
+class GatePassCustomer(Base):
+    """Customer master — fed by the daily incremental Fabric pipeline.
+    Same structure/feed pattern as GatePassVendor (split out so vendor and
+    customer selection are mutually exclusive on the create form)."""
+    __tablename__ = "gate_pass_customers"
+
+    customer_code = Column(String(50), primary_key=True)
+    customer_name = Column(String(255), nullable=False)
+    city = Column(String(100), nullable=True)
+    post_code = Column(String(20), nullable=True)
+    phone_no = Column(String(20), nullable=True)
+    contact = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
+class GatePassAsset(Base):
     """FIXED ASSET master — fed by the daily incremental Fabric pipeline.
-    Feed columns (Navision): Asset No. -> item_code, Description ->
-    item_name, FA Class Code -> fa_class_code. ONLY fixed assets are
-    mastered; 'Item' lines are free text stored on the pass line itself
-    (uom/item_type dropped 14 Jul 2026 — uom is chosen per line via the
-    Unit dropdown, and every mastered row is a Fixed Asset by definition)."""
+    Feed columns (Navision): Asset No. -> asset_code, Description ->
+    asset_name, FA Class Code -> fa_class_code. This is what the create
+    form's 'Fixed Asset' line type searches (renamed from gate_pass_items,
+    which is now the user-populated 'Item' master below)."""
+    __tablename__ = "gate_pass_assets"
+
+    asset_code = Column(String(50), primary_key=True)     # Asset No., e.g. FA-COM-0412
+    asset_name = Column(String(255), nullable=False)      # Description
+    fa_class_code = Column(String(50), nullable=True)     # e.g. COMP
+    is_active = Column(Boolean, nullable=False, default=True)
+
+
+class GatePassItem(Base):
+    """User-populated 'Item' master — NOT Fabric-fed. Used when the initiator
+    can't find what they need in GatePassAsset: they type a description on
+    the create form and it is looked up (case-insensitive) or created here.
+    item_id is server-generated and never user-editable; item_name is unique
+    so the same description is never mastered twice."""
     __tablename__ = "gate_pass_items"
 
-    item_code = Column(String(50), primary_key=True)     # Asset No., e.g. FA-COM-0412
-    item_name = Column(String(255), nullable=False)      # Description
-    fa_class_code = Column(String(50), nullable=True)    # e.g. COMP
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    item_name = Column(String(255), unique=True, nullable=False)   # Description of goods
     is_active = Column(Boolean, nullable=False, default=True)
 
 
@@ -141,6 +170,7 @@ class GatePassHeader(Base):
     document_date = Column(Date, nullable=False)          # auto-filled at creation
     document_time = Column(String(12), nullable=False)    # "HH:MM:SS"
 
+    party_type = Column(String(10), nullable=False)       # 'Vendor' | 'Customer'
     party_code = Column(String(50), nullable=False)
     party_name = Column(String(255), nullable=False)
     department = Column(String(50), nullable=False, index=True)   # fixed list
@@ -205,8 +235,12 @@ class GatePassLine(Base):
         nullable=False, index=True,
     )
     line_no = Column(Integer, nullable=False)
-    item_code = Column(String(50), nullable=True)         # empty = manual description
     item_type = Column(String(20), nullable=True)         # 'Fixed Asset' | 'Item'
+    # Exactly one of the two is set, matching item_type — different master
+    # tables with different key types (GatePassAsset.asset_code is a Fabric
+    # string code; GatePassItem.item_id is our own auto-increment integer).
+    asset_code = Column(String(50), nullable=True)        # set when item_type == 'Fixed Asset'
+    item_id = Column(Integer, nullable=True)              # set when item_type == 'Item'
     # Snapshot of the asset's FA class at creation (decision 14 Jul 2026):
     # master rows are updated by the pipeline over time, but the class a
     # pass moved under is a historical fact — frozen here, never updated.

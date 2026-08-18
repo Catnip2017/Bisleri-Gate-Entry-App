@@ -72,10 +72,11 @@ def test_unknown_party_rejected(client, users):
     assert r.status_code == 400
 
 
-def test_unknown_item_code_rejected(client, users):
+def test_unknown_asset_code_rejected(client, users):
     client.login(users["initiator"])
     r = client.post("/gate-pass", json=gp_payload("NR", lines=[
-        {"description": "Mystery box", "quantity": 1, "item_code": "GHOST-1"}]))
+        {"description": "Mystery box", "quantity": 1, "item_type": "Fixed Asset",
+         "asset_code": "GHOST-1"}]))
     assert r.status_code == 400
 
 
