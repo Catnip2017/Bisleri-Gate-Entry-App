@@ -13,8 +13,8 @@ import DateField from '../../components/ui/DateField';
 import styles, { gp } from './styles/gatePassStyles';
 
 const EMPTY_LINE = () => ({
-  item_code: '',
-  item_type: 'Item',   // 'Item' = free text; 'Fixed Asset' = from master
+  asset_code: '',
+  item_type: 'Item',   // 'Item' = user-populated master; 'Fixed Asset' = Fabric master
   description: '',
   serial_no: '',
   uom: 'NOS',
@@ -30,7 +30,12 @@ const LINE_TYPES = ['Item', 'Fixed Asset'];
 // Navision-style lookup window (14 Jul 2026): search box + column table in a
 // modal. Used for Party and Fixed Asset selection. Search is server-side so
 // 500+ pipeline rows stay fast; after picking, the form shows just the code.
-function LookupModal({ visible, title, columns, fetchRows, keyField, onPick, onClose }) {
+function LookupModal({
+  visible, title, columns, fetchRows, keyField, onPick, onClose,
+  // Optional: lets the modal double as a "pick existing or create new" picker
+  // (used for the user-populated Item master).
+  allowCreate = false, onCreate = null,
+}) {
   const [query, setQuery] = React.useState('');
   const [rows, setRows] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
@@ -76,12 +81,24 @@ function LookupModal({ visible, title, columns, fetchRows, keyField, onPick, onC
             ))}
           </View>
           <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+            {allowCreate && query.trim() ? (
+              <TouchableOpacity
+                onPress={() => onCreate(query.trim())}
+                style={{ flexDirection: 'row', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#EEF2F5', backgroundColor: '#F0F8FF' }}
+              >
+                <Text style={{ fontSize: 12, color: gp.accent, fontWeight: '600' }} numberOfLines={1}>
+                  {`+ Use "${query.trim()}" as new item`}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             {busy ? (
               <ActivityIndicator style={{ marginVertical: 16 }} color={gp.accent} />
             ) : rows.length === 0 ? (
-              <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
-                No matches — refine your search
-              </Text>
+              allowCreate && query.trim() ? null : (
+                <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
+                  No matches — refine your search
+                </Text>
+              )
             ) : (
               rows.map((r) => (
                 <TouchableOpacity
@@ -118,8 +135,11 @@ const GatePassForm = ({ onCreated }) => {
   const [department, setDepartment] = useState('');
   const [deptLocked, setDeptLocked] = useState(false); // GPU: dept comes from profile, read-only
   const [myLocations, setMyLocations] = useState([]);  // user's assigned GP locations (junction)
-  const [selectedParty, setSelectedParty] = useState(null);
-  const [partyModalOpen, setPartyModalOpen] = useState(false);
+  // Vendor / Customer are mutually exclusive — picking one clears the other.
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [vendorModalOpen, setVendorModalOpen] = useState(false);
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
   const [modeOfTransport, setModeOfTransport] = useState('Hand Delivery');
   const [vehicleNo, setVehicleNo] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -130,6 +150,7 @@ const GatePassForm = ({ onCreated }) => {
   const [remarks, setRemarks] = useState('');
   const [lines, setLines] = useState([EMPTY_LINE()]);
   const [assetModalLine, setAssetModalLine] = useState(null);  // line index picking an asset
+  const [itemModalLine, setItemModalLine] = useState(null);    // line index picking/creating an item
   const [openTypeLine, setOpenTypeLine] = useState(null);      // line with Type dropdown open
   const [deptDropdownOpen, setDeptDropdownOpen] = useState(false);
   const [locDropdownOpen, setLocDropdownOpen] = useState(false);
@@ -194,24 +215,32 @@ const GatePassForm = ({ onCreated }) => {
   }, []);
 
   // ── Navision-style modal pickers (14 Jul 2026) ────────────────────────────
-  // Party and Fixed Asset selection happen in LookupModal windows showing the
-  // full pipeline columns; after picking, the form shows just the code.
-  const pickParty = (party) => {
-    setSelectedParty(party);
-    setPartyModalOpen(false);
+  // Vendor/Customer and Fixed Asset selection happen in LookupModal windows
+  // showing the full pipeline columns; after picking, the form shows just
+  // the code. Vendor and Customer are mutually exclusive.
+  const pickVendor = (vendor) => {
+    setSelectedVendor(vendor);
+    setSelectedCustomer(null);
+    setVendorModalOpen(false);
   };
 
-  const pickAsset = (lineIndex, item) => {
+  const pickCustomer = (customer) => {
+    setSelectedCustomer(customer);
+    setSelectedVendor(null);
+    setCustomerModalOpen(false);
+  };
+
+  const pickAsset = (lineIndex, asset) => {
     setLines((prev) =>
       prev.map((l, i) =>
         i === lineIndex
           ? {
               ...l,
-              item_code: item.item_code,
+              asset_code: asset.asset_code,
               item_type: 'Fixed Asset',
               // Description pre-fills from the master and stays EDITABLE —
               // server keeps the user's text and snapshots fa_class_code.
-              description: item.item_name,
+              description: asset.asset_name,
             }
           : l
       )
@@ -219,11 +248,19 @@ const GatePassForm = ({ onCreated }) => {
     setAssetModalLine(null);
   };
 
+  // Picking an existing item or typing a new name both just set the line's
+  // description — the server matches-or-creates the Item master row by
+  // that text on submit (item_id is never chosen client-side).
+  const pickItem = (lineIndex, name) => {
+    setLines((prev) => prev.map((l, i) => (i === lineIndex ? { ...l, description: name } : l)));
+    setItemModalLine(null);
+  };
+
   const setLineType = (index, type) => {
     // Switching type resets the code/description pairing:
-    // Item = free text, no code; Fixed Asset = pick from master.
+    // Item = matched/created by name; Fixed Asset = pick from master.
     setLines((prev) => prev.map((l, i) =>
-      i === index ? { ...l, item_type: type, item_code: '', description: '' } : l));
+      i === index ? { ...l, item_type: type, asset_code: '', description: '' } : l));
     setOpenTypeLine(null);
   };
 
@@ -244,14 +281,14 @@ const GatePassForm = ({ onCreated }) => {
   // ── Validate + create + release ───────────────────────────────────────────
   const validate = () => {
     if (!locationCode) return 'Select a location';
-    if (!selectedParty) return 'Select a party from the lookup';
+    if (!selectedVendor && !selectedCustomer) return 'Select a vendor or a customer from the lookup';
     if (!department) return 'Select a department';
     if (modeOfTransport === 'Vehicle' && !vehicleNo.trim()) {
       return 'Vehicle number is required when mode of transport is Vehicle';
     }
     for (let i = 0; i < lines.length; i += 1) {
       const l = lines[i];
-      if (l.item_type === 'Fixed Asset' && !l.item_code)
+      if (l.item_type === 'Fixed Asset' && !l.asset_code)
         return `Line ${i + 1}: select an Asset No. from the lookup`;
       if (!l.description.trim()) return `Line ${i + 1}: description is required`;
       const qty = parseInt(l.quantity, 10);
@@ -263,7 +300,8 @@ const GatePassForm = ({ onCreated }) => {
   const buildPayload = () => ({
     pass_type: passType,
     location_code: locationCode,
-    party_code: selectedParty.party_code,
+    party_type: selectedVendor ? 'Vendor' : 'Customer',
+    party_code: selectedVendor ? selectedVendor.vendor_code : selectedCustomer.customer_code,
     department,
     mode_of_transport: modeOfTransport,
     vehicle_no: vehicleNo.trim() || null,
@@ -273,7 +311,7 @@ const GatePassForm = ({ onCreated }) => {
       passType === 'R' ? expectedInwardDate.toISOString().split('T')[0] : null,
     remarks: remarks.trim() || null,
     lines: lines.map((l) => ({
-      item_code: l.item_code?.trim() || null,
+      asset_code: l.item_type === 'Fixed Asset' ? (l.asset_code?.trim() || null) : null,
       item_type: l.item_type || null,
       description: l.description.trim(),
       serial_no: l.serial_no?.trim() || null,
@@ -285,7 +323,8 @@ const GatePassForm = ({ onCreated }) => {
   });
 
   const resetForm = () => {
-    setSelectedParty(null);
+    setSelectedVendor(null);
+    setSelectedCustomer(null);
     setVehicleNo('');
     setSenderName('');
     setApproverName('');
@@ -480,17 +519,42 @@ const GatePassForm = ({ onCreated }) => {
         </View>
       </View>
 
-      {/* ── Row: Party Code | Party Name | Dept. Code ── */}
-      <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
+      {/* ── Row: Vendor Code | Customer Code | Party Name ──
+          Mutually exclusive: picking one greys out and clears the other. */}
+      <View style={styles.fieldRow}>
         <View style={styles.fieldThird}>
-          <Text style={styles.fieldLabel}>Party Code *</Text>
+          <Text style={styles.fieldLabel}>Vendor Code {!selectedCustomer ? '*' : ''}</Text>
           <TouchableOpacity
-            style={[styles.input, { justifyContent: 'center' }]}
-            onPress={() => setPartyModalOpen(true)}
+            style={[
+              styles.input,
+              { justifyContent: 'center' },
+              !!selectedCustomer && { backgroundColor: gp.bgMuted || '#f4f6f8' },
+            ]}
+            onPress={() => { if (!selectedCustomer) setVendorModalOpen(true); }}
+            disabled={!!selectedCustomer}
             accessibilityRole="button"
+            accessibilityState={{ disabled: !!selectedCustomer }}
           >
-            <Text style={{ fontSize: 14, color: selectedParty ? gp.text : gp.textMuted }}>
-              {selectedParty ? selectedParty.party_code : '-- Select party --'}
+            <Text style={{ fontSize: 14, color: selectedVendor ? gp.text : gp.textMuted }}>
+              {selectedVendor ? selectedVendor.vendor_code : '-- Select vendor --'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.fieldThird}>
+          <Text style={styles.fieldLabel}>Customer Code {!selectedVendor ? '*' : ''}</Text>
+          <TouchableOpacity
+            style={[
+              styles.input,
+              { justifyContent: 'center' },
+              !!selectedVendor && { backgroundColor: gp.bgMuted || '#f4f6f8' },
+            ]}
+            onPress={() => { if (!selectedVendor) setCustomerModalOpen(true); }}
+            disabled={!!selectedVendor}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !!selectedVendor }}
+          >
+            <Text style={{ fontSize: 14, color: selectedCustomer ? gp.text : gp.textMuted }}>
+              {selectedCustomer ? selectedCustomer.customer_code : '-- Select customer --'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -498,12 +562,16 @@ const GatePassForm = ({ onCreated }) => {
           <Text style={styles.fieldLabel}>Party Name</Text>
           <TextInput
             style={[styles.input, styles.inputDisabled]}
-            value={selectedParty?.party_name || ''}
+            value={selectedVendor?.vendor_name || selectedCustomer?.customer_name || ''}
             placeholder="Auto-filled from code"
             placeholderTextColor={gp.textMuted}
             editable={false}
           />
         </View>
+      </View>
+
+      {/* ── Row: Dept. Code ── */}
+      <View style={[styles.fieldRow, { zIndex: deptDropdownOpen ? 190 : 1 }]}>
         <View style={[styles.fieldThird, { zIndex: deptDropdownOpen ? 190 : 10 }]}>
           <Text style={styles.fieldLabel}>Dept. Code *</Text>
           {deptLocked ? (
@@ -540,6 +608,8 @@ const GatePassForm = ({ onCreated }) => {
           </View>
           )}
         </View>
+        <View style={styles.fieldThird} />
+        <View style={styles.fieldThird} />
       </View>
 
       {/* ── Row: Mode of Transport (1/4) | Vehicle No (1/4) | empty (2/4) ── */}
@@ -675,8 +745,8 @@ const GatePassForm = ({ onCreated }) => {
                     onPress={() => setAssetModalLine(index)}
                     accessibilityRole="button"
                   >
-                    <Text style={{ fontSize: 12, color: line.item_code ? gp.text : gp.textMuted }} numberOfLines={1}>
-                      {line.item_code || 'Select…'}
+                    <Text style={{ fontSize: 12, color: line.asset_code ? gp.text : gp.textMuted }} numberOfLines={1}>
+                      {line.asset_code || 'Select…'}
                     </Text>
                   </TouchableOpacity>
                 ) : (
@@ -684,17 +754,31 @@ const GatePassForm = ({ onCreated }) => {
                 )}
               </View>
 
-              {/* Description — Item: free text. FA: auto-filled from the
-                  master on pick, then editable (user may append detail like
-                  "with charger"; decision 14 Jul 2026) */}
+              {/* Description — FA: auto-filled from the master on pick, then
+                  editable (user may append detail like "with charger";
+                  decision 14 Jul 2026). Item: picked/created via the Item
+                  master lookup — shows existing items and lets the user
+                  name a new one when the asset they need isn't mastered. */}
               <View style={[styles.itemsCell, { flex: 2.0 }]}>
-                <TextInput
-                  style={styles.cellInput}
-                  value={line.description}
-                  onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
-                  placeholder={line.item_type === 'Fixed Asset' ? 'Auto-fills from asset master' : 'Description'}
-                  placeholderTextColor={gp.textMuted}
-                />
+                {line.item_type === 'Fixed Asset' ? (
+                  <TextInput
+                    style={styles.cellInput}
+                    value={line.description}
+                    onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
+                    placeholder="Auto-fills from asset master"
+                    placeholderTextColor={gp.textMuted}
+                  />
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.cellInput, { justifyContent: 'center' }]}
+                    onPress={() => setItemModalLine(index)}
+                    accessibilityRole="button"
+                  >
+                    <Text style={{ fontSize: 12, color: line.description ? gp.text : gp.textMuted }} numberOfLines={1}>
+                      {line.description || 'Select or add an item…'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               {/* Serial No. */}
@@ -869,33 +953,62 @@ const GatePassForm = ({ onCreated }) => {
 
       {/* ── Navision-style lookup modals ── */}
       <LookupModal
-        visible={partyModalOpen}
-        title="Select Party"
-        keyField="party_code"
+        visible={vendorModalOpen}
+        title="Select Vendor"
+        keyField="vendor_code"
         columns={[
-          { key: 'party_code', label: 'No.', flex: 0.9 },
-          { key: 'party_name', label: 'Name', flex: 2.0 },
+          { key: 'vendor_code', label: 'No.', flex: 0.9 },
+          { key: 'vendor_name', label: 'Name', flex: 2.0 },
           { key: 'city', label: 'City', flex: 1.0 },
           { key: 'post_code', label: 'Post Code', flex: 0.8 },
           { key: 'phone_no', label: 'Phone No.', flex: 1.0 },
           { key: 'contact', label: 'Contact', flex: 1.0 },
         ]}
-        fetchRows={(q) => gatePassAPI.searchParties(q)}
-        onPick={pickParty}
-        onClose={() => setPartyModalOpen(false)}
+        fetchRows={(q) => gatePassAPI.searchVendors(q)}
+        onPick={pickVendor}
+        onClose={() => setVendorModalOpen(false)}
+      />
+      <LookupModal
+        visible={customerModalOpen}
+        title="Select Customer"
+        keyField="customer_code"
+        columns={[
+          { key: 'customer_code', label: 'No.', flex: 0.9 },
+          { key: 'customer_name', label: 'Name', flex: 2.0 },
+          { key: 'city', label: 'City', flex: 1.0 },
+          { key: 'post_code', label: 'Post Code', flex: 0.8 },
+          { key: 'phone_no', label: 'Phone No.', flex: 1.0 },
+          { key: 'contact', label: 'Contact', flex: 1.0 },
+        ]}
+        fetchRows={(q) => gatePassAPI.searchCustomers(q)}
+        onPick={pickCustomer}
+        onClose={() => setCustomerModalOpen(false)}
       />
       <LookupModal
         visible={assetModalLine !== null}
         title="Select Fixed Asset"
-        keyField="item_code"
+        keyField="asset_code"
         columns={[
-          { key: 'item_code', label: 'No.', flex: 1.0 },
-          { key: 'item_name', label: 'Description', flex: 2.0 },
+          { key: 'asset_code', label: 'No.', flex: 1.0 },
+          { key: 'asset_name', label: 'Description', flex: 2.0 },
           { key: 'fa_class_code', label: 'FA Class Code', flex: 0.9 },
         ]}
-        fetchRows={(q) => gatePassAPI.searchItems(q)}
-        onPick={(item) => pickAsset(assetModalLine, item)}
+        fetchRows={(q) => gatePassAPI.searchAssets(q)}
+        onPick={(asset) => pickAsset(assetModalLine, asset)}
         onClose={() => setAssetModalLine(null)}
+      />
+      <LookupModal
+        visible={itemModalLine !== null}
+        title="Select or Add Item"
+        keyField="item_id"
+        columns={[
+          { key: 'item_name', label: 'Description of Goods', flex: 1 },
+        ]}
+        fetchRows={(q) => gatePassAPI.searchItems(q)}
+        onPick={(item) => pickItem(itemModalLine, item.item_name)}
+        onClose={() => setItemModalLine(null)}
+        allowCreate
+        onCreate={(name) => pickItem(itemModalLine, name)}
       />
     </View>
   );

@@ -725,8 +725,16 @@ export const gatePassAPI = {
     const response = await api.get('/gate-pass/cancel-reasons');
     return response.data;
   },
-  searchParties: async (q = '') => {
-    const response = await api.get('/gate-pass/parties', { params: { q } });
+  searchVendors: async (q = '') => {
+    const response = await api.get('/gate-pass/vendors', { params: { q } });
+    return response.data;
+  },
+  searchCustomers: async (q = '') => {
+    const response = await api.get('/gate-pass/customers', { params: { q } });
+    return response.data;
+  },
+  searchAssets: async (q = '') => {
+    const response = await api.get('/gate-pass/assets', { params: { q } });
     return response.data;
   },
   searchItems: async (q = '') => {

@@ -56,7 +56,7 @@ export const printGatePass = async (passId) => {
       .map(
         (l) => `<tr>
           <td>${l.line_no}</td>
-          <td>${esc(l.item_code)}</td>
+          <td>${esc(l.asset_code)}</td>
           <td>${esc(l.description)}${l.chargeable ? `<div class="chg">${esc(l.chargeable)}</div>` : ''}</td>
           <td>${esc(l.serial_no)}</td>
           <td style="text-align:right">${l.quantity ?? 0}</td>
@@ -110,7 +110,7 @@ export const printGatePass = async (passId) => {
       <td class="lbl">Department</td><td>${esc(d.department)}</td>
     </tr>
     <tr>
-      <td class="lbl">Party</td><td>${esc(d.party_code)} — ${esc(d.party_name)}</td>
+      <td class="lbl">${esc(d.party_type)}</td><td>${esc(d.party_code)} — ${esc(d.party_name)}</td>
       <td class="lbl">Mode of Transport</td><td>${esc(d.mode_of_transport)}</td>
     </tr>
     <tr>
