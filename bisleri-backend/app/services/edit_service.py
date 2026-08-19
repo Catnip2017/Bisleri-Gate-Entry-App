@@ -16,8 +16,18 @@ from typing import List, Optional
 from app.utils.edit_window import is_within_edit_window, get_time_remaining as _window_remaining
 from app.utils.roles import normalize_roles
 
-# Fields required for a record to count as "operationally complete"
-REQUIRED_OPERATIONAL_FIELDS = ("driver_name", "km_reading", "loader_names")
+# Text fields required for a record to count as "operationally complete"
+REQUIRED_OPERATIONAL_TEXT_FIELDS = ("driver_name", "km_reading", "loader_names")
+
+# Numeric fields required for completion. Checked for presence (not
+# truthiness) — 0 is a legitimate interlayer sheet count, not "missing".
+REQUIRED_OPERATIONAL_NUMERIC_FIELDS = ("interlayer_sheet_count",)
+
+# Full required set, in display order. Kept as a name so callers that only
+# want "which fields matter" don't need to know about the text/numeric split.
+REQUIRED_OPERATIONAL_FIELDS = (
+    REQUIRED_OPERATIONAL_TEXT_FIELDS + REQUIRED_OPERATIONAL_NUMERIC_FIELDS
+)
 
 
 def record_created_at(record) -> Optional[datetime]:
@@ -29,17 +39,20 @@ def record_created_at(record) -> Optional[datetime]:
 
 def is_operational_data_complete(record) -> bool:
     """True if all required operational fields are filled."""
-    return all(
-        (getattr(record, f) or "").strip() for f in REQUIRED_OPERATIONAL_FIELDS
-    )
+    return not get_missing_operational_fields(record)
 
 
 def get_missing_operational_fields(record) -> List[str]:
     """Names of required operational fields that are still empty."""
-    return [
-        f for f in REQUIRED_OPERATIONAL_FIELDS
+    missing = [
+        f for f in REQUIRED_OPERATIONAL_TEXT_FIELDS
         if not (getattr(record, f) or "").strip()
     ]
+    missing += [
+        f for f in REQUIRED_OPERATIONAL_NUMERIC_FIELDS
+        if getattr(record, f, None) is None
+    ]
+    return missing
 
 
 def get_edit_status(record) -> str:

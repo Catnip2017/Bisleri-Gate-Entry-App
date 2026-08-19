@@ -10,7 +10,8 @@ class FakeRecord:
     """Stands in for an InsightsData row."""
 
     def __init__(self, age_hours=2, driver_name="Ram", km_reading="1234",
-                 loader_names="A, B", warehouse_code="WH1",
+                 loader_names="A, B", interlayer_sheet_count=0,
+                 warehouse_code="WH1",
                  security_username="guard1", edit_count=0):
         created = datetime.now() - timedelta(hours=age_hours)
         self.date = created            # model combines date part…
@@ -18,6 +19,9 @@ class FakeRecord:
         self.driver_name = driver_name
         self.km_reading = km_reading
         self.loader_names = loader_names
+        # NOT NULL DEFAULT 0 on the real column — 0 is a filled-in value,
+        # only None counts as missing.
+        self.interlayer_sheet_count = interlayer_sheet_count
         self.warehouse_code = warehouse_code
         self.security_username = security_username
         self.edit_count = edit_count
@@ -54,6 +58,21 @@ def test_missing_fields_lists_each_gap():
     assert edit_service.get_missing_operational_fields(rec) == [
         "driver_name", "km_reading", "loader_names",
     ]
+
+
+def test_zero_interlayer_sheets_is_not_missing():
+    """0 is a real answer ('no interlayer sheets'), not an empty field."""
+    rec = FakeRecord(interlayer_sheet_count=0)
+    assert edit_service.get_missing_operational_fields(rec) == []
+    assert edit_service.get_edit_status(rec) == "editable"
+
+
+def test_null_interlayer_sheets_is_missing():
+    rec = FakeRecord(interlayer_sheet_count=None)
+    assert edit_service.get_missing_operational_fields(rec) == [
+        "interlayer_sheet_count",
+    ]
+    assert edit_service.get_edit_status(rec) == "needs_completion"
 
 
 # ── who can edit ─────────────────────────────────────────────────────────────

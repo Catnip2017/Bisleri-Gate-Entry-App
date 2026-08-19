@@ -31,6 +31,9 @@ class InsightsData(Base):
     km_reading = Column(String(10))             # Required for completion (KM IN/OUT)
     loader_count = Column(Integer)        # NEW COLUMN
     loader_names = Column(String(200))          # Required for completion (comma-separated)
+    # Required for completion. NOT NULL DEFAULT 0 on the DB side, so an entry
+    # created without an explicit value records 0 rather than "unknown".
+    interlayer_sheet_count = Column(Integer, nullable=False, default=0, server_default='0')
     last_edited_at = Column(DateTime)           # Track edit timestamps
     edit_count = Column(Integer, default=0)     # Track number of edits
     

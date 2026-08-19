@@ -133,6 +133,7 @@ def get_enhanced_filtered_movements(
                 "km_reading": movement.km_reading,
                 "loader_names": movement.loader_names,
                 "loader_count": movement.loader_count,   # ✅ ADD THIS
+                "interlayer_sheet_count": movement.interlayer_sheet_count,
                 "last_edited_at": movement.last_edited_at.isoformat() if movement.last_edited_at else None,
                 "edit_count": movement.edit_count or 0,
                 
@@ -208,6 +209,13 @@ def update_operational_data(
         if edit_data.loader_count is not None:
                 insights_record.loader_count = edit_data.loader_count
                 fields_updated.append('loader_count')
+
+        # NOT NULL on the column — an explicit null in the payload means
+        # "leave unchanged", never "clear it".
+        if edit_data.interlayer_sheet_count is not None:
+            insights_record.interlayer_sheet_count = edit_data.interlayer_sheet_count
+            fields_updated.append('interlayer_sheet_count')
+
         if edit_data.remarks is not None:
             insights_record.remarks = edit_data.remarks.strip() if edit_data.remarks.strip() else None
             fields_updated.append('remarks')
@@ -244,6 +252,7 @@ def update_operational_data(
             "last_edited_at": insights_record.last_edited_at.isoformat(),
             "edit_count": insights_record.edit_count,
             "loader_count": insights_record.loader_count,   # ✅ ADD
+            "interlayer_sheet_count": insights_record.interlayer_sheet_count,
 
     }
         }

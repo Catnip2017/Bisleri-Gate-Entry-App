@@ -314,7 +314,14 @@ def create_enhanced_batch_gate_entry(
 
         if entry.loader_count is not None:
             operational_data['loader_count'] = entry.loader_count
-        
+
+        # Compulsory, defaults to 0. Held outside operational_data on purpose:
+        # that dict doubles as the "did the guard supply anything?" flag for
+        # last_edited_at, and a field that is always present would break it.
+        interlayer_sheet_count = entry.interlayer_sheet_count or 0
+        if interlayer_sheet_count < 0:
+            raise HTTPException(status_code=400, detail="Interlayer sheet count cannot be negative")
+
         # Process documents if provided
         if entry.document_nos:
             for document_no in entry.document_nos:
@@ -352,6 +359,7 @@ def create_enhanced_batch_gate_entry(
                         km_reading=operational_data.get('km_reading'),
                         loader_count=operational_data.get('loader_count'),   # ADD
                         loader_names=operational_data.get('loader_names'),
+                        interlayer_sheet_count=interlayer_sheet_count,
                         edit_count=0,
                         last_edited_at=now if operational_data else None
                     )
@@ -395,10 +403,11 @@ def create_enhanced_batch_gate_entry(
                 driver_name=operational_data.get('driver_name'),
                 km_reading=operational_data.get('km_reading'),
                 loader_names=operational_data.get('loader_names'),
+                interlayer_sheet_count=interlayer_sheet_count,
                 edit_count=0,
                 last_edited_at=now if operational_data else None
             )
-            
+
             db.add(insight_record)
             records_processed = 1
         
@@ -425,6 +434,7 @@ def create_enhanced_batch_gate_entry(
                 # NEW: Operational data status
                 "operational_data_captured": has_operational_data,
                 "operational_complete": operational_complete,
+                "interlayer_sheet_count": interlayer_sheet_count,
                 "missing_operational_fields": [
                     field for field in ['driver_name', 'km_reading', 'loader_names']
                     if not operational_data.get(field)
@@ -699,6 +709,7 @@ def create_enhanced_manual_gate_entry(
             km_reading=operational_data.get('km_reading'),
             loader_count=entry.loader_count,   # ADD
             loader_names=operational_data.get('loader_names'),
+            interlayer_sheet_count=entry.interlayer_sheet_count or 0,
             edit_count=0,
             last_edited_at=now if operational_data else None
         )
@@ -1093,6 +1104,7 @@ def get_vehicle_history(
                 "km_reading": move.km_reading,
                 "loader_count": move.loader_count,
                 "loader_names": move.loader_names,
+                "interlayer_sheet_count": move.interlayer_sheet_count,
                 "edit_count": move.edit_count or 0
             }
             for move in movements
@@ -1263,6 +1275,7 @@ def create_multi_document_manual_entry(
                 km_reading=entry.km_reading,
                 loader_count=entry.loader_count,   # ✅ ADD
                 loader_names=entry.loader_names,
+                interlayer_sheet_count=entry.interlayer_sheet_count or 0,
             )
             
             db.add(insight_record)
@@ -1303,6 +1316,7 @@ def create_multi_document_manual_entry(
                     km_reading=entry.km_reading,
                     loader_count=entry.loader_count,   # ✅ IMPORTANT
                     loader_names=entry.loader_names,
+                    interlayer_sheet_count=entry.interlayer_sheet_count or 0,
                 )
                 
                 db.add(insight_record)
