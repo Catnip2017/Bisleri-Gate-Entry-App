@@ -138,7 +138,6 @@ function LocationMultiSelect({ options, selections, onChange, showStar }) {
 // explanatory popups AND server-side (validate_role_combo).
 const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard'];
-const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
 
 const AssignAccessScreen = () => {
   // ── Left panel state ──────────────────────────────────────────────────────
@@ -166,6 +165,7 @@ const AssignAccessScreen = () => {
 
   // Gate Pass User scope
   const [department, setDepartment] = useState('');
+  const [departments, setDepartments] = useState([]);   // live from gate_pass_departments
   const [gatePassLocation, setGatePassLocation] = useState('');
   const [gpLocations, setGpLocations] = useState([]);
   // Gate Pass User multi-location: [{ location_code, is_default }]
@@ -254,6 +254,15 @@ const AssignAccessScreen = () => {
         setGpLocations(data || []);
       } catch (e) {
         console.error('Failed to load GP locations:', e);
+      }
+    }
+
+    if (!departments.length) {
+      try {
+        const data = await gatePassAPI.getDepartments();
+        setDepartments(data?.departments || []);
+      } catch (e) {
+        console.error('Failed to load departments:', e);
       }
     }
   };
@@ -651,7 +660,7 @@ const AssignAccessScreen = () => {
                           <Text style={styles.fieldLabel}>Department *</Text>
                           <ScopeDropdown
                             value={department}
-                            options={DEPARTMENTS.map(d => ({ label: d, value: d }))}
+                            options={departments.map(d => ({ label: d, value: d }))}
                             onSelect={setDepartment}
                             placeholder="Select department..."
                           />

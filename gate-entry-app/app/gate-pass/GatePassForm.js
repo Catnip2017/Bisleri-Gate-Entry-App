@@ -256,6 +256,13 @@ const GatePassForm = ({ onCreated }) => {
     setItemModalLine(null);
   };
 
+  // Deselect the picked Fixed Asset or Item without switching the line's
+  // Type — previously the only way to undo a pick was to toggle Type away
+  // and back, or reload the page.
+  const clearLineSelection = (index) => {
+    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, asset_code: '', description: '' } : l)));
+  };
+
   const setLineType = (index, type) => {
     // Switching type resets the code/description pairing:
     // Item = matched/created by name; Fixed Asset = pick from master.
@@ -740,15 +747,27 @@ const GatePassForm = ({ onCreated }) => {
               {/* Asset No. — modal picker for Fixed Asset lines; Item lines have no code */}
               <View style={[styles.itemsCell, { flex: 1.0 }]}>
                 {line.item_type === 'Fixed Asset' ? (
-                  <TouchableOpacity
-                    style={[styles.cellInput, { justifyContent: 'center' }]}
-                    onPress={() => setAssetModalLine(index)}
-                    accessibilityRole="button"
-                  >
-                    <Text style={{ fontSize: 12, color: line.asset_code ? gp.text : gp.textMuted }} numberOfLines={1}>
-                      {line.asset_code || 'Select…'}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <TouchableOpacity
+                      style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
+                      onPress={() => setAssetModalLine(index)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={{ fontSize: 12, color: line.asset_code ? gp.text : gp.textMuted }} numberOfLines={1}>
+                        {line.asset_code || 'Select…'}
+                      </Text>
+                    </TouchableOpacity>
+                    {line.asset_code ? (
+                      <TouchableOpacity
+                        onPress={() => clearLineSelection(index)}
+                        style={{ paddingHorizontal: 4 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear selected asset"
+                      >
+                        <Text style={{ fontSize: 14, color: gp.textMuted }}>×</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 ) : (
                   <Text style={{ fontSize: 12, color: gp.textMuted, textAlign: 'center' }}>—</Text>
                 )}
@@ -769,15 +788,27 @@ const GatePassForm = ({ onCreated }) => {
                     placeholderTextColor={gp.textMuted}
                   />
                 ) : (
-                  <TouchableOpacity
-                    style={[styles.cellInput, { justifyContent: 'center' }]}
-                    onPress={() => setItemModalLine(index)}
-                    accessibilityRole="button"
-                  >
-                    <Text style={{ fontSize: 12, color: line.description ? gp.text : gp.textMuted }} numberOfLines={1}>
-                      {line.description || 'Select or add an item…'}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <TouchableOpacity
+                      style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
+                      onPress={() => setItemModalLine(index)}
+                      accessibilityRole="button"
+                    >
+                      <Text style={{ fontSize: 12, color: line.description ? gp.text : gp.textMuted }} numberOfLines={1}>
+                        {line.description || 'Select or add an item…'}
+                      </Text>
+                    </TouchableOpacity>
+                    {line.description ? (
+                      <TouchableOpacity
+                        onPress={() => clearLineSelection(index)}
+                        style={{ paddingHorizontal: 4 }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear selected item"
+                      >
+                        <Text style={{ fontSize: 14, color: gp.textMuted }}>×</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 )}
               </View>
 

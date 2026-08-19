@@ -7,7 +7,6 @@ import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { validateUsername, validatePassword, validateName, validatePasswordMatch } from '../utils/validation';
 import { showAlert } from '../../../utils/customModal';
 
-const DEPARTMENTS = ['IT', 'Finance', 'Sales', 'Marketing', 'Admin', 'HR'];
 // Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
 const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard'];
@@ -54,6 +53,7 @@ export default function RegisterScreen() {
   const [roles, setRoles]                     = useState([]);
   const [warehouses, setWarehouses]           = useState([]);
   const [gpLocations, setGpLocations]         = useState([]);
+  const [departments, setDepartments]         = useState([]);   // live from gate_pass_departments
   const [loading, setLoading]                 = useState(false);
   const [whText, setWhText]                   = useState('');
   const [showWH, setShowWH]                   = useState(false);
@@ -62,6 +62,7 @@ export default function RegisterScreen() {
   useEffect(() => {
     adminAPI.getWarehouses().then(setWarehouses).catch(() => {});
     gatePassAPI.getLocations().then(d => setGpLocations(d || [])).catch(() => {});
+    gatePassAPI.getDepartments().then(d => setDepartments(d?.departments || [])).catch(() => {});
   }, []);
 
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
@@ -170,7 +171,7 @@ export default function RegisterScreen() {
     finally { setLoading(false); }
   };
 
-  const deptOpts  = DEPARTMENTS.map(d => ({ label: d, value: d }));
+  const deptOpts  = departments.map(d => ({ label: d, value: d }));
   const locOpts   = gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }));
 
   return (
