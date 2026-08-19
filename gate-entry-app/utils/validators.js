@@ -55,6 +55,20 @@ export const validateLoaderCount = (value) => {
   return { isValid: true, error: '' };
 };
 
+// Compulsory field that defaults to 0 — an empty box is an error, but a
+// literal 0 is a valid answer ("no interlayer sheets on this vehicle").
+export const validateInterlayerSheetCount = (value) => {
+  const cleanValue = String(value ?? '').replace(/[^0-9]/g, '');
+  if (cleanValue === '') {
+    return { isValid: false, error: 'Interlayer sheet count is required' };
+  }
+  const count = parseInt(cleanValue, 10);
+  if (Number.isNaN(count) || count < 0) {
+    return { isValid: false, error: 'Interlayer sheet count cannot be negative' };
+  }
+  return { isValid: true, error: '' };
+};
+
 export const validateLoaderNames = (value) => {
   if (!value || !value.trim()) {
     return { isValid: false, error: 'Loader names are required' };
@@ -79,7 +93,7 @@ export const validateLoaderNames = (value) => {
 
 /**
  * Validate the full operational data object in one call.
- * @param {{driver_name?: string, km_reading?: string, loader_count?: string, loader_names?: string}} data
+ * @param {{driver_name?: string, km_reading?: string, loader_count?: string, loader_names?: string, interlayer_sheet_count?: string}} data
  * @returns {{isValid: boolean, errors: object, firstError: string|null}}
  */
 export const validateOperationalData = (data = {}) => {
@@ -88,6 +102,7 @@ export const validateOperationalData = (data = {}) => {
     km_reading: validateKMReading(data.km_reading),
     loader_count: validateLoaderCount(data.loader_count),
     loader_names: validateLoaderNames(data.loader_names),
+    interlayer_sheet_count: validateInterlayerSheetCount(data.interlayer_sheet_count),
   };
 
   const errors = {};

@@ -25,6 +25,7 @@ const OperationalEditModal = ({
     km_reading: '',
     loader_names: '',
     loader_count: '',   // ✅ ADD
+    interlayer_sheet_count: '0',   // compulsory, defaults to 0
     remarks: ''
   });
   
@@ -38,6 +39,10 @@ const OperationalEditModal = ({
         km_reading: record.km_reading || '',
         loader_count: record.loader_count != null ? String(record.loader_count) : '',
         loader_names: record.loader_names || '',
+        interlayer_sheet_count:
+          record.interlayer_sheet_count != null
+            ? String(record.interlayer_sheet_count)
+            : '0',
         remarks: record.remarks || ''
       });
     }
@@ -69,6 +74,9 @@ const OperationalEditModal = ({
         km_reading: formData.km_reading.trim(),
         loader_count: formData.loader_count ? parseInt(formData.loader_count) : null,  // ✅ ADD
         loader_names: formData.loader_names.trim(),
+        interlayer_sheet_count: formData.interlayer_sheet_count
+          ? parseInt(formData.interlayer_sheet_count, 10)
+          : 0,
         remarks: formData.remarks.trim() || null
       };
 
@@ -104,6 +112,10 @@ const OperationalEditModal = ({
     formData.km_reading !== (record.km_reading || '') ||
     formData.loader_count !== (record.loader_count != null ? String(record.loader_count) : '') ||
     formData.loader_names !== (record.loader_names || '') ||
+    formData.interlayer_sheet_count !==
+      (record.interlayer_sheet_count != null
+        ? String(record.interlayer_sheet_count)
+        : '0') ||
     formData.remarks !== (record.remarks || '')
   ) : false;
 
@@ -313,7 +325,35 @@ const OperationalEditModal = ({
                 maxLength={2}
               />
             </View>
-            
+
+            {/* Interlayer Sheet Count Field */}
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{
+                fontSize: 16,
+                fontWeight: 'bold',
+                marginBottom: 8,
+                color: '#333',
+              }}>
+                Interlayer Sheet Count *
+              </Text>
+              <TextInput
+                style={{
+                  borderWidth: 2,
+                  borderColor: '#ced4da',
+                  borderRadius: 8,
+                  padding: 12,
+                  fontSize: 16,
+                  backgroundColor: '#fff',
+                  minHeight: 48,
+                }}
+                placeholder="Enter interlayer sheet count"
+                value={formData.interlayer_sheet_count}
+                onChangeText={(text) => updateField('interlayer_sheet_count', text.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                maxLength={4}
+              />
+            </View>
+
             {/* Remarks Field */}
             <View style={{ marginBottom: 16 }}>
               <Text style={{

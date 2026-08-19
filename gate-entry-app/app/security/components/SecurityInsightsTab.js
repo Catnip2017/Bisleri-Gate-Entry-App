@@ -343,13 +343,13 @@ const SecurityInsightsTab = () => {
     }
     const header = ['Gate Entry No', 'Vehicle No', 'Movement', 'Date', 'Time',
       'Document Type', 'Document No', 'Driver Name', 'KM Reading',
-      'Loader Count', 'Loader Names', 'Warehouse', 'Site', 'Security Guard',
+      'Loader Count', 'Interlayer Sheet Count', 'Loader Names', 'Warehouse', 'Site', 'Security Guard',
       'Edit Count', 'Remarks'];
     const escapeCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = movements.map((m) => [
       m.gate_entry_no, m.vehicle_no, m.movement_type, m.date, m.time,
       m.document_type, m.document_no, m.driver_name, m.km_reading,
-      m.loader_count, m.loader_names, m.to_warehouse_code, m.site_code,
+      m.loader_count, m.interlayer_sheet_count, m.loader_names, m.to_warehouse_code, m.site_code,
       m.security_name, m.edit_count || 0, m.remarks,
     ].map(escapeCell).join(','));
     const csv = [header.map(escapeCell).join(','), ...lines].join('\n');
@@ -717,6 +717,7 @@ const SecurityInsightsTab = () => {
               <Text style={[styles.tableHeaderCell, styles.colDriverName]}>Driver Name</Text>
               <Text style={[styles.tableHeaderCell, styles.colKMReading]}>KM Reading</Text>
               <Text style={[styles.tableHeaderCell, styles.colLoaderCount]}>Loader Count</Text>  {/* ✅ ADD */}
+              <Text style={[styles.tableHeaderCell, styles.colInterlayerSheetCount]}>Interlayer Sheet Count</Text>
               <Text style={[styles.tableHeaderCell, styles.colLoaderNames]}>Loader Names</Text>
               
               <Text style={[styles.tableHeaderCell, styles.colWarehouse]}>To Warehouse</Text>              <Text style={[styles.tableHeaderCell, styles.colSecurity]}>Security Guard</Text>
@@ -784,7 +785,14 @@ const SecurityInsightsTab = () => {
                           {movement.loader_count ?? '--'}
                         </Text>
                       </View>
-                      
+
+                      {/* Interlayer Sheet Count Cell */}
+                      <View style={[styles.tableCell, styles.colInterlayerSheetCount]}>
+                        <Text style={styles.tableCell}>
+                          {movement.interlayer_sheet_count ?? '--'}
+                        </Text>
+                      </View>
+
                       <View style={[styles.tableCell, styles.colLoaderNames]}>
                         {renderOperationalCell(movement, 'loader_names')}
                       </View>

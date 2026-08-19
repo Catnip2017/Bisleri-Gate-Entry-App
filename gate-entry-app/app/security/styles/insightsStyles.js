@@ -256,6 +256,7 @@ const styles = StyleSheet.create({
   colEditCount: { width: 80 },
   colTimeRemaining: { width: 120 },
   colLoaderCount: { width: 90 },   // ✅ ADD
+  colInterlayerSheetCount: { width: 120 },
 
   
   // ✅ NEW: Document Assignment Column Widths
@@ -1211,6 +1212,7 @@ const styles = StyleSheet.create({
     colDriverName: { width: 120 },
     colKMReading: { width: 80 },
     colLoaderCount: { width: 70 },   // ✅ ADD HERE
+    colInterlayerSheetCount: { width: 100 },
     colLoaderNames: { width: 140 },
     colTimeRemaining: { width: 100 },
     colDocumentNo: { width: 140 },

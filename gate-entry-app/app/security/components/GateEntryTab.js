@@ -24,6 +24,7 @@ import {
   validateDriverName,
   validateKMReading,
   validateLoaderCount,
+  validateInterlayerSheetCount,
   validateLoaderNames,
   validateOperationalData,
 } from "../../../utils/validators";
@@ -60,6 +61,7 @@ const GateEntryTab = ({
     km_reading: "",
     loader_count: "",   // ✅ ADD THIS
     loader_names: "",
+    interlayer_sheet_count: "0",   // compulsory, defaults to 0
   });
 
   const [validationErrors, setValidationErrors] = useState({
@@ -67,6 +69,7 @@ const GateEntryTab = ({
     km_reading: "",
     loader_count: "",   // ✅ ADD THIS
     loader_names: "",
+    interlayer_sheet_count: "",
   });
 
   const [fieldValidation, setFieldValidation] = useState({
@@ -74,6 +77,8 @@ const GateEntryTab = ({
     km_reading: { isValid: false, touched: false },
     loader_count: { isValid: false, touched: false },  // ✅ ADD
     loader_names: { isValid: false, touched: false },
+    // Pre-filled with 0, so valid before the guard touches it
+    interlayer_sheet_count: { isValid: true, touched: false },
   });
 
   // ✅ Validation now lives in utils/validators.js (shared with OperationalEditModal)
@@ -95,6 +100,10 @@ const GateEntryTab = ({
         break;
       case "loader_names":
         validation = validateLoaderNames(value);
+        break;
+      case "interlayer_sheet_count":
+        cleanValue = value.replace(/[^0-9]/g, "");
+        validation = validateInterlayerSheetCount(cleanValue);
         break;
       default:
         validation = { isValid: true, error: "" };
@@ -274,6 +283,7 @@ const GateEntryTab = ({
       ["kmReading", operationalData.km_reading || ""],
       ["loaderCount", operationalData.loader_count || ""],
       ["loaderNames", operationalData.loader_names || ""],
+      ["interlayerSheetCount", operationalData.interlayer_sheet_count || "0"],
     ]
       .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
       .join("&");
@@ -293,6 +303,10 @@ const GateEntryTab = ({
       km_reading: { isValid: !result.errors.km_reading, touched: true },
       loader_count: { isValid: !result.errors.loader_count, touched: true },
       loader_names: { isValid: !result.errors.loader_names, touched: true },
+      interlayer_sheet_count: {
+        isValid: !result.errors.interlayer_sheet_count,
+        touched: true,
+      },
     });
 
     if (!result.isValid) {
@@ -441,7 +455,8 @@ const GateEntryTab = ({
         fieldValidation.driver_name.isValid &&
         fieldValidation.km_reading.isValid &&
         fieldValidation.loader_count.isValid &&
-        fieldValidation.loader_names.isValid;
+        fieldValidation.loader_names.isValid &&
+        fieldValidation.interlayer_sheet_count.isValid;
 
       if (!allFieldsValid) {
         showAlert(
@@ -460,7 +475,9 @@ const GateEntryTab = ({
         km_reading: operationalData.km_reading,
         loader_names: operationalData.loader_names.trim(),
         loader_count: operationalData.loader_count,   // ✅ ADD
-
+        interlayer_sheet_count: operationalData.interlayer_sheet_count
+          ? parseInt(operationalData.interlayer_sheet_count, 10)
+          : 0,
       };
 
       const result = await gateAPI.createEnhancedBatchGateEntry(batchData);
@@ -491,6 +508,7 @@ const GateEntryTab = ({
         km_reading: "",
         loader_names: "",
         loader_count: "",
+        interlayer_sheet_count: "0",
       });
 
       setValidationErrors({
@@ -498,6 +516,7 @@ const GateEntryTab = ({
         km_reading: "",
         loader_names: "",
         loader_count: "",
+        interlayer_sheet_count: "",
       });
 
       setFieldValidation({
@@ -505,6 +524,7 @@ const GateEntryTab = ({
         km_reading: { isValid: false, touched: false },
         loader_count: { isValid: false, touched: false },
         loader_names: { isValid: false, touched: false },
+        interlayer_sheet_count: { isValid: true, touched: false },
       });
     } catch (error) {
       console.log("Batch gate entry submission failed:", error);
@@ -841,6 +861,35 @@ const GateEntryTab = ({
               validationErrors.loader_count ? (
                 <Text style={styles.errorText}>
                   {validationErrors.loader_count}
+                </Text>
+              ) : null}
+            </View>
+
+            <View style={[styles.field15, { marginHorizontal: 4 }]}>
+              <Text style={styles.label}>Interlayer Sheet Count *</Text>
+
+              <TextInput
+                style={[
+                  styles.input,
+                  fieldValidation.interlayer_sheet_count.touched &&
+                    !fieldValidation.interlayer_sheet_count.isValid &&
+                    styles.inputError,
+                  isRestricted && styles.inputDisabled,
+                ]}
+                placeholder="Count"
+                value={operationalData.interlayer_sheet_count}
+                onChangeText={(text) =>
+                  updateOperationalField("interlayer_sheet_count", text)
+                }
+                keyboardType="numeric"
+                maxLength={4}
+                editable={!isSubmitting && !isSearching && !isRestricted}
+              />
+
+              {fieldValidation.interlayer_sheet_count.touched &&
+              validationErrors.interlayer_sheet_count ? (
+                <Text style={styles.errorText}>
+                  {validationErrors.interlayer_sheet_count}
                 </Text>
               ) : null}
             </View>

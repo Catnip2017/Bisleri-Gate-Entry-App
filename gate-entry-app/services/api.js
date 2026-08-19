@@ -124,6 +124,11 @@ export const gateAPI = {
     const parsed = parseInt(enhancedBatchData.loader_count);
     enhancedBatchData.loader_count = isNaN(parsed) ? null : parsed;
   }
+          // Convert interlayer_sheet_count to integer (compulsory, defaults to 0)
+  {
+    const parsed = parseInt(enhancedBatchData.interlayer_sheet_count);
+    enhancedBatchData.interlayer_sheet_count = isNaN(parsed) ? 0 : parsed;
+  }
     const response = await api.post('/enhanced-batch-gate-entry', enhancedBatchData);
     return response.data;
   },
@@ -139,6 +144,11 @@ export const gateAPI = {
   if (multiEntryData.loader_count !== undefined && multiEntryData.loader_count !== null && multiEntryData.loader_count !== '') {
     const parsed = parseInt(multiEntryData.loader_count);
     multiEntryData.loader_count = isNaN(parsed) ? null : parsed;
+  }
+          // Convert interlayer_sheet_count to integer (compulsory, defaults to 0)
+  {
+    const parsed = parseInt(multiEntryData.interlayer_sheet_count);
+    multiEntryData.interlayer_sheet_count = isNaN(parsed) ? 0 : parsed;
   }
     const response = await api.post('/multi-document-manual-entry', multiEntryData);
     return response.data;
