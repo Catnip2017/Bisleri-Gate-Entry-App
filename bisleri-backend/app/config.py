@@ -75,6 +75,18 @@ class Settings(BaseSettings):
     # once bisleri_ecosystem is trusted as the production source of truth.
     DASHBOARD_SOURCE_IS_BISLERI01: bool = Field(default=True, env="DASHBOARD_SOURCE_IS_BISLERI01")
 
+    # Microsoft Fabric Lakehouse SQL analytics endpoint — read-only source
+    # for the gate pass Vendor/Customer/Fixed Asset masters. Auth is via an
+    # Azure AD App Registration (service principal), token-based — see
+    # app/fabric_sync/connections.py. FABRIC_CUSTOMER_TABLE is configurable
+    # since the exact schema-qualified name wasn't confirmed up front.
+    FABRIC_SQL_SERVER: str = Field(default="", env="FABRIC_SQL_SERVER")
+    FABRIC_DATABASE: str = Field(default="", env="FABRIC_DATABASE")
+    FABRIC_CLIENT_ID: str = Field(default="", env="FABRIC_CLIENT_ID")
+    FABRIC_TENANT_ID: str = Field(default="", env="FABRIC_TENANT_ID")
+    FABRIC_CLIENT_SECRET: str = Field(default="", env="FABRIC_CLIENT_SECRET")
+    FABRIC_CUSTOMER_TABLE: str = Field(default="Customer_R2_qvd", env="FABRIC_CUSTOMER_TABLE")
+
     # Active Directory (AD) authentication — currently only used by the
     # standalone connectivity test (scripts/test_ad_connection.py), not yet
     # wired into the login flow. Declared here so the app doesn't fail to
