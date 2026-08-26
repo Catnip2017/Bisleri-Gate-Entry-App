@@ -80,17 +80,18 @@ class Settings(BaseSettings):
     # Azure AD App Registration (service principal), token-based — see
     # app/fabric_sync/connections.py. FABRIC_CUSTOMER_TABLE is configurable
     # since the exact schema-qualified name wasn't confirmed up front.
-    FABRIC_SQL_SERVER: str = Field(default="", env="FABRIC_SQL_SERVER")
-    FABRIC_DATABASE: str = Field(default="", env="FABRIC_DATABASE")
+    FABRIC_LAKEHOUSE_1: str = Field(default="", env="FABRIC_LAKEHOUSE_1")
+    FABRIC_DATABASE_1: str = Field(default="", env="FABRIC_DATABASE_1")
     FABRIC_CLIENT_ID: str = Field(default="", env="FABRIC_CLIENT_ID")
     FABRIC_TENANT_ID: str = Field(default="", env="FABRIC_TENANT_ID")
     FABRIC_CLIENT_SECRET: str = Field(default="", env="FABRIC_CLIENT_SECRET")
     FABRIC_CUSTOMER_TABLE: str = Field(default="Customer_R2_qvd", env="FABRIC_CUSTOMER_TABLE")
 
-    # Second Fabric Lakehouse — raw ERP tables (Vendor, Fixed Asset), same
-    # App Registration/service principal as above, different server + DB.
-    FABRIC_ERP_SQL_SERVER: str = Field(default="", env="FABRIC_ERP_SQL_SERVER")
-    FABRIC_ERP_DATABASE: str = Field(default="", env="FABRIC_ERP_DATABASE")
+    # Second Fabric Lakehouse (FABRIC_LAKEHOUSE_2/FABRIC_DATABASE_2) — raw ERP
+    # tables (Vendor, Fixed Asset), same App Registration/service principal
+    # as FABRIC_LAKEHOUSE_1/FABRIC_DATABASE_1 above, different server + DB.
+    FABRIC_LAKEHOUSE_2: str = Field(default="", env="FABRIC_LAKEHOUSE_2")
+    FABRIC_DATABASE_2: str = Field(default="", env="FABRIC_DATABASE_2")
     FABRIC_VENDOR_TABLE: str = Field(default="vendtable", env="FABRIC_VENDOR_TABLE")
     FABRIC_PARTY_TABLE: str = Field(default="dirpartytable", env="FABRIC_PARTY_TABLE")
     FABRIC_ADDRESS_TABLE: str = Field(default="logisticspostaladdress", env="FABRIC_ADDRESS_TABLE")

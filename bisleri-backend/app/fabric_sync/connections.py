@@ -61,15 +61,15 @@ def get_fabric_connection():
     """Open a read-only connection to the Customer lakehouse's SQL
     analytics endpoint. Raises if FABRIC_* settings are unset — callers
     should not silently no-op on a misconfigured environment."""
-    if not all([settings.FABRIC_SQL_SERVER, settings.FABRIC_DATABASE,
+    if not all([settings.FABRIC_LAKEHOUSE_1, settings.FABRIC_DATABASE_1,
                 settings.FABRIC_CLIENT_ID, settings.FABRIC_TENANT_ID,
                 settings.FABRIC_CLIENT_SECRET]):
         raise RuntimeError(
-            "Fabric sync is not configured — set FABRIC_SQL_SERVER, "
-            "FABRIC_DATABASE, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
+            "Fabric sync is not configured — set FABRIC_LAKEHOUSE_1, "
+            "FABRIC_DATABASE_1, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
             "FABRIC_CLIENT_SECRET in .env"
         )
-    return _connect(settings.FABRIC_SQL_SERVER, settings.FABRIC_DATABASE)
+    return _connect(settings.FABRIC_LAKEHOUSE_1, settings.FABRIC_DATABASE_1)
 
 
 def get_fabric_erp_connection():
@@ -77,15 +77,15 @@ def get_fabric_erp_connection():
     endpoint (vendtable/dirpartytable/logisticspostaladdress/assettable) —
     same App Registration/service principal as the Customer lakehouse, just
     a different server + database. Raises if FABRIC_ERP_* settings are unset."""
-    if not all([settings.FABRIC_ERP_SQL_SERVER, settings.FABRIC_ERP_DATABASE,
+    if not all([settings.FABRIC_LAKEHOUSE_2, settings.FABRIC_DATABASE_2,
                 settings.FABRIC_CLIENT_ID, settings.FABRIC_TENANT_ID,
                 settings.FABRIC_CLIENT_SECRET]):
         raise RuntimeError(
-            "Fabric ERP sync is not configured — set FABRIC_ERP_SQL_SERVER, "
-            "FABRIC_ERP_DATABASE, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
+            "Fabric ERP sync is not configured — set FABRIC_LAKEHOUSE_2, "
+            "FABRIC_DATABASE_2, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
             "FABRIC_CLIENT_SECRET in .env"
         )
-    return _connect(settings.FABRIC_ERP_SQL_SERVER, settings.FABRIC_ERP_DATABASE)
+    return _connect(settings.FABRIC_LAKEHOUSE_2, settings.FABRIC_DATABASE_2)
 
 
 def get_target_connection():
