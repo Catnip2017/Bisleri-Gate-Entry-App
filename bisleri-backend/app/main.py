@@ -95,6 +95,21 @@ def _run_fabric_customer_sync():
         logger.error(f"[Scheduler] Fabric customer sync failed: {exc}")
 
 
+def _run_fabric_erp_sync():
+    """Called by APScheduler once a day (and once at startup, in the
+    background). Full pull + upsert of Vendor and Fixed Asset masters from
+    the ERP Fabric Lakehouse into gate_pass_vendors/gate_pass_assets — see
+    app/fabric_sync/erp_sync.py. No-ops safely (logs and returns) if
+    FABRIC_ERP_* settings aren't configured in .env."""
+    logger.info("[Scheduler] Starting Fabric ERP (vendor/asset) sync...")
+    try:
+        from app.fabric_sync.erp_sync import run_erp_sync
+        run_erp_sync()
+        logger.info("[Scheduler] Fabric ERP sync completed.")
+    except Exception as exc:
+        logger.error(f"[Scheduler] Fabric ERP sync failed: {exc}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
@@ -136,10 +151,19 @@ async def lifespan(app: FastAPI):
         replace_existing=True,
         next_run_time=datetime.now(),  # fire once immediately, in the background
     )
+    scheduler.add_job(
+        _run_fabric_erp_sync,
+        trigger="interval",
+        minutes=1440,           # 24 hours
+        id="fabric_erp_sync",
+        max_instances=1,       # never overlap two sync runs
+        replace_existing=True,
+        next_run_time=datetime.now(),  # fire once immediately, in the background
+    )
     scheduler.start()
     logger.info("Background sync scheduler started — mfabric_sync every 10 minutes, "
                 "dashboard_etl every 8 hours, ecosystem_sync every 12 hours, "
-                "fabric_customer_sync every 24 hours (IST).")
+                "fabric_customer_sync and fabric_erp_sync every 24 hours (IST).")
 
     # Run one mfabric sync immediately (synchronously, it's fast) so
     # document_data is fresh on startup. The dashboard ETL's first run is

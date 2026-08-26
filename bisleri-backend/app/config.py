@@ -87,6 +87,15 @@ class Settings(BaseSettings):
     FABRIC_CLIENT_SECRET: str = Field(default="", env="FABRIC_CLIENT_SECRET")
     FABRIC_CUSTOMER_TABLE: str = Field(default="Customer_R2_qvd", env="FABRIC_CUSTOMER_TABLE")
 
+    # Second Fabric Lakehouse — raw ERP tables (Vendor, Fixed Asset), same
+    # App Registration/service principal as above, different server + DB.
+    FABRIC_ERP_SQL_SERVER: str = Field(default="", env="FABRIC_ERP_SQL_SERVER")
+    FABRIC_ERP_DATABASE: str = Field(default="", env="FABRIC_ERP_DATABASE")
+    FABRIC_VENDOR_TABLE: str = Field(default="vendtable", env="FABRIC_VENDOR_TABLE")
+    FABRIC_PARTY_TABLE: str = Field(default="dirpartytable", env="FABRIC_PARTY_TABLE")
+    FABRIC_ADDRESS_TABLE: str = Field(default="logisticspostaladdress", env="FABRIC_ADDRESS_TABLE")
+    FABRIC_ASSET_TABLE: str = Field(default="assettable", env="FABRIC_ASSET_TABLE")
+
     # Active Directory (AD) authentication — currently only used by the
     # standalone connectivity test (scripts/test_ad_connection.py), not yet
     # wired into the login flow. Declared here so the app doesn't fail to

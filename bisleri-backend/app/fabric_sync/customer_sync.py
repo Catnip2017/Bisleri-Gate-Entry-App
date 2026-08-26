@@ -19,10 +19,12 @@
 import logging
 
 from app.fabric_sync.connections import get_fabric_connection, get_target_connection
+from app.fabric_sync.common import deactivate_missing
 from app.ecosystem_sync.upsert import upsert_rows
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+_JOB_NAME = "FabricCustomerSync"
 
 # Fabric column -> gate_pass_customers column, in select/insert order.
 CUSTOMER_COLUMN_MAP = {
@@ -47,23 +49,6 @@ def _fetch_customers(fabric_conn):
     return [tuple(row) + (None, True) for row in rows]
 
 
-def _deactivate_missing(target_conn, seen_codes) -> int:
-    if not seen_codes:
-        logger.warning(
-            "[FabricCustomerSync] source returned zero rows — skipping "
-            "deactivation pass (treating as a source-side problem, not "
-            "an empty customer master)"
-        )
-        return 0
-    with target_conn.cursor() as cur:
-        cur.execute(
-            "UPDATE gate_pass_customers SET is_active = false "
-            "WHERE is_active = true AND customer_code NOT IN %s",
-            (tuple(seen_codes),),
-        )
-        return cur.rowcount
-
-
 def run_customer_sync():
     fabric_conn = None
     target_conn = None
@@ -75,17 +60,19 @@ def run_customer_sync():
         inserted, updated = upsert_rows(
             target_conn, "gate_pass_customers", TARGET_COLUMNS, "customer_code", rows
         )
-        deactivated = _deactivate_missing(target_conn, [r[0] for r in rows])
+        deactivated = deactivate_missing(
+            target_conn, "gate_pass_customers", "customer_code", [r[0] for r in rows], _JOB_NAME
+        )
 
         target_conn.commit()
         logger.info(
-            "[FabricCustomerSync] +%d inserted, ~%d updated, %d deactivated",
-            inserted, updated, deactivated,
+            "[%s] +%d inserted, ~%d updated, %d deactivated",
+            _JOB_NAME, inserted, updated, deactivated,
         )
     except Exception:
         if target_conn:
             target_conn.rollback()
-        logger.exception("[FabricCustomerSync] customer sync failed")
+        logger.exception("[%s] customer sync failed", _JOB_NAME)
     finally:
         if fabric_conn:
             fabric_conn.close()

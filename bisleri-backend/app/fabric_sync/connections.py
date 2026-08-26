@@ -46,10 +46,21 @@ def _get_fabric_access_token_struct() -> bytes:
     return struct.pack(f"<I{len(token_bytes)}s", len(token_bytes), token_bytes)
 
 
+def _connect(server: str, database: str):
+    conn_str = (
+        "Driver={ODBC Driver 18 for SQL Server};"
+        f"Server={server},1433;"
+        f"Database={database};"
+        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
+    )
+    token_struct = _get_fabric_access_token_struct()
+    return pyodbc.connect(conn_str, attrs_before={_SQL_COPT_SS_ACCESS_TOKEN: token_struct})
+
+
 def get_fabric_connection():
-    """Open a read-only connection to the Fabric Lakehouse SQL analytics
-    endpoint. Raises if FABRIC_* settings are unset — callers should not
-    silently no-op on a misconfigured environment."""
+    """Open a read-only connection to the Customer lakehouse's SQL
+    analytics endpoint. Raises if FABRIC_* settings are unset — callers
+    should not silently no-op on a misconfigured environment."""
     if not all([settings.FABRIC_SQL_SERVER, settings.FABRIC_DATABASE,
                 settings.FABRIC_CLIENT_ID, settings.FABRIC_TENANT_ID,
                 settings.FABRIC_CLIENT_SECRET]):
@@ -58,14 +69,23 @@ def get_fabric_connection():
             "FABRIC_DATABASE, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
             "FABRIC_CLIENT_SECRET in .env"
         )
-    conn_str = (
-        "Driver={ODBC Driver 18 for SQL Server};"
-        f"Server={settings.FABRIC_SQL_SERVER},1433;"
-        f"Database={settings.FABRIC_DATABASE};"
-        "Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;"
-    )
-    token_struct = _get_fabric_access_token_struct()
-    return pyodbc.connect(conn_str, attrs_before={_SQL_COPT_SS_ACCESS_TOKEN: token_struct})
+    return _connect(settings.FABRIC_SQL_SERVER, settings.FABRIC_DATABASE)
+
+
+def get_fabric_erp_connection():
+    """Open a read-only connection to the ERP lakehouse's SQL analytics
+    endpoint (vendtable/dirpartytable/logisticspostaladdress/assettable) —
+    same App Registration/service principal as the Customer lakehouse, just
+    a different server + database. Raises if FABRIC_ERP_* settings are unset."""
+    if not all([settings.FABRIC_ERP_SQL_SERVER, settings.FABRIC_ERP_DATABASE,
+                settings.FABRIC_CLIENT_ID, settings.FABRIC_TENANT_ID,
+                settings.FABRIC_CLIENT_SECRET]):
+        raise RuntimeError(
+            "Fabric ERP sync is not configured — set FABRIC_ERP_SQL_SERVER, "
+            "FABRIC_ERP_DATABASE, FABRIC_CLIENT_ID, FABRIC_TENANT_ID and "
+            "FABRIC_CLIENT_SECRET in .env"
+        )
+    return _connect(settings.FABRIC_ERP_SQL_SERVER, settings.FABRIC_ERP_DATABASE)
 
 
 def get_target_connection():
