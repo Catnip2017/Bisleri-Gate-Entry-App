@@ -31,7 +31,20 @@ ASSET_COLUMNS = ["asset_code", "asset_name"]
 
 
 def _fetch_vendors(fabric_conn):
+    # FABRIC_ADDRESS_TABLE.location is NOT unique (multiple address/version
+    # rows can share the same location value) - joining the raw table fans
+    # a single vendor out into 2+ result rows sharing one accountnum, which
+    # trips a CardinalityViolation on the upsert. Dedupe to one row per
+    # location (most recently modified wins) before joining.
     query = f"""
+        WITH dedup_address AS (
+            SELECT
+                location, city, zipcode,
+                ROW_NUMBER() OVER (
+                    PARTITION BY location ORDER BY SinkModifiedOn DESC
+                ) AS rn
+            FROM {settings.FABRIC_ADDRESS_TABLE}
+        )
         SELECT
             v.accountnum AS vendor_code,
             p.name       AS vendor_name,
@@ -40,8 +53,8 @@ def _fetch_vendors(fabric_conn):
         FROM {settings.FABRIC_VENDOR_TABLE} v
         LEFT JOIN {settings.FABRIC_PARTY_TABLE} p
             ON v.party = p.recid
-        LEFT JOIN {settings.FABRIC_ADDRESS_TABLE} a
-            ON p.primaryaddresslocation = a.location
+        LEFT JOIN dedup_address a
+            ON p.primaryaddresslocation = a.location AND a.rn = 1
     """
     with fabric_conn.cursor() as cur:
         cur.execute(query)
