@@ -67,7 +67,19 @@ def run_erp_sync():
     try:
         fabric_conn = get_fabric_erp_connection()
         target_conn = get_target_connection()
+    except Exception:
+        logger.exception("[%s] ERP sync failed to connect", _JOB_NAME)
+        if fabric_conn:
+            fabric_conn.close()
+        if target_conn:
+            target_conn.close()
+        return
 
+    # Vendors and assets are independent source tables/targets - a failure
+    # in one (e.g. a duplicate-key/CardinalityViolation on vendors) must not
+    # block or mask the status of the other, so each gets its own
+    # try/except and its own commit/rollback.
+    try:
         vendor_rows = _fetch_vendors(fabric_conn)
         v_inserted, v_updated = upsert_rows(
             target_conn, "gate_pass_vendors",
@@ -78,7 +90,16 @@ def run_erp_sync():
             target_conn, "gate_pass_vendors", "vendor_code",
             [r[0] for r in vendor_rows], _JOB_NAME,
         )
+        target_conn.commit()
+        logger.info(
+            "[%s] vendors: +%d/~%d/-%d",
+            _JOB_NAME, v_inserted, v_updated, v_deactivated,
+        )
+    except Exception:
+        target_conn.rollback()
+        logger.exception("[%s] vendor sync failed", _JOB_NAME)
 
+    try:
         asset_rows = _fetch_assets(fabric_conn)
         a_inserted, a_updated = upsert_rows(
             target_conn, "gate_pass_assets",
@@ -89,19 +110,16 @@ def run_erp_sync():
             target_conn, "gate_pass_assets", "asset_code",
             [r[0] for r in asset_rows], _JOB_NAME,
         )
-
         target_conn.commit()
         logger.info(
-            "[%s] vendors: +%d/~%d/-%d, assets: +%d/~%d/-%d",
-            _JOB_NAME, v_inserted, v_updated, v_deactivated,
-            a_inserted, a_updated, a_deactivated,
+            "[%s] assets: +%d/~%d/-%d",
+            _JOB_NAME, a_inserted, a_updated, a_deactivated,
         )
     except Exception:
-        if target_conn:
-            target_conn.rollback()
-        logger.exception("[%s] ERP sync failed", _JOB_NAME)
-    finally:
-        if fabric_conn:
-            fabric_conn.close()
-        if target_conn:
-            target_conn.close()
+        target_conn.rollback()
+        logger.exception("[%s] asset sync failed", _JOB_NAME)
+
+    if fabric_conn:
+        fabric_conn.close()
+    if target_conn:
+        target_conn.close()
