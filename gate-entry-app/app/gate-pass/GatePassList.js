@@ -228,7 +228,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
             )}
           {PRINTABLE.includes(item.status) && (
             <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
-              <Text style={styles.smallBtnText}>Print Pass</Text>
+              <Text style={styles.smallPrintBtnText}>Print</Text>
             </TouchableOpacity>
           )}
         </View>

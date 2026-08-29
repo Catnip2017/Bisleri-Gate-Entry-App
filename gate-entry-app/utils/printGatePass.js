@@ -103,7 +103,7 @@ export const printGatePass = async (passId) => {
             <div class="doctitle">${esc(typeLabel)}</div>
             <div class="company">Bisleri International Pvt. Ltd.</div>
           </div>
-          <div class="copylabel">${esc(copyLabel)}<br/><span class="status">${esc(d.status)}</span></div>
+          <div class="copylabel">${esc(copyLabel)}</div>
         </div>
 
         <table class="meta">
@@ -173,7 +173,6 @@ export const printGatePass = async (passId) => {
   .doctitle { font-size:14px; font-weight:bold; text-decoration:underline; }
   .company { font-size:16px; font-weight:bold; color:#00843D; margin-top:2px; }
   .copylabel { font-size:12px; font-weight:bold; text-align:right; white-space:nowrap; }
-  .copylabel .status { display:inline-block; margin-top:4px; font-size:10px; font-weight:normal; border:1px solid #333; border-radius:10px; padding:1px 8px; }
 
   table.meta { width:100%; border-collapse:collapse; margin-bottom:8px; }
   table.meta td { padding:2px 4px; vertical-align:top; font-size:11.5px; }
@@ -201,32 +200,48 @@ ${copyBlock('VENDOR COPY')}
 ${copyBlock('SECURITY COPY')}
 </body></html>`;
 
-    const w = window.open('', '_blank');
-    if (!w) {
-      showError('Popup blocked — allow popups for this site to print.');
-      return;
-    }
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    // Trigger print from the opener instead of an inline onload handler:
-    // about:blank windows can fire 'load' before an inline handler is
-    // registered, in which case the dialog never opens. Belt and braces —
-    // whichever fires first wins; the flag stops a double dialog.
+    // A hidden off-screen iframe, not window.open(): the print dialog opens
+    // over the CURRENT tab instead of spawning a new one, and there's no
+    // popup blocker to fight since nothing is actually "opened".
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    document.body.appendChild(iframe);
+
+    const cleanup = () => {
+      if (iframe.parentNode) document.body.removeChild(iframe);
+    };
+
+    const idoc = iframe.contentWindow.document;
+    idoc.open();
+    idoc.write(html);
+    idoc.close();
+
+    // Same belt-and-braces as before: whichever of 'already complete' /
+    // 'load event' fires first wins; the flag stops a double dialog.
     let printed = false;
     const doPrint = () => {
-      if (printed || w.closed) return;
+      if (printed) return;
       printed = true;
       try {
-        w.print();
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
       } catch (e) {
-        // window already closed by the user — nothing to do
+        // ignore — nothing more we can do if the print call itself fails
       }
+      // Browsers don't expose a reliable cross-browser 'print dialog
+      // closed' event, so remove the iframe shortly after triggering
+      // print rather than trying to time it exactly.
+      setTimeout(cleanup, 1000);
     };
-    if (w.document.readyState === 'complete') {
+    if (idoc.readyState === 'complete') {
       doPrint();
     } else {
-      w.addEventListener('load', doPrint);
+      iframe.contentWindow.addEventListener('load', doPrint);
       setTimeout(doPrint, 500);
     }
   } catch (error) {

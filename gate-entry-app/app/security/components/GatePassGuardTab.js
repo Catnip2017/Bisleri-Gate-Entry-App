@@ -213,7 +213,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 <Text style={styles.smallBtnText}>Dispatch</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
-                <Text style={styles.smallBtnText}>Print</Text>
+                <Text style={styles.smallPrintBtnText}>Print</Text>
               </TouchableOpacity>
             </View>
           );
@@ -222,7 +222,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
           // Reference/reprint only - the pass has already left, nothing to action here.
           return (
             <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
-              <Text style={styles.smallBtnText}>Print</Text>
+              <Text style={styles.smallPrintBtnText}>Print</Text>
             </TouchableOpacity>
           );
         }

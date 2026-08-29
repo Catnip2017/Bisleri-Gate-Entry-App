@@ -481,9 +481,10 @@ export default StyleSheet.create({
   smallPrintBtn: {
     backgroundColor: gp.print,
     borderRadius: radius.sm,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
   },
+  smallPrintBtnText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   smallSecondaryBtn: {
     backgroundColor: '#90A4AE',
     borderRadius: radius.sm,
