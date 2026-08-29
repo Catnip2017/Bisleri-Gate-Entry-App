@@ -206,6 +206,7 @@ def _to_list_item(gp: GatePassHeader, today: date) -> GatePassListItem:
         created_at=gp.created_at,
         released_at=gp.released_at,
         dispatched_at=gp.dispatched_at,
+        last_inward_at=gp.last_inward_at,
         line_count=len(gp.lines),
         total_quantity=sum(l.quantity or 0 for l in gp.lines),
         outstanding_quantity=gp.total_outstanding(),
@@ -924,6 +925,7 @@ def inward_gate_pass(
 
         fully_received = all((l.received_qty or 0) >= (l.quantity or 0) for l in gp.lines)
         gp.status = GP_RECEIVED if fully_received else GP_PARTIAL
+        gp.last_inward_at = datetime.now()   # every inward call, partial or full
         if fully_received:
             gp.completed_at = datetime.now()
         _log_event(db, gp, "INWARD", current_user, remarks=payload.security_remarks,

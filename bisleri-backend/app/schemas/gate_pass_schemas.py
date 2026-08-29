@@ -204,6 +204,7 @@ class GatePassListItem(BaseModel):
     created_at: Optional[datetime] = None
     released_at: Optional[datetime] = None
     dispatched_at: Optional[datetime] = None
+    last_inward_at: Optional[datetime] = None
     line_count: int = 0
     total_quantity: int = 0
     outstanding_quantity: int = 0

@@ -234,20 +234,26 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         </View>
       ),
     },
-    { key: 'department', title: 'Department', priority: 2 },
-    { key: 'location_code', title: 'Location', priority: 2 },
-    { key: 'document_date', title: 'Doc Date', priority: 2 },
-    { key: 'vehicle_no', title: 'Vehicle', priority: 2 },
-    { key: 'expected_inward_date', title: 'Return By', priority: 2 },
+    // Movement timeline, always visible - replaces the old expandable
+    // detail panel (Department/Location/Doc Date/Vehicle/Return By/Qty/
+    // Created By/Cancel Reason) which was hidden behind a chevron and
+    // rarely opened. These three dates are the ones people actually track
+    // a pass by.
     {
-      key: 'total_quantity',
-      title: 'Qty (out / back)',
-      priority: 2,
-      render: (item) =>
-        `${item.total_quantity} out / ${item.total_quantity - item.outstanding_quantity} back`,
+      key: 'dispatched_at',
+      title: 'Dispatched Date',
+      flex: 1.1,
+      priority: 1,
+      render: (item) => (item.dispatched_at ? new Date(item.dispatched_at).toLocaleDateString() : '—'),
     },
-    { key: 'created_by', title: 'Created By', priority: 2 },
-    { key: 'cancel_reason_text', title: 'Cancel Reason', priority: 2 },
+    { key: 'expected_inward_date', title: 'Expected Inward Date', flex: 1.1, priority: 1 },
+    {
+      key: 'last_inward_at',
+      title: 'Inward Date',
+      flex: 1.1,
+      priority: 1,
+      render: (item) => (item.last_inward_at ? new Date(item.last_inward_at).toLocaleDateString() : '—'),
+    },
   ];
 
   return (

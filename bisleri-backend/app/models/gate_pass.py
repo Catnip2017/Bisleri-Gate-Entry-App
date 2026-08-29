@@ -189,6 +189,10 @@ class GatePassHeader(Base):
     dispatched_by = Column(String(50), nullable=True)
     dispatched_at = Column(DateTime(timezone=True), nullable=True)
     dispatch_remarks = Column(Text, nullable=True)        # security remarks at dispatch
+    # Stamped on every /inward call (partial or fully-received) - distinct
+    # from completed_at, which is only set once the pass is FULLY back.
+    # Lets the UI show "last movement back on <date>" even mid-return.
+    last_inward_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)  # fully received / closed
     cancelled_by = Column(String(50), nullable=True)
     cancelled_at = Column(DateTime(timezone=True), nullable=True)
