@@ -623,21 +623,28 @@ def list_gate_passes(
 
 @router.get("/guard/pending", response_model=GatePassListResponse)
 def guard_pending(
-    view: str = Query("dispatch"),   # 'dispatch' | 'inward' | 'cancelled'
+    view: str = Query("dispatch"),   # 'dispatch' | 'dispatched' | 'inward' | 'cancelled'
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_guard),
 ):
     """The guard's worklist — a live status query, never a copied list.
-    'dispatch'  : Released passes at the guard's location.
-    'inward'    : Dispatched / Partially Received RETURNABLE passes.
-    'cancelled' : passes cancelled AFTER release and before dispatch — the
-                  only cancelled passes a guard ever sees (answers 'where did
-                  that pass on my list go?')."""
+    'dispatch'   : Released passes at the guard's location.
+    'dispatched' : ALL passes (both NR and R) currently Dispatched — a
+                   reference/reprint list, not an action queue. Unlike
+                   'inward' this is not restricted to Returnable passes,
+                   since NR passes never move to an inward step and would
+                   otherwise have no post-dispatch view at all.
+    'inward'     : Dispatched / Partially Received RETURNABLE passes.
+    'cancelled'  : passes cancelled AFTER release and before dispatch — the
+                   only cancelled passes a guard ever sees (answers 'where did
+                   that pass on my list go?')."""
     query = db.query(GatePassHeader).options(
         joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason)
     )
     if view == "dispatch":
         query = query.filter(GatePassHeader.status == GP_RELEASED)
+    elif view == "dispatched":
+        query = query.filter(GatePassHeader.status == GP_DISPATCHED)
     elif view == "inward":
         query = query.filter(
             GatePassHeader.pass_type == PASS_TYPE_RETURNABLE,
@@ -650,11 +657,12 @@ def guard_pending(
             GatePassHeader.dispatched_at.is_(None),
         )
     else:
-        raise HTTPException(status_code=400, detail="view must be 'dispatch', 'inward' or 'cancelled'")
+        raise HTTPException(status_code=400, detail="view must be 'dispatch', 'dispatched', 'inward' or 'cancelled'")
 
     query = _guard_location_filter(db, query, current_user)
     today = date.today()
-    rows = query.order_by(GatePassHeader.released_at.asc()).limit(200).all()
+    order_col = GatePassHeader.dispatched_at if view == "dispatched" else GatePassHeader.released_at
+    rows = query.order_by(order_col.desc() if view == "dispatched" else order_col.asc()).limit(200).all()
     return GatePassListResponse(total_count=len(rows), items=[_to_list_item(r, today) for r in rows])
 
 

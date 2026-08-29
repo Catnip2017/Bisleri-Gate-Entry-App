@@ -15,6 +15,7 @@ import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
 const VIEWS = [
   { key: 'dispatch', label: 'Pending Dispatch' },
+  { key: 'dispatched', label: 'Dispatched' },
   { key: 'inward', label: 'Pending Inward' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
@@ -197,7 +198,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     { key: 'department', title: 'Dept', flex: 0.8, priority: 1 },
     {
       key: 'action',
-      title: view === 'dispatch' ? 'Dispatch' : view === 'inward' ? 'Inward' : 'Reason',
+      title:
+        view === 'dispatch' ? 'Dispatch'
+        : view === 'dispatched' ? 'Print'
+        : view === 'inward' ? 'Inward'
+        : 'Reason',
       flex: 1.4,
       priority: 1,
       render: (item) => {
@@ -211,6 +216,14 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 <Text style={styles.smallBtnText}>Print</Text>
               </TouchableOpacity>
             </View>
+          );
+        }
+        if (view === 'dispatched') {
+          // Reference/reprint only - the pass has already left, nothing to action here.
+          return (
+            <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
+              <Text style={styles.smallBtnText}>Print</Text>
+            </TouchableOpacity>
           );
         }
         if (view === 'inward') {
@@ -320,23 +333,17 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               </View>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity
-            style={[styles.menuItem, { marginTop: 8, borderTopWidth: 1, borderTopColor: '#D6DEE6' }]}
-            onPress={() => { load(); loadDue(); }}
-            accessibilityRole="button"
-          >
-            <Text style={styles.menuItemText}>↻ Refresh</Text>
-          </TouchableOpacity>
         </View>
 
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
           <View style={styles.formCard}>
-            {/* Location filter — dropdown checkbox list (scales to many
-                locations). Empty selection = All. Single location renders a
-                fixed label (no choice to make). */}
-            {myLocations.length > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10, zIndex: 50 }}>
+            {/* Location filter (left) + Refresh action (right) — a real
+                button now, not a menu list item, and always visible here
+                regardless of whether a location filter applies. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, zIndex: 50 }}>
+              {myLocations.length > 0 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={{ fontSize: 12, color: gp.textMuted }}>Location:</Text>
                 {myLocations.length > 1 ? (
                   <View style={{ minWidth: 220, maxWidth: 340 }}>
@@ -400,7 +407,17 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                   </View>
                 )}
               </View>
-            )}
+              ) : (
+                <View />
+              )}
+              <TouchableOpacity
+                style={styles.smallSecondaryBtn}
+                onPress={() => { load(); loadDue(); }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.smallBtnText}>↻ Refresh</Text>
+              </TouchableOpacity>
+            </View>
             {loading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color={gp.accent} />
@@ -415,9 +432,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                     ? `No passes at ${selectedLocs.join(', ')} — set the filter to All locations to see the rest`
                     : view === 'dispatch'
                       ? 'No passes waiting for dispatch'
-                      : view === 'inward'
-                        ? 'No returnable passes waiting for inward'
-                        : 'No cancelled passes (only passes cancelled after release appear here)'
+                      : view === 'dispatched'
+                        ? 'No dispatched passes yet'
+                        : view === 'inward'
+                          ? 'No returnable passes waiting for inward'
+                          : 'No cancelled passes (only passes cancelled after release appear here)'
                 }
               />
             )}
