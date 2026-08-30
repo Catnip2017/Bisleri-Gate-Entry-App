@@ -66,15 +66,21 @@ def upgrade() -> None:
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('gate_pass_departments',
-    sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-    sa.Column('department_name', sa.String(length=100), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
-    sa.Column('sort_order', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('department_name')
-    )
+    # NOTE: gate_pass_departments was found to already exist on some environments
+    # (pre-existing schema drift from an earlier manual/partial migration run).
+    # Guard the create so this migration is safe to run either way.
+    _bind = op.get_bind()
+    _inspector = sa.inspect(_bind)
+    if 'gate_pass_departments' not in _inspector.get_table_names():
+        op.create_table('gate_pass_departments',
+        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column('department_name', sa.String(length=100), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=False),
+        sa.Column('sort_order', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('department_name')
+        )
     op.create_table('item_master',
     sa.Column('item_number', sa.String(length=255), nullable=False),
     sa.Column('product_name', sa.String(length=255), nullable=True),
