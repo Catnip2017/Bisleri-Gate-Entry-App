@@ -182,8 +182,15 @@ def upgrade() -> None:
     op.create_index(op.f('ix_gate_pass_headers_pass_type'), 'gate_pass_headers', ['pass_type'], unique=False)
     op.create_index(op.f('ix_gate_pass_headers_status'), 'gate_pass_headers', ['status'], unique=False)
     op.create_index(op.f('ix_gate_pass_headers_warehouse_code'), 'gate_pass_headers', ['warehouse_code'], unique=False)
-    op.drop_column('gate_pass_items', 'uom')
-    op.drop_column('gate_pass_items', 'item_type')
+    # NOTE: on some environments 'gate_pass_items' is a different table
+    # (an item/asset catalog) that never had these columns. Guard the drops.
+    _bind2 = op.get_bind()
+    _inspector2 = sa.inspect(_bind2)
+    _gpi_cols = {c['name'] for c in _inspector2.get_columns('gate_pass_items')}
+    if 'uom' in _gpi_cols:
+        op.drop_column('gate_pass_items', 'uom')
+    if 'item_type' in _gpi_cols:
+        op.drop_column('gate_pass_items', 'item_type')
     op.drop_index(op.f('idx_gpl_pass'), table_name='gate_pass_lines')
     op.create_index(op.f('ix_gate_pass_lines_gate_pass_id'), 'gate_pass_lines', ['gate_pass_id'], unique=False)
     op.alter_column('insights_data', 'gate_entry_no',
