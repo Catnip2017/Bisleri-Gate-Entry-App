@@ -796,8 +796,8 @@ export const gatePassAPI = {
     });
     return response.data;
   },
-  getGuardPending: async (view = 'dispatch') => {
-    const response = await api.get('/gate-pass/guard/pending', { params: { view } });
+  getGuardPending: async (view = 'dispatch', extraFilters = {}) => {
+    const response = await api.get('/gate-pass/guard/pending', { params: { view, ...extraFilters } });
     return response.data;
   },
   getDueNotifications: async () => {

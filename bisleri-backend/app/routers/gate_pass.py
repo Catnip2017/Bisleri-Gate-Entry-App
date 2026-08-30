@@ -563,7 +563,9 @@ def create_gate_pass(
 @router.get("", response_model=GatePassListResponse)
 def list_gate_passes(
     status_filter: str | None = Query(None, alias="status"),
+    statuses: str | None = Query(None, description="Comma-separated statuses (multi-select filter)"),
     pass_type: str | None = Query(None),
+    pass_types: str | None = Query(None, description="Comma-separated pass types (multi-select filter)"),
     location_code: str | None = Query(None),
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
@@ -590,8 +592,16 @@ def list_gate_passes(
         query = query.filter(GatePassHeader.department == current_user.department)
     if status_filter:
         query = query.filter(GatePassHeader.status == status_filter)
+    if statuses:
+        status_list = [s.strip() for s in statuses.split(",") if s.strip()]
+        if status_list:
+            query = query.filter(GatePassHeader.status.in_(status_list))
     if pass_type:
         query = query.filter(GatePassHeader.pass_type == pass_type)
+    if pass_types:
+        pass_type_list = [p.strip() for p in pass_types.split(",") if p.strip()]
+        if pass_type_list:
+            query = query.filter(GatePassHeader.pass_type.in_(pass_type_list))
     if location_code:
         query = query.filter(GatePassHeader.location_code == location_code)
     if from_date:
@@ -624,21 +634,31 @@ def list_gate_passes(
 
 @router.get("/guard/pending", response_model=GatePassListResponse)
 def guard_pending(
-    view: str = Query("dispatch"),   # 'dispatch' | 'dispatched' | 'inward' | 'cancelled'
+    view: str = Query("dispatch"),   # 'dispatch' | 'dispatched' | 'inward' | 'partial' | 'inward_completed' | 'cancelled'
+    pass_types: str | None = Query(None, description="Comma-separated pass types (multi-select filter)"),
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_guard),
 ):
     """The guard's worklist — a live status query, never a copied list.
-    'dispatch'   : Released passes at the guard's location.
-    'dispatched' : ALL passes (both NR and R) currently Dispatched — a
-                   reference/reprint list, not an action queue. Unlike
-                   'inward' this is not restricted to Returnable passes,
-                   since NR passes never move to an inward step and would
-                   otherwise have no post-dispatch view at all.
-    'inward'     : Dispatched / Partially Received RETURNABLE passes.
-    'cancelled'  : passes cancelled AFTER release and before dispatch — the
-                   only cancelled passes a guard ever sees (answers 'where did
-                   that pass on my list go?')."""
+    'dispatch'         : Released passes at the guard's location.
+    'dispatched'       : ALL passes (both NR and R) currently Dispatched — a
+                          reference/reprint list, not an action queue. Unlike
+                          'inward'/'partial' this is not restricted to
+                          Returnable passes, since NR passes never move to an
+                          inward step and would otherwise have no post-dispatch
+                          view at all.
+    'inward'           : Dispatched RETURNABLE passes with NOTHING back yet —
+                          the "not started" bucket.
+    'partial'          : Partially Received RETURNABLE passes — some items
+                          back, some still outstanding. Split out from
+                          'inward' so the two states don't overlap on screen.
+    'inward_completed' : RETURNABLE passes fully received (Inward Received) —
+                          reference/reprint only, like 'dispatched'.
+    'cancelled'         : passes cancelled AFTER release and before dispatch —
+                          the only cancelled passes a guard ever sees (answers
+                          'where did that pass on my list go?')."""
     query = db.query(GatePassHeader).options(
         joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason)
     )
@@ -649,7 +669,17 @@ def guard_pending(
     elif view == "inward":
         query = query.filter(
             GatePassHeader.pass_type == PASS_TYPE_RETURNABLE,
-            GatePassHeader.status.in_([GP_DISPATCHED, GP_PARTIAL]),
+            GatePassHeader.status == GP_DISPATCHED,
+        )
+    elif view == "partial":
+        query = query.filter(
+            GatePassHeader.pass_type == PASS_TYPE_RETURNABLE,
+            GatePassHeader.status == GP_PARTIAL,
+        )
+    elif view == "inward_completed":
+        query = query.filter(
+            GatePassHeader.pass_type == PASS_TYPE_RETURNABLE,
+            GatePassHeader.status == GP_RECEIVED,
         )
     elif view == "cancelled":
         query = query.filter(
@@ -658,7 +688,19 @@ def guard_pending(
             GatePassHeader.dispatched_at.is_(None),
         )
     else:
-        raise HTTPException(status_code=400, detail="view must be 'dispatch', 'dispatched', 'inward' or 'cancelled'")
+        raise HTTPException(
+            status_code=400,
+            detail="view must be 'dispatch', 'dispatched', 'inward', 'partial', 'inward_completed' or 'cancelled'",
+        )
+
+    if pass_types:
+        pass_type_list = [p.strip() for p in pass_types.split(",") if p.strip()]
+        if pass_type_list:
+            query = query.filter(GatePassHeader.pass_type.in_(pass_type_list))
+    if from_date:
+        query = query.filter(GatePassHeader.document_date >= from_date)
+    if to_date:
+        query = query.filter(GatePassHeader.document_date <= to_date)
 
     query = _guard_location_filter(db, query, current_user)
     today = date.today()

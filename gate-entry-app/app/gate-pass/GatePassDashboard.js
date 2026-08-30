@@ -13,8 +13,9 @@ import GatePassForm from './GatePassForm';
 import GatePassList from './GatePassList';
 import styles from './styles/gatePassStyles';
 
+// '+ New Gate Pass' is rendered as its own button above this list (not a
+// tab) — it doesn't represent a status view, so it never belonged in MENU.
 const MENU = [
-  { key: 'new', label: '+ New Gate Pass' },
   { key: 'all', label: 'View All Passes' },
   { key: 'released', label: 'Pending Dispatch', status: 'Released' },
   { key: 'dispatched', label: 'Dispatched', status: 'Dispatched' },
@@ -64,10 +65,7 @@ const GatePassDashboard = () => {
   }, [loadDue, refreshKey]);
 
   const bump = () => setRefreshKey((k) => k + 1);
-  // Guards see status views only — not New Gate Pass (they don't create passes)
-  const visibleMenu = isGuard
-    ? MENU.filter((m) => m.key !== 'new')
-    : MENU;
+  const visibleMenu = MENU;
   const activeMenu = visibleMenu.find((m) => m.key === activeKey) || visibleMenu[0];
 
   // Guard with no gate_pass_location — full-page block, no API calls made
@@ -125,6 +123,16 @@ const GatePassDashboard = () => {
           {/* ── Gate Pass Menu (wireframe left panel) ── */}
           <View style={styles.menuPanel}>
             <Text style={styles.menuTitle}>Gate Pass Menu</Text>
+            {/* '+ New Gate Pass' — a button, not a tab (guards don't create passes) */}
+            {!isGuard && (
+              <TouchableOpacity
+                style={styles.newPassButton}
+                onPress={() => setActiveKey('new')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.newPassButtonText}>+ New Gate Pass</Text>
+              </TouchableOpacity>
+            )}
             {visibleMenu.map((m) => (
               <TouchableOpacity
                 key={m.key}

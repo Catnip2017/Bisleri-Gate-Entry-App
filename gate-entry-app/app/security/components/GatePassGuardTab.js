@@ -10,6 +10,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } fro
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
+import OptionalDateField from '../../../components/ui/OptionalDateField';
 import printGatePass from '../../../utils/printGatePass';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
@@ -17,7 +18,14 @@ const VIEWS = [
   { key: 'dispatch', label: 'Pending Dispatch' },
   { key: 'dispatched', label: 'Dispatched' },
   { key: 'inward', label: 'Pending Inward' },
+  { key: 'partial', label: 'Partial Inward' },
+  { key: 'inward_completed', label: 'Inward Completed' },
   { key: 'cancelled', label: 'Cancelled' },
+];
+
+const PASS_TYPE_OPTIONS = [
+  { value: 'R', label: 'Returnable' },
+  { value: 'NR', label: 'Non-Returnable' },
 ];
 
 const GatePassGuardTab = ({ hasGpdRole = true }) => {
@@ -36,6 +44,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [selectedLocs, setSelectedLocs] = useState([]);   // [] = All locations
   const [locMenuOpen, setLocMenuOpen] = useState(false);
 
+  // Pass type + date-range filters (client -> server, applied per view)
+  const [passTypeFilters, setPassTypeFilters] = useState([]);
+  const [dateFrom, setDateFrom] = useState(null);   // Date | null
+  const [dateTo, setDateTo] = useState(null);        // Date | null
+
   // Dispatch modal (confirm + security remarks)
   const [dispatchTarget, setDispatchTarget] = useState(null);
   const [dispatchRemarks, setDispatchRemarks] = useState('');
@@ -51,7 +64,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     if (!hasGpdRole || noGpLocation) return;
     setLoading(true);
     try {
-      const data = await gatePassAPI.getGuardPending(view);
+      const extraFilters = {};
+      if (passTypeFilters.length > 0) extraFilters.pass_types = passTypeFilters.join(',');
+      if (dateFrom) extraFilters.from_date = toISODate(dateFrom);
+      if (dateTo) extraFilters.to_date = toISODate(dateTo);
+      const data = await gatePassAPI.getGuardPending(view, extraFilters);
       setItems(data.items || []);
     } catch (error) {
       const detail = error?.response?.data?.detail || error?.detail || '';
@@ -64,7 +81,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     } finally {
       setLoading(false);
     }
-  }, [view, noGpLocation, hasGpdRole]);
+  }, [view, noGpLocation, hasGpdRole, passTypeFilters, dateFrom, dateTo]);
 
   const loadDue = useCallback(async () => {
     if (!hasGpdRole || noGpLocation) return;
@@ -100,6 +117,22 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
 
   const locSummary =
     selectedLocs.length === 0 ? 'All locations' : selectedLocs.join(', ');
+
+  const toISODate = (date) => {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const togglePassTypeFilter = (t) =
+    setPassTypeFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const clearFilters = () => {
+    setPassTypeFilters([]);
+    setDateFrom(null);
+    setDateTo(null);
+  };
+  const filtersActive = passTypeFilters.length > 0 || !!dateFrom || !!dateTo;
 
   // ── Dispatch flow ─────────────────────────────────────────────────────────
   const openDispatch = (pass) => {
@@ -200,8 +233,8 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
       key: 'action',
       title:
         view === 'dispatch' ? 'Dispatch'
-        : view === 'dispatched' ? 'Print'
-        : view === 'inward' ? 'Inward'
+        : (view === 'dispatched' || view === 'inward_completed') ? 'Print'
+        : (view === 'inward' || view === 'partial') ? 'Inward'
         : 'Reason',
       flex: 1.4,
       priority: 1,
@@ -218,15 +251,15 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
             </View>
           );
         }
-        if (view === 'dispatched') {
-          // Reference/reprint only - the pass has already left, nothing to action here.
+        if (view === 'dispatched' || view === 'inward_completed') {
+          // Reference/reprint only - nothing left to action on these passes.
           return (
             <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
               <Text style={styles.smallPrintBtnText}>Print</Text>
             </TouchableOpacity>
           );
         }
-        if (view === 'inward') {
+        if (view === 'inward' || view === 'partial') {
           return (
             <View style={{ gap: 2 }}>
               <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
@@ -434,6 +467,38 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 <Text style={styles.smallBtnText}>↻ Refresh</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Pass type + date-range filters */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <View>
+                <Text style={styles.fieldLabel}>Pass Type</Text>
+                <View style={styles.chipRow}>
+                  {PASS_TYPE_OPTIONS.map((t) => (
+                    <TouchableOpacity
+                      key={t.value}
+                      style={passTypeFilters.includes(t.value) ? styles.chipActive : styles.chip}
+                      onPress={() => togglePassTypeFilter(t.value)}
+                    >
+                      <Text style={passTypeFilters.includes(t.value) ? styles.chipActiveText : styles.chipText}>
+                        {t.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+              <View style={{ minWidth: 170 }}>
+                <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+              </View>
+              <View style={{ minWidth: 170 }}>
+                <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+              </View>
+              {filtersActive && (
+                <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={clearFilters}>
+                  <Text style={styles.wfButtonText}>Clear Filters</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             {loading ? (
               <View style={styles.loadingBox}>
                 <ActivityIndicator size="large" color={gp.accent} />
@@ -452,7 +517,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                         ? 'No dispatched passes yet'
                         : view === 'inward'
                           ? 'No returnable passes waiting for inward'
-                          : 'No cancelled passes (only passes cancelled after release appear here)'
+                          : view === 'partial'
+                            ? 'No partially received passes right now'
+                            : view === 'inward_completed'
+                              ? 'No fully received passes yet'
+                              : 'No cancelled passes (only passes cancelled after release appear here)'
                 }
               />
             )}

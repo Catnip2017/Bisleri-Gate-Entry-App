@@ -72,6 +72,16 @@ export default StyleSheet.create({
   },
   menuItemText: { fontSize: 14, color: gp.text },
   menuItemActiveText: { fontSize: 14, color: gp.accent, fontWeight: 'bold' },
+  newPassButton: {
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    backgroundColor: gp.accent,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newPassButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
   menuBadge: {
     backgroundColor: '#FCEBEB',
     borderRadius: 9,
@@ -453,7 +463,7 @@ export default StyleSheet.create({
     alignSelf: 'flex-start',
   },
   statusBadgeText: { fontSize: 11, fontWeight: 'bold' },
-  rowActions: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
+  rowActions: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap', alignItems: 'center' },
   smallPrimaryBtn: {
     backgroundColor: gp.release,
     borderRadius: radius.sm,
@@ -481,8 +491,9 @@ export default StyleSheet.create({
   smallPrintBtn: {
     backgroundColor: gp.print,
     borderRadius: radius.sm,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
   },
   smallPrintBtnText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   smallSecondaryBtn: {

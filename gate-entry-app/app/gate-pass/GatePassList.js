@@ -11,6 +11,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, Scro
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
+import OptionalDateField from '../../components/ui/OptionalDateField';
 import printGatePass from '../../utils/printGatePass';
 import styles, { gp } from './styles/gatePassStyles';
 
@@ -42,11 +43,24 @@ const StatusBadge = ({ status, overdue }) => {
 
 const PRINTABLE = ['Released', 'Dispatched', 'Partially Received', 'Inward Received', 'Closed Without Return'];
 
+const STATUS_OPTIONS = [
+  'Open', 'Released', 'Dispatched', 'Partially Received',
+  'Inward Received', 'Cancelled', 'Closed Without Return',
+];
+const PASS_TYPE_OPTIONS = [
+  { value: 'R', label: 'Returnable' },
+  { value: 'NR', label: 'Non-Returnable' },
+];
+
 const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters = true }) => {
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [statusFilters, setStatusFilters] = useState([]);
+  const [passTypeFilters, setPassTypeFilters] = useState([]);
+  const [dateFrom, setDateFrom] = useState(null);   // Date | null
+  const [dateTo, setDateTo] = useState(null);        // Date | null
   const [loading, setLoading] = useState(false);
   const [noGpLocation, setNoGpLocation] = useState(false);
 
@@ -68,6 +82,10 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
     try {
       const filters = { limit: 100 };
       if (fixedStatus) filters.status = fixedStatus;
+      if (!fixedStatus && statusFilters.length > 0) filters.statuses = statusFilters.join(',');
+      if (passTypeFilters.length > 0) filters.pass_types = passTypeFilters.join(',');
+      if (dateFrom) filters.from_date = toISODate(dateFrom);
+      if (dateTo) filters.to_date = toISODate(dateTo);
       if (overdueOnly) filters.overdue_only = true;
       if (searchText.trim()) filters.q = searchText.trim();
       const data = await gatePassAPI.listPasses(filters);
@@ -85,7 +103,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
     } finally {
       setLoading(false);
     }
-  }, [fixedStatus, overdueOnly, searchText]);
+  }, [fixedStatus, overdueOnly, searchText, statusFilters, passTypeFilters, dateFrom, dateTo]);
 
   useEffect(() => {
     load();
@@ -95,6 +113,27 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
     load();
     if (onChanged) onChanged();
   };
+
+  const toISODate = (date) => {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const toggleStatusFilter = (s) =>
+    setStatusFilters((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  const togglePassTypeFilter = (t) =>
+    setPassTypeFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const clearFilters = () => {
+    setStatusFilters([]);
+    setPassTypeFilters([]);
+    setDateFrom(null);
+    setDateTo(null);
+    setOverdueOnly(false);
+  };
+  const filtersActive =
+    statusFilters.length > 0 || passTypeFilters.length > 0 || !!dateFrom || !!dateTo || overdueOnly;
 
   // ── Release (confirmation popup — agreed UX safeguard) ────────────────────
   const handleRelease = (pass) => {
@@ -254,6 +293,20 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       priority: 1,
       render: (item) => (item.last_inward_at ? new Date(item.last_inward_at).toLocaleDateString() : '—'),
     },
+    // Detail dropdown — restored, minus 'Return By' (now the Expected Inward
+    // Date column above) since showing it twice was redundant.
+    { key: 'department', title: 'Department', priority: 2 },
+    { key: 'location_code', title: 'Location', priority: 2 },
+    { key: 'document_date', title: 'Doc Date', priority: 2 },
+    { key: 'vehicle_no', title: 'Vehicle', priority: 2 },
+    {
+      key: 'total_quantity',
+      title: 'Qty (out / back)',
+      priority: 2,
+      render: (item) => `${item.total_quantity} out / ${item.total_quantity - item.outstanding_quantity} back`,
+    },
+    { key: 'created_by', title: 'Created By', priority: 2 },
+    { key: 'cancel_reason_text', title: 'Cancel Reason', priority: 2 },
   ];
 
   return (
@@ -270,16 +323,55 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
       {showFilters && (
         <View style={styles.filterRow}>
+          <Text style={styles.fieldLabel}>Status</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipRow}>
-              <TouchableOpacity
-                style={overdueOnly ? styles.chipActive : styles.chip}
-                onPress={() => setOverdueOnly(!overdueOnly)}
-              >
-                <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
-              </TouchableOpacity>
+              {STATUS_OPTIONS.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={statusFilters.includes(s) ? styles.chipActive : styles.chip}
+                  onPress={() => toggleStatusFilter(s)}
+                >
+                  <Text style={statusFilters.includes(s) ? styles.chipActiveText : styles.chipText}>{s}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </ScrollView>
+
+          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Pass Type</Text>
+          <View style={styles.chipRow}>
+            {PASS_TYPE_OPTIONS.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                style={passTypeFilters.includes(t.value) ? styles.chipActive : styles.chip}
+                onPress={() => togglePassTypeFilter(t.value)}
+              >
+                <Text style={passTypeFilters.includes(t.value) ? styles.chipActiveText : styles.chipText}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={overdueOnly ? styles.chipActive : styles.chip}
+              onPress={() => setOverdueOnly(!overdueOnly)}
+            >
+              <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+            <View style={{ minWidth: 170 }}>
+              <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+            </View>
+            <View style={{ minWidth: 170 }}>
+              <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+            </View>
+            {filtersActive && (
+              <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={clearFilters}>
+                <Text style={styles.wfButtonText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
       <View style={styles.searchRow}>
