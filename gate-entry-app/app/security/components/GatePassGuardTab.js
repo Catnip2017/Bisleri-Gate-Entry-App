@@ -6,7 +6,7 @@
 // The Cancelled sub-view shows ONLY passes that were released and then
 // cancelled before dispatch — "where did that pass on my list go?"
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
@@ -49,6 +49,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [passTypeFilters, setPassTypeFilters] = useState([]);
   const [dateFrom, setDateFrom] = useState(null);   // Date | null
   const [dateTo, setDateTo] = useState(null);        // Date | null
+  const [searchText, setSearchText] = useState('');  // matches vendor/customer name, pass no. or vehicle no.
 
   // Dispatch modal (confirm + security remarks)
   const [dispatchTarget, setDispatchTarget] = useState(null);
@@ -69,6 +70,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
       if (passTypeFilters.length > 0) extraFilters.pass_types = passTypeFilters.join(',');
       if (dateFrom) extraFilters.from_date = toISODate(dateFrom);
       if (dateTo) extraFilters.to_date = toISODate(dateTo);
+      if (searchText.trim()) extraFilters.q = searchText.trim();
       const data = await gatePassAPI.getGuardPending(view, extraFilters);
       setItems(data.items || []);
     } catch (error) {
@@ -82,7 +84,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     } finally {
       setLoading(false);
     }
-  }, [view, noGpLocation, hasGpdRole, passTypeFilters, dateFrom, dateTo]);
+  }, [view, noGpLocation, hasGpdRole, passTypeFilters, dateFrom, dateTo, searchText]);
 
   const loadDue = useCallback(async () => {
     if (!hasGpdRole || noGpLocation) return;
@@ -388,101 +390,93 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
           <View style={styles.formCard}>
-            {/* Location filter (left) + Refresh action (right) — a real
-                button now, not a menu list item, and always visible here
-                regardless of whether a location filter applies. */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, zIndex: 50 }}>
-              {myLocations.length > 0 ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 12, color: gp.textMuted }}>Location:</Text>
-                {myLocations.length > 1 ? (
-                  <View style={{ minWidth: 220, maxWidth: 340 }}>
-                    <TouchableOpacity
-                      onPress={() => setLocMenuOpen((o) => !o)}
-                      accessibilityRole="button"
-                      accessibilityState={{ expanded: locMenuOpen }}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                        borderWidth: 1, borderColor: '#C8D4DE', borderRadius: 8,
-                        paddingHorizontal: 12, paddingVertical: 7, backgroundColor: '#fff',
-                      }}
-                    >
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }} numberOfLines={1}>
-                        {locSummary}
+            {/* All filters (Location, Pass Type, dates) + Refresh — one
+                horizontally-scrollable line, so nothing wraps awkwardly. */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginBottom: 10 }}
+              contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
+            >
+              {myLocations.length > 0 && (
+                <View>
+                  <Text style={{ fontSize: 12, color: gp.textMuted, marginBottom: 4 }}>Location</Text>
+                  {myLocations.length > 1 ? (
+                    <View style={{ minWidth: 200, maxWidth: 260 }}>
+                      <TouchableOpacity
+                        onPress={() => setLocMenuOpen((o) => !o)}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: locMenuOpen }}
+                        style={{
+                          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                          borderWidth: 1, borderColor: '#C8D4DE', borderRadius: 8,
+                          paddingHorizontal: 12, paddingVertical: 10, backgroundColor: '#fff',
+                        }}
+                      >
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }} numberOfLines={1}>
+                          {locSummary}
+                        </Text>
+                        <Text style={{ fontSize: 10, color: gp.textMuted, marginLeft: 8 }}>
+                          {locMenuOpen ? '▲' : '▼'}
+                        </Text>
+                      </TouchableOpacity>
+                      {locMenuOpen && (
+                        <View style={{
+                          position: 'absolute', top: 42, left: 0, right: 0,
+                          backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
+                          borderRadius: 8, elevation: 6, zIndex: 100,
+                          shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
+                          shadowOffset: { width: 0, height: 3 },
+                        }}>
+                          <TouchableOpacity
+                            onPress={() => setSelectedLocs([])}
+                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                          >
+                            <Text style={{ fontSize: 15, width: 24 }}>{selectedLocs.length === 0 ? '☑' : '☐'}</Text>
+                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>All locations</Text>
+                          </TouchableOpacity>
+                          <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
+                          {myLocations.map((l) => {
+                            const on = selectedLocs.includes(l.location_code);
+                            return (
+                              <TouchableOpacity
+                                key={l.location_code}
+                                onPress={() => toggleLoc(l.location_code)}
+                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                              >
+                                <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
+                                <Text style={{ fontSize: 13, color: '#1A2E22' }}>{l.location_code}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={{
+                      paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8,
+                      borderWidth: 1, borderColor: '#D6DEE6', backgroundColor: '#F2F5F8',
+                    }}>
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: '#333' }}>
+                        {myLocations[0].location_code}
                       </Text>
-                      <Text style={{ fontSize: 10, color: gp.textMuted, marginLeft: 8 }}>
-                        {locMenuOpen ? '▲' : '▼'}
-                      </Text>
-                    </TouchableOpacity>
-                    {locMenuOpen && (
-                      <View style={{
-                        position: 'absolute', top: 38, left: 0, right: 0,
-                        backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
-                        borderRadius: 8, elevation: 6, zIndex: 100,
-                        shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 3 },
-                      }}>
-                        <TouchableOpacity
-                          onPress={() => setSelectedLocs([])}
-                          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-                        >
-                          <Text style={{ fontSize: 15, width: 24 }}>{selectedLocs.length === 0 ? '☑' : '☐'}</Text>
-                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>All locations</Text>
-                        </TouchableOpacity>
-                        <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
-                        {myLocations.map((l) => {
-                          const on = selectedLocs.includes(l.location_code);
-                          return (
-                            <TouchableOpacity
-                              key={l.location_code}
-                              onPress={() => toggleLoc(l.location_code)}
-                              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-                            >
-                              <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
-                              <Text style={{ fontSize: 13, color: '#1A2E22' }}>{l.location_code}</Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </View>
-                ) : (
-                  <View style={{
-                    paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12,
-                    borderWidth: 1, borderColor: '#D6DEE6', backgroundColor: '#F2F5F8',
-                  }}>
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: '#333' }}>
-                      {myLocations[0].location_code}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              ) : (
-                <View />
+                    </View>
+                  )}
+                </View>
               )}
-              <TouchableOpacity
-                style={styles.smallSecondaryBtn}
-                onPress={() => { load(); loadDue(); }}
-                accessibilityRole="button"
-              >
-                <Text style={styles.smallBtnText}>↻ Refresh</Text>
-              </TouchableOpacity>
-            </View>
 
-            {/* Pass type + date-range filters — one compact line */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginBottom: 10, zIndex: 40 }}>
               <MultiSelectDropdown
                 label="Pass Type"
                 options={PASS_TYPE_OPTIONS}
                 selected={passTypeFilters}
                 onChange={setPassTypeFilters}
                 allLabel="All pass types"
-                minWidth={160}
+                minWidth={150}
               />
-              <View style={{ minWidth: 150 }}>
+              <View style={{ minWidth: 140 }}>
                 <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
               </View>
-              <View style={{ minWidth: 150 }}>
+              <View style={{ minWidth: 140 }}>
                 <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
               </View>
               {filtersActive && (
@@ -490,6 +484,29 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                   <Text style={styles.wfButtonText}>Clear Filters</Text>
                 </TouchableOpacity>
               )}
+              <TouchableOpacity
+                style={[styles.smallSecondaryBtn, { marginBottom: 2 }]}
+                onPress={() => { load(); loadDue(); }}
+                accessibilityRole="button"
+              >
+                <Text style={styles.smallBtnText}>↻ Refresh</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Search — vendor/customer name, gate pass no. or vehicle no.,
+                all in this one box (same behavior as the Gate Pass list). */}
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder="Search vendor/customer, pass no. or vehicle"
+                placeholderTextColor={gp.textMuted}
+                onSubmitEditing={load}
+              />
+              <TouchableOpacity style={[styles.wfButton, styles.btnDispatch]} onPress={load}>
+                <Text style={styles.wfButtonText}>Search</Text>
+              </TouchableOpacity>
             </View>
 
             {loading ? (

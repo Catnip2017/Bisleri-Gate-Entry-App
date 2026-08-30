@@ -638,6 +638,7 @@ def guard_pending(
     pass_types: str | None = Query(None, description="Comma-separated pass types (multi-select filter)"),
     from_date: date | None = Query(None),
     to_date: date | None = Query(None),
+    q: str | None = Query(None, max_length=100, description="Search — matches vendor/customer name, gate pass no. or vehicle no."),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_guard),
 ):
@@ -701,6 +702,13 @@ def guard_pending(
         query = query.filter(GatePassHeader.document_date >= from_date)
     if to_date:
         query = query.filter(GatePassHeader.document_date <= to_date)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (GatePassHeader.gate_pass_no.ilike(like))
+            | (GatePassHeader.party_name.ilike(like))
+            | (GatePassHeader.vehicle_no.ilike(like))
+        )
 
     query = _guard_location_filter(db, query, current_user)
     today = date.today()

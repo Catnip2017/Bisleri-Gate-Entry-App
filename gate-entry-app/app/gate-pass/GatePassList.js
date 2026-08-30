@@ -323,7 +323,12 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
 
       {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
       {showFilters && (
-        <View style={[styles.filterRow, { flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, zIndex: 50 }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterRow}
+          contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
+        >
           <MultiSelectDropdown
             label="Status"
             options={STATUS_OPTIONS}
@@ -357,7 +362,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
               <Text style={styles.wfButtonText}>Clear Filters</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       )}
       <View style={styles.searchRow}>
         <TextInput
