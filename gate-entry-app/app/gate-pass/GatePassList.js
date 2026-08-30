@@ -12,6 +12,7 @@ import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
 import OptionalDateField from '../../components/ui/OptionalDateField';
+import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../utils/printGatePass';
 import styles, { gp } from './styles/gatePassStyles';
 
@@ -322,56 +323,40 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
 
       {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
       {showFilters && (
-        <View style={styles.filterRow}>
-          <Text style={styles.fieldLabel}>Status</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.chipRow}>
-              {STATUS_OPTIONS.map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={statusFilters.includes(s) ? styles.chipActive : styles.chip}
-                  onPress={() => toggleStatusFilter(s)}
-                >
-                  <Text style={statusFilters.includes(s) ? styles.chipActiveText : styles.chipText}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Pass Type</Text>
-          <View style={styles.chipRow}>
-            {PASS_TYPE_OPTIONS.map((t) => (
-              <TouchableOpacity
-                key={t.value}
-                style={passTypeFilters.includes(t.value) ? styles.chipActive : styles.chip}
-                onPress={() => togglePassTypeFilter(t.value)}
-              >
-                <Text style={passTypeFilters.includes(t.value) ? styles.chipActiveText : styles.chipText}>
-                  {t.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={overdueOnly ? styles.chipActive : styles.chip}
-              onPress={() => setOverdueOnly(!overdueOnly)}
-            >
-              <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
+        <View style={[styles.filterRow, { flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, zIndex: 50 }]}>
+          <MultiSelectDropdown
+            label="Status"
+            options={STATUS_OPTIONS}
+            selected={statusFilters}
+            onChange={setStatusFilters}
+            allLabel="All statuses"
+            minWidth={170}
+          />
+          <MultiSelectDropdown
+            label="Pass Type"
+            options={PASS_TYPE_OPTIONS}
+            selected={passTypeFilters}
+            onChange={setPassTypeFilters}
+            allLabel="All pass types"
+            minWidth={160}
+          />
+          <View style={{ minWidth: 150 }}>
+            <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+          </View>
+          <View style={{ minWidth: 150 }}>
+            <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+          </View>
+          <TouchableOpacity
+            style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
+            onPress={() => setOverdueOnly(!overdueOnly)}
+          >
+            <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
+          </TouchableOpacity>
+          {filtersActive && (
+            <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
+              <Text style={styles.wfButtonText}>Clear Filters</Text>
             </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-            <View style={{ minWidth: 170 }}>
-              <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
-            </View>
-            <View style={{ minWidth: 170 }}>
-              <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
-            </View>
-            {filtersActive && (
-              <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={clearFilters}>
-                <Text style={styles.wfButtonText}>Clear Filters</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          )}
         </View>
       )}
       <View style={styles.searchRow}>

@@ -11,6 +11,7 @@ import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
 import OptionalDateField from '../../../components/ui/OptionalDateField';
+import MultiSelectDropdown from '../../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../../utils/printGatePass';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
@@ -125,7 +126,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     return `${y}-${m}-${d}`;
   };
 
-  const togglePassTypeFilter = (t) =
+  const togglePassTypeFilter = (t) =>
     setPassTypeFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   const clearFilters = () => {
     setPassTypeFilters([]);
@@ -468,32 +469,24 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               </TouchableOpacity>
             </View>
 
-            {/* Pass type + date-range filters */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-              <View>
-                <Text style={styles.fieldLabel}>Pass Type</Text>
-                <View style={styles.chipRow}>
-                  {PASS_TYPE_OPTIONS.map((t) => (
-                    <TouchableOpacity
-                      key={t.value}
-                      style={passTypeFilters.includes(t.value) ? styles.chipActive : styles.chip}
-                      onPress={() => togglePassTypeFilter(t.value)}
-                    >
-                      <Text style={passTypeFilters.includes(t.value) ? styles.chipActiveText : styles.chipText}>
-                        {t.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-              <View style={{ minWidth: 170 }}>
+            {/* Pass type + date-range filters — one compact line */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 8, marginBottom: 10, zIndex: 40 }}>
+              <MultiSelectDropdown
+                label="Pass Type"
+                options={PASS_TYPE_OPTIONS}
+                selected={passTypeFilters}
+                onChange={setPassTypeFilters}
+                allLabel="All pass types"
+                minWidth={160}
+              />
+              <View style={{ minWidth: 150 }}>
                 <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
               </View>
-              <View style={{ minWidth: 170 }}>
+              <View style={{ minWidth: 150 }}>
                 <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
               </View>
               {filtersActive && (
-                <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={clearFilters}>
+                <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
                   <Text style={styles.wfButtonText}>Clear Filters</Text>
                 </TouchableOpacity>
               )}
