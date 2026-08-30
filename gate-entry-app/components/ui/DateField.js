@@ -1,7 +1,9 @@
-// components/ui/DateField.js - Single cross-platform date picker.
-// Replaces the three divergent date-picker implementations that existed in
-// SecurityInsightsTab, AdminInsightsScreen and free-text date inputs.
-// Web  -> native HTML5 <input type="date">
+// components/ui/DateField.js - Single cross-platform date picker, used both
+// where a date is always required (e.g. Expected Inward Date on the New
+// Gate Pass form) and where it's optional (e.g. From/To filter fields).
+// Pass value={null} for an empty/optional field — it renders a placeholder
+// and a "clear" (×) button appears once a date is picked.
+// Web    -> native HTML5 <input type="date"> (blank when value is null)
 // Mobile -> @react-native-community/datetimepicker behind a touch target
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
@@ -16,14 +18,23 @@ const formatDisplay = (date) => {
   return `${day}-${month}-${year}`;
 };
 
-const DateField = ({ label, value, onChange, disabled = false }) => {
+const toISODate = (date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// value: Date | null (null only makes sense when the field is optional,
+// e.g. a filter — required fields such as the create-pass form always pass
+// a real Date and never see the placeholder/clear-button state).
+const DateField = ({ label, value, onChange, placeholder = 'Select date', disabled = false }) => {
   const [showPicker, setShowPicker] = useState(false);
 
   const handleNativeChange = (event, selectedDate) => {
     setShowPicker(Platform.OS === 'ios');
-    if (selectedDate) {
-      onChange(selectedDate);
-    }
+    if (event.type === 'dismissed') return;
+    if (selectedDate) onChange(selectedDate);
   };
 
   return (
@@ -33,13 +44,9 @@ const DateField = ({ label, value, onChange, disabled = false }) => {
       {Platform.OS === 'web' ? (
         <input
           type="date"
-          value={value.toISOString().split('T')[0]}
+          value={value ? toISODate(value) : ''}
           disabled={disabled}
-          onChange={(e) => {
-            if (e.target.value) {
-              onChange(new Date(e.target.value));
-            }
-          }}
+          onChange={(e) => onChange(e.target.value ? new Date(`${e.target.value}T00:00:00`) : null)}
           style={{
             boxSizing: 'border-box',
             width: '100%',
@@ -56,26 +63,39 @@ const DateField = ({ label, value, onChange, disabled = false }) => {
           }}
         />
       ) : (
-        <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
           <TouchableOpacity
             style={[styles.pickerButton, disabled && styles.pickerDisabled]}
             onPress={() => !disabled && setShowPicker(true)}
             accessibilityRole="button"
-            accessibilityLabel={`${label || 'Date'}: ${formatDisplay(value)}`}
+            accessibilityLabel={`${label || 'Date'}: ${value ? formatDisplay(value) : placeholder}`}
           >
             <MaterialIcons name="calendar-today" size={16} color={colors.textSecondary} />
-            <Text style={styles.pickerText}>{formatDisplay(value)}</Text>
+            <Text style={value ? styles.pickerText : styles.pickerPlaceholder}>
+              {value ? formatDisplay(value) : placeholder}
+            </Text>
           </TouchableOpacity>
+
+          {value && !disabled && (
+            <TouchableOpacity
+              onPress={() => onChange(null)}
+              accessibilityRole="button"
+              accessibilityLabel={`Clear ${label || 'date'}`}
+              style={styles.clearButton}
+            >
+              <MaterialIcons name="close" size={16} color={colors.textSecondary} />
+            </TouchableOpacity>
+          )}
 
           {showPicker && (
             <DateTimePicker
-              value={value}
+              value={value || new Date()}
               mode="date"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleNativeChange}
             />
           )}
-        </>
+        </View>
       )}
     </View>
   );
@@ -99,12 +119,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     minHeight: Math.max(40, TOUCH_TARGET - 8),
     backgroundColor: colors.surface,
+    flex: 1,
   },
   pickerDisabled: {
     backgroundColor: colors.surfaceMuted,
   },
   pickerText: {
     ...typography.body,
+  },
+  pickerPlaceholder: {
+    ...typography.body,
+    color: colors.textMuted,
+  },
+  clearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceMuted,
   },
 });
 

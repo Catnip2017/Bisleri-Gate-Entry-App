@@ -10,7 +10,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } fro
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
-import OptionalDateField from '../../../components/ui/OptionalDateField';
+import DateField from '../../../components/ui/DateField';
 import MultiSelectDropdown from '../../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../../utils/printGatePass';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
@@ -480,10 +480,10 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 minWidth={160}
               />
               <View style={{ minWidth: 150 }}>
-                <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+                <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
               </View>
               <View style={{ minWidth: 150 }}>
-                <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+                <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
               </View>
               {filtersActive && (
                 <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>

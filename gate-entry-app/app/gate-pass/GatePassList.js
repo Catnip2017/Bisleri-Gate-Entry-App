@@ -11,7 +11,7 @@ import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, Scro
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
-import OptionalDateField from '../../components/ui/OptionalDateField';
+import DateField from '../../components/ui/DateField';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../utils/printGatePass';
 import styles, { gp } from './styles/gatePassStyles';
@@ -341,10 +341,10 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
             minWidth={160}
           />
           <View style={{ minWidth: 150 }}>
-            <OptionalDateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+            <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
           </View>
           <View style={{ minWidth: 150 }}>
-            <OptionalDateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+            <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
           </View>
           <TouchableOpacity
             style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
