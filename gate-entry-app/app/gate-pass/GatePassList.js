@@ -328,7 +328,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filterRow}
-        contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
+        contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minWidth: '100%' }}
       >
         {showFilters && (
           <>
@@ -348,18 +348,21 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
               allLabel="All pass types"
               minWidth={160}
             />
-            <View style={{ minWidth: 150 }}>
-              <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
-            </View>
-            <View style={{ minWidth: 150 }}>
-              <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
-            </View>
+            {/* Grouped with Status/Pass Type — it's a category-style toggle,
+                not a date value, so it reads better next to them than after
+                the date range it happens to act on. */}
             <TouchableOpacity
               style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
               onPress={() => setOverdueOnly(!overdueOnly)}
             >
               <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
             </TouchableOpacity>
+            <View style={{ minWidth: 150 }}>
+              <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+            </View>
+            <View style={{ minWidth: 150 }}>
+              <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+            </View>
             {filtersActive && (
               <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
                 <Text style={styles.wfButtonText}>Clear Filters</Text>
@@ -377,6 +380,14 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         />
         <TouchableOpacity style={[styles.wfButton, styles.btnDispatch, { marginBottom: 0 }]} onPress={load}>
           <Text style={styles.wfButtonText}>Search</Text>
+        </TouchableOpacity>
+        {/* Refresh — pinned to the far right of the scrollable filter bar */}
+        <TouchableOpacity
+          style={[styles.smallSecondaryBtn, { marginBottom: 2, marginLeft: 'auto' }]}
+          onPress={load}
+          accessibilityRole="button"
+        >
+          <Text style={styles.smallBtnText}>↻ Refresh</Text>
         </TouchableOpacity>
       </ScrollView>
 

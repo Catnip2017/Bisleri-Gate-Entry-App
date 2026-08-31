@@ -4,6 +4,7 @@
 // on the location filter already used in GatePassGuardTab.
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { typography, spacing } from '../../utils/theme';
 
 // options: array of strings, or array of { value, label }
 const normalize = (opt) => (typeof opt === 'string' ? { value: opt, label: opt } : opt);
@@ -34,7 +35,7 @@ const MultiSelectDropdown = ({
 
   return (
     <View style={{ minWidth, maxWidth }}>
-      {label ? <Text style={{ fontSize: 12, color: '#7A8A80', marginBottom: 4 }}>{label}</Text> : null}
+      {label ? <Text style={{ ...typography.label, marginBottom: spacing.xs }}>{label}</Text> : null}
       <TouchableOpacity
         onPress={() => setOpen((o) => !o)}
         accessibilityRole="button"
