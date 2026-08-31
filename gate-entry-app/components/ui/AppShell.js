@@ -91,7 +91,6 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       {/* One merged header — navy band with logo, back-chip/title and avatar */}
       <AppHeader
-        onMenuPress={() => setSidebarVisible(true)}
         rightSlot={avatarChip}
         backLabel={backLabel}
         title={title}
