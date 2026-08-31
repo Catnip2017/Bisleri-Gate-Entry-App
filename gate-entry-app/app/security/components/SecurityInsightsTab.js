@@ -34,7 +34,6 @@ const SecurityInsightsTab = () => {
   const [userData, setUserData] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
-  const [editStatistics, setEditStatistics] = useState(null);
 
   // NEW: Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,7 +76,6 @@ const SecurityInsightsTab = () => {
     (async () => {
       const user = await loadUserData();
       loadMovements(user);
-      loadEditStatistics();
     })();
   }, []);
 
@@ -105,15 +103,6 @@ const SecurityInsightsTab = () => {
     } catch (error) {
       console.log('Error loading user data:', error);
       return null;
-    }
-  };
-
-  const loadEditStatistics = async () => {
-    try {
-      const stats = await insightsAPI.getEditStatistics();
-      setEditStatistics(stats);
-    } catch (error) {
-      console.log('Error loading edit statistics:', error);
     }
   };
 
@@ -153,7 +142,6 @@ const SecurityInsightsTab = () => {
   // Apply filters and reload data
   const handleApplyFilters = () => {
     loadMovements();
-    loadEditStatistics();
   };
 
   // ✅ KPI click-to-filter: tapping a card narrows the table below it to
@@ -403,7 +391,6 @@ const SecurityInsightsTab = () => {
           : movement
       )
     );
-    loadEditStatistics();
   };
 
   // Render 3-color edit button
@@ -693,28 +680,6 @@ const SecurityInsightsTab = () => {
                 <Text style={styles.searchButtonText}>Search</Text>
               )}
             </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* NEW: Operational summary stats */}
-        <View style={styles.operationalSummary}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Completion Rate:</Text>
-            <Text style={[styles.summaryValue, {color: '#28a745'}]}>
-              {editStatistics ? `${editStatistics.completion_percentage}%` : '--'}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Avg Edits:</Text>
-            <Text style={styles.summaryValue}>
-              {editStatistics?.avg_edits_per_record || 0}
-            </Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Edited Today:</Text>
-            <Text style={[styles.summaryValue, {color: '#00A651'}]}>
-              {editStatistics?.edited_today || 0}
-            </Text>
           </View>
         </View>
 
