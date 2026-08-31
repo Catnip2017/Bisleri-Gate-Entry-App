@@ -23,7 +23,6 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import Checkbox from 'expo-checkbox';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { rpaAPI, handleAPIError } from '../../services/api';
@@ -71,7 +70,6 @@ export default function VendorPaymentAdviceScreen() {
   // first load bounded; Clear resets to this default.
   const [paymentFrom, setPaymentFrom] = useState(daysAgo(90));
   const [paymentTo, setPaymentTo] = useState(new Date());
-  const [emailFilterOn, setEmailFilterOn] = useState(false);
   const [emailFrom, setEmailFrom] = useState(daysAgo(30));
   const [emailTo, setEmailTo] = useState(new Date());
   const [searchDraft, setSearchDraft] = useState('');
@@ -109,11 +107,9 @@ export default function VendorPaymentAdviceScreen() {
     const params = {
       payment_from: fmtDate(paymentFrom),
       payment_to: fmtDate(paymentTo),
+      email_from: fmtDate(emailFrom),
+      email_to: fmtDate(emailTo),
     };
-    if (emailFilterOn) {
-      params.email_from = fmtDate(emailFrom);
-      params.email_to = fmtDate(emailTo);
-    }
     if (search && search.trim()) params.search = search.trim();
     if (status && status !== 'all') params.status = status;
     return params;
@@ -138,7 +134,7 @@ export default function VendorPaymentAdviceScreen() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentFrom, paymentTo, emailFilterOn, emailFrom, emailTo, statusFilter, appliedSearch]);
+  }, [paymentFrom, paymentTo, emailFrom, emailTo, statusFilter, appliedSearch]);
 
   const handleApply = () => {
     setAppliedSearch(searchDraft);
@@ -280,7 +276,8 @@ export default function VendorPaymentAdviceScreen() {
           backgroundColor: green.tint2, borderRadius: 12, padding: 14, marginTop: 8, marginBottom: 14,
           borderWidth: 1, borderColor: '#BCE5CC',
         }}>
-          {/* Payment date range — fixed widths so fields don't stretch on
+          {/* Payment date range (left) + Email sent date range (right) —
+              always on, one row, fixed widths so fields don't stretch on
               wide desktop screens */}
           <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
             <View style={{ width: 210 }}>
@@ -289,27 +286,13 @@ export default function VendorPaymentAdviceScreen() {
             <View style={{ width: 210 }}>
               <DateField label="Payment to" value={paymentTo} onChange={setPaymentTo} />
             </View>
-          </View>
-
-          {/* Email sent range (optional) */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 }}>
-            <Checkbox
-              value={emailFilterOn}
-              onValueChange={setEmailFilterOn}
-              color={emailFilterOn ? colors.primary : undefined}
-            />
-            <Text style={{ fontSize: 13, color: green.deep }}>Filter by email sent date</Text>
-          </View>
-          {emailFilterOn && (
-            <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-              <View style={{ width: 210 }}>
-                <DateField label="Email sent from" value={emailFrom} onChange={setEmailFrom} />
-              </View>
-              <View style={{ width: 210 }}>
-                <DateField label="Email sent to" value={emailTo} onChange={setEmailTo} />
-              </View>
+            <View style={{ width: 210 }}>
+              <DateField label="Email sent from" value={emailFrom} onChange={setEmailFrom} />
             </View>
-          )}
+            <View style={{ width: 210 }}>
+              <DateField label="Email sent to" value={emailTo} onChange={setEmailTo} />
+            </View>
+          </View>
         </View>
 
         {/* Table */}
