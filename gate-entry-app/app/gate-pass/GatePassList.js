@@ -352,10 +352,15 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
                 not a date value, so it reads better next to them than after
                 the date range it happens to act on. */}
             <TouchableOpacity
-              style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
+              style={[
+                overdueOnly ? styles.chipActive : styles.chip,
+                { marginBottom: 0, paddingVertical: 12, paddingHorizontal: 20, minHeight: 44, minWidth: 110, justifyContent: 'center', alignItems: 'center' },
+              ]}
               onPress={() => setOverdueOnly(!overdueOnly)}
             >
-              <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
+              <Text style={[overdueOnly ? styles.chipActiveText : styles.chipText, { fontSize: 14, fontWeight: 'bold' }]}>
+                Overdue Returns
+              </Text>
             </TouchableOpacity>
             <View style={{ minWidth: 150 }}>
               <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
@@ -381,13 +386,17 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         <TouchableOpacity style={[styles.wfButton, styles.btnDispatch, { marginBottom: 0 }]} onPress={load}>
           <Text style={styles.wfButtonText}>Search</Text>
         </TouchableOpacity>
-        {/* Refresh — pinned to the far right of the scrollable filter bar */}
+        {/* Refresh — pinned to the far right of the scrollable filter bar,
+            sized to match the Search button next to it */}
         <TouchableOpacity
-          style={[styles.smallSecondaryBtn, { marginBottom: 2, marginLeft: 'auto' }]}
+          style={[
+            styles.smallSecondaryBtn,
+            { marginBottom: 0, marginLeft: 'auto', paddingVertical: 12, paddingHorizontal: 20, minHeight: 44, minWidth: 110, justifyContent: 'center', alignItems: 'center' },
+          ]}
           onPress={load}
           accessibilityRole="button"
         >
-          <Text style={styles.smallBtnText}>↻ Refresh</Text>
+          <Text style={[styles.smallBtnText, { fontSize: 14 }]}>↻ Refresh</Text>
         </TouchableOpacity>
       </ScrollView>
 
