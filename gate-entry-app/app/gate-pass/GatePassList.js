@@ -321,62 +321,64 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         </View>
       )}
 
-      {/* Filters — only in "View All Passes" (menu drives status otherwise) */}
-      {showFilters && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterRow}
-          contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
-        >
-          <MultiSelectDropdown
-            label="Status"
-            options={STATUS_OPTIONS}
-            selected={statusFilters}
-            onChange={setStatusFilters}
-            allLabel="All statuses"
-            minWidth={170}
-          />
-          <MultiSelectDropdown
-            label="Pass Type"
-            options={PASS_TYPE_OPTIONS}
-            selected={passTypeFilters}
-            onChange={setPassTypeFilters}
-            allLabel="All pass types"
-            minWidth={160}
-          />
-          <View style={{ minWidth: 150 }}>
-            <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
-          </View>
-          <View style={{ minWidth: 150 }}>
-            <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
-          </View>
-          <TouchableOpacity
-            style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
-            onPress={() => setOverdueOnly(!overdueOnly)}
-          >
-            <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
-          </TouchableOpacity>
-          {filtersActive && (
-            <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
-              <Text style={styles.wfButtonText}>Clear Filters</Text>
+      {/* Filters (when shown) + search — one horizontally-scrollable line,
+          so nothing wraps awkwardly ("View All Passes" gets both; other
+          menu tabs get just the search since showFilters is false there). */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterRow}
+        contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
+      >
+        {showFilters && (
+          <>
+            <MultiSelectDropdown
+              label="Status"
+              options={STATUS_OPTIONS}
+              selected={statusFilters}
+              onChange={setStatusFilters}
+              allLabel="All statuses"
+              minWidth={170}
+            />
+            <MultiSelectDropdown
+              label="Pass Type"
+              options={PASS_TYPE_OPTIONS}
+              selected={passTypeFilters}
+              onChange={setPassTypeFilters}
+              allLabel="All pass types"
+              minWidth={160}
+            />
+            <View style={{ minWidth: 150 }}>
+              <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+            </View>
+            <View style={{ minWidth: 150 }}>
+              <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+            </View>
+            <TouchableOpacity
+              style={[overdueOnly ? styles.chipActive : styles.chip, { marginBottom: 2 }]}
+              onPress={() => setOverdueOnly(!overdueOnly)}
+            >
+              <Text style={overdueOnly ? styles.chipActiveText : styles.chipText}>Overdue Returns</Text>
             </TouchableOpacity>
-          )}
-        </ScrollView>
-      )}
-      <View style={styles.searchRow}>
+            {filtersActive && (
+              <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
+                <Text style={styles.wfButtonText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
         <TextInput
-          style={[styles.input, { flex: 1 }]}
+          style={[styles.input, { width: 280, marginBottom: 0 }]}
           value={searchText}
           onChangeText={setSearchText}
           placeholder="Search pass no., party or vehicle"
           placeholderTextColor={gp.textMuted}
           onSubmitEditing={load}
         />
-        <TouchableOpacity style={[styles.wfButton, styles.btnDispatch]} onPress={load}>
+        <TouchableOpacity style={[styles.wfButton, styles.btnDispatch, { marginBottom: 0 }]} onPress={load}>
           <Text style={styles.wfButtonText}>Search</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <Text style={styles.countText}>
         {fixedStatus ? `${fixedStatus}: ` : ''}

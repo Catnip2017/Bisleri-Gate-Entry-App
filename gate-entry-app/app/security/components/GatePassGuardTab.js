@@ -491,23 +491,23 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               >
                 <Text style={styles.smallBtnText}>↻ Refresh</Text>
               </TouchableOpacity>
-            </ScrollView>
 
-            {/* Search — vendor/customer name, gate pass no. or vehicle no.,
-                all in this one box (same behavior as the Gate Pass list). */}
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+              {/* Search — vendor/customer name, gate pass no. or vehicle no.,
+                  same line as the rest of the filters (same behavior as the
+                  Gate Pass list). Fixed width instead of flex:1 since this
+                  row scrolls horizontally. */}
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={[styles.input, { width: 280, marginBottom: 0 }]}
                 value={searchText}
                 onChangeText={setSearchText}
                 placeholder="Search vendor/customer, pass no. or vehicle"
                 placeholderTextColor={gp.textMuted}
                 onSubmitEditing={load}
               />
-              <TouchableOpacity style={[styles.wfButton, styles.btnDispatch]} onPress={load}>
+              <TouchableOpacity style={[styles.wfButton, styles.btnDispatch, { marginBottom: 0 }]} onPress={load}>
                 <Text style={styles.wfButtonText}>Search</Text>
               </TouchableOpacity>
-            </View>
+            </ScrollView>
 
             {loading ? (
               <View style={styles.loadingBox}>

@@ -494,6 +494,8 @@ export default StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     justifyContent: 'center',
+    alignSelf: 'flex-start', // don't stretch to fill the action column when
+                              // rendered as the lone button in a table cell
   },
   smallPrintBtnText: { color: '#FFFFFF', fontSize: 10, fontWeight: 'bold' },
   smallSecondaryBtn: {
