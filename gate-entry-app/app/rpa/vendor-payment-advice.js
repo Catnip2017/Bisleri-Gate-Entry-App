@@ -187,13 +187,13 @@ export default function VendorPaymentAdviceScreen() {
     { key: 'recid', title: 'RECID', flex: 0.9, priority: 1 },
     { key: 'payment_date', title: 'Payment Date', flex: 1, priority: 1, render: (r) => r.payment_date || '—' },
     { key: 'vendor_name', title: 'Vendor', flex: 1.6, priority: 1 },
+    { key: 'vendor_code', title: 'Vendor Code', flex: 1, priority: 1 },
+    { key: 'payment_type', title: 'Payment Type', flex: 1, priority: 1 },
     { key: 'payment_amount', title: 'Amount', flex: 1.1, priority: 1, render: (r) => formatAmount(r.payment_amount) },
     { key: 'status', title: 'Status', flex: 0.9, priority: 1, render: (r) => (r.status || '—').toUpperCase() },
     { key: 'email_sent_date', title: 'Email Sent', priority: 2, render: (r) => formatDateTime(r.email_sent_date) },
-    { key: 'vendor_code', title: 'Vendor Code', priority: 2 },
     { key: 'vendor_email', title: 'Email (TO)', priority: 2 },
     { key: 'site', title: 'Site', priority: 2 },
-    { key: 'payment_type', title: 'Payment Type', priority: 2 },
     { key: 'invoice_count', title: 'Invoices', priority: 2 },
   ];
 
@@ -314,6 +314,7 @@ export default function VendorPaymentAdviceScreen() {
               data={pageRecords}
               keyExtractor={(r) => String(r.recid)}
               emptyText="No records match the current filters"
+              detailLayout="row"
             />
 
             {/* Pagination */}

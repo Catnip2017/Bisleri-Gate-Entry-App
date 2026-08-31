@@ -11,7 +11,7 @@
 //
 // Column config: { key, title, flex?, width?, priority (1|2), render?(item) }
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { colors, radius, spacing, TOUCH_TARGET, typography } from '../../utils/theme';
 
@@ -29,6 +29,11 @@ const DataTable = ({
   selectedKeys = [],
   onToggleSelect,
   emptyText = 'No records found',
+  // 'grid' (default): priority-2 fields wrap in a 3-column grid — good for
+  // a handful of fields per row. 'row': all priority-2 fields inline on one
+  // horizontally-scrollable line — better when there are few, short fields
+  // and a grid would leave awkward empty space (e.g. Vendor Payment Advice).
+  detailLayout = 'grid',
 }) => {
   const [expandedKeys, setExpandedKeys] = useState([]);
 
@@ -127,18 +132,33 @@ const DataTable = ({
 
             {/* Expandable detail panel: priority-2 columns as label/value pairs */}
             {isExpanded && (
-              <View style={styles.detailPanel}>
-                {detailColumns.map((column) => (
-                  <View key={`d-${key}-${column.key}`} style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>{column.title}</Text>
-                    {typeof cellValue(item, column) === 'string' ? (
-                      <Text style={styles.detailValue}>{cellValue(item, column)}</Text>
-                    ) : (
-                      cellValue(item, column)
-                    )}
-                  </View>
-                ))}
-              </View>
+              detailLayout === 'row' ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.detailPanelRow}>
+                  {detailColumns.map((column) => (
+                    <View key={`d-${key}-${column.key}`} style={styles.detailItemRow}>
+                      <Text style={styles.detailLabel}>{column.title}</Text>
+                      {typeof cellValue(item, column) === 'string' ? (
+                        <Text style={styles.detailValue}>{cellValue(item, column)}</Text>
+                      ) : (
+                        cellValue(item, column)
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.detailPanel}>
+                  {detailColumns.map((column) => (
+                    <View key={`d-${key}-${column.key}`} style={styles.detailItem}>
+                      <Text style={styles.detailLabel}>{column.title}</Text>
+                      {typeof cellValue(item, column) === 'string' ? (
+                        <Text style={styles.detailValue}>{cellValue(item, column)}</Text>
+                      ) : (
+                        cellValue(item, column)
+                      )}
+                    </View>
+                  ))}
+                </View>
+              )
             )}
           </View>
         );
@@ -216,6 +236,18 @@ const styles = StyleSheet.create({
     minWidth: 160,
     marginBottom: spacing.sm,
     paddingRight: spacing.sm,
+  },
+  detailPanelRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.infoBg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  detailItemRow: {
+    minWidth: 140,
+    marginRight: spacing.lg,
   },
   detailLabel: {
     ...typography.caption,
