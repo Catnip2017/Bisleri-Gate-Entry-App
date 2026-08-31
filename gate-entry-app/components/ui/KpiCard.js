@@ -11,6 +11,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { green, colors, radius, spacing, TOUCH_TARGET } from '../../utils/theme';
+import { brand } from '../../contexts/ThemeContext';
 
 const AMBER = {
   bg: '#B45309',
@@ -62,7 +63,7 @@ const KpiCard = ({
           <Text
             style={[
               styles.caption,
-              { color: captionColor || (emphasized ? AMBER.caption : '#9FDDB9') },
+              { color: captionColor || (emphasized ? AMBER.caption : brand.teal) },
             ]}
           >
             {caption}
@@ -105,9 +106,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 150,
     minHeight: TOUCH_TARGET + 32,
-    backgroundColor: green.dark,       // #005C2B — dark brand surface
+    backgroundColor: brand.navy,       // dark-navy brand surface (Aug 2026 scheme)
     borderWidth: 1,
-    borderColor: green.deep,
+    borderColor: brand.navyDark,
     borderRadius: radius.lg,
     paddingVertical: spacing.sm + 4,
     paddingHorizontal: spacing.md,
@@ -123,7 +124,7 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     borderWidth: 2,
-    borderColor: colors.accent,        // aqua outline for active filter
+    borderColor: brand.maroon,         // maroon outline for the active filter
   },
   headerRow: {
     flexDirection: 'row',
@@ -141,7 +142,7 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 12,
-    color: '#BFE8CF',                  // light green tint on dark surface
+    color: '#B9CBDA',                  // light steel tint on navy surface
   },
   valueRow: {
     flexDirection: 'row',

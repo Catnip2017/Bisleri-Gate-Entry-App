@@ -15,13 +15,14 @@ import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { storage } from '../../utils/storage';
 import AppHeader from './AppHeader';
-import BackChip from './BackChip';
 import NavSidebar from './NavSidebar';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const AppShell = ({ children, title, backLabel, onBack }) => {
   const router = useRouter();
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [userData, setUserData] = useState(null);
+  const { colors } = useTheme();
 
   useEffect(() => {
     // ── AUTH GUARD ──────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
       accessibilityLabel="Open user menu"
     >
       {firstName ? (
-        <Text style={{ fontSize: 13, color: '#555', maxWidth: 90 }} numberOfLines={1}>
+        <Text style={{ fontSize: 13, color: '#FFFFFF', maxWidth: 90 }} numberOfLines={1}>
           {firstName}
         </Text>
       ) : null}
@@ -87,32 +88,15 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#EAF7EF' }}>
-      {/* Standard header */}
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* One merged header — navy band with logo, back-chip/title and avatar */}
       <AppHeader
         onMenuPress={() => setSidebarVisible(true)}
         rightSlot={avatarChip}
+        backLabel={backLabel}
+        title={title}
+        onBack={onBack || (() => router.back())}
       />
-
-      {/* Back chip row (home screens pass no backLabel and get no chip) */}
-      {(backLabel || title) && (
-        <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 10,
-          paddingHorizontal: 16, paddingVertical: 10,
-        }}>
-          {backLabel ? (
-            <BackChip
-              label={backLabel}
-              onPress={onBack || (() => router.back())}
-            />
-          ) : null}
-          {title ? (
-            <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#007A3B' }}>
-              {title}
-            </Text>
-          ) : null}
-        </View>
-      )}
 
       {/* Screen content */}
       <View style={{ flex: 1 }}>{children}</View>

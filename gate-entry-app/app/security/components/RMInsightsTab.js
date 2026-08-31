@@ -22,6 +22,7 @@ const RMInsightsTab = () => {
   // State management
   const [loading, setLoading] = useState(false);
   const [rmEntries, setRMEntries] = useState([]);
+  const [kpiFilter, setKpiFilter] = useState('all'); // 'all' | 'gate_in' | 'gate_out' | 'unique_vehicles'
   const [userData, setUserData] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -223,12 +224,33 @@ const RMInsightsTab = () => {
     loadStatistics();
   };
 
+  // ✅ KPI click-to-filter: tapping a card narrows the table below it to
+  // that subset; tapping the same card again clears back to 'all'.
+  const displayedEntries = React.useMemo(() => {
+    if (kpiFilter === 'gate_in') return rmEntries.filter((e) => e.gate_type === 'Gate-In');
+    if (kpiFilter === 'gate_out') return rmEntries.filter((e) => e.gate_type === 'Gate-Out');
+    if (kpiFilter === 'unique_vehicles') {
+      const seen = new Set();
+      return rmEntries.filter((e) => {
+        if (seen.has(e.vehicle_no)) return false;
+        seen.add(e.vehicle_no);
+        return true;
+      });
+    }
+    return rmEntries;
+  }, [rmEntries, kpiFilter]);
+
+  const handleKpiTap = (key) => {
+    setCurrentPage(1);
+    setKpiFilter((prev) => (prev === key ? 'all' : key));
+  };
+
   // ✅ NEW: Pagination calculations
-  const totalItems = rmEntries.length;
+  const totalItems = displayedEntries.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentRMEntries = rmEntries.slice(startIndex, endIndex);
+  const currentRMEntries = displayedEntries.slice(startIndex, endIndex);
   const startItem = totalItems > 0 ? startIndex + 1 : 0;
   const endItem = Math.min(endIndex, totalItems);
 
@@ -423,6 +445,9 @@ const stats = React.useMemo(() => {
             icon="inventory"
             tint="#F1EFE8"
             iconColor="#5F5E5A"
+            selected={kpiFilter === 'all'}
+            caption={kpiFilter === 'all' ? 'showing all' : 'tap to clear'}
+            onPress={() => setKpiFilter('all')}
           />
           <KpiCard
             label="Gate in"
@@ -430,6 +455,9 @@ const stats = React.useMemo(() => {
             icon="arrow-downward"
             tint="#E1F5EE"
             iconColor="#0F6E56"
+            selected={kpiFilter === 'gate_in'}
+            caption={kpiFilter === 'gate_in' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('gate_in')}
           />
           <KpiCard
             label="Gate out"
@@ -437,6 +465,9 @@ const stats = React.useMemo(() => {
             icon="arrow-upward"
             tint="#E0F4F9"
             iconColor="#0A6E85"
+            selected={kpiFilter === 'gate_out'}
+            caption={kpiFilter === 'gate_out' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('gate_out')}
           />
           <KpiCard
             label="Unique vehicles"
@@ -444,6 +475,9 @@ const stats = React.useMemo(() => {
             icon="local-shipping"
             tint="#EEEDFE"
             iconColor="#534AB7"
+            selected={kpiFilter === 'unique_vehicles'}
+            caption={kpiFilter === 'unique_vehicles' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('unique_vehicles')}
           />
         </View>
         

@@ -30,6 +30,7 @@ const SecurityInsightsTab = () => {
   // State management
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState([]);
+  const [kpiFilter, setKpiFilter] = useState('all'); // 'all' | 'gate_in' | 'gate_out' | 'needs_completion' | 'pending_assignment'
   const [userData, setUserData] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -155,12 +156,31 @@ const SecurityInsightsTab = () => {
     loadEditStatistics();
   };
 
+  // ✅ KPI click-to-filter: tapping a card narrows the table below it to
+  // that subset; tapping the same card again clears back to 'all'.
+  const displayedMovements = React.useMemo(() => {
+    if (kpiFilter === 'gate_in') return movements.filter((m) => m.movement_type === 'Gate-In');
+    if (kpiFilter === 'gate_out') return movements.filter((m) => m.movement_type === 'Gate-Out');
+    if (kpiFilter === 'needs_completion') {
+      return movements.filter((m) => editStatusUtils.getButtonConfig(m).action === 'complete_required');
+    }
+    if (kpiFilter === 'pending_assignment') {
+      return movements.filter((m) => documentAssignmentUtils.needsDocumentAssignment(m));
+    }
+    return movements;
+  }, [movements, kpiFilter]);
+
+  const handleKpiTap = (key) => {
+    setPage(1);
+    setKpiFilter((prev) => (prev === key ? 'all' : key));
+  };
+
   // NEW: Pagination calculations
-  const totalItems = movements.length;
+  const totalItems = displayedMovements.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentMovements = movements.slice(startIndex, endIndex);
+  const currentMovements = displayedMovements.slice(startIndex, endIndex);
   const startItem = totalItems > 0 ? startIndex + 1 : 0;
   const endItem = Math.min(endIndex, totalItems);
 
@@ -564,6 +584,9 @@ const SecurityInsightsTab = () => {
             icon="arrow-downward"
             tint="#E1F5EE"
             iconColor="#0F6E56"
+            selected={kpiFilter === 'gate_in'}
+            caption={kpiFilter === 'gate_in' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('gate_in')}
           />
           <KpiCard
             label="Gate out"
@@ -571,6 +594,9 @@ const SecurityInsightsTab = () => {
             icon="arrow-upward"
             tint="#E0F4F9"
             iconColor="#0A6E85"
+            selected={kpiFilter === 'gate_out'}
+            caption={kpiFilter === 'gate_out' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('gate_out')}
           />
           <KpiCard
             label="Need completion"
@@ -579,6 +605,9 @@ const SecurityInsightsTab = () => {
             emphasized={stats.needsCompletion > 0}
             tint="#F1EFE8"
             iconColor="#5F5E5A"
+            selected={kpiFilter === 'needs_completion'}
+            caption={kpiFilter === 'needs_completion' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('needs_completion')}
           />
           <KpiCard
             label="Pending assignment"
@@ -586,6 +615,9 @@ const SecurityInsightsTab = () => {
             icon="assignment"
             tint="#EEEDFE"
             iconColor="#534AB7"
+            selected={kpiFilter === 'pending_assignment'}
+            caption={kpiFilter === 'pending_assignment' ? 'filtering' : 'tap to filter'}
+            onPress={() => handleKpiTap('pending_assignment')}
           />
         </View>
         

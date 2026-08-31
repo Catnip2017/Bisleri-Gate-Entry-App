@@ -12,6 +12,7 @@ import { View, Text, Pressable, TouchableOpacity, ScrollView } from 'react-nativ
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { authAPI, gatePassAPI, API_BASE_URL } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 import { storage } from '../../utils/storage';
 import { confirmAction } from '../../utils/customModal';
 import {
@@ -24,6 +25,7 @@ import {
 const NavSidebar = ({ isVisible, onClose, userData }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { colors } = useTheme();
 
   // Multi-location: the JWT only carries the legacy single gate_pass_location
   // (the ★ default). The full assigned list lives in the junction table, so
@@ -98,7 +100,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
   return (
     <View style={{
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-      flexDirection: 'row', zIndex: 100,
+      flexDirection: 'row-reverse', zIndex: 100,
     }}>
       {/* Backdrop — tap outside to close */}
       <Pressable
@@ -111,9 +113,9 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
 
       {/* Panel */}
       <View style={{
-        width: 290, height: '100%', backgroundColor: '#ffffff',
+        width: 290, height: '100%', backgroundColor: colors.surface,
         elevation: 8,
-        shadowColor: '#000', shadowOffset: { width: 2, height: 0 },
+        shadowColor: '#000', shadowOffset: { width: -2, height: 0 },
         shadowOpacity: 0.3, shadowRadius: 8,
       }}>
         {/* 1. Identity */}

@@ -216,6 +216,27 @@ export default function VendorPaymentAdviceScreen() {
     <AppShell title="Vendor Payment Advice" backLabel="Finance">
     <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
       <View style={{ padding: 14 }}>
+        {/* Search — kept at the very top so it's the first thing you reach */}
+        <View style={{
+          flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          backgroundColor: green.tint2, borderRadius: 12, padding: 12, marginBottom: 14,
+          borderWidth: 1, borderColor: '#BCE5CC',
+        }}>
+          <TextInput
+            style={{
+              flex: 1, minWidth: 220, backgroundColor: '#fff', borderWidth: 1, borderColor: '#BCE5CC',
+              borderRadius: 8, paddingHorizontal: 12, minHeight: 44, fontSize: 14,
+            }}
+            placeholder="Search vendor name, vendor code or RECID"
+            value={searchDraft}
+            onChangeText={setSearchDraft}
+            onSubmitEditing={handleApply}
+            returnKeyType="search"
+          />
+          <AppButton title="Apply" icon="search" onPress={handleApply} loading={loading} />
+          <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
+        </View>
+
         {/* KPI cards — tap to filter by status, tap again to clear */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
           <KpiCard
@@ -254,28 +275,11 @@ export default function VendorPaymentAdviceScreen() {
           </Text>
         )}
 
-        {/* Filters */}
+        {/* Date-range filters (search bar itself now lives at the top) */}
         <View style={{
           backgroundColor: green.tint2, borderRadius: 12, padding: 14, marginTop: 8, marginBottom: 14,
           borderWidth: 1, borderColor: '#BCE5CC',
         }}>
-          {/* Search row */}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
-            <TextInput
-              style={{
-                flex: 1, minWidth: 220, backgroundColor: '#fff', borderWidth: 1, borderColor: '#BCE5CC',
-                borderRadius: 8, paddingHorizontal: 12, minHeight: 44, fontSize: 14,
-              }}
-              placeholder="Search vendor name, vendor code or RECID"
-              value={searchDraft}
-              onChangeText={setSearchDraft}
-              onSubmitEditing={handleApply}
-              returnKeyType="search"
-            />
-            <AppButton title="Apply" icon="search" onPress={handleApply} loading={loading} />
-            <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
-          </View>
-
           {/* Payment date range — fixed widths so fields don't stretch on
               wide desktop screens */}
           <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>

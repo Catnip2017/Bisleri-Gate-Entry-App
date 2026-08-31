@@ -43,6 +43,7 @@ import React, { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import * as SecureStore from 'expo-secure-store';
 import { CustomAlertProvider } from '../utils/customModal';
+import { ThemeProvider as AppThemeProvider } from '../contexts/ThemeContext';
 import { LogBox } from 'react-native';
 
 // Suppress all LogBox popups — errors are handled via custom Alert popups only
@@ -59,6 +60,7 @@ export default function RootLayout() {
   }
 
   return (
+    <AppThemeProvider>
     <CustomAlertProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack screenOptions={{ headerShown: false }}>
@@ -103,6 +105,7 @@ export default function RootLayout() {
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>
-    </CustomAlertProvider>  
+    </CustomAlertProvider>
+    </AppThemeProvider>
   );
 }
