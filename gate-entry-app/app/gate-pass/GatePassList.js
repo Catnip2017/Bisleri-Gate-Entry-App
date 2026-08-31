@@ -362,18 +362,20 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
                 Overdue Returns
               </Text>
             </TouchableOpacity>
-            <View style={{ minWidth: 150 }}>
-              <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
-            </View>
-            <View style={{ minWidth: 150 }}>
-              <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
-            </View>
-            {filtersActive && (
-              <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
-                <Text style={styles.wfButtonText}>Clear Filters</Text>
-              </TouchableOpacity>
-            )}
           </>
+        )}
+        {/* Date range — available on every tab (not just "View All Passes"),
+            same as the other list/guard filters. */}
+        <View style={{ minWidth: 150 }}>
+          <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
+        </View>
+        <View style={{ minWidth: 150 }}>
+          <DateField label="To date" value={dateTo} onChange={setDateTo} placeholder="Any date" />
+        </View>
+        {filtersActive && (
+          <TouchableOpacity style={[styles.wfButton, styles.btnSecondary, { marginBottom: 0 }]} onPress={clearFilters}>
+            <Text style={styles.wfButtonText}>Clear Filters</Text>
+          </TouchableOpacity>
         )}
         <TextInput
           style={[styles.input, { width: 280, marginBottom: 0 }]}
