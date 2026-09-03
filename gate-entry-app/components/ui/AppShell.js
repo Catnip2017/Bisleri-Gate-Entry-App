@@ -20,6 +20,19 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 const AppShell = ({ children, title, backLabel, onBack }) => {
   const router = useRouter();
+
+  // Default back handler: router.back() silently does nothing when this
+  // screen was reached with no navigation history behind it (a direct URL,
+  // a refresh on web, or a deep link) — that's the "back button does
+  // nothing" bug. Fall back to the hub, a safe landing page for any
+  // screen that lives behind AppShell, when there's nowhere to pop back to.
+  const defaultOnBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/admin-hub');
+    }
+  };
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [userData, setUserData] = useState(null);
   const { colors } = useTheme();
@@ -94,7 +107,7 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
         rightSlot={avatarChip}
         backLabel={backLabel}
         title={title}
-        onBack={onBack || (() => router.back())}
+        onBack={onBack || defaultOnBack}
       />
 
       {/* Screen content */}

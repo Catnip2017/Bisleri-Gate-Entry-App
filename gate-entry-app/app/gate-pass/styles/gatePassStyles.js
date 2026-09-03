@@ -63,6 +63,8 @@ export default StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   menuItem: {
+    backgroundColor: gp.menuBg, // pin per-item so it can never read a
+                                 // different shade than the panel behind it
     paddingHorizontal: spacing.md,
     paddingVertical: 12,
     borderBottomWidth: 1,

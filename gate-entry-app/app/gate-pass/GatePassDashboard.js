@@ -140,6 +140,7 @@ const GatePassDashboard = () => {
                 onPress={() => setActiveKey(m.key)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: activeKey === m.key }}
+                activeOpacity={1}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Text style={activeKey === m.key ? styles.menuItemActiveText : styles.menuItemText}>
