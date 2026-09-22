@@ -172,7 +172,7 @@ export default StyleSheet.create({
   fieldHalf: { flex: 1, minWidth: 220, marginBottom: spacing.sm },
   fieldThird: { flex: 1, minWidth: 150, marginBottom: spacing.sm },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
     color: gp.text,
     marginBottom: spacing.xs,
@@ -243,8 +243,8 @@ export default StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  chipText: { color: gp.textMuted, fontSize: 13 },
-  chipActiveText: { color: '#FFFFFF', fontSize: 13, fontWeight: 'bold' },
+  chipText: { color: gp.textMuted, fontSize: 14 },
+  chipActiveText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
 
   // ── Absolute-overlay dropdown panel ──────────────────────────────────────
   // Requires parent View to have position: 'relative'.
@@ -278,7 +278,7 @@ export default StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   dropdownItemActive: { backgroundColor: '#EBF4FF' },
-  dropdownItemText: { fontSize: 13, color: gp.text },
+  dropdownItemText: { fontSize: 14, color: gp.text },
   dropdownItemTextActive: { color: gp.accent, fontWeight: 'bold' },
   // Two-column lookup row (Party search, Item search)
   lookupRow: {
@@ -292,8 +292,8 @@ export default StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: '#FFFFFF',
   },
-  lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 13, flexShrink: 0 },
-  lookupName: { color: gp.text, fontSize: 13, flexShrink: 1, flexGrow: 1 },
+  lookupCode: { fontWeight: 'bold', color: gp.accent, fontSize: 14, flexShrink: 0 },
+  lookupName: { color: gp.text, fontSize: 14, flexShrink: 1, flexGrow: 1 },
   autoFilledNote: { color: gp.textMuted, fontSize: 12, marginBottom: spacing.sm },
 
   // ── Items table (wireframe: blue header, white rows) ──────────────────────
@@ -314,7 +314,7 @@ export default StyleSheet.create({
   itemsHeaderCell: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 14,
     paddingHorizontal: 6,
   },
   itemsRow: {
@@ -334,7 +334,7 @@ export default StyleSheet.create({
     borderRadius: radius.sm,
     height: 36,           // explicit, same as uomTrigger — keeps all cells aligned
     paddingHorizontal: 8,
-    fontSize: 13,
+    fontSize: 14,
     color: gp.text,
   },
   addLinesHint: {
@@ -382,7 +382,7 @@ export default StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  uomTriggerText: { fontSize: 12, color: '#333', flex: 1 },
+  uomTriggerText: { fontSize: 13, color: '#333', flex: 1 },
   uomMenu: {
     position: 'absolute',
     top: '100%',
@@ -403,7 +403,7 @@ export default StyleSheet.create({
   },
   uomItem: { paddingVertical: 7, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
   uomItemActive: { backgroundColor: '#e8f1fb' },
-  uomItemText: { fontSize: 12, color: '#444' },
+  uomItemText: { fontSize: 13, color: '#444' },
   uomItemTextActive: { color: '#1565c0', fontWeight: '600' },
   lineRemove: {
     color: gp.cancel,

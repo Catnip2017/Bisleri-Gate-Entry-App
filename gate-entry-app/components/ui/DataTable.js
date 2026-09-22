@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   headerText: {
     color: colors.textInverse,
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 14,
   },
   dataRow: {
     flexDirection: 'row',
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellText: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   selectCell: {

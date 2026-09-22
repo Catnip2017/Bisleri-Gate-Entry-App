@@ -12,6 +12,13 @@ import { showSuccess, showError, showValidationError, confirmAction } from '../.
 import DateField from '../../components/ui/DateField';
 import styles, { gp } from './styles/gatePassStyles';
 
+// Indian vehicle registration formats:
+//  - Standard civilian: [State][RTO 1-2 digits][Series 0-3 letters][4-digit number]
+//    e.g. MH12AB1234, KA05123 (older plates can drop the series letters)
+//  - Bharat (BH) series: [2-digit year][BH][4-digit number][1-2 letters]
+//    e.g. 22BH1234A
+const VEHICLE_NO_REGEX = /^([A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}|[0-9]{2}BH[0-9]{4}[A-Z]{1,2})$/;
+
 const EMPTY_LINE = () => ({
   asset_code: '',
   item_type: 'Item',   // 'Item' = user-populated master; 'Fixed Asset' = Fabric master
@@ -290,8 +297,13 @@ const GatePassForm = ({ onCreated }) => {
     if (!locationCode) return 'Select a location';
     if (!selectedVendor && !selectedCustomer) return 'Select a vendor or a customer from the lookup';
     if (!department) return 'Select a department';
-    if (modeOfTransport === 'Vehicle' && !vehicleNo.trim()) {
-      return 'Vehicle number is required when mode of transport is Vehicle';
+    if (modeOfTransport === 'Vehicle') {
+      if (!vehicleNo.trim()) {
+        return 'Vehicle number is required when mode of transport is Vehicle';
+      }
+      if (!VEHICLE_NO_REGEX.test(vehicleNo.trim())) {
+        return 'Enter a valid vehicle number, e.g. MH12AB1234 or 22BH1234A (BH series)';
+      }
     }
     for (let i = 0; i < lines.length; i += 1) {
       const l = lines[i];
@@ -643,7 +655,12 @@ const GatePassForm = ({ onCreated }) => {
         <View style={styles.fieldThird} />
       </View>
 
-      {/* ── Row: Mode of Transport (1/4) | Vehicle No (1/4) | empty (2/4) ── */}
+      {/* ── Row: Mode of Transport (1/4) | Vehicle No (1/4) | empty (2/4) ──
+          Both columns keep a constant flex:1 whether or not Vehicle No is
+          shown, so the row no longer visibly reflows/resizes when toggling
+          Hand Delivery <-> Vehicle (previously the Vehicle No column was
+          only added as a flex participant in Vehicle mode, which changed
+          how the row's width was shared between siblings). */}
       <View style={styles.fieldRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
@@ -659,21 +676,23 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-        {modeOfTransport === 'Vehicle' ? (
-          <View style={{ flex: 1 }}>
-            <Text style={styles.fieldLabel}>Vehicle No. *</Text>
-            <TextInput
-              style={styles.input}
-              value={vehicleNo}
-              onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
-              placeholder="e.g. MH12AB1234"
-              placeholderTextColor={gp.textMuted}
-              autoCapitalize="characters"
-              editable
-            />
-          </View>
-        ) : null}
-        <View style={{ flex: modeOfTransport === 'Vehicle' ? 2 : 3 }} />
+        <View style={{ flex: 1 }}>
+          {modeOfTransport === 'Vehicle' ? (
+            <>
+              <Text style={styles.fieldLabel}>Vehicle No. *</Text>
+              <TextInput
+                style={styles.input}
+                value={vehicleNo}
+                onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
+                placeholder="e.g. MH12AB1234"
+                placeholderTextColor={gp.textMuted}
+                autoCapitalize="characters"
+                editable
+              />
+            </>
+          ) : null}
+        </View>
+        <View style={{ flex: 2 }} />
       </View>
 
       {/* ── Row: Sender Name | Approver Name | Expected Inward Date (R only) ── */}
