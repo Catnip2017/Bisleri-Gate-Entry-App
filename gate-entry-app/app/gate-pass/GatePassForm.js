@@ -566,7 +566,7 @@ const GatePassForm = ({ onCreated }) => {
                 accessibilityRole="button"
                 accessibilityLabel="Clear selected vendor"
               >
-                <Text style={{ fontSize: 16, color: gp.textMuted }}>×</Text>
+                <Text style={{ fontSize: 16, color: gp.cancel, fontWeight: 'bold' }}>×</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -596,7 +596,7 @@ const GatePassForm = ({ onCreated }) => {
                 accessibilityRole="button"
                 accessibilityLabel="Clear selected customer"
               >
-                <Text style={{ fontSize: 16, color: gp.textMuted }}>×</Text>
+                <Text style={{ fontSize: 16, color: gp.cancel, fontWeight: 'bold' }}>×</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -655,14 +655,16 @@ const GatePassForm = ({ onCreated }) => {
         <View style={styles.fieldThird} />
       </View>
 
-      {/* ── Row: Mode of Transport (1/4) | Vehicle No (1/4) | empty (2/4) ──
-          Both columns keep a constant flex:1 whether or not Vehicle No is
-          shown, so the row no longer visibly reflows/resizes when toggling
-          Hand Delivery <-> Vehicle (previously the Vehicle No column was
-          only added as a flex participant in Vehicle mode, which changed
-          how the row's width was shared between siblings). */}
+      {/* ── Row: Mode of Transport | Vehicle No | empty ──
+          Uses the same 3-column fieldThird grid as every other row in this
+          form (Dept Code row, Sender/Approver row, etc.) so this row's
+          column widths line up with the rows above and below it instead of
+          using a one-off flex ratio. Both the Mode and Vehicle No columns
+          are always rendered (Vehicle No's *content* is conditional, not
+          the column itself), so the row never reflows when toggling Hand
+          Delivery <-> Vehicle. */}
       <View style={styles.fieldRow}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Mode of Transport *</Text>
           <View style={styles.chipRow}>
             {['Hand Delivery', 'Vehicle'].map((m) => (
@@ -676,7 +678,7 @@ const GatePassForm = ({ onCreated }) => {
             ))}
           </View>
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={styles.fieldThird}>
           {modeOfTransport === 'Vehicle' ? (
             <>
               <Text style={styles.fieldLabel}>Vehicle No. *</Text>
@@ -692,7 +694,7 @@ const GatePassForm = ({ onCreated }) => {
             </>
           ) : null}
         </View>
-        <View style={{ flex: 2 }} />
+        <View style={styles.fieldThird} />
       </View>
 
       {/* ── Row: Sender Name | Approver Name | Expected Inward Date (R only) ── */}
