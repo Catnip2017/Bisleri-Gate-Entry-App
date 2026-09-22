@@ -531,39 +531,63 @@ const GatePassForm = ({ onCreated }) => {
       <View style={styles.fieldRow}>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Vendor Code {!selectedCustomer ? '*' : ''}</Text>
-          <TouchableOpacity
-            style={[
-              styles.input,
-              { justifyContent: 'center' },
-              !!selectedCustomer && { backgroundColor: gp.bgMuted || '#f4f6f8' },
-            ]}
-            onPress={() => { if (!selectedCustomer) setVendorModalOpen(true); }}
-            disabled={!!selectedCustomer}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !!selectedCustomer }}
-          >
-            <Text style={{ fontSize: 14, color: selectedVendor ? gp.text : gp.textMuted }}>
-              {selectedVendor ? selectedVendor.vendor_code : '-- Select vendor --'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[
+                styles.input,
+                { justifyContent: 'center', flex: 1 },
+                !!selectedCustomer && { backgroundColor: gp.bgMuted || '#f4f6f8' },
+              ]}
+              onPress={() => { if (!selectedCustomer) setVendorModalOpen(true); }}
+              disabled={!!selectedCustomer}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !!selectedCustomer }}
+            >
+              <Text style={{ fontSize: 14, color: selectedVendor ? gp.text : gp.textMuted }}>
+                {selectedVendor ? selectedVendor.vendor_code : '-- Select vendor --'}
+              </Text>
+            </TouchableOpacity>
+            {selectedVendor ? (
+              <TouchableOpacity
+                onPress={() => setSelectedVendor(null)}
+                style={{ paddingHorizontal: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear selected vendor"
+              >
+                <Text style={{ fontSize: 16, color: gp.textMuted }}>×</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Customer Code {!selectedVendor ? '*' : ''}</Text>
-          <TouchableOpacity
-            style={[
-              styles.input,
-              { justifyContent: 'center' },
-              !!selectedVendor && { backgroundColor: gp.bgMuted || '#f4f6f8' },
-            ]}
-            onPress={() => { if (!selectedVendor) setCustomerModalOpen(true); }}
-            disabled={!!selectedVendor}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !!selectedVendor }}
-          >
-            <Text style={{ fontSize: 14, color: selectedCustomer ? gp.text : gp.textMuted }}>
-              {selectedCustomer ? selectedCustomer.customer_code : '-- Select customer --'}
-            </Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[
+                styles.input,
+                { justifyContent: 'center', flex: 1 },
+                !!selectedVendor && { backgroundColor: gp.bgMuted || '#f4f6f8' },
+              ]}
+              onPress={() => { if (!selectedVendor) setCustomerModalOpen(true); }}
+              disabled={!!selectedVendor}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !!selectedVendor }}
+            >
+              <Text style={{ fontSize: 14, color: selectedCustomer ? gp.text : gp.textMuted }}>
+                {selectedCustomer ? selectedCustomer.customer_code : '-- Select customer --'}
+              </Text>
+            </TouchableOpacity>
+            {selectedCustomer ? (
+              <TouchableOpacity
+                onPress={() => setSelectedCustomer(null)}
+                style={{ paddingHorizontal: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear selected customer"
+              >
+                <Text style={{ fontSize: 16, color: gp.textMuted }}>×</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
         <View style={styles.fieldThird}>
           <Text style={styles.fieldLabel}>Party Name</Text>
