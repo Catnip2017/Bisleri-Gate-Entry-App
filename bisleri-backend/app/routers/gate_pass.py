@@ -135,21 +135,36 @@ def _guard_location_filter(db: Session, query, user: UsersMaster):
     return query.filter(GatePassHeader.location_code.in_(locations))
 
 
-# ── Numbering (atomic, incremental, never reused) ───────────────────────────
+# ── Numbering (atomic, incremental, never reused, FY-scoped) ────────────────
+def _current_fy_label(on: date = None) -> str:
+    """Indian financial year label, e.g. '2026-27'. FY runs 1 Apr - 31 Mar:
+    dates in Jan-Mar belong to the FY that started the previous April."""
+    d = on or date.today()
+    start_year = d.year if d.month >= 4 else d.year - 1
+    return f"{start_year}-{str(start_year + 1)[-2:]}"
+
+
 def _next_pass_number(db: Session, location_code: str, pass_type: str) -> str:
-    """Increment the (location, type) series under a row lock. The number is
-    consumed at creation and never recycled — cancelled passes keep theirs."""
+    """Increment the (location, type, financial-year) series under a row lock.
+    The number is consumed at creation and never recycled — cancelled passes
+    keep theirs. The series resets to 1 every new financial year (1 Apr)
+    because fy_label is part of the row key.
+    Format: {TYPE}-{LOCATION}-{FYSTART}-{FYEND}-{NNN}, e.g. R-MUM-2026-27-001."""
+    fy_label = _current_fy_label()
     seq = (
         db.query(GatePassSequence)
         .filter(
             GatePassSequence.location_code == location_code,
             GatePassSequence.pass_type == pass_type,
+            GatePassSequence.fy_label == fy_label,
         )
         .with_for_update()
         .first()
     )
     if seq is None:
-        seq = GatePassSequence(location_code=location_code, pass_type=pass_type, last_number=0)
+        seq = GatePassSequence(
+            location_code=location_code, pass_type=pass_type, fy_label=fy_label, last_number=0
+        )
         db.add(seq)
         db.flush()
         seq = (
@@ -159,7 +174,7 @@ def _next_pass_number(db: Session, location_code: str, pass_type: str) -> str:
             .first()
         )
     seq.last_number += 1
-    return f"{pass_type}{location_code}{seq.last_number}"
+    return f"{pass_type}-{location_code}-{fy_label}-{seq.last_number:03d}"
 
 
 def _locked_pass(db: Session, pass_id: int) -> GatePassHeader:
@@ -871,6 +886,50 @@ def cancel_gate_pass(
     except Exception:
         db.rollback()
         logger.exception("cancel_gate_pass failed")
+        raise HTTPException(status_code=500, detail="Failed to cancel gate pass. See server logs.")
+
+
+@router.post("/{pass_id}/guard-cancel")
+def guard_cancel_gate_pass(
+    pass_id: int,
+    payload: GatePassCancelRequest,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(_require_guard),
+):
+    """Security-side cancel: a Gate Pass Dispatcher (guard) may cancel a pass
+    only while it is Released — i.e. before they dispatch it. Same mandatory
+    reason master as the Creator's cancel; remarks are stored alongside it.
+    Never allowed once Dispatched — material has already left."""
+    reason = (
+        db.query(GatePassCancelReason)
+        .filter(GatePassCancelReason.id == payload.cancel_reason_id, GatePassCancelReason.is_active.is_(True))
+        .first()
+    )
+    if reason is None:
+        raise HTTPException(status_code=400, detail="Invalid cancel reason")
+
+    try:
+        gp = _locked_pass(db, pass_id)
+        if gp.status != GP_RELEASED:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Pass is {gp.status} — security can cancel only while it is Released (before dispatch)",
+            )
+        gp.status = GP_CANCELLED
+        gp.cancelled_by = current_user.username
+        gp.cancelled_at = datetime.now()
+        gp.cancel_reason_id = reason.id
+        gp.cancel_remarks = payload.cancel_remarks
+        _log_event(db, gp, "GUARD_CANCEL", current_user, remarks=payload.cancel_remarks,
+                   details={"reason": reason.reason_text})
+        db.commit()
+        return {"message": "Gate pass cancelled", "gate_pass_no": gp.gate_pass_no, "status": gp.status}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("guard_cancel_gate_pass failed")
         raise HTTPException(status_code=500, detail="Failed to cancel gate pass. See server logs.")
 
 

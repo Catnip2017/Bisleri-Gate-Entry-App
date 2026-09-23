@@ -307,11 +307,25 @@ const GatePassForm = ({ onCreated }) => {
     }
     for (let i = 0; i < lines.length; i += 1) {
       const l = lines[i];
-      if (l.item_type === 'Fixed Asset' && !l.asset_code)
-        return `Line ${i + 1}: select an Asset No. from the lookup`;
-      if (!l.description.trim()) return `Line ${i + 1}: description is required`;
+      // Asset No. and Description are "either one" — Fixed Asset lines need
+      // an asset code, everything else needs a description; never both.
+      if (l.item_type === 'Fixed Asset') {
+        if (!l.asset_code) return `Line ${i + 1}: select an Asset No. from the lookup`;
+      } else if (!l.description.trim()) {
+        return `Line ${i + 1}: description is required`;
+      }
       const qty = parseInt(l.quantity, 10);
       if (!qty || qty <= 0) return `Line ${i + 1}: quantity must be a positive number`;
+
+      // Returnable passes: Serial No., Amount and Chargeable are compulsory
+      // on every line (Asset No./Description stay "either one" as above).
+      if (isReturnable) {
+        if (!l.serial_no.trim()) return `Line ${i + 1}: serial no. is required for returnable items`;
+        const amt = parseFloat(l.amount);
+        if (!l.amount || Number.isNaN(amt) || amt <= 0)
+          return `Line ${i + 1}: amount is required for returnable items`;
+        if (!l.chargeable) return `Line ${i + 1}: select Chargeable / Non-chargeable for returnable items`;
+      }
     }
     return null;
   };

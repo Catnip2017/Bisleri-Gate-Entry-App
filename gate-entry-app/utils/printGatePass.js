@@ -164,7 +164,11 @@ export const printGatePass = async (passId) => {
   @page { size: A4; margin: 10mm; }
   * { box-sizing: border-box; }
   body { font-family: Arial, Helvetica, sans-serif; color: #1a1a1a; margin: 0; padding: 14px 18px; font-size: 12px; background:#fff; }
-  .copy { padding-bottom: 10px; }
+  /* Keep each copy (letterhead through signatures) together as one block.
+     If the Vendor Copy leaves enough room on the page, the Security Copy
+     starts right below it; if it doesn't fit, the browser pushes the whole
+     Security Copy onto a fresh page instead of splitting it awkwardly. */
+  .copy { padding-bottom: 10px; break-inside: avoid; page-break-inside: avoid; }
   .divider { border-top: 2px dashed #888; margin: 14px 0 16px; }
 
   .letterhead { display:flex; align-items:flex-start; border-bottom:2px solid #00843D; padding-bottom:6px; margin-bottom:10px; }

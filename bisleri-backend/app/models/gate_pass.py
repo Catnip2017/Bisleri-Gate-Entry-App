@@ -140,18 +140,21 @@ class GatePassCancelReason(Base):
 
 
 class GatePassSequence(Base):
-    """Incremental number series — one row per (location, pass type).
-    Incremented under a row lock (SELECT ... FOR UPDATE) so two users
-    creating simultaneously can never collide. Numbers are never reused."""
+    """Incremental number series — one row per (location, pass type, financial
+    year). Incremented under a row lock (SELECT ... FOR UPDATE) so two users
+    creating simultaneously can never collide. Numbers are never reused.
+    The series resets to 1 at the start of each financial year (1 Apr) because
+    fy_label is part of the row key — a new FY simply gets a fresh row."""
     __tablename__ = "gate_pass_sequences"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     location_code = Column(String(10), nullable=False)
-    pass_type = Column(String(3), nullable=False)        # 'R' | 'NR'
+    pass_type = Column(String(3), nullable=False)         # 'R' | 'NR'
+    fy_label = Column(String(10), nullable=False, default="")   # e.g. '2026-27'
     last_number = Column(Integer, nullable=False, default=0)
 
     __table_args__ = (
-        UniqueConstraint("location_code", "pass_type", name="uq_gate_pass_seq_loc_type"),
+        UniqueConstraint("location_code", "pass_type", "fy_label", name="uq_gate_pass_seq_loc_type_fy"),
     )
 
 

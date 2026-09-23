@@ -56,6 +56,14 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [dispatchRemarks, setDispatchRemarks] = useState('');
   const [dispatching, setDispatching] = useState(false);
 
+  // Guard cancel modal (Released only, mandatory reason from the same master
+  // the Creator uses — before dispatch only)
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelReasons, setCancelReasons] = useState([]);
+  const [selectedReasonId, setSelectedReasonId] = useState(null);
+  const [cancelRemarks, setCancelRemarks] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+
   // Inward modal (line-level partial receipt + security remarks)
   const [inwardTarget, setInwardTarget] = useState(null);   // full pass detail
   const [receiptQtys, setReceiptQtys] = useState({});       // line_id -> qty string
@@ -169,6 +177,39 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     });
   };
 
+  // ── Guard cancel (Released only, mandatory reason) ────────────────────────
+  const openCancelModal = async (pass) => {
+    try {
+      if (cancelReasons.length === 0) {
+        const reasons = await gatePassAPI.getCancelReasons();
+        setCancelReasons(reasons);
+      }
+      setSelectedReasonId(null);
+      setCancelRemarks('');
+      setCancelTarget(pass);
+    } catch (error) {
+      showError(handleAPIError(error));
+    }
+  };
+
+  const submitCancel = async () => {
+    if (!selectedReasonId) {
+      showValidationError('Select a cancellation reason to continue');
+      return;
+    }
+    setCancelling(true);
+    try {
+      await gatePassAPI.guardCancelPass(cancelTarget.id, selectedReasonId, cancelRemarks.trim() || null);
+      setCancelTarget(null);
+      showSuccess('Pass cancelled', `${cancelTarget.gate_pass_no} is cancelled and removed from the dispatch list.`);
+      load();
+    } catch (error) {
+      showError(handleAPIError(error));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   // ── Inward flow (partial returns supported) ───────────────────────────────
   const openInward = async (pass) => {
     try {
@@ -250,6 +291,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               </TouchableOpacity>
               <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
                 <Text style={styles.smallPrintBtnText}>Print</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallDangerBtn} onPress={() => openCancelModal(item)}>
+                <Text style={styles.smallBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           );
@@ -584,6 +628,59 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               <TouchableOpacity
                 style={[styles.wfButton, styles.btnSecondary]}
                 onPress={() => setDispatchTarget(null)}
+              >
+                <Text style={styles.wfButtonText}>Go back</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Guard cancel modal: reason mandatory, Released-only ── */}
+      <Modal visible={!!cancelTarget} transparent animationType="fade" onRequestClose={() => setCancelTarget(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Cancel {cancelTarget?.gate_pass_no}</Text>
+            <Text style={styles.modalSubtitle}>
+              Select a reason — cancellation is permanent. Only possible before this pass is dispatched.
+            </Text>
+            {cancelReasons.map((r) => (
+              <TouchableOpacity
+                key={r.id}
+                style={styles.radioRow}
+                onPress={() => setSelectedReasonId(r.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: selectedReasonId === r.id }}
+              >
+                <View style={selectedReasonId === r.id ? styles.radioOuterActive : styles.radioOuter}>
+                  {selectedReasonId === r.id && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.radioLabel}>{r.reason_text}</Text>
+              </TouchableOpacity>
+            ))}
+            <TextInput
+              style={[styles.input, styles.remarksInput]}
+              value={cancelRemarks}
+              onChangeText={setCancelRemarks}
+              placeholder="Remarks (optional)"
+              placeholderTextColor={gp.textMuted}
+              multiline
+            />
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnCancel, !selectedReasonId && { opacity: 0.5 }]}
+                onPress={submitCancel}
+                disabled={cancelling || !selectedReasonId}
+              >
+                {cancelling ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.wfButtonText}>Cancel Pass</Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.wfButton, styles.btnSecondary]}
+                onPress={() => setCancelTarget(null)}
               >
                 <Text style={styles.wfButtonText}>Go back</Text>
               </TouchableOpacity>

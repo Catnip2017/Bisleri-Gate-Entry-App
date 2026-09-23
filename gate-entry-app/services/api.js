@@ -776,6 +776,15 @@ export const gatePassAPI = {
     });
     return response.data;
   },
+  // Security-side cancel: guard may cancel only while the pass is Released
+  // (before they dispatch it). Same reason master as cancelPass above.
+  guardCancelPass: async (passId, cancelReasonId, cancelRemarks = null) => {
+    const response = await api.post(`/gate-pass/${passId}/guard-cancel`, {
+      cancel_reason_id: cancelReasonId,
+      cancel_remarks: cancelRemarks,
+    });
+    return response.data;
+  },
   dispatchPass: async (passId, securityRemarks = null) => {
     const response = await api.post(`/gate-pass/${passId}/dispatch`, {
       security_remarks: securityRemarks,
