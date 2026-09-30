@@ -828,76 +828,72 @@ const GatePassForm = ({ onCreated }) => {
                 )}
               </View>
 
-              {/* Asset No. / Item Code — modal picker for Fixed Asset lines (editable);
-                  Item lines show the picked item's code read-only (blank for manually-added
-                  items with no Fabric code — decision 30 Sep 2026). */}
+              {/* Asset No. / Item Code — same clickable-box + clear pattern for
+                  both types (decision 30 Sep 2026: identical styling, both cells
+                  and both columns open the picker). FA: opens the Asset modal.
+                  Item: opens the Item modal — blank for manually-added items
+                  with no Fabric code. */}
               <View style={[styles.itemsCell, { flex: 1.0 }]}>
-                {line.item_type === 'Fixed Asset' ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    <TouchableOpacity
-                      style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
-                      onPress={() => setAssetModalLine(index)}
-                      accessibilityRole="button"
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <TouchableOpacity
+                    style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
+                    onPress={() =>
+                      line.item_type === 'Fixed Asset' ? setAssetModalLine(index) : setItemModalLine(index)
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        color: (line.item_type === 'Fixed Asset' ? line.asset_code : line.item_code) ? gp.text : gp.textMuted,
+                      }}
+                      numberOfLines={1}
                     >
-                      <Text style={{ fontSize: 12, color: line.asset_code ? gp.text : gp.textMuted }} numberOfLines={1}>
-                        {line.asset_code || 'Select…'}
-                      </Text>
+                      {(line.item_type === 'Fixed Asset' ? line.asset_code : line.item_code) || 'Select…'}
+                    </Text>
+                  </TouchableOpacity>
+                  {(line.item_type === 'Fixed Asset' ? line.asset_code : line.item_code) ? (
+                    <TouchableOpacity
+                      onPress={() => clearLineSelection(index)}
+                      style={{ paddingHorizontal: 4 }}
+                      accessibilityRole="button"
+                      accessibilityLabel={line.item_type === 'Fixed Asset' ? 'Clear selected asset' : 'Clear selected item'}
+                    >
+                      <Text style={{ fontSize: 16, color: gp.cancel, fontWeight: 'bold' }}>×</Text>
                     </TouchableOpacity>
-                    {line.asset_code ? (
-                      <TouchableOpacity
-                        onPress={() => clearLineSelection(index)}
-                        style={{ paddingHorizontal: 4 }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear selected asset"
-                      >
-                        <Text style={{ fontSize: 14, color: gp.textMuted }}>×</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ) : (
-                  <Text style={{ fontSize: 12, color: gp.text, textAlign: 'center' }} numberOfLines={1}>
-                    {line.item_code || ''}
-                  </Text>
-                )}
+                  ) : null}
+                </View>
               </View>
 
-              {/* Description — FA: auto-filled from the master on pick, then
-                  editable (user may append detail like "with charger";
-                  decision 14 Jul 2026). Item: picked from the Item master
-                  lookup (Fabric-fed + hand-added) — "+ Add new item" at the
-                  bottom of the pop-up covers anything Fabric doesn't have. */}
+              {/* Description of Goods — same clickable-box + clear pattern for both
+                  types (decision 30 Sep 2026: clicking either column opens the
+                  matching picker and fills both columns together; FA description
+                  is no longer freely editable inline here — pick a different Asset
+                  No. to change it). */}
               <View style={[styles.itemsCell, { flex: 2.0 }]}>
-                {line.item_type === 'Fixed Asset' ? (
-                  <TextInput
-                    style={styles.cellInput}
-                    value={line.description}
-                    onChangeText={(v) => updateLine(index, { description: v.slice(0, 250) })}
-                    placeholder="Auto-fills from asset master"
-                    placeholderTextColor={gp.textMuted}
-                  />
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                  <TouchableOpacity
+                    style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
+                    onPress={() =>
+                      line.item_type === 'Fixed Asset' ? setAssetModalLine(index) : setItemModalLine(index)
+                    }
+                    accessibilityRole="button"
+                  >
+                    <Text style={{ fontSize: 12, color: line.description ? gp.text : gp.textMuted }} numberOfLines={1}>
+                      {line.description || (line.item_type === 'Fixed Asset' ? 'Select an asset…' : 'Select or add an item…')}
+                    </Text>
+                  </TouchableOpacity>
+                  {line.description ? (
                     <TouchableOpacity
-                      style={[styles.cellInput, { justifyContent: 'center', flex: 1 }]}
-                      onPress={() => setItemModalLine(index)}
+                      onPress={() => clearLineSelection(index)}
+                      style={{ paddingHorizontal: 4 }}
                       accessibilityRole="button"
+                      accessibilityLabel={line.item_type === 'Fixed Asset' ? 'Clear selected asset' : 'Clear selected item'}
                     >
-                      <Text style={{ fontSize: 12, color: line.description ? gp.text : gp.textMuted }} numberOfLines={1}>
-                        {line.description || 'Select or add an item…'}
-                      </Text>
+                      <Text style={{ fontSize: 16, color: gp.cancel, fontWeight: 'bold' }}>×</Text>
                     </TouchableOpacity>
-                    {line.description ? (
-                      <TouchableOpacity
-                        onPress={() => clearLineSelection(index)}
-                        style={{ paddingHorizontal: 4 }}
-                        accessibilityRole="button"
-                        accessibilityLabel="Clear selected item"
-                      >
-                        <Text style={{ fontSize: 14, color: gp.textMuted }}>×</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                )}
+                  ) : null}
+                </View>
               </View>
 
               {/* Serial No. */}
