@@ -22,6 +22,7 @@ const VEHICLE_NO_REGEX = /^([A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}|[0-9]{2}BH[0-9]
 const EMPTY_LINE = () => ({
   asset_code: '',
   item_id: null,       // set once an Item is picked/added from the Item master lookup
+  item_code: null,      // display only (Fabric items have one, manual items don't) — shown in the Asset No. / Item Code column
   item_type: 'Item',   // 'Item' = Item master (Fabric-fed + hand-added); 'Fixed Asset' = Fabric master
   description: '',
   serial_no: '',
@@ -262,7 +263,9 @@ const GatePassForm = ({ onCreated }) => {
   const pickItem = (lineIndex, item) => {
     setLines((prev) =>
       prev.map((l, i) =>
-        i === lineIndex ? { ...l, item_id: item.item_id, description: item.item_name } : l
+        i === lineIndex
+          ? { ...l, item_id: item.item_id, item_code: item.item_code || null, description: item.item_name }
+          : l
       )
     );
     setItemModalLine(null);
@@ -286,7 +289,7 @@ const GatePassForm = ({ onCreated }) => {
   // and back, or reload the page.
   const clearLineSelection = (index) => {
     setLines((prev) =>
-      prev.map((l, i) => (i === index ? { ...l, asset_code: '', item_id: null, description: '' } : l))
+      prev.map((l, i) => (i === index ? { ...l, asset_code: '', item_id: null, item_code: null, description: '' } : l))
     );
   };
 
@@ -294,7 +297,7 @@ const GatePassForm = ({ onCreated }) => {
     // Switching type resets the code/description pairing:
     // Item = matched/created by name; Fixed Asset = pick from master.
     setLines((prev) => prev.map((l, i) =>
-      i === index ? { ...l, item_type: type, asset_code: '', item_id: null, description: '' } : l));
+      i === index ? { ...l, item_type: type, asset_code: '', item_id: null, item_code: null, description: '' } : l));
     setOpenTypeLine(null);
   };
 
@@ -775,7 +778,7 @@ const GatePassForm = ({ onCreated }) => {
         {/* Header */}
         <View style={styles.itemsHeaderRow}>
           <Text style={[styles.itemsHeaderCell, { flex: 0.85 }]}>Type</Text>
-          <Text style={[styles.itemsHeaderCell, { flex: 1.0 }]}>Asset No.</Text>
+          <Text style={[styles.itemsHeaderCell, { flex: 1.0 }]}>Asset No. / Item Code</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 2.0 }]}>Description of Goods</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 0.9 }]}>Serial No.</Text>
           <Text style={[styles.itemsHeaderCell, { flex: 0.35 }]}>Qty</Text>
@@ -825,7 +828,9 @@ const GatePassForm = ({ onCreated }) => {
                 )}
               </View>
 
-              {/* Asset No. — modal picker for Fixed Asset lines; Item lines have no code */}
+              {/* Asset No. / Item Code — modal picker for Fixed Asset lines (editable);
+                  Item lines show the picked item's code read-only (blank for manually-added
+                  items with no Fabric code — decision 30 Sep 2026). */}
               <View style={[styles.itemsCell, { flex: 1.0 }]}>
                 {line.item_type === 'Fixed Asset' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -850,7 +855,9 @@ const GatePassForm = ({ onCreated }) => {
                     ) : null}
                   </View>
                 ) : (
-                  <Text style={{ fontSize: 12, color: gp.textMuted, textAlign: 'center' }}>—</Text>
+                  <Text style={{ fontSize: 12, color: gp.text, textAlign: 'center' }} numberOfLines={1}>
+                    {line.item_code || ''}
+                  </Text>
                 )}
               </View>
 
