@@ -1,9 +1,14 @@
 # app/fabric_sync/erp_sync.py
 #
-# Daily full pull of Vendor and Fixed Asset masters from the ERP Lakehouse
+# Daily full pull of Vendor, Fixed Asset and Item masters from the ERP Lakehouse
 # (a different Fabric Lakehouse/SQL endpoint than the Customer one — see
 # app/fabric_sync/connections.py:get_fabric_erp_connection) into
 # gate_pass_vendors and gate_pass_assets.
+#
+# Items (added 29 Sep 2026): gate_pass_items is shared with hand-added
+# rows from the app itself (source='MANUAL') — see _deactivate_missing_
+# fabric_items below for why that table can't use the plain
+# common.deactivate_missing helper the other two use.
 #
 # Vendor has no single source table — VendTable only carries a party
 # reference, so the name/address require joining out to DirPartyTable (for
@@ -28,6 +33,7 @@ _JOB_NAME = "FabricErpSync"
 
 VENDOR_COLUMNS = ["vendor_code", "vendor_name", "city", "post_code"]
 ASSET_COLUMNS = ["asset_code", "asset_name"]
+ITEM_COLUMNS = ["item_code", "item_name"]
 
 
 def _fetch_vendors(fabric_conn):
@@ -72,6 +78,46 @@ def _fetch_assets(fabric_conn):
         rows = cur.fetchall()
     # fa_class_code has no source match yet (per spec, to be revisited).
     return [tuple(row) + (None, True) for row in rows]
+
+
+def _fetch_items(fabric_conn):
+    # NULL-filtered up front (unlike the original _fetch_assets, which
+    # learned the hard way: one NULL assetid poisoned the whole upsert
+    # batch and silently dropped an entire sync run — see incident 23 Sep
+    # 2026). A row missing either half is useless as a master row anyway.
+    query = (
+        f"SELECT itemid AS item_code, namealias AS item_name "
+        f"FROM {settings.FABRIC_ITEMS_TABLE} "
+        f"WHERE itemid IS NOT NULL AND namealias IS NOT NULL"
+    )
+    with fabric_conn.cursor() as cur:
+        cur.execute(query)
+        rows = cur.fetchall()
+    # source='FABRIC', is_active=True for every pulled row.
+    return [tuple(row) + ("FABRIC", True) for row in rows]
+
+
+def _deactivate_missing_fabric_items(target_conn, seen_codes, job_name: str) -> int:
+    """Same idea as common.deactivate_missing, but scoped to source='FABRIC'
+    only. gate_pass_items also holds hand-added rows (source='MANUAL',
+    item_code always NULL) that never appear in a Fabric pull — the shared
+    helper's blunt "NOT IN seen_ids" would deactivate every one of those on
+    the very next sync run, which is wrong. This only ever touches rows
+    this pipeline itself owns."""
+    if not seen_codes:
+        logger.warning(
+            "[%s] source returned zero rows for gate_pass_items — skipping "
+            "deactivation pass (treating as a source-side problem, not an "
+            "empty master)", job_name,
+        )
+        return 0
+    with target_conn.cursor() as cur:
+        cur.execute(
+            "UPDATE gate_pass_items SET is_active = false "
+            "WHERE is_active = true AND source = 'FABRIC' AND item_code NOT IN %s",
+            (tuple(seen_codes),),
+        )
+        return cur.rowcount
 
 
 def run_erp_sync():
@@ -131,6 +177,25 @@ def run_erp_sync():
     except Exception:
         target_conn.rollback()
         logger.exception("[%s] asset sync failed", _JOB_NAME)
+
+    try:
+        item_rows = _fetch_items(fabric_conn)
+        i_inserted, i_updated = upsert_rows(
+            target_conn, "gate_pass_items",
+            ITEM_COLUMNS + ["source", "is_active"],
+            "item_code", item_rows,
+        )
+        i_deactivated = _deactivate_missing_fabric_items(
+            target_conn, [r[0] for r in item_rows], _JOB_NAME,
+        )
+        target_conn.commit()
+        logger.info(
+            "[%s] items: +%d/~%d/-%d",
+            _JOB_NAME, i_inserted, i_updated, i_deactivated,
+        )
+    except Exception:
+        target_conn.rollback()
+        logger.exception("[%s] item sync failed", _JOB_NAME)
 
     if fabric_conn:
         fabric_conn.close()

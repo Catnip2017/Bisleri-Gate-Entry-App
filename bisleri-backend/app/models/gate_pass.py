@@ -116,16 +116,26 @@ class GatePassAsset(Base):
 
 
 class GatePassItem(Base):
-    """User-populated 'Item' master — NOT Fabric-fed. Used when the initiator
-    can't find what they need in GatePassAsset: they type a description on
-    the create form and it is looked up (case-insensitive) or created here.
-    item_id is server-generated and never user-editable; item_name is unique
-    so the same description is never mastered twice."""
+    """Item master — mixed source (added 29 Sep 2026). Fabric-fed from the
+    ERP lakehouse's Inventtable (itemid -> item_code, namealias -> item_name,
+    source='FABRIC') the same way GatePassAsset is, PLUS rows the initiator
+    adds by hand from the "+ Add new item" action in the lookup pop-up when
+    Fabric doesn't have what they need (source='MANUAL', item_code stays
+    NULL — manual items are never assigned a code).
+    item_id is server-generated and never user-editable; it's what
+    GatePassLine.item_id references either way. item_code is unique when
+    present (Postgres allows any number of NULLs alongside a UNIQUE
+    constraint, so manual rows never collide on it). item_name is
+    deliberately NOT unique any more — two different Fabric items could
+    plausibly share a description; only the manual-create endpoint still
+    dedupes by name to avoid mastering the same typed item twice."""
     __tablename__ = "gate_pass_items"
 
     item_id = Column(Integer, primary_key=True, autoincrement=True)
-    item_name = Column(String(255), unique=True, nullable=False)   # Description of goods
-    is_active = Column(Boolean, nullable=False, default=True)
+    item_code = Column(String(50), nullable=True)   # Fabric's itemid; NULL for manual rows
+    item_name = Column(String(255), nullable=False)   # Description of goods
+    source = Column(String(10), nullable=False, default="FABRIC")  # 'FABRIC' | 'MANUAL'
+    is_active = Column(Boolean, nullable=False, default=True)  # sync housekeeping only — never user-facing
 
 
 class GatePassCancelReason(Base):

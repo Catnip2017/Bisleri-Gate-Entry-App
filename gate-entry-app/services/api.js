@@ -751,6 +751,11 @@ export const gatePassAPI = {
     const response = await api.get('/gate-pass/items', { params: { q } });
     return response.data;
   },
+  // "+ Add new item" from the lookup pop-up — always source='MANUAL', never gets a code.
+  createItem: async (itemName) => {
+    const response = await api.post('/gate-pass/items', { item_name: itemName });
+    return response.data;
+  },
   createPass: async (payload) => {
     if (!payload.party_code) throw new Error('Party is required');
     if (!payload.lines || payload.lines.length === 0) throw new Error('At least one item line is required');

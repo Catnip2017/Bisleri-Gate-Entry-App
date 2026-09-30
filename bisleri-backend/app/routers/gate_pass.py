@@ -36,7 +36,7 @@ from app.models.gate_pass import (
 )
 from app.schemas.gate_pass_schemas import (
     GatePassLocationResponse, VendorResponse, CustomerResponse, AssetResponse,
-    ItemResponse, CancelReasonResponse,
+    ItemResponse, ItemCreateRequest, CancelReasonResponse,
     GatePassCreate, GatePassCancelRequest, GatePassDispatchRequest,
     GatePassInwardRequest, GatePassForceCloseRequest,
     GatePassListItem, GatePassDetailResponse, GatePassListResponse,
@@ -353,37 +353,49 @@ def search_items(
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(_require_initiator),
 ):
-    """User-populated Item master (not Fabric-fed) — lets the initiator see
-    and reuse items already named by someone else before typing a new one."""
+    """Item master — Fabric-fed (source='FABRIC') plus anything added by hand
+    from the lookup pop-up (source='MANUAL'). Both show in the same search."""
     query = db.query(GatePassItem).filter(GatePassItem.is_active.is_(True))
     if q:
-        query = query.filter(GatePassItem.item_name.ilike(f"%{q}%"))
+        query = query.filter(
+            (GatePassItem.item_name.ilike(f"%{q}%")) | (GatePassItem.item_code.ilike(f"%{q}%"))
+        )
     return query.order_by(GatePassItem.item_name).limit(20).all()
 
 
-def _get_or_create_item(db: Session, item_name: str) -> GatePassItem:
-    """Case-insensitive match-or-create against the user-populated Item
-    master. item_id is always server-generated, item_name always unique.
-    Runs the create in a savepoint so a lost race on the unique constraint
-    only unwinds this lookup, not the whole gate-pass-create transaction."""
+@router.post("/items", response_model=ItemResponse, status_code=201)
+def create_item(
+    payload: ItemCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(_require_initiator),
+):
+    """"+ Add new item" from the bottom of the lookup pop-up, for anything
+    Fabric's Inventtable doesn't have. Always source='MANUAL', item_code
+    stays NULL — Fabric is the only source of real item codes. Matched
+    case-insensitively against existing names first so the same item is
+    never mastered twice, Fabric-fed or manual. Runs the create in a
+    savepoint so a lost race on a concurrent identical create only unwinds
+    this call, not the whole request."""
+    name = payload.item_name.strip()
     existing = (
         db.query(GatePassItem)
-        .filter(func.lower(GatePassItem.item_name) == item_name.lower())
+        .filter(func.lower(GatePassItem.item_name) == name.lower())
         .first()
     )
     if existing is not None:
         return existing
     try:
         with db.begin_nested():
-            item = GatePassItem(item_name=item_name, is_active=True)
+            item = GatePassItem(item_name=name, item_code=None, source="MANUAL", is_active=True)
             db.add(item)
             db.flush()
+        db.commit()
         return item
     except IntegrityError:
-        # Lost a race with another concurrent create of the same name.
+        db.rollback()
         return (
             db.query(GatePassItem)
-            .filter(func.lower(GatePassItem.item_name) == item_name.lower())
+            .filter(func.lower(GatePassItem.item_name) == name.lower())
             .first()
         )
 
@@ -542,11 +554,27 @@ def create_gate_pass(
                         status_code=400,
                         detail=f"Line {idx}: only Fixed Asset lines may carry an Asset No. — Item lines use the Item master",
                     )
+                if not line.item_id:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Line {idx}: select an Item from the lookup (or add it there first)",
+                    )
+                item_master = (
+                    db.query(GatePassItem)
+                    .filter(GatePassItem.item_id == line.item_id, GatePassItem.is_active.is_(True))
+                    .first()
+                )
+                if item_master is None:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Line {idx}: unknown or inactive Item",
+                    )
+                item_id = item_master.item_id
+                # Description pre-fills from the master on the form but stays
+                # editable, same as Fixed Asset — fall back to the master
+                # name only if somehow blank.
                 if not description:
-                    raise HTTPException(status_code=400, detail=f"Line {idx}: description is required")
-                item = _get_or_create_item(db, description)
-                item_id = item.item_id
-                description = item.item_name
+                    description = item_master.item_name
             db.add(GatePassLine(
                 gate_pass_id=gp.id,
                 line_no=idx,

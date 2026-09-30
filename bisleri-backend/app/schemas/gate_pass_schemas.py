@@ -53,10 +53,18 @@ class AssetResponse(BaseModel):
 
 class ItemResponse(BaseModel):
     item_id: int
+    item_code: Optional[str] = None   # Fabric's itemid; None for manually-added items
     item_name: str
+    source: str                       # 'FABRIC' | 'MANUAL' — shown in the lookup pop-up
 
     class Config:
         from_attributes = True
+
+
+class ItemCreateRequest(BaseModel):
+    """Manual "+ Add new item" from the lookup pop-up — never gets an
+    item_code (Fabric's Inventtable is the only source of those)."""
+    item_name: str = Field(..., min_length=1, max_length=255)
 
 
 class CancelReasonResponse(BaseModel):
@@ -70,6 +78,7 @@ class CancelReasonResponse(BaseModel):
 # ── Create ───────────────────────────────────────────────────────────────────
 class GatePassLineCreate(BaseModel):
     asset_code: Optional[str] = None         # Fixed Asset lines only (from GatePassAsset)
+    item_id: Optional[int] = None            # Item lines only (from GatePassItem, Fabric or manual)
     item_type: Optional[str] = None          # 'Fixed Asset' | 'Item'
     description: str = Field(..., min_length=1, max_length=250)
     serial_no: Optional[str] = Field(None, max_length=100)

@@ -21,7 +21,8 @@ const VEHICLE_NO_REGEX = /^([A-Z]{2}[0-9]{1,2}[A-Z]{0,3}[0-9]{4}|[0-9]{2}BH[0-9]
 
 const EMPTY_LINE = () => ({
   asset_code: '',
-  item_type: 'Item',   // 'Item' = user-populated master; 'Fixed Asset' = Fabric master
+  item_id: null,       // set once an Item is picked/added from the Item master lookup
+  item_type: 'Item',   // 'Item' = Item master (Fabric-fed + hand-added); 'Fixed Asset' = Fabric master
   description: '',
   serial_no: '',
   uom: 'NOS',
@@ -88,24 +89,12 @@ function LookupModal({
             ))}
           </View>
           <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-            {allowCreate && query.trim() ? (
-              <TouchableOpacity
-                onPress={() => onCreate(query.trim())}
-                style={{ flexDirection: 'row', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: '#EEF2F5', backgroundColor: '#F0F8FF' }}
-              >
-                <Text style={{ fontSize: 12, color: gp.accent, fontWeight: '600' }} numberOfLines={1}>
-                  {`+ Use "${query.trim()}" as new item`}
-                </Text>
-              </TouchableOpacity>
-            ) : null}
             {busy ? (
               <ActivityIndicator style={{ marginVertical: 16 }} color={gp.accent} />
-            ) : rows.length === 0 ? (
-              allowCreate && query.trim() ? null : (
-                <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
-                  No matches — refine your search
-                </Text>
-              )
+            ) : rows.length === 0 && !(allowCreate && query.trim()) ? (
+              <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
+                No matches — refine your search
+              </Text>
             ) : (
               rows.map((r) => (
                 <TouchableOpacity
@@ -121,6 +110,18 @@ function LookupModal({
                 </TouchableOpacity>
               ))
             )}
+            {/* Add-new sits at the BOTTOM of the list — searching first,
+                adding only once you've confirmed it's really not there. */}
+            {!busy && allowCreate && query.trim() ? (
+              <TouchableOpacity
+                onPress={() => onCreate(query.trim())}
+                style={{ flexDirection: 'row', paddingVertical: 9, borderTopWidth: rows.length ? 1 : 0, borderTopColor: '#C8D4DE', backgroundColor: '#F0F8FF' }}
+              >
+                <Text style={{ fontSize: 12, color: gp.accent, fontWeight: '600' }} numberOfLines={1}>
+                  {`+ Add "${query.trim()}" as a new item`}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </ScrollView>
           <View style={styles.actionRow}>
             <TouchableOpacity style={[styles.wfButton, styles.btnSecondary]} onPress={onClose}>
@@ -255,26 +256,45 @@ const GatePassForm = ({ onCreated }) => {
     setAssetModalLine(null);
   };
 
-  // Picking an existing item or typing a new name both just set the line's
-  // description — the server matches-or-creates the Item master row by
-  // that text on submit (item_id is never chosen client-side).
-  const pickItem = (lineIndex, name) => {
-    setLines((prev) => prev.map((l, i) => (i === lineIndex ? { ...l, description: name } : l)));
+  // Picking an existing Item master row (Fabric-fed or hand-added) sets
+  // both item_id and description — same shape as pickAsset. item_id is
+  // what the server actually stores against the line now.
+  const pickItem = (lineIndex, item) => {
+    setLines((prev) =>
+      prev.map((l, i) =>
+        i === lineIndex ? { ...l, item_id: item.item_id, description: item.item_name } : l
+      )
+    );
     setItemModalLine(null);
+  };
+
+  // "+ Add new item" from the bottom of the pop-up: creates the master row
+  // for real (source='MANUAL', no item_code) so it has an item_id before
+  // the line picks it up — the server no longer creates items implicitly
+  // on pass submit.
+  const createAndPickItem = async (lineIndex, name) => {
+    try {
+      const item = await gatePassAPI.createItem(name);
+      pickItem(lineIndex, item);
+    } catch (error) {
+      showError(handleAPIError(error));
+    }
   };
 
   // Deselect the picked Fixed Asset or Item without switching the line's
   // Type — previously the only way to undo a pick was to toggle Type away
   // and back, or reload the page.
   const clearLineSelection = (index) => {
-    setLines((prev) => prev.map((l, i) => (i === index ? { ...l, asset_code: '', description: '' } : l)));
+    setLines((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, asset_code: '', item_id: null, description: '' } : l))
+    );
   };
 
   const setLineType = (index, type) => {
     // Switching type resets the code/description pairing:
     // Item = matched/created by name; Fixed Asset = pick from master.
     setLines((prev) => prev.map((l, i) =>
-      i === index ? { ...l, item_type: type, asset_code: '', description: '' } : l));
+      i === index ? { ...l, item_type: type, asset_code: '', item_id: null, description: '' } : l));
     setOpenTypeLine(null);
   };
 
@@ -307,15 +327,16 @@ const GatePassForm = ({ onCreated }) => {
     }
     for (let i = 0; i < lines.length; i += 1) {
       const l = lines[i];
-      // Asset No. and Description are "either one" — Fixed Asset lines need
-      // an asset code, everything else needs a description; never both.
+      // Asset No. and Item are "either one" — Fixed Asset lines need an
+      // asset code, Item lines need an item picked/added from the Item
+      // master lookup (free-typed descriptions are no longer accepted).
       if (l.item_type === 'Fixed Asset') {
         if (!l.asset_code) return `Line ${i + 1}: select an Asset No. from the lookup`;
-      } else if (!l.description.trim()) {
-        return `Line ${i + 1}: description is required`;
+      } else if (!l.item_id) {
+        return `Line ${i + 1}: select an Item from the lookup (or add it there first)`;
       }
       const qty = parseInt(l.quantity, 10);
-      if (!qty || qty <= 0) return `Line ${i + 1}: quantity must be a positive number`;
+      if (!qty || qty <= 0) return `Line ${i + 1}: enter a valid quantity`;
 
       // Returnable passes: Serial No., Amount and Chargeable are compulsory
       // on every line (Asset No./Description stay "either one" as above).
@@ -345,6 +366,7 @@ const GatePassForm = ({ onCreated }) => {
     remarks: remarks.trim() || null,
     lines: lines.map((l) => ({
       asset_code: l.item_type === 'Fixed Asset' ? (l.asset_code?.trim() || null) : null,
+      item_id: l.item_type === 'Item' ? (l.item_id || null) : null,
       item_type: l.item_type || null,
       description: l.description.trim(),
       serial_no: l.serial_no?.trim() || null,
@@ -777,7 +799,7 @@ const GatePassForm = ({ onCreated }) => {
             {/* Single-row line item */}
             <View style={[styles.itemsRow, { zIndex: (openUomLine === index || openChargeableLine === index || openTypeLine === index) ? 100 : 1 }]}>
 
-              {/* Type — Item (free text) | Fixed Asset (from master) */}
+              {/* Type — Item (Item master lookup) | Fixed Asset (from master) */}
               <View style={[styles.itemsCell, { flex: 0.85, position: 'relative', overflow: 'visible', zIndex: openTypeLine === index ? 300 : 1 }]}>
                 <TouchableOpacity
                   style={styles.uomTrigger}
@@ -834,9 +856,9 @@ const GatePassForm = ({ onCreated }) => {
 
               {/* Description — FA: auto-filled from the master on pick, then
                   editable (user may append detail like "with charger";
-                  decision 14 Jul 2026). Item: picked/created via the Item
-                  master lookup — shows existing items and lets the user
-                  name a new one when the asset they need isn't mastered. */}
+                  decision 14 Jul 2026). Item: picked from the Item master
+                  lookup (Fabric-fed + hand-added) — "+ Add new item" at the
+                  bottom of the pop-up covers anything Fabric doesn't have. */}
               <View style={[styles.itemsCell, { flex: 2.0 }]}>
                 {line.item_type === 'Fixed Asset' ? (
                   <TextInput
@@ -1092,13 +1114,15 @@ const GatePassForm = ({ onCreated }) => {
         title="Select or Add Item"
         keyField="item_id"
         columns={[
-          { key: 'item_name', label: 'Description of Goods', flex: 1 },
+          { key: 'item_code', label: 'Item Code', flex: 0.8 },
+          { key: 'item_name', label: 'Description of Goods', flex: 1.6 },
+          { key: 'source', label: 'Source', flex: 0.7 },
         ]}
         fetchRows={(q) => gatePassAPI.searchItems(q)}
-        onPick={(item) => pickItem(itemModalLine, item.item_name)}
+        onPick={(item) => pickItem(itemModalLine, item)}
         onClose={() => setItemModalLine(null)}
         allowCreate
-        onCreate={(name) => pickItem(itemModalLine, name)}
+        onCreate={(name) => createAndPickItem(itemModalLine, name)}
       />
     </View>
   );
