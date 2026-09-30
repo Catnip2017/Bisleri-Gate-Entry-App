@@ -44,15 +44,21 @@ function LookupModal({
   // Optional: lets the modal double as a "pick existing or create new" picker
   // (used for the user-populated Item master).
   allowCreate = false, onCreate = null,
+  // Optional: a small pill-row filter on one column's value (used for the
+  // Item master's Source column — All / Fabric / Manual — decision 30 Sep
+  // 2026, so manually-added items with a blank Item Code are easy to spot).
+  filterKey = null, filterOptions = null,
 }) {
   const [query, setQuery] = React.useState('');
   const [rows, setRows] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
+  const [filterValue, setFilterValue] = React.useState('All');
 
   React.useEffect(() => {
     if (!visible) return;
     setQuery('');
     setRows([]);
+    setFilterValue('All');
     let dead = false;
     setBusy(true);
     fetchRows('').then((r) => { if (!dead) setRows(r || []); })
@@ -68,6 +74,10 @@ function LookupModal({
     fetchRows(q).then((r) => setRows(r || [])).catch(() => setRows([])).finally(() => setBusy(false));
   };
 
+  const visibleRows = filterKey && filterValue !== 'All'
+    ? rows.filter((r) => r[filterKey] === filterValue)
+    : rows;
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalBackdrop}>
@@ -81,6 +91,29 @@ function LookupModal({
             placeholderTextColor={gp.textMuted}
             autoFocus
           />
+          {filterOptions ? (
+            <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 2 }}>
+              {filterOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  onPress={() => setFilterValue(opt)}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 12,
+                    marginRight: 6,
+                    borderWidth: 1,
+                    borderColor: filterValue === opt ? gp.accent : '#C8D4DE',
+                    backgroundColor: filterValue === opt ? gp.accent : '#fff',
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: filterValue === opt ? '#fff' : gp.textMuted }}>
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
           {/* header row */}
           <View style={{ flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#C8D4DE' }}>
             {columns.map((c) => (
@@ -92,12 +125,12 @@ function LookupModal({
           <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
             {busy ? (
               <ActivityIndicator style={{ marginVertical: 16 }} color={gp.accent} />
-            ) : rows.length === 0 && !(allowCreate && query.trim()) ? (
+            ) : visibleRows.length === 0 && !(allowCreate && query.trim()) ? (
               <Text style={{ fontSize: 12, color: gp.textMuted, paddingVertical: 14, textAlign: 'center' }}>
                 No matches — refine your search
               </Text>
             ) : (
-              rows.map((r) => (
+              visibleRows.map((r) => (
                 <TouchableOpacity
                   key={r[keyField]}
                   onPress={() => onPick(r)}
@@ -116,7 +149,7 @@ function LookupModal({
             {!busy && allowCreate && query.trim() ? (
               <TouchableOpacity
                 onPress={() => onCreate(query.trim())}
-                style={{ flexDirection: 'row', paddingVertical: 9, borderTopWidth: rows.length ? 1 : 0, borderTopColor: '#C8D4DE', backgroundColor: '#F0F8FF' }}
+                style={{ flexDirection: 'row', paddingVertical: 9, borderTopWidth: visibleRows.length ? 1 : 0, borderTopColor: '#C8D4DE', backgroundColor: '#F0F8FF' }}
               >
                 <Text style={{ fontSize: 12, color: gp.accent, fontWeight: '600' }} numberOfLines={1}>
                   {`+ Add "${query.trim()}" as a new item`}
@@ -1126,6 +1159,8 @@ const GatePassForm = ({ onCreated }) => {
         onClose={() => setItemModalLine(null)}
         allowCreate
         onCreate={(name) => createAndPickItem(itemModalLine, name)}
+        filterKey="source"
+        filterOptions={['All', 'FABRIC', 'MANUAL']}
       />
     </View>
   );
