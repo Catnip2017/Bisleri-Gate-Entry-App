@@ -68,7 +68,7 @@ const DataTable = ({
       <View style={styles.headerRow}>
         {selectable && <View style={styles.selectCell} />}
         {primaryColumns.map((column) => (
-          <View key={`h-${column.key}`} style={[styles.cell, { flex: column.flex || 1 }]}>
+          <View key={`h-${column.key}`} style={[styles.cell, styles.headerCell, { flex: column.flex || 1 }]}>
             <Text style={styles.headerText} numberOfLines={2}>{column.title}</Text>
           </View>
         ))}
@@ -196,6 +196,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  // Vertical separator on the header row's cells — a lighter line than the
+  // data-row separator below, since it sits on the dark header background.
+  headerCell: {
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.25)',
+  },
   dataRow: {
     flexDirection: 'row',
     minHeight: TOUCH_TARGET,
@@ -216,6 +222,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
+    // Vertical column separator — the row border above already marks row
+    // boundaries; this marks column boundaries so wrapped/aligned values
+    // in adjacent columns don't read as one run-on line.
+    borderRightWidth: 1,
+    borderRightColor: colors.borderLight,
   },
   cellText: {
     fontSize: 14,
@@ -225,6 +236,8 @@ const styles = StyleSheet.create({
     width: TOUCH_TARGET,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: colors.borderLight,
   },
   expandCell: {
     width: TOUCH_TARGET,
