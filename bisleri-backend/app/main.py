@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import logging
 import os
-from app.routers import auth, documents, gate, insights, admin, sync, raw_materials, rpa, gate_pass, dashboard
+from app.routers import auth, documents, gate, insights, admin, sync, raw_materials, rpa, gate_pass, gate_pass_reports, dashboard
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -248,6 +248,7 @@ app.include_router(raw_materials.router)
 app.include_router(copacker_router.router)
 app.include_router(rpa.router)
 app.include_router(gate_pass.router)
+app.include_router(gate_pass_reports.router)
 app.include_router(dashboard.router)
 
 # Ensure the copacker images directory exists on startup

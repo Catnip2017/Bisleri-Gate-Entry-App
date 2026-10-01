@@ -11,6 +11,7 @@ import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
 import GatePassForm from './GatePassForm';
 import GatePassList from './GatePassList';
+import GatePassReports from './GatePassReports';
 import styles from './styles/gatePassStyles';
 
 // '+ New Gate Pass' is rendered as its own button above this list (not a
@@ -22,6 +23,10 @@ const MENU = [
   { key: 'partial', label: 'Partially Received', status: 'Partially Received' },
   { key: 'received', label: 'Inward Received', status: 'Inward Received' },
   { key: 'cancelled', label: 'Cancelled', status: 'Cancelled' },
+  // Content auto-switches by role (Creator -> FY Register, Dispatcher -> FY
+  // Item Reconciliation) — see GatePassReports.js. Not a status view, so it
+  // doesn't carry a `status` key like the others.
+  { key: 'reports', label: 'Reports' },
 ];
 
 const GatePassDashboard = () => {
@@ -165,6 +170,8 @@ const GatePassDashboard = () => {
                   setActiveKey('all');
                 }}
               />
+            ) : activeKey === 'reports' ? (
+              <GatePassReports />
             ) : (
               <GatePassList
                 refreshKey={refreshKey}

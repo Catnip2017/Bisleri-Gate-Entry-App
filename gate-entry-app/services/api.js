@@ -818,6 +818,36 @@ export const gatePassAPI = {
     const response = await api.get('/gate-pass/notifications/due');
     return response.data;
   },
+
+  // ── Reports tab (added 1 Oct 2026) ────────────────────────────────────
+  getReportFinancialYears: async () => {
+    const response = await api.get('/gate-pass/reports/financial-years');
+    return response.data;
+  },
+  getCreatorReport: async (fy = null) => {
+    const response = await api.get('/gate-pass/reports/creator', { params: fy ? { fy } : {} });
+    return response.data;
+  },
+  getDispatcherReport: async (fy = null) => {
+    const response = await api.get('/gate-pass/reports/dispatcher', { params: fy ? { fy } : {} });
+    return response.data;
+  },
+  // Both return a raw Blob (responseType 'blob') — caller triggers the
+  // browser download (web-only, same pattern as printGatePass.js).
+  downloadCreatorReportExcel: async (fy = null) => {
+    const response = await api.get('/gate-pass/reports/creator/export', {
+      params: fy ? { fy } : {},
+      responseType: 'blob',
+    });
+    return response.data;
+  },
+  downloadDispatcherReportExcel: async (fy = null) => {
+    const response = await api.get('/gate-pass/reports/dispatcher/export', {
+      params: fy ? { fy } : {},
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 // RPA process dashboards (IT Admin only)
