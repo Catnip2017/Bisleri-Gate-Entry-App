@@ -13,6 +13,7 @@ import DataTable from '../../../components/ui/DataTable';
 import DateField from '../../../components/ui/DateField';
 import MultiSelectDropdown from '../../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../../utils/printGatePass';
+import GatePassReports from '../../gate-pass/GatePassReports';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
 
 const VIEWS = [
@@ -22,6 +23,7 @@ const VIEWS = [
   { key: 'partial', label: 'Partial Inward' },
   { key: 'inward_completed', label: 'Inward Completed' },
   { key: 'cancelled', label: 'Cancelled' },
+  { key: 'reports', label: 'Reports' },
 ];
 
 const PASS_TYPE_OPTIONS = [
@@ -71,7 +73,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [receiving, setReceiving] = useState(false);
 
   const load = useCallback(async () => {
-    if (!hasGpdRole || noGpLocation) return;
+    if (!hasGpdRole || noGpLocation || view === 'reports') return;
     setLoading(true);
     try {
       const extraFilters = {};
@@ -434,6 +436,10 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
         {/* ── Content pane ── */}
         <View style={styles.contentPane}>
           <View style={styles.formCard}>
+            {view === 'reports' ? (
+              <GatePassReports />
+            ) : (
+              <>
             {/* All filters (Location, Pass Type, dates) + Refresh — one
                 horizontally-scrollable line, so nothing wraps awkwardly. */}
             <ScrollView
@@ -578,6 +584,8 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                               : 'No cancelled passes (only passes cancelled after release appear here)'
                 }
               />
+            )}
+              </>
             )}
           </View>
         </View>
