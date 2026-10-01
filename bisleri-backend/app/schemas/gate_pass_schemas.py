@@ -260,14 +260,30 @@ class DueNotificationsResponse(BaseModel):
 
 
 # ── Reports (Creator FY Register / Dispatcher FY Item Reconciliation) ───────
-# Added 1 Oct 2026 — the "Reports" tab in the Gate Pass Menu. Role-scoped the
-# same way as the existing list/guard-pending endpoints (own location(s) +
-# department for Creator; own location(s) for Dispatcher). On-screen JSON and
-# the downloadable .xlsx are built from the same query, so they always agree.
+# Added 1 Oct 2026, revised 1 Oct 2026 — the "Reports" tab in the Gate Pass
+# Menu. Role-scoped the same way as the existing list/guard-pending
+# endpoints (own location(s) + department for Creator; own location(s) for
+# Dispatcher). The on-screen JSON is grouped one entry per gate pass (with
+# line items nested, for the on-screen expandable row); the downloadable
+# .xlsx flattens the same underlying query to one row per line item (Excel
+# Tables/AutoFilter don't tolerate merged cells, so pass-level fields repeat
+# per line there instead). Both come from the same query, so they agree.
 
 class FinancialYearsResponse(BaseModel):
     financial_years: List[str]       # e.g. ["2026-27", "2025-26"], newest first
     current: str                     # the FY in progress today
+
+
+class CreatorLineItem(BaseModel):
+    line_no: int
+    item_type: str                   # 'Fixed Asset' | 'Item'
+    item_code: Optional[str] = None  # Asset No. or Item Code
+    description: str
+    serial_no: Optional[str] = None
+    uom: Optional[str] = None
+    quantity: int
+    amount: float
+    chargeable: bool
 
 
 class CreatorRegisterRow(BaseModel):
@@ -275,21 +291,19 @@ class CreatorRegisterRow(BaseModel):
     pass_type: str
     status: str
     location_code: str
-    department: str
     party_name: str
     created_by: str
-    document_date: date
-    released_at: Optional[datetime] = None
+    gate_pass_created_date: date
     dispatched_at: Optional[datetime] = None
-    expected_inward_date: Optional[date] = None
-    actual_inward_date: Optional[datetime] = None   # best available: completed_at
+    expected_return_date: Optional[date] = None      # blank for NR passes
+    actual_return_date: Optional[datetime] = None     # best available: completed_at
     days_outstanding: Optional[int] = None
-    line_count: int
     total_qty: int
     total_amount: float
     chargeable: bool
     cancel_info: Optional[str] = None
     remarks: Optional[str] = None
+    lines: List[CreatorLineItem] = []
 
 
 class CreatorReportSummary(BaseModel):
@@ -298,33 +312,41 @@ class CreatorReportSummary(BaseModel):
     non_returnable_count: int
     status_counts: dict             # {"Open": 2, "Released": 1, ...}
     pending_return_count: int       # R, dispatched, not received
-    overdue_count: int              # pending_return AND past expected inward date
+    overdue_count: int              # pending_return AND past expected return date
     total_chargeable_amount: float
 
 
 class CreatorReportResponse(BaseModel):
     financial_year: str
-    summary: CreatorReportSummary
+    department: Optional[str] = None   # the caller's own department — every row is scoped
+    summary: CreatorReportSummary      # to it, so it's shown once here rather than per row
     rows: List[CreatorRegisterRow]
+
+
+class DispatcherLineItem(BaseModel):
+    item_code: Optional[str] = None       # Item Code or Asset No.
+    description: str
+    qty_sent: int
+    unit: Optional[str] = None
+    qty_returned: int
+    reconciliation_status: str       # Fully Returned | Partially Returned | Pending | Not Applicable
+    serial_no: Optional[str] = None
 
 
 class DispatcherDetailRow(BaseModel):
     department: str
-    gate_pass_no: str
     pass_type: str
-    line_type: str
-    item_code: Optional[str] = None       # Item Code or Asset No.
-    description: str
-    qty_sent: int
-    unit: str
+    gate_pass_no: str
+    status: str                      # the pass's own workflow status (Dispatched/Partially
+                                      # Received/Inward Received) — not a re-derived value
+    party_name: str
     dispatch_date: Optional[datetime] = None
     expected_return_date: Optional[date] = None
-    qty_returned: int
     actual_return_date: Optional[datetime] = None   # best available: last_inward_at/completed_at
-    reconciliation_status: str       # Fully Returned | Partially Returned | Pending | Not Applicable
+    total_qty_sent: int               # summed across this pass's lines
     days_outstanding: Optional[int] = None
-    party_name: str
     remarks: Optional[str] = None
+    lines: List[DispatcherLineItem] = []
 
 
 class DispatcherDeptSummaryRow(BaseModel):
@@ -340,6 +362,7 @@ class DispatcherDeptSummaryRow(BaseModel):
 
 
 class DispatcherReportSummary(BaseModel):
+    total_passes: int
     total_lines: int
     total_qty_sent: int
     departments: int

@@ -34,11 +34,18 @@ const DataTable = ({
   // horizontally-scrollable line — better when there are few, short fields
   // and a grid would leave awkward empty space (e.g. Vendor Payment Advice).
   detailLayout = 'grid',
+  // Optional: renderExpanded(item) -> React node. When given, it fully
+  // replaces the auto-generated priority-2 grid/row panel for the expanded
+  // state — used by the Gate Pass Reports screen to show a pass's line
+  // items instead of a flat label/value list. The row is still expandable
+  // even with zero priority-2 columns as long as this is provided.
+  renderExpanded,
 }) => {
   const [expandedKeys, setExpandedKeys] = useState([]);
 
   const primaryColumns = columns.filter((c) => c.priority === 1);
   const detailColumns = columns.filter((c) => c.priority !== 1);
+  const expandable = detailColumns.length > 0 || typeof renderExpanded === 'function';
 
   const toggleExpand = useCallback((key) => {
     setExpandedKeys((prev) =>
@@ -85,7 +92,7 @@ const DataTable = ({
               onPress={() => {
                 if (selectable && onToggleSelect) {
                   onToggleSelect(key, item, !isSelected);
-                } else if (detailColumns.length > 0) {
+                } else if (expandable) {
                   toggleExpand(key);
                 }
               }}
@@ -114,7 +121,7 @@ const DataTable = ({
                 </View>
               ))}
 
-              {detailColumns.length > 0 && (
+              {expandable && (
                 <TouchableOpacity
                   style={styles.expandCell}
                   onPress={() => toggleExpand(key)}
@@ -130,8 +137,11 @@ const DataTable = ({
               )}
             </TouchableOpacity>
 
-            {/* Expandable detail panel: priority-2 columns as label/value pairs */}
-            {isExpanded && (
+            {/* Expandable detail panel: a custom renderer (e.g. line items) takes
+                priority over the auto-generated priority-2 label/value panel. */}
+            {isExpanded && typeof renderExpanded === 'function' ? (
+              renderExpanded(item)
+            ) : isExpanded && (
               detailLayout === 'row' ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.detailPanelRow}>
                   {detailColumns.map((column) => (

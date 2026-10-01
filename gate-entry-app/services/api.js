@@ -718,6 +718,19 @@ export const copackerAPI = {
 // ── Gate Pass APIs (Returnable / Non-Returnable) ─────────────────────────────
 // NO EDIT anywhere by design: a wrong pass is cancelled (mandatory reason)
 // and recreated. There is deliberately no update call in this API.
+// Drops null/undefined/empty-string/empty-array values from a params
+// object so an unset filter is simply omitted from the request rather than
+// sent as an empty query param. Used by the Reports tab's filter params.
+const cleanParams = (params) => {
+  const out = {};
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === null || v === undefined || v === '') return;
+    if (Array.isArray(v) && v.length === 0) return;
+    out[k] = v;
+  });
+  return out;
+};
+
 export const gatePassAPI = {
   getLocations: async () => {
     const response = await api.get('/gate-pass/locations');
@@ -819,31 +832,38 @@ export const gatePassAPI = {
     return response.data;
   },
 
-  // ── Reports tab (added 1 Oct 2026) ────────────────────────────────────
+  // ── Reports tab (added 1 Oct 2026, filters added 1 Oct 2026) ───────────
+  // `params` is a plain object of already-formatted query params (fy,
+  // status, pass_type, department, created_from/created_to or
+  // dispatch_from/dispatch_to — comma-joined strings for the multi-selects,
+  // ISO yyyy-mm-dd strings for dates). Falsy/empty values are dropped so an
+  // unset filter is simply omitted rather than sent as "". The download
+  // endpoints take the exact same params, so what's on screen is what you
+  // get in the file.
   getReportFinancialYears: async () => {
     const response = await api.get('/gate-pass/reports/financial-years');
     return response.data;
   },
-  getCreatorReport: async (fy = null) => {
-    const response = await api.get('/gate-pass/reports/creator', { params: fy ? { fy } : {} });
+  getCreatorReport: async (params = {}) => {
+    const response = await api.get('/gate-pass/reports/creator', { params: cleanParams(params) });
     return response.data;
   },
-  getDispatcherReport: async (fy = null) => {
-    const response = await api.get('/gate-pass/reports/dispatcher', { params: fy ? { fy } : {} });
+  getDispatcherReport: async (params = {}) => {
+    const response = await api.get('/gate-pass/reports/dispatcher', { params: cleanParams(params) });
     return response.data;
   },
   // Both return a raw Blob (responseType 'blob') — caller triggers the
   // browser download (web-only, same pattern as printGatePass.js).
-  downloadCreatorReportExcel: async (fy = null) => {
+  downloadCreatorReportExcel: async (params = {}) => {
     const response = await api.get('/gate-pass/reports/creator/export', {
-      params: fy ? { fy } : {},
+      params: cleanParams(params),
       responseType: 'blob',
     });
     return response.data;
   },
-  downloadDispatcherReportExcel: async (fy = null) => {
+  downloadDispatcherReportExcel: async (params = {}) => {
     const response = await api.get('/gate-pass/reports/dispatcher/export', {
-      params: fy ? { fy } : {},
+      params: cleanParams(params),
       responseType: 'blob',
     });
     return response.data;
