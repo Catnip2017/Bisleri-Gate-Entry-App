@@ -169,6 +169,10 @@ const GatePassReports = () => {
   const [fyOptions, setFyOptions] = useState([]);
   const [selectedFy, setSelectedFy] = useState(null);
   const [fyMenuOpen, setFyMenuOpen] = useState(false);
+  // Which single filter popover is open right now ('fy' | 'status' |
+  // 'passType' | 'department' | null) — keeps the FY picker and the
+  // MultiSelectDropdowns from opening on top of each other.
+  const [openFilter, setOpenFilter] = useState(null);
   const [report, setReport] = useState(null);     // raw API response for the active role
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -353,21 +357,35 @@ const GatePassReports = () => {
         <Text style={[styles.countText, { marginTop: 4 }]}>Department: {deptSubtitle}</Text>
       )}
 
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <View
+        style={[
+          { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 10, marginBottom: 14 },
+          // Web: keep every filter + the Download button on one line and let
+          // the row scroll sideways instead of wrapping — overflowY stays
+          // visible so an open dropdown's popover panel isn't clipped.
+          // Native: unchanged — filters wrap onto new lines as before.
+          Platform.OS === 'web'
+            ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
+            : { flexWrap: 'wrap' },
+        ]}
+      >
         {/* Financial year picker — same dropdown pattern as the UOM/Type pickers elsewhere */}
         <View style={{ position: 'relative' }}>
           <Text style={{ fontSize: 12, color: gp.textMuted, marginBottom: 4 }}>Financial Year</Text>
-          <TouchableOpacity style={[styles.uomTrigger, { minWidth: 120 }]} onPress={() => setFyMenuOpen((v) => !v)}>
+          <TouchableOpacity
+            style={[styles.uomTrigger, { minWidth: 120 }]}
+            onPress={() => setOpenFilter((v) => (v === 'fy' ? null : 'fy'))}
+          >
             <Text style={styles.uomTriggerText}>FY {selectedFy || '—'}</Text>
-            <Text style={{ fontSize: 9, color: gp.textMuted }}>{fyMenuOpen ? '▲' : '▼'}</Text>
+            <Text style={{ fontSize: 9, color: gp.textMuted }}>{openFilter === 'fy' ? '▲' : '▼'}</Text>
           </TouchableOpacity>
-          {fyMenuOpen && (
+          {openFilter === 'fy' && (
             <View style={[styles.uomMenu, { minWidth: 120 }]}>
               {fyOptions.map((fy) => (
                 <TouchableOpacity
                   key={fy}
                   style={[styles.uomItem, fy === selectedFy && styles.uomItemActive]}
-                  onPress={() => { setSelectedFy(fy); setFyMenuOpen(false); }}
+                  onPress={() => { setSelectedFy(fy); setOpenFilter(null); }}
                 >
                   <Text style={[styles.uomItemText, fy === selectedFy && styles.uomItemTextActive]}>FY {fy}</Text>
                 </TouchableOpacity>
@@ -383,6 +401,8 @@ const GatePassReports = () => {
           onChange={setStatusFilter}
           minWidth={170}
           maxWidth={220}
+          isOpen={openFilter === 'status'}
+          onOpenChange={(v) => setOpenFilter(v ? 'status' : null)}
         />
 
         <MultiSelectDropdown
@@ -392,6 +412,8 @@ const GatePassReports = () => {
           onChange={setPassTypeFilter}
           minWidth={160}
           maxWidth={200}
+          isOpen={openFilter === 'passType'}
+          onOpenChange={(v) => setOpenFilter(v ? 'passType' : null)}
         />
 
         {role === 'dispatcher' && (
@@ -402,21 +424,27 @@ const GatePassReports = () => {
             onChange={setDepartmentFilter}
             minWidth={170}
             maxWidth={220}
+            isOpen={openFilter === 'department'}
+            onOpenChange={(v) => setOpenFilter(v ? 'department' : null)}
           />
         )}
 
-        <DateField
-          label={role === 'creator' ? 'Created From' : 'Dispatch From'}
-          value={dateFrom}
-          onChange={setDateFrom}
-          placeholder={`FY ${selectedFy || ''} start`}
-        />
-        <DateField
-          label={role === 'creator' ? 'Created To' : 'Dispatch To'}
-          value={dateTo}
-          onChange={setDateTo}
-          placeholder={`FY ${selectedFy || ''} end`}
-        />
+        <View style={{ width: 160 }}>
+          <DateField
+            label={role === 'creator' ? 'Created From' : 'Dispatch From'}
+            value={dateFrom}
+            onChange={setDateFrom}
+            placeholder={`FY ${selectedFy || ''} start`}
+          />
+        </View>
+        <View style={{ width: 160 }}>
+          <DateField
+            label={role === 'creator' ? 'Created To' : 'Dispatch To'}
+            value={dateTo}
+            onChange={setDateTo}
+            placeholder={`FY ${selectedFy || ''} end`}
+          />
+        </View>
 
         <TouchableOpacity
           style={[styles.wfButton, styles.btnDispatch, downloading && { opacity: 0.6 }]}
@@ -442,10 +470,6 @@ const GatePassReports = () => {
                   <Tile label="Non-Returnable" value={report.summary.non_returnable_count} />
                   <Tile label="Pending Return" value={report.summary.pending_return_count} />
                   <Tile label="Overdue" value={report.summary.overdue_count} warn={report.summary.overdue_count > 0} />
-                  <Tile
-                    label="Chargeable Amount"
-                    value={`₹${Number(report.summary.total_chargeable_amount).toLocaleString('en-IN')}`}
-                  />
                 </>
               ) : (
                 <>

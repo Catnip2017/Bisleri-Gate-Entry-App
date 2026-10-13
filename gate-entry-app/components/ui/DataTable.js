@@ -72,7 +72,7 @@ const DataTable = ({
             <Text style={styles.headerText} numberOfLines={2}>{column.title}</Text>
           </View>
         ))}
-        {detailColumns.length > 0 && <View style={styles.expandCell} />}
+        {expandable && <View style={styles.expandCell} />}
       </View>
 
       {/* Rows */}

@@ -17,8 +17,22 @@ const MultiSelectDropdown = ({
   allLabel = 'All',
   minWidth = 200,
   maxWidth = 320,
+  // Optional controlled-open mode: when the parent screen has several of
+  // these (plus other popovers like the FY picker) in one filter bar, it
+  // can pass isOpen/onOpenChange so only one is ever open at a time instead
+  // of each managing its own state and visually colliding. Omit both to
+  // keep the old fully-uncontrolled behaviour.
+  isOpen,
+  onOpenChange,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = typeof onOpenChange === 'function';
+  const open = controlled ? isOpen : internalOpen;
+  const setOpen = (updater) => {
+    const next = typeof updater === 'function' ? updater(open) : updater;
+    if (controlled) onOpenChange(next);
+    else setInternalOpen(next);
+  };
   const normOptions = options.map(normalize);
 
   const toggle = (value) => {
