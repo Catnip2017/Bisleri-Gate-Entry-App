@@ -344,6 +344,15 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
           Platform.OS === 'web'
             ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
             : { flexWrap: 'wrap' },
+          // The actual bug: a dropdown's zIndex:100 only wins against
+          // siblings inside ITS OWN stacking context (its direct parent's).
+          // It does nothing against the results table below, which is a
+          // completely separate branch of the tree — that table paints over
+          // the open popover regardless, because it comes later in the DOM
+          // and this row never had a zIndex of its own to begin with. Fix:
+          // give the whole filter row a zIndex, so the row (and whatever
+          // pops out of it) wins against the table sibling that follows it.
+          { zIndex: 100 },
         ]}
       >
         {showFilters && (

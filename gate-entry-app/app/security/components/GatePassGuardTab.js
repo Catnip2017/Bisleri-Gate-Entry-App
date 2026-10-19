@@ -503,6 +503,15 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 Platform.OS === 'web'
                   ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
                   : { flexWrap: 'wrap' },
+                // Real root cause of the invisible-dropdown bug: a popover's
+                // own zIndex only beats siblings inside ITS OWN parent's
+                // stacking context — it does nothing against the results
+                // table below, a separate branch of the tree that paints
+                // over it regardless since it comes later in the DOM and
+                // this row had no zIndex of its own. Giving the whole row a
+                // zIndex makes the row (and anything popping out of it) win
+                // against that table.
+                { zIndex: 100 },
               ]}
             >
               {myLocations.length > 0 && (

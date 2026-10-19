@@ -367,6 +367,11 @@ const GatePassReports = () => {
           Platform.OS === 'web'
             ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
             : { flexWrap: 'wrap' },
+          // Same stacking-context fix as GatePassList/GatePassGuardTab: the
+          // row itself needs a zIndex so an open dropdown in it (FY, Status,
+          // Pass Type, Department) wins against whatever renders below
+          // (summary tiles / table), not just against its own siblings.
+          { zIndex: 100 },
         ]}
       >
         {/* Financial year picker — same dropdown pattern as the UOM/Type pickers elsewhere */}
