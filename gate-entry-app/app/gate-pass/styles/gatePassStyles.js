@@ -394,8 +394,18 @@ export default StyleSheet.create({
     borderTopWidth: 0,
     borderBottomLeftRadius: 6,
     borderBottomRightRadius: 6,
-    zIndex: 9999,
-    elevation: 8,
+    // Capped + clipped (used to be unbounded) so a long list — Location,
+    // Department — can't run off the bottom of the screen. Callers that
+    // want it scrollable wrap their option list in their own <ScrollView>
+    // inside this box; this cap is the backstop for anyone who doesn't.
+    maxHeight: 260,
+    overflow: 'hidden',
+    // Matches MultiSelectDropdown's popover (zIndex 100 / elevation 6) —
+    // was 9999/8 here, so when both kinds of dropdown appear in the same
+    // filter bar (e.g. Financial Year next to Status/Department), which one
+    // stacked on top was inconsistent between them.
+    zIndex: 100,
+    elevation: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.10,

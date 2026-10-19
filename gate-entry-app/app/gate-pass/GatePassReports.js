@@ -381,15 +381,17 @@ const GatePassReports = () => {
           </TouchableOpacity>
           {openFilter === 'fy' && (
             <View style={[styles.uomMenu, { minWidth: 120 }]}>
-              {fyOptions.map((fy) => (
-                <TouchableOpacity
-                  key={fy}
-                  style={[styles.uomItem, fy === selectedFy && styles.uomItemActive]}
-                  onPress={() => { setSelectedFy(fy); setOpenFilter(null); }}
-                >
-                  <Text style={[styles.uomItemText, fy === selectedFy && styles.uomItemTextActive]}>FY {fy}</Text>
-                </TouchableOpacity>
-              ))}
+              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+                {fyOptions.map((fy) => (
+                  <TouchableOpacity
+                    key={fy}
+                    style={[styles.uomItem, fy === selectedFy && styles.uomItemActive]}
+                    onPress={() => { setSelectedFy(fy); setOpenFilter(null); }}
+                  >
+                    <Text style={[styles.uomItemText, fy === selectedFy && styles.uomItemTextActive]}>FY {fy}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
         </View>

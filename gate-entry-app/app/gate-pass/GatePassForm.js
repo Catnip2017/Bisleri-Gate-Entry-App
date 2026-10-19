@@ -590,20 +590,22 @@ const GatePassForm = ({ onCreated }) => {
             </TouchableOpacity>
             {locDropdownOpen && (
               <View style={[styles.uomMenu, { left: 0, right: 0, minWidth: '100%' }]}>
-                {(deptLocked && myLocations.length
-                  ? locations.filter((l) => myLocations.some((m) => m.location_code === l.location_code))
-                  : locations
-                ).map((loc) => (
-                  <TouchableOpacity
-                    key={loc.location_code}
-                    style={[styles.uomItem, locationCode === loc.location_code && styles.uomItemActive]}
-                    onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
-                  >
-                    <Text style={[styles.uomItemText, locationCode === loc.location_code && styles.uomItemTextActive]}>
-                      {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                <ScrollView style={{ maxHeight: 260 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {(deptLocked && myLocations.length
+                    ? locations.filter((l) => myLocations.some((m) => m.location_code === l.location_code))
+                    : locations
+                  ).map((loc) => (
+                    <TouchableOpacity
+                      key={loc.location_code}
+                      style={[styles.uomItem, locationCode === loc.location_code && styles.uomItemActive]}
+                      onPress={() => { setLocationCode(loc.location_code); setLocDropdownOpen(false); }}
+                    >
+                      <Text style={[styles.uomItemText, locationCode === loc.location_code && styles.uomItemTextActive]}>
+                        {loc.location_code}{loc.location_name ? ` — ${loc.location_name}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>
@@ -709,15 +711,17 @@ const GatePassForm = ({ onCreated }) => {
             </TouchableOpacity>
             {deptDropdownOpen && (
               <View style={[styles.uomMenu, { left: 0, right: 0, minWidth: '100%' }]}>
-                {departments.map((d) => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[styles.uomItem, department === d && styles.uomItemActive]}
-                    onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
-                  >
-                    <Text style={[styles.uomItemText, department === d && styles.uomItemTextActive]}>{d}</Text>
-                  </TouchableOpacity>
-                ))}
+                <ScrollView style={{ maxHeight: 260 }} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                  {departments.map((d) => (
+                    <TouchableOpacity
+                      key={d}
+                      style={[styles.uomItem, department === d && styles.uomItemActive]}
+                      onPress={() => { setDepartment(d); setDeptDropdownOpen(false); }}
+                    >
+                      <Text style={[styles.uomItemText, department === d && styles.uomItemTextActive]}>{d}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </View>
             )}
           </View>

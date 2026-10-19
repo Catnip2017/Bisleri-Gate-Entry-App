@@ -3,7 +3,7 @@
 // toggle chips with a single-line summary button + checkbox popover, modeled
 // on the location filter already used in GatePassGuardTab.
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { typography, spacing } from '../../utils/theme';
 
 // options: array of strings, or array of { value, label }
@@ -67,7 +67,14 @@ const MultiSelectDropdown = ({
       </TouchableOpacity>
 
       {open && (
-        <View
+        // Was a plain View capped at maxHeight: 260 with no overflow/scroll
+        // handling — on React Native (and RN Web), a View defaults to
+        // overflow: visible, so a long option list (an open-ended Department
+        // master list, in particular) didn't scroll or clip, it just spilled
+        // out past the popover's own border over whatever sat beneath it,
+        // with the options past the cutoff impossible to reach. A ScrollView
+        // here actually clips at maxHeight and lets you scroll to the rest.
+        <ScrollView
           style={{
             position: 'absolute', top: label ? 60 : 42, left: 0, right: 0,
             backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
@@ -75,6 +82,8 @@ const MultiSelectDropdown = ({
             shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
             shadowOffset: { width: 0, height: 3 },
           }}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
         >
           <TouchableOpacity
             onPress={() => onChange([])}
@@ -97,7 +106,7 @@ const MultiSelectDropdown = ({
               </TouchableOpacity>
             );
           })}
-        </View>
+        </ScrollView>
       )}
     </View>
   );

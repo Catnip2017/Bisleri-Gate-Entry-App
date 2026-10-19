@@ -7,7 +7,7 @@
 //   Inward Received / Cancelled / Closed -> Print / view only
 // Cancelled passes are ALWAYS visible to their department — permanent record.
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, Platform } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
@@ -331,11 +331,20 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       {/* Filters (when shown) + search — one horizontally-scrollable line,
           so nothing wraps awkwardly ("View All Passes" gets both; other
           menu tabs get just the search since showFilters is false there). */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterRow}
-        contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, minWidth: '100%' }}
+      {/* A horizontally-scrolling ScrollView clips its content on the
+          cross-axis by default on web, which cuts off an open dropdown's
+          popover (it extends downward, past the row) — same issue fixed in
+          GatePassGuardTab's filter row. A plain View set to scroll via CSS
+          overflow (as GatePassReports' filter bar already does) keeps the
+          popover visible on web and wraps onto new lines on native instead. */}
+      <View
+        style={[
+          styles.filterRow,
+          { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+          Platform.OS === 'web'
+            ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
+            : { flexWrap: 'wrap' },
+        ]}
       >
         {showFilters && (
           <>
@@ -411,7 +420,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
         >
           <Text style={[styles.smallBtnText, { fontSize: 14 }]}>↻ Refresh</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </View>
 
       <Text style={styles.countText}>
         {fixedStatus ? `${fixedStatus}: ` : ''}

@@ -6,7 +6,7 @@
 // The Cancelled sub-view shows ONLY passes that were released and then
 // cancelled before dispatch — "where did that pass on my list go?"
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
@@ -77,6 +77,13 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   const [receiptQtys, setReceiptQtys] = useState({});       // line_id -> qty string
   const [inwardRemarks, setInwardRemarks] = useState('');
   const [receiving, setReceiving] = useState(false);
+
+  // View Items modal (read-only) — lets the guard see every line on a pass
+  // (description, serial no., qty, UOM) so the printed pass in their hand
+  // can be checked against the system record before dispatching/receiving.
+  // No edit rights here; this is purely for cross-checking.
+  const [viewItemsTarget, setViewItemsTarget] = useState(null);   // full pass detail
+  const [viewItemsLoading, setViewItemsLoading] = useState(false);
 
   const load = useCallback(async () => {
     if (!hasGpdRole || noGpLocation || view === 'reports') return;
@@ -235,6 +242,22 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     }
   };
 
+  // Read-only line-item lookup — available on every worklist view, so a
+  // guard can pull up what's actually on a pass (not just the header fields
+  // the list table shows) and check it against the physical items/paper
+  // pass before dispatching or receiving.
+  const openViewItems = async (pass) => {
+    setViewItemsLoading(true);
+    try {
+      const detail = await gatePassAPI.getPass(pass.id);
+      setViewItemsTarget(detail);
+    } catch (error) {
+      showError(handleAPIError(error));
+    } finally {
+      setViewItemsLoading(false);
+    }
+  };
+
   const submitInward = async () => {
     const receipts = [];
     for (const line of inwardTarget.lines) {
@@ -297,6 +320,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               <TouchableOpacity style={styles.smallDispatchBtn} onPress={() => openDispatch(item)}>
                 <Text style={styles.smallBtnText}>Dispatch</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
+                <Text style={styles.smallBtnText}>Items</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
                 <Text style={styles.smallPrintBtnText}>Print</Text>
               </TouchableOpacity>
@@ -307,26 +333,43 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
           );
         }
         if (view === 'dispatched' || view === 'inward_completed') {
-          // Reference/reprint only - nothing left to action on these passes.
+          // Reference/reprint, plus the read-only item list for cross-checking.
           return (
-            <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
-              <Text style={styles.smallPrintBtnText}>Print</Text>
-            </TouchableOpacity>
+            <View style={styles.rowActions}>
+              <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
+                <Text style={styles.smallPrintBtnText}>Print</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
+                <Text style={styles.smallBtnText}>Items</Text>
+              </TouchableOpacity>
+            </View>
           );
         }
         if (view === 'inward' || view === 'partial') {
           return (
             <View style={{ gap: 2 }}>
-              <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
-                <Text style={styles.smallBtnText}>Inward</Text>
+              <View style={styles.rowActions}>
+                <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
+                  <Text style={styles.smallBtnText}>Inward</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
+                <Text style={styles.smallBtnText}>Items</Text>
               </TouchableOpacity>
+              </View>
               {item.is_overdue && (
                 <Text style={{ color: gp.cancel, fontSize: 11, fontWeight: 'bold' }}>Overdue</Text>
               )}
             </View>
           );
         }
-        return <Text style={{ fontSize: 12, color: gp.textMuted }}>{item.cancel_reason_text || '—'}</Text>;
+        return (
+          <View style={styles.rowActions}>
+            <Text style={{ fontSize: 12, color: gp.textMuted }}>{item.cancel_reason_text || '—'}</Text>
+            <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
+                <Text style={styles.smallBtnText}>Items</Text>
+              </TouchableOpacity>
+          </View>
+        );
       },
     },
     // Movement timeline, always visible (not tucked in the dropdown) - the
@@ -448,11 +491,19 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               <>
             {/* All filters (Location, Pass Type, dates) + Refresh — one
                 horizontally-scrollable line, so nothing wraps awkwardly. */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginBottom: 10 }}
-              contentContainerStyle={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}
+            {/* A horizontally-scrolling ScrollView clips its content on the
+                cross-axis by default on web, which cuts off an open dropdown's
+                popover (it extends downward, past the row). A plain View with
+                the row set to scroll via CSS overflow — same fix already used
+                in GatePassReports' filter bar — keeps the popover visible on
+                web and falls back to wrapping onto new lines on native. */}
+            <View
+              style={[
+                { marginBottom: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+                Platform.OS === 'web'
+                  ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
+                  : { flexWrap: 'wrap' },
+              ]}
             >
               {myLocations.length > 0 && (
                 <View>
@@ -477,13 +528,19 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                         </Text>
                       </TouchableOpacity>
                       {openFilter === 'location' && (
-                        <View style={{
-                          position: 'absolute', top: 42, left: 0, right: 0,
-                          backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
-                          borderRadius: 8, elevation: 6, zIndex: 100,
-                          shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
-                          shadowOffset: { width: 0, height: 3 },
-                        }}>
+                        // Capped + scrollable (was unbounded) — same fix as
+                        // MultiSelectDropdown's popover, for a guard assigned
+                        // to many gate locations.
+                        <ScrollView
+                          style={{
+                            position: 'absolute', top: 42, left: 0, right: 0, maxHeight: 260,
+                            backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
+                            borderRadius: 8, elevation: 6, zIndex: 100,
+                            shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
+                            shadowOffset: { width: 0, height: 3 },
+                          }}
+                          nestedScrollEnabled
+                        >
                           <TouchableOpacity
                             onPress={() => setSelectedLocs([])}
                             style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
@@ -505,7 +562,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                               </TouchableOpacity>
                             );
                           })}
-                        </View>
+                        </ScrollView>
                       )}
                     </View>
                   ) : (
@@ -576,7 +633,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               <TouchableOpacity style={[styles.wfButton, styles.btnDispatch, { marginBottom: 0 }]} onPress={load}>
                 <Text style={styles.wfButtonText}>Search</Text>
               </TouchableOpacity>
-            </ScrollView>
+            </View>
 
             {loading ? (
               <View style={styles.loadingBox}>
@@ -781,6 +838,85 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 <Text style={styles.wfButtonText}>Go back</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* View Items modal (read-only) — every line on the pass, so the guard
+          can check the physical items/paper pass against the system record
+          before confirming Dispatch or Inward. No edit controls on purpose:
+          a mismatch here is a reason to reject/hold the pass at the gate,
+          not something the guard corrects in the app. */}
+      <Modal
+        visible={!!viewItemsTarget || viewItemsLoading}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setViewItemsTarget(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxHeight: '80%' }]}>
+            {viewItemsLoading && !viewItemsTarget ? (
+              <ActivityIndicator size="small" color={gp.accent} />
+            ) : (
+              <>
+                <Text style={styles.modalTitle}>Items — {viewItemsTarget?.gate_pass_no}</Text>
+                <Text style={styles.modalSubtitle}>
+                  {viewItemsTarget?.party_name} · {viewItemsTarget?.vehicle_no || 'No vehicle'} ·{' '}
+                  {viewItemsTarget?.lines?.length || 0} line(s) — check against the physical pass before proceeding.
+                </Text>
+                <ScrollView style={{ maxHeight: 360 }} nestedScrollEnabled>
+                  {viewItemsTarget?.lines?.map((l) => (
+                    <View
+                      key={l.id}
+                      style={{
+                        flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8,
+                        borderBottomWidth: 1, borderBottomColor: '#EEF2F0',
+                      }}
+                    >
+                      <Text style={{ width: 28, fontSize: 13, color: gp.textMuted }}>{l.line_no}.</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>
+                          {l.description}
+                        </Text>
+                        {l.serial_no ? (
+                          <Text style={{ fontSize: 12, color: gp.textMuted, marginTop: 2 }}>
+                            Serial No: {l.serial_no}
+                          </Text>
+                        ) : null}
+                        {l.chargeable ? (
+                          <Text style={{ fontSize: 11, color: gp.textMuted, marginTop: 2 }}>
+                            {l.chargeable}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>
+                          {l.quantity} {l.uom}
+                        </Text>
+                        {l.received_qty > 0 ? (
+                          <Text style={{ fontSize: 11, color: gp.textMuted, marginTop: 2 }}>
+                            {l.received_qty} received
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  ))}
+                  {viewItemsTarget && (!viewItemsTarget.lines || viewItemsTarget.lines.length === 0) && (
+                    <Text style={{ fontSize: 13, color: gp.textMuted, paddingVertical: 8 }}>
+                      No line items on this pass.
+                    </Text>
+                  )}
+                </ScrollView>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={[styles.wfButton, styles.btnSecondary]}
+                    onPress={() => setViewItemsTarget(null)}
+                  >
+                    <Text style={styles.wfButtonText}>Close</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
