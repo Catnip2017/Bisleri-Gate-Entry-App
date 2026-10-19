@@ -110,7 +110,7 @@ export default function LoginScreen() {
 
       <View style={styles.loginBox}>
         <View style={styles.header}>
-          <Text style={styles.title}>Gate Entry Portal</Text>
+          <Text style={styles.title}>Bisleri Ops Hub</Text>
         </View>
 
         <View style={styles.inputRow}>

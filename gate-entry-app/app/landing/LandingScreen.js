@@ -147,7 +147,7 @@ export default function LandingScreen() {
 
       {/* Main Content */}
       <View style={styles.content}>
-        <Text style={styles.heading}>Bisleri Gate Entry Management System</Text>
+        <Text style={styles.heading}>Bisleri Ops Hub</Text>
 
         <View style={styles.cardContainer}>
           {/* Only render the cards this user can actually open — being told

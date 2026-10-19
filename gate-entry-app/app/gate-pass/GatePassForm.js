@@ -761,6 +761,13 @@ const GatePassForm = ({ onCreated }) => {
                 placeholder="e.g. MH12AB1234"
                 placeholderTextColor={gp.textMuted}
                 autoCapitalize="characters"
+                // Longest a real Indian plate can ever be: standard format
+                // AA00AAA0000 = 11 chars, Bharat series 00BH0000AA = 10.
+                // VEHICLE_NO_REGEX below is still the real (authoritative)
+                // check at submit — this just stops the box from letting
+                // someone type on well past any possible real plate before
+                // that check ever runs.
+                maxLength={11}
                 editable
               />
             </>

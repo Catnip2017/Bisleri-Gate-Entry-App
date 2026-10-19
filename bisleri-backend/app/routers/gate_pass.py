@@ -743,12 +743,17 @@ def guard_pending(
 ):
     """The guard's worklist — a live status query, never a copied list.
     'dispatch'         : Released passes at the guard's location.
-    'dispatched'       : ALL passes (both NR and R) currently Dispatched — a
-                          reference/reprint list, not an action queue. Unlike
-                          'inward'/'partial' this is not restricted to
-                          Returnable passes, since NR passes never move to an
-                          inward step and would otherwise have no post-dispatch
-                          view at all.
+    'dispatched'       : EVERY pass (both NR and R) that has ever left the
+                          gate — i.e. dispatched_at is set — regardless of
+                          what happened to it since (still out, partially
+                          back, fully back, or force-closed). A full
+                          outbound log / reference-reprint list, not an
+                          action queue; it deliberately overlaps with
+                          'partial'/'inward_completed' below rather than
+                          excluding anything that's moved on from plain
+                          "Dispatched" status. The date filter here filters
+                          on the dispatch date itself (IST), not the
+                          creation date used by the other views.
     'inward'           : Dispatched RETURNABLE passes with NOTHING back yet —
                           the "not started" bucket.
     'partial'          : Partially Received RETURNABLE passes — some items
@@ -765,7 +770,11 @@ def guard_pending(
     if view == "dispatch":
         query = query.filter(GatePassHeader.status == GP_RELEASED)
     elif view == "dispatched":
-        query = query.filter(GatePassHeader.status == GP_DISPATCHED)
+        # "Ever dispatched" — not "currently Dispatched". Once a pass has
+        # left the gate it belongs in this log for good, whatever its
+        # status does afterwards (Partially Received, Inward Received,
+        # Closed Without Return all still show up here).
+        query = query.filter(GatePassHeader.dispatched_at.isnot(None))
     elif view == "inward":
         query = query.filter(
             GatePassHeader.pass_type == PASS_TYPE_RETURNABLE,
@@ -797,10 +806,20 @@ def guard_pending(
         pass_type_list = [p.strip() for p in pass_types.split(",") if p.strip()]
         if pass_type_list:
             query = query.filter(GatePassHeader.pass_type.in_(pass_type_list))
-    if from_date:
-        query = query.filter(GatePassHeader.document_date >= from_date)
-    if to_date:
-        query = query.filter(GatePassHeader.document_date <= to_date)
+    if from_date or to_date:
+        # "dispatched" (now an "ever dispatched" log) filters by the actual
+        # dispatch date, in IST — the date someone would mean by "show me
+        # what went out between X and Y". Every other view still filters by
+        # document_date (when the pass was raised), which is what those
+        # views were already scoped around.
+        if view == "dispatched":
+            date_col = func.date(func.timezone('Asia/Kolkata', GatePassHeader.dispatched_at))
+        else:
+            date_col = GatePassHeader.document_date
+        if from_date:
+            query = query.filter(date_col >= from_date)
+        if to_date:
+            query = query.filter(date_col <= to_date)
     if q:
         like = f"%{q}%"
         query = query.filter(

@@ -18,6 +18,7 @@
 #    of already-aggregated data from the DB; the aggregation happened in
 #    Python (gate_pass_reports.py), not in Excel.
 import io
+from datetime import datetime, timezone, timedelta
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -34,6 +35,24 @@ THIN = Side(style="thin", color="D9D9D9")
 BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 BAND_A = PatternFill("solid", fgColor="FFFFFF")
 BAND_B = PatternFill("solid", fgColor="EDF2F7")
+
+# Excel's file format cannot store a timezone-aware datetime in a cell —
+# openpyxl raises TypeError on write if tzinfo is set. Gate pass lifecycle
+# timestamps are stored IST-aware (see gate_pass.py's IST fix), so every
+# datetime value reaching this module needs its tzinfo stripped — AFTER
+# converting to IST, not before, so the displayed date/time stays correct
+# for whatever timezone the DB session happens to return it in.
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def _excel_safe(val):
+    """Strip tzinfo from a timezone-aware datetime (converting to IST
+    first) so openpyxl doesn't choke on it. Anything else passes through
+    unchanged — dates, strings, numbers, None are all fine as-is."""
+    if isinstance(val, datetime) and val.tzinfo is not None:
+        return val.astimezone(IST).replace(tzinfo=None)
+    return val
+
 
 TABLE_STYLE = TableStyleInfo(
     name="TableStyleMedium2", showFirstColumn=False, showLastColumn=False,
@@ -79,7 +98,7 @@ def _write_banded_table(ws, headers, rows, start_row, col_widths, table_name,
             band_toggle = not band_toggle
         band_fill = BAND_B if band_toggle else BAND_A
         for c, key in enumerate(col_keys, start=1):
-            val = row_dict.get(key)
+            val = _excel_safe(row_dict.get(key))
             cell = ws.cell(row=r, column=c, value=val)
             cell.font = BODY_FONT
             cell.border = BORDER
