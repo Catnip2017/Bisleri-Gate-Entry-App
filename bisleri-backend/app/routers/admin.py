@@ -257,6 +257,16 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Resolve the role set this update will leave the user with — either
+    # the new one being assigned now, or (if `role` isn't part of this
+    # request) the role they already hold. The dept/location invariant
+    # below is checked against THIS, not just against a role change, so
+    # it can no longer be bypassed by editing department or locations in
+    # a separate request from the one that assigns the role (that gap let
+    # a Gate Pass Creator's department or location list be cleared to
+    # empty without ever re-checking the rule, which in turn let
+    # _check_pass_view_access / list_gate_passes fall through to showing
+    # them other departments'/locations' passes — see gate_pass.py).
     if update_data.role:
         roles_cleaned = [r.strip() for r in update_data.role.split(",")]
         normalized_new_roles = normalize_role_list(roles_cleaned)
@@ -265,19 +275,45 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
         combo_error = validate_role_combo(normalized_new_roles)
         if combo_error:
             raise HTTPException(status_code=400, detail=combo_error)
+    else:
+        normalized_new_roles = normalize_roles(user.role)
 
-        # Gate Pass Creator requires a fixed department + >=1 location for
-        # EVERY holder (ITA included — no bypass, per locked spec).
-        if "gatepasscreator" in normalized_new_roles:
-            dept_after = update_data.department if update_data.department is not None else user.department
-            if not dept_after:
-                raise HTTPException(status_code=400,
-                    detail="Department is required for the Gate Pass Creator role.")
-            locs_after = update_data.gate_pass_locations
-            if locs_after is not None and len(locs_after) == 0:
-                raise HTTPException(status_code=400,
-                    detail="At least one Gate Pass Location is required for the Gate Pass Creator role.")
+    # Department/location this update will leave in place, whether or not
+    # this request is the one touching those fields.
+    dept_after = update_data.department if update_data.department is not None else user.department
+    if update_data.gate_pass_locations is not None:
+        locs_after_count = len(update_data.gate_pass_locations)
+    elif update_data.gate_pass_location is not None:
+        locs_after_count = 1 if update_data.gate_pass_location else 0
+    else:
+        locs_after_count = (
+            db.query(UserGatePassLocation)
+            .filter(UserGatePassLocation.username == user.username)
+            .count()
+        )
+        if locs_after_count == 0 and user.gate_pass_location:
+            locs_after_count = 1   # legacy single-column fallback
 
+    # Gate Pass Creator requires a fixed department + >=1 location for
+    # EVERY holder (ITA included — no bypass, per locked spec). Checked
+    # against the resulting state regardless of which fields this
+    # particular request is touching — see note above.
+    if "gatepasscreator" in normalized_new_roles:
+        if not dept_after:
+            raise HTTPException(status_code=400,
+                detail="Department is required for the Gate Pass Creator role.")
+        if locs_after_count == 0:
+            raise HTTPException(status_code=400,
+                detail="At least one Gate Pass Location is required for the Gate Pass Creator role.")
+
+    # Gate Pass Dispatcher (guard) also needs >=1 location to do anything —
+    # the worklist/dispatch/inward endpoints all 403 with NO_GP_LOCATION
+    # otherwise. Same "resulting state" check as above.
+    if "gatepassdispatcher" in normalized_new_roles and locs_after_count == 0:
+        raise HTTPException(status_code=400,
+            detail="At least one Gate Pass Location is required for the Gate Pass Dispatcher role.")
+
+    if update_data.role:
         user.role = ", ".join(roles_cleaned)
 
         # Handle copacker_location when assigning Co Packer role

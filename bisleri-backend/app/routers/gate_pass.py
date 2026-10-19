@@ -13,7 +13,18 @@
 # one-line change in each.
 import json
 import logging
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
+
+# All gate pass lifecycle timestamps (released_at, dispatched_at,
+# cancelled_at, last_inward_at, completed_at, closed_at — all
+# DateTime(timezone=True) columns) are stamped with datetime.now(IST)
+# rather than naive datetime.now(). A naive datetime handed to a
+# TIMESTAMPTZ column is interpreted using the DB session's timezone
+# setting (commonly UTC), not India time — near midnight that can shift
+# an event by 5.5 hours, enough to land it on the wrong calendar day or
+# even the wrong financial year in reports. An IST-aware datetime always
+# stores the correct absolute instant regardless of session timezone.
+IST = timezone(timedelta(hours=5, minutes=30))
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -100,13 +111,25 @@ def _user_gp_locations(db: Session, user: UsersMaster) -> list:
 def _check_pass_view_access(db: Session, gp, user: UsersMaster):
     """Who may open (and print) one specific pass — mirrors list scoping.
     Creator: own location(s) + department. Dispatcher: own location(s),
-    from Released onward. Nobody sees everything (SUPERADMIN parked)."""
+    from Released onward. Nobody sees everything (SUPERADMIN parked).
+
+    FAIL CLOSED: an empty/missing location list or department is NOT a
+    reason to skip the check (that used to let a mis-provisioned creator —
+    e.g. one whose location list got cleared via /admin/modify-user without
+    touching their role — view ANY pass, in any department/location, since
+    `if gpu_locations and ...` is vacuously false when the list is empty).
+    Both axes now explicitly reject first, exactly like the dispatcher
+    branch below and like list_gate_passes()."""
     roles = _roles(user)
     if "gatepasscreator" in roles:
         gpu_locations = _user_gp_locations(db, user)
-        if gpu_locations and gp.location_code not in gpu_locations:
+        if not gpu_locations:
+            raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
+        if gp.location_code not in gpu_locations:
             raise HTTPException(status_code=403, detail="This pass belongs to another location")
-        if user.department and gp.department != user.department:
+        if not user.department:
+            raise HTTPException(status_code=403, detail="NO_GP_DEPARTMENT")
+        if gp.department != user.department:
             raise HTTPException(status_code=403, detail="This pass belongs to another department")
         return
     if "gatepassdispatcher" in roles:
@@ -488,8 +511,21 @@ def create_gate_pass(
         raise HTTPException(status_code=400, detail="Vehicle number is required when mode of transport is Vehicle")
 
     try:
-        now = datetime.now()
-        gate_pass_no = _next_pass_number(db, payload.location_code, payload.pass_type)
+        now = datetime.now(IST)
+        try:
+            gate_pass_no = _next_pass_number(db, payload.location_code, payload.pass_type)
+        except IntegrityError:
+            # Narrow race: two requests both find no GatePassSequence row yet
+            # for this (location, type, FY) — happens only for the very
+            # first pass of a brand-new combination (e.g. right after
+            # midnight on 1 Apr) — and both try to INSERT one. The loser's
+            # INSERT raises IntegrityError on the unique constraint. Nothing
+            # has been added to this transaction yet, so a rollback here is
+            # safe; by the time we retry, the winner's row is visible and
+            # our SELECT ... FOR UPDATE finds and increments it normally
+            # instead of racing the INSERT again.
+            db.rollback()
+            gate_pass_no = _next_pass_number(db, payload.location_code, payload.pass_type)
 
         gp = GatePassHeader(
             gate_pass_no=gate_pass_no,
@@ -596,6 +632,13 @@ def create_gate_pass(
         return {"message": "Gate pass created", "gate_pass_no": gp.gate_pass_no, "id": gp.id, "status": gp.status}
     except HTTPException:
         raise
+    except IntegrityError:
+        db.rollback()
+        logger.warning("create_gate_pass: gate-pass-number sequence conflict persisted after retry")
+        raise HTTPException(
+            status_code=409,
+            detail="Another gate pass was being created for this location/type at the same moment. Please try again.",
+        )
     except Exception:
         db.rollback()
         logger.exception("create_gate_pass failed")
@@ -631,8 +674,14 @@ def list_gate_passes(
     if not gpu_locations:
         raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
     query = query.filter(GatePassHeader.location_code.in_(gpu_locations))
-    if current_user.department:
-        query = query.filter(GatePassHeader.department == current_user.department)
+    # FAIL CLOSED: a creator with no department set must not fall through
+    # to seeing every department's passes at their location — same bug
+    # class as the location check above (and as the one just fixed in
+    # _check_pass_view_access). A profile with no department is a
+    # provisioning problem, not a "show everything" signal.
+    if not current_user.department:
+        raise HTTPException(status_code=403, detail="NO_GP_DEPARTMENT")
+    query = query.filter(GatePassHeader.department == current_user.department)
     if status_filter:
         query = query.filter(GatePassHeader.status == status_filter)
     if statuses:
@@ -667,7 +716,14 @@ def list_gate_passes(
             GatePassHeader.expected_inward_date <= today,
         )
 
-    total = query.count()
+    # total must count PASSES, not joined rows — query carries
+    # joinedload(GatePassHeader.lines), which emits a LEFT OUTER JOIN, so a
+    # plain query.count() counts one row per (header, line) pair and
+    # inflates the total for any multi-line pass (e.g. a 3-line pass counts
+    # as 3). with_entities() here drops the eager-load join entirely (no
+    # filter above references GatePassLine, so nothing is lost) and counts
+    # distinct header ids instead.
+    total = query.with_entities(func.count(func.distinct(GatePassHeader.id))).scalar()
     rows = (
         query.order_by(GatePassHeader.created_at.desc())
         .offset(skip).limit(limit).all()
@@ -784,7 +840,10 @@ def due_notifications(
     )
     # Dispatchers: their gate location(s). Creators: their locations + dept.
     query = _guard_location_filter(db, query, current_user)
-    if "gatepasscreator" in roles and current_user.department:
+    if "gatepasscreator" in roles:
+        # FAIL CLOSED — see the matching note on list_gate_passes() above.
+        if not current_user.department:
+            raise HTTPException(status_code=403, detail="NO_GP_DEPARTMENT")
         query = query.filter(GatePassHeader.department == current_user.department)
 
     items = []
@@ -861,7 +920,7 @@ def release_gate_pass(
             raise HTTPException(status_code=409, detail=f"Pass is {gp.status} — only an Open pass can be released")
         gp.status = GP_RELEASED
         gp.released_by = current_user.username
-        gp.released_at = datetime.now()
+        gp.released_at = datetime.now(IST)
         _log_event(db, gp, "RELEASE", current_user)
         db.commit()
         return {"message": "Gate pass released", "gate_pass_no": gp.gate_pass_no, "status": gp.status}
@@ -901,7 +960,7 @@ def cancel_gate_pass(
             )
         gp.status = GP_CANCELLED
         gp.cancelled_by = current_user.username
-        gp.cancelled_at = datetime.now()
+        gp.cancelled_at = datetime.now(IST)
         gp.cancel_reason_id = reason.id
         gp.cancel_remarks = payload.cancel_remarks
         _log_event(db, gp, "CANCEL", current_user, remarks=payload.cancel_remarks,
@@ -945,7 +1004,7 @@ def guard_cancel_gate_pass(
             )
         gp.status = GP_CANCELLED
         gp.cancelled_by = current_user.username
-        gp.cancelled_at = datetime.now()
+        gp.cancelled_at = datetime.now(IST)
         gp.cancel_reason_id = reason.id
         gp.cancel_remarks = payload.cancel_remarks
         _log_event(db, gp, "GUARD_CANCEL", current_user, remarks=payload.cancel_remarks,
@@ -992,7 +1051,7 @@ def dispatch_gate_pass(
 
         gp.status = GP_DISPATCHED
         gp.dispatched_by = current_user.username
-        gp.dispatched_at = datetime.now()
+        gp.dispatched_at = datetime.now(IST)
         gp.dispatch_remarks = payload.security_remarks
         if gp.pass_type == PASS_TYPE_NON_RETURNABLE:
             gp.completed_at = gp.dispatched_at   # NR: terminal at dispatch
@@ -1062,9 +1121,9 @@ def inward_gate_pass(
 
         fully_received = all((l.received_qty or 0) >= (l.quantity or 0) for l in gp.lines)
         gp.status = GP_RECEIVED if fully_received else GP_PARTIAL
-        gp.last_inward_at = datetime.now()   # every inward call, partial or full
+        gp.last_inward_at = datetime.now(IST)   # every inward call, partial or full
         if fully_received:
-            gp.completed_at = datetime.now()
+            gp.completed_at = datetime.now(IST)
         _log_event(db, gp, "INWARD", current_user, remarks=payload.security_remarks,
                    details={"receipts": receipt_details})
         db.commit()
@@ -1112,7 +1171,7 @@ def force_close_gate_pass(
         ]
         gp.status = GP_CLOSED
         gp.closed_by = current_user.username
-        gp.closed_at = datetime.now()
+        gp.closed_at = datetime.now(IST)
         gp.completed_at = gp.closed_at
         gp.close_reason = payload.close_reason
         _log_event(db, gp, "FORCE_CLOSE", current_user, remarks=payload.close_reason,

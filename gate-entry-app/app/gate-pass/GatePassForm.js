@@ -757,7 +757,7 @@ const GatePassForm = ({ onCreated }) => {
               <TextInput
                 style={styles.input}
                 value={vehicleNo}
-                onChangeText={(v) => setVehicleNo(v.replace(/[^A-Z0-9]/g, ''))}
+                onChangeText={(v) => setVehicleNo(v.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
                 placeholder="e.g. MH12AB1234"
                 placeholderTextColor={gp.textMuted}
                 autoCapitalize="characters"
@@ -983,7 +983,19 @@ const GatePassForm = ({ onCreated }) => {
                 <TextInput
                   style={styles.cellInput}
                   value={String(line.amount)}
-                  onChangeText={(v) => updateLine(index, { amount: v.replace(/[^0-9.]/g, '') })}
+                  onChangeText={(v) => {
+                    // Strip anything that isn't a digit or '.', then collapse
+                    // any decimal points after the first — otherwise
+                    // "12.34.56" passed straight through, parseFloat() quietly
+                    // kept only "12.34" and the rest was silently dropped with
+                    // no error shown to the user.
+                    const cleaned = v.replace(/[^0-9.]/g, '');
+                    const firstDot = cleaned.indexOf('.');
+                    const sanitized = firstDot === -1
+                      ? cleaned
+                      : cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+                    updateLine(index, { amount: sanitized });
+                  }}
                   placeholder="0.00"
                   placeholderTextColor={gp.textMuted}
                   keyboardType="numeric"

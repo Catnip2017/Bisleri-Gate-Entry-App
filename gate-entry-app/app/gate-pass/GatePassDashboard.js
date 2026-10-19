@@ -18,6 +18,7 @@ import styles from './styles/gatePassStyles';
 // tab) — it doesn't represent a status view, so it never belonged in MENU.
 const MENU = [
   { key: 'all', label: 'View All Passes' },
+  { key: 'open', label: 'Pending Release', status: 'Open' },
   { key: 'released', label: 'Pending Dispatch', status: 'Released' },
   { key: 'dispatched', label: 'Dispatched', status: 'Dispatched' },
   { key: 'partial', label: 'Partially Received', status: 'Partially Received' },

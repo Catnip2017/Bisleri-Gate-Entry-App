@@ -35,6 +35,7 @@ from app.models.gate_pass import (
 from app.routers.gate_pass import (
     _require_initiator, _require_guard, _roles,
     _user_gp_locations, _guard_location_filter, _current_fy_label,
+    IST,
 )
 from app.schemas.gate_pass_schemas import (
     FinancialYearsResponse, CreatorReportResponse, DispatcherReportResponse,
@@ -114,13 +115,22 @@ def _item_code_lookup(db: Session, headers: list) -> dict:
 
 
 # ── Creator / IT Admin — FY Register ─────────────────────────────────────
-def _creator_scope(db: Session, current_user: UsersMaster):
+def _creator_scope(db: Session, current_user: UsersMaster, with_lines: bool = True):
+    # with_lines=False drops the joinedload entirely — used by
+    # financial_years() below, which only ever selects a single scalar date
+    # column via with_entities(). Running with_entities() against a query
+    # that still carries a one-to-many joinedload is a known SQLAlchemy
+    # footgun (it can duplicate rows per the join); harmless today only
+    # because the caller dedupes into a set(), but fragile if reused
+    # elsewhere without that dedupe. Keeping the join out here avoids the
+    # footgun entirely instead of relying on the caller to clean up after it.
     gpu_locations = _user_gp_locations(db, current_user)
     if not gpu_locations:
         raise HTTPException(status_code=403, detail="NO_GP_LOCATION")
-    query = db.query(GatePassHeader).options(
-        joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason)
-    ).filter(GatePassHeader.location_code.in_(gpu_locations))
+    query = db.query(GatePassHeader)
+    if with_lines:
+        query = query.options(joinedload(GatePassHeader.lines), joinedload(GatePassHeader.cancel_reason))
+    query = query.filter(GatePassHeader.location_code.in_(gpu_locations))
     if current_user.department:
         query = query.filter(GatePassHeader.department == current_user.department)
     return query
@@ -137,7 +147,7 @@ def _creator_row(h: GatePassHeader, today: date, item_code_by_id: dict) -> dict:
         and h.status in (GP_DISPATCHED, GP_PARTIAL)
         and h.dispatched_at is not None
     ):
-        days_outstanding = (today - h.dispatched_at.date()).days
+        days_outstanding = (today - h.dispatched_at.astimezone(IST).date()).days
 
     cancel_info = None
     if h.status == GP_CANCELLED:
@@ -221,7 +231,13 @@ def _creator_summary(rows: list) -> dict:
         and r["expected_return_date"] is not None
         and r["expected_return_date"] < date.today()
     )
-    total_chargeable_amount = sum(r["total_amount"] for r in rows if r["chargeable"])
+    # Sum only the chargeable LINES' amounts, not each pass's full
+    # total_amount — a pass is flagged "chargeable" if any line on it is,
+    # but a mixed pass (one chargeable line + one non-chargeable line) was
+    # previously contributing its ENTIRE amount here, inflating the total.
+    total_chargeable_amount = sum(
+        l["amount"] for r in rows for l in r["lines"] if l["chargeable"]
+    )
     return {
         "total_passes": len(rows),
         "returnable_count": returnable_count,
@@ -307,10 +323,12 @@ def creator_report_export(
 
 
 # ── Dispatcher / Security Guard — FY Item Reconciliation ─────────────────
-def _dispatcher_scope(db: Session, current_user: UsersMaster):
-    query = db.query(GatePassHeader).options(joinedload(GatePassHeader.lines)).filter(
-        GatePassHeader.dispatched_at.isnot(None)
-    )
+def _dispatcher_scope(db: Session, current_user: UsersMaster, with_lines: bool = True):
+    # with_lines=False — see the matching note on _creator_scope() above.
+    query = db.query(GatePassHeader)
+    if with_lines:
+        query = query.options(joinedload(GatePassHeader.lines))
+    query = query.filter(GatePassHeader.dispatched_at.isnot(None))
     return _guard_location_filter(db, query, current_user)
 
 
@@ -345,7 +363,7 @@ def _dispatcher_row(h: GatePassHeader, today: date, item_code_by_id: dict) -> di
     any_pending = any(l["reconciliation_status"] in ("Pending", "Partially Returned") for l in lines)
     days_outstanding = None
     if h.pass_type == PASS_TYPE_RETURNABLE and any_pending and h.dispatched_at is not None:
-        days_outstanding = (today - h.dispatched_at.date()).days
+        days_outstanding = (today - h.dispatched_at.astimezone(IST).date()).days
 
     # The pass only carries one meaningful "last receipt" timestamp in the
     # data model (no per-line receipt times) — completed_at once every line
@@ -452,8 +470,8 @@ def _build_dispatcher_report(
     start = dispatch_from or fy_start
     end = dispatch_to or fy_end
     query = _dispatcher_scope(db, current_user).filter(
-        func.date(GatePassHeader.dispatched_at) >= start,
-        func.date(GatePassHeader.dispatched_at) <= end,
+        func.date(func.timezone('Asia/Kolkata', GatePassHeader.dispatched_at)) >= start,
+        func.date(func.timezone('Asia/Kolkata', GatePassHeader.dispatched_at)) <= end,
     )
     if status:
         query = query.filter(GatePassHeader.status.in_(status))
@@ -540,12 +558,12 @@ def financial_years(
     roles = _roles(current_user)
     dates = []
     if "gatepasscreator" in roles:
-        query = _creator_scope(db, current_user)
+        query = _creator_scope(db, current_user, with_lines=False)
         dates = [d for (d,) in query.with_entities(GatePassHeader.document_date).all()]
     elif "gatepassdispatcher" in roles:
-        query = _dispatcher_scope(db, current_user)
+        query = _dispatcher_scope(db, current_user, with_lines=False)
         dates = [
-            dt.date() for (dt,) in query.with_entities(GatePassHeader.dispatched_at).all()
+            dt.astimezone(IST).date() for (dt,) in query.with_entities(GatePassHeader.dispatched_at).all()
             if dt is not None
         ]
     else:

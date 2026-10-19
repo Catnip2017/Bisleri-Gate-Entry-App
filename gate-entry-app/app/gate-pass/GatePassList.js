@@ -60,6 +60,10 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
   const [searchText, setSearchText] = useState('');
   const [statusFilters, setStatusFilters] = useState([]);
   const [passTypeFilters, setPassTypeFilters] = useState([]);
+  // Which filter popover is open ('status' | 'passType' | null) — keeps
+  // the two MultiSelectDropdowns from both opening at once and visually
+  // colliding (same coordination pattern used on GatePassReports.js).
+  const [openFilter, setOpenFilter] = useState(null);
   const [dateFrom, setDateFrom] = useState(null);   // Date | null
   const [dateTo, setDateTo] = useState(null);        // Date | null
   const [loading, setLoading] = useState(false);
@@ -286,7 +290,10 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       priority: 1,
       render: (item) => (item.dispatched_at ? new Date(item.dispatched_at).toLocaleDateString() : '—'),
     },
-    { key: 'expected_inward_date', title: 'Expected Inward Date', flex: 1.1, priority: 1 },
+    {
+      key: 'expected_inward_date', title: 'Expected Inward Date', flex: 1.1, priority: 1,
+      render: (item) => (item.expected_inward_date ? new Date(item.expected_inward_date).toLocaleDateString() : '—'),
+    },
     {
       key: 'last_inward_at',
       title: 'Inward Date',
@@ -339,6 +346,8 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
               onChange={setStatusFilters}
               allLabel="All statuses"
               minWidth={170}
+              isOpen={openFilter === 'status'}
+              onOpenChange={(v) => setOpenFilter(v ? 'status' : null)}
             />
             <MultiSelectDropdown
               label="Pass Type"
@@ -347,6 +356,8 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
               onChange={setPassTypeFilters}
               allLabel="All pass types"
               minWidth={160}
+              isOpen={openFilter === 'passType'}
+              onOpenChange={(v) => setOpenFilter(v ? 'passType' : null)}
             />
             {/* Grouped with Status/Pass Type — it's a category-style toggle,
                 not a date value, so it reads better next to them than after

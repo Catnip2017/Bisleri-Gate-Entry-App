@@ -45,10 +45,16 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   // client-side; the server already returns the union of assigned locations.
   const [myLocations, setMyLocations] = useState([]);
   const [selectedLocs, setSelectedLocs] = useState([]);   // [] = All locations
-  const [locMenuOpen, setLocMenuOpen] = useState(false);
+  // Which filter popover is open ('location' | 'passType' | null) — keeps
+  // the Location popover and the Pass Type MultiSelectDropdown from both
+  // opening at once and visually colliding.
+  const [openFilter, setOpenFilter] = useState(null);
 
   // Pass type + date-range filters (client -> server, applied per view)
   const [passTypeFilters, setPassTypeFilters] = useState([]);
+  // Client-side, same pattern as the Location filter above — every item
+  // already carries is_overdue from the backend's _to_list_item().
+  const [overdueOnly, setOverdueOnly] = useState(false);
   const [dateFrom, setDateFrom] = useState(null);   // Date | null
   const [dateTo, setDateTo] = useState(null);        // Date | null
   const [searchText, setSearchText] = useState('');  // matches vendor/customer name, pass no. or vehicle no.
@@ -119,10 +125,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
       .catch(() => setMyLocations([]));
   }, []);
 
-  const visibleItems =
-    selectedLocs.length === 0
-      ? items
-      : items.filter((i) => selectedLocs.includes(i.location_code));
+  const visibleItems = items
+    .filter((i) => selectedLocs.length === 0 || selectedLocs.includes(i.location_code))
+    .filter((i) => !overdueOnly || i.is_overdue);
 
   const toggleLoc = (code) =>
     setSelectedLocs((prev) =>
@@ -144,8 +149,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     setPassTypeFilters([]);
     setDateFrom(null);
     setDateTo(null);
+    setOverdueOnly(false);
   };
-  const filtersActive = passTypeFilters.length > 0 || !!dateFrom || !!dateTo;
+  const filtersActive = passTypeFilters.length > 0 || !!dateFrom || !!dateTo || overdueOnly;
 
   // ── Dispatch flow ─────────────────────────────────────────────────────────
   const openDispatch = (pass) => {
@@ -454,9 +460,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                   {myLocations.length > 1 ? (
                     <View style={{ minWidth: 200, maxWidth: 260 }}>
                       <TouchableOpacity
-                        onPress={() => setLocMenuOpen((o) => !o)}
+                        onPress={() => setOpenFilter((v) => (v === 'location' ? null : 'location'))}
                         accessibilityRole="button"
-                        accessibilityState={{ expanded: locMenuOpen }}
+                        accessibilityState={{ expanded: openFilter === 'location' }}
                         style={{
                           flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                           borderWidth: 1, borderColor: '#C8D4DE', borderRadius: 8,
@@ -467,10 +473,10 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                           {locSummary}
                         </Text>
                         <Text style={{ fontSize: 10, color: gp.textMuted, marginLeft: 8 }}>
-                          {locMenuOpen ? '▲' : '▼'}
+                          {openFilter === 'location' ? '▲' : '▼'}
                         </Text>
                       </TouchableOpacity>
-                      {locMenuOpen && (
+                      {openFilter === 'location' && (
                         <View style={{
                           position: 'absolute', top: 42, left: 0, right: 0,
                           backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
@@ -522,7 +528,20 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                 onChange={setPassTypeFilters}
                 allLabel="All pass types"
                 minWidth={150}
+                isOpen={openFilter === 'passType'}
+                onOpenChange={(v) => setOpenFilter(v ? 'passType' : null)}
               />
+              <TouchableOpacity
+                style={[
+                  overdueOnly ? styles.chipActive : styles.chip,
+                  { marginBottom: 0, paddingVertical: 12, paddingHorizontal: 20, minHeight: 44, minWidth: 110, justifyContent: 'center', alignItems: 'center' },
+                ]}
+                onPress={() => setOverdueOnly(!overdueOnly)}
+              >
+                <Text style={[overdueOnly ? styles.chipActiveText : styles.chipText, { fontSize: 14, fontWeight: 'bold' }]}>
+                  Overdue Returns
+                </Text>
+              </TouchableOpacity>
               <View style={{ minWidth: 140 }}>
                 <DateField label="From date" value={dateFrom} onChange={setDateFrom} placeholder="Any date" />
               </View>
