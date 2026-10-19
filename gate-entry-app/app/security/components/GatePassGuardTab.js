@@ -528,41 +528,50 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
                         </Text>
                       </TouchableOpacity>
                       {openFilter === 'location' && (
-                        // Capped + scrollable (was unbounded) — same fix as
-                        // MultiSelectDropdown's popover, for a guard assigned
-                        // to many gate locations.
-                        <ScrollView
+                        // position:'absolute' must stay on a plain View, not
+                        // directly on a ScrollView — on web a ScrollView
+                        // given only a "top" (no "bottom") collapses to zero
+                        // height instead of sizing to its content the way a
+                        // View does, which made this popover (and the one in
+                        // MultiSelectDropdown, fixed the same way) render as
+                        // an empty box with nothing visible underneath it.
+                        // Outer View = positioned + capped; inner ScrollView
+                        // = the actual scrolling, for a guard assigned to
+                        // many gate locations.
+                        <View
                           style={{
                             position: 'absolute', top: 42, left: 0, right: 0, maxHeight: 260,
+                            overflow: 'hidden',
                             backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
                             borderRadius: 8, elevation: 6, zIndex: 100,
                             shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
                             shadowOffset: { width: 0, height: 3 },
                           }}
-                          nestedScrollEnabled
                         >
-                          <TouchableOpacity
-                            onPress={() => setSelectedLocs([])}
-                            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-                          >
-                            <Text style={{ fontSize: 15, width: 24 }}>{selectedLocs.length === 0 ? '☑' : '☐'}</Text>
-                            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>All locations</Text>
-                          </TouchableOpacity>
-                          <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
-                          {myLocations.map((l) => {
-                            const on = selectedLocs.includes(l.location_code);
-                            return (
-                              <TouchableOpacity
-                                key={l.location_code}
-                                onPress={() => toggleLoc(l.location_code)}
-                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-                              >
-                                <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
-                                <Text style={{ fontSize: 13, color: '#1A2E22' }}>{l.location_code}</Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
+                          <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled>
+                            <TouchableOpacity
+                              onPress={() => setSelectedLocs([])}
+                              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                            >
+                              <Text style={{ fontSize: 15, width: 24 }}>{selectedLocs.length === 0 ? '☑' : '☐'}</Text>
+                              <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>All locations</Text>
+                            </TouchableOpacity>
+                            <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
+                            {myLocations.map((l) => {
+                              const on = selectedLocs.includes(l.location_code);
+                              return (
+                                <TouchableOpacity
+                                  key={l.location_code}
+                                  onPress={() => toggleLoc(l.location_code)}
+                                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                                >
+                                  <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
+                                  <Text style={{ fontSize: 13, color: '#1A2E22' }}>{l.location_code}</Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+                          </ScrollView>
+                        </View>
                       )}
                     </View>
                   ) : (

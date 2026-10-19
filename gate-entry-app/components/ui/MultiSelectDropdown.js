@@ -67,46 +67,51 @@ const MultiSelectDropdown = ({
       </TouchableOpacity>
 
       {open && (
-        // Was a plain View capped at maxHeight: 260 with no overflow/scroll
-        // handling — on React Native (and RN Web), a View defaults to
-        // overflow: visible, so a long option list (an open-ended Department
-        // master list, in particular) didn't scroll or clip, it just spilled
-        // out past the popover's own border over whatever sat beneath it,
-        // with the options past the cutoff impossible to reach. A ScrollView
-        // here actually clips at maxHeight and lets you scroll to the rest.
-        <ScrollView
+        // IMPORTANT: the outer popover box must stay a plain View, not a
+        // ScrollView. Putting position:'absolute' directly on a ScrollView's
+        // own style collapses it to zero height on React Native Web (its
+        // outer container needs an explicit/inherited height to compute a
+        // scroll area — "top" alone isn't enough, unlike a plain View, which
+        // sizes to its content). That's what made every dropdown render as
+        // an empty box with nothing visible underneath it. Fix: keep the
+        // outer View absolutely positioned and sized by content (maxHeight +
+        // overflow:hidden as the cap), and nest the actual ScrollView inside
+        // it for the scrolling — the same two-layer pattern already used for
+        // the Item Type / UOM pickers in GatePassForm.js.
+        <View
           style={{
             position: 'absolute', top: label ? 60 : 42, left: 0, right: 0,
             backgroundColor: '#fff', borderWidth: 1, borderColor: '#C8D4DE',
             borderRadius: 8, elevation: 6, zIndex: 100, maxHeight: 260,
+            overflow: 'hidden',
             shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6,
             shadowOffset: { width: 0, height: 3 },
           }}
-          nestedScrollEnabled
-          keyboardShouldPersistTaps="handled"
         >
-          <TouchableOpacity
-            onPress={() => onChange([])}
-            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-          >
-            <Text style={{ fontSize: 15, width: 24 }}>{selected.length === 0 ? '☑' : '☐'}</Text>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>{allLabel}</Text>
-          </TouchableOpacity>
-          <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
-          {normOptions.map((o) => {
-            const on = selected.includes(o.value);
-            return (
-              <TouchableOpacity
-                key={o.value}
-                onPress={() => toggle(o.value)}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
-              >
-                <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
-                <Text style={{ fontSize: 13, color: '#1A2E22' }}>{o.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+          <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            <TouchableOpacity
+              onPress={() => onChange([])}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+            >
+              <Text style={{ fontSize: 15, width: 24 }}>{selected.length === 0 ? '☑' : '☐'}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: '#1A2E22' }}>{allLabel}</Text>
+            </TouchableOpacity>
+            <View style={{ height: 1, backgroundColor: '#E5EDE8' }} />
+            {normOptions.map((o) => {
+              const on = selected.includes(o.value);
+              return (
+                <TouchableOpacity
+                  key={o.value}
+                  onPress={() => toggle(o.value)}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8 }}
+                >
+                  <Text style={{ fontSize: 15, width: 24 }}>{on ? '☑' : '☐'}</Text>
+                  <Text style={{ fontSize: 13, color: '#1A2E22' }}>{o.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
     </View>
   );
