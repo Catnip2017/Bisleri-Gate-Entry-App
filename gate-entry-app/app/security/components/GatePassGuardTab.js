@@ -15,6 +15,7 @@ import MultiSelectDropdown from '../../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../../utils/printGatePass';
 import GatePassReports from '../../gate-pass/GatePassReports';
 import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
+import { passTypeLabel } from '../../../utils/passTypeLabels';
 
 const VIEWS = [
   { key: 'dispatch', label: 'Pending Dispatch' },
@@ -301,7 +302,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
   // ── Table ─────────────────────────────────────────────────────────────────
   const columns = [
     { key: 'gate_pass_no', title: 'Pass No.', flex: 1.3, priority: 1 },
-    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1 },
+    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1, render: (item) => passTypeLabel(item.pass_type) },
     { key: 'party_name', title: 'Party', flex: 1.6, priority: 1 },
     { key: 'department', title: 'Dept', flex: 0.8, priority: 1 },
     {
@@ -400,6 +401,18 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     },
     { key: 'created_by', title: 'Created By', priority: 2 },
     { key: 'location_code', title: 'Location', priority: 2 },
+    {
+      key: 'dispatched_by',
+      title: 'Dispatched By',
+      priority: 2,
+      render: (item) => item.dispatched_by || '—',
+    },
+    {
+      key: 'cancelled_by',
+      title: 'Cancelled By',
+      priority: 2,
+      render: (item) => item.cancelled_by || '—',
+    },
   ];
 
   // Show-and-explain (decided 14 Jul 2026): every guard sees this tab;

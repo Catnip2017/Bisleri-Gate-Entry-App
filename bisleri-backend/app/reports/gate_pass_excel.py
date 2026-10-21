@@ -151,19 +151,21 @@ def _dash_if_none(v):
 # ── Creator / IT Admin — FY Register ─────────────────────────────────────
 CREATOR_HEADERS = [
     "Gate Pass No.", "Pass Type", "Status", "Location", "Vendor/Customer",
-    "Created By", "Gate Pass Created Date", "Dispatched Date", "Expected Return Date",
+    "Created By", "Gate Pass Created Date", "Dispatched Date", "Dispatched By",
+    "Expected Return Date",
     "Actual Return Date", "Days Outstanding", "Line No.", "Item Type",
     "Asset No. / Item Code", "Description", "Serial No.", "UOM", "Qty", "Amount",
     "Chargeable?", "Cancelled By / Reason", "Remarks",
 ]
 CREATOR_KEYS = [
     "gate_pass_no", "pass_type", "status", "location_code", "party_name",
-    "created_by", "gate_pass_created_date", "dispatched_at", "expected_return_date",
+    "created_by", "gate_pass_created_date", "dispatched_at", "dispatched_by",
+    "expected_return_date",
     "actual_return_date", "_days_outstanding_display", "line_no", "item_type",
     "item_code", "description", "serial_no", "uom", "quantity", "line_amount",
     "_chargeable_display", "cancel_info", "remarks",
 ]
-CREATOR_COL_WIDTHS = [18, 9, 16, 9, 22, 15, 15, 13, 14, 13, 12, 7, 11, 19, 28, 11, 7, 6, 10, 10, 26, 28]
+CREATOR_COL_WIDTHS = [18, 9, 16, 9, 22, 15, 15, 13, 15, 14, 13, 12, 7, 11, 19, 28, 11, 7, 6, 10, 10, 26, 28]
 
 
 def build_creator_workbook(fy_label: str, department: str | None, summary: dict,
@@ -218,7 +220,10 @@ def build_creator_workbook(fy_label: str, department: str | None, summary: dict,
 
     last_row = _write_banded_table(
         reg, CREATOR_HEADERS, prepared, table_start, CREATOR_COL_WIDTHS, "CreatorRegister",
-        date_cols=(7, 8, 9, 10), currency_cols=(19,),
+        # Column numbers shifted by +1 from 9 onward after inserting
+        # "Dispatched By" at position 9 (Expected/Actual Return Date are now
+        # 10/11, Amount is now 20 — was 9/10 and 19).
+        date_cols=(7, 8, 10, 11), currency_cols=(20,),
     )
 
     note_row = last_row + 2
@@ -238,17 +243,19 @@ def build_creator_workbook(fy_label: str, department: str | None, summary: dict,
 # ── Dispatcher / Security Guard — FY Item Reconciliation ─────────────────
 DISPATCHER_HEADERS = [
     "Department", "Gate Pass Type", "Gate Pass No.", "Status", "Vendor/Customer",
-    "Dispatch Date", "Expected Return Date", "Actual Return Date", "Days Outstanding",
+    "Dispatch Date", "Dispatched By", "Expected Return Date", "Actual Return Date",
+    "Days Outstanding",
     "Item Code / Asset No.", "Description of Goods", "Qty Sent", "Unit",
     "Qty Returned", "Reconciliation Status", "Remarks",
 ]
 DISPATCHER_KEYS = [
     "department", "pass_type", "gate_pass_no", "status", "party_name",
-    "dispatch_date", "expected_return_date", "actual_return_date", "_days_outstanding_display",
+    "dispatch_date", "dispatched_by", "expected_return_date", "actual_return_date",
+    "_days_outstanding_display",
     "item_code", "description", "qty_sent", "unit", "qty_returned",
     "reconciliation_status", "remarks",
 ]
-DISPATCHER_COL_WIDTHS = [13, 13, 19, 17, 24, 13, 15, 14, 13, 19, 30, 9, 7, 11, 20, 32]
+DISPATCHER_COL_WIDTHS = [13, 13, 19, 17, 24, 13, 15, 15, 14, 13, 19, 30, 9, 7, 11, 20, 32]
 
 DEPT_SUMMARY_HEADERS = [
     "Department", "Total Lines Sent", "Total Qty Sent", "Lines Fully Returned",
@@ -341,7 +348,9 @@ def build_dispatcher_workbook(fy_label: str, summary: dict, flat_rows: list,
 
     last_row = _write_banded_table(
         det, DISPATCHER_HEADERS, prepared, table_start, DISPATCHER_COL_WIDTHS, "DispatcherDetail",
-        date_cols=(6, 7, 8),
+        # Shifted by +1 from 7 onward after inserting "Dispatched By" at
+        # position 7 (Expected/Actual Return Date are now 8/9 — was 7/8).
+        date_cols=(6, 8, 9),
     )
 
     note_row = last_row + 2

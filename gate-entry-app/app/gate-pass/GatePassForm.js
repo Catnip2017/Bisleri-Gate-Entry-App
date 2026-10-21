@@ -11,6 +11,7 @@ import { getCurrentUser } from '../../utils/jwtUtils';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DateField from '../../components/ui/DateField';
 import styles, { gp } from './styles/gatePassStyles';
+import { passTypeLabel } from '../../utils/passTypeLabels';
 
 // Indian vehicle registration formats:
 //  - Standard civilian: [State][RTO 1-2 digits][Series 0-3 letters][4-digit number]
@@ -512,7 +513,7 @@ const GatePassForm = ({ onCreated }) => {
               { color: isReturnable ? gp.badgeRFg : gp.badgeNrFg },
             ]}
           >
-            {passType}
+            {passTypeLabel(passType)}
           </Text>
         </View>
       </View>

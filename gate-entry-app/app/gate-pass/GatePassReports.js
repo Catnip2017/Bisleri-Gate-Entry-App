@@ -16,14 +16,15 @@ import DataTable from '../../components/ui/DataTable';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import DateField from '../../components/ui/DateField';
 import styles, { gp } from './styles/gatePassStyles';
+import { passTypeLabel } from '../../utils/passTypeLabels';
 
 const STATUS_OPTIONS = [
   'Open', 'Released', 'Dispatched', 'Partially Received',
   'Inward Received', 'Cancelled', 'Closed Without Return',
 ];
 const PASS_TYPE_OPTIONS = [
-  { value: 'R', label: 'Returnable (R)' },
-  { value: 'NR', label: 'Non-Returnable (NR)' },
+  { value: 'R', label: 'Returnable (RGP)' },
+  { value: 'NR', label: 'Non-Returnable (NRGP)' },
 ];
 
 const STATUS_COLORS = {
@@ -313,11 +314,12 @@ const GatePassReports = () => {
   // caller's own department already — shown once as a subtitle instead).
   const creatorColumns = [
     { key: 'gate_pass_no', title: 'Pass No.', flex: 1.3, priority: 1 },
-    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1 },
+    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1, render: (r) => passTypeLabel(r.pass_type) },
     { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} /> },
     { key: 'party_name', title: 'Vendor/Customer', flex: 1.5, priority: 1 },
     { key: 'gate_pass_created_date', title: 'Gate Pass Created Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.gate_pass_created_date) },
     { key: 'dispatched_at', title: 'Dispatched Date', flex: 1.0, priority: 1, render: (r) => fmtDate(r.dispatched_at) },
+    { key: 'dispatched_by', title: 'Dispatched By', flex: 1.0, priority: 2, render: (r) => r.dispatched_by || '—' },
     { key: 'expected_return_date', title: 'Expected Return Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.expected_return_date) },
     { key: 'actual_return_date', title: 'Actual Return Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.actual_return_date) },
     { key: 'days_outstanding', title: 'Days Outstanding', flex: 0.9, priority: 1, render: (r) => (r.days_outstanding ?? '—') },
@@ -332,11 +334,12 @@ const GatePassReports = () => {
   // expand panel).
   const dispatcherColumns = [
     { key: 'department', title: 'Department', flex: 1.0, priority: 1 },
-    { key: 'pass_type', title: 'Gate Pass Type', flex: 0.8, priority: 1 },
+    { key: 'pass_type', title: 'Gate Pass Type', flex: 0.8, priority: 1, render: (r) => passTypeLabel(r.pass_type) },
     { key: 'gate_pass_no', title: 'Gate Pass No.', flex: 1.3, priority: 1 },
     { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} /> },
     { key: 'party_name', title: 'Vendor/Customer', flex: 1.4, priority: 1 },
     { key: 'dispatch_date', title: 'Dispatch Date', flex: 1.0, priority: 1, render: (r) => fmtDate(r.dispatch_date) },
+    { key: 'dispatched_by', title: 'Dispatched By', flex: 1.0, priority: 2, render: (r) => r.dispatched_by || '—' },
     { key: 'expected_return_date', title: 'Expected Return Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.expected_return_date) },
     { key: 'actual_return_date', title: 'Actual Return Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.actual_return_date) },
     { key: 'total_qty_sent', title: 'Total Qty Sent', flex: 0.8, priority: 1 },

@@ -178,6 +178,7 @@ def _creator_row(h: GatePassHeader, today: date, item_code_by_id: dict) -> dict:
         "created_by": h.created_by,
         "gate_pass_created_date": h.document_date,
         "dispatched_at": h.dispatched_at,
+        "dispatched_by": h.dispatched_by,
         # Blank for NR passes regardless of what's stored — a pass that's
         # never expected back shouldn't show a date here.
         "expected_return_date": h.expected_inward_date if h.pass_type == PASS_TYPE_RETURNABLE else None,
@@ -382,6 +383,7 @@ def _dispatcher_row(h: GatePassHeader, today: date, item_code_by_id: dict) -> di
         "status": h.status,
         "party_name": h.party_name,
         "dispatch_date": h.dispatched_at,
+        "dispatched_by": h.dispatched_by,
         "expected_return_date": h.expected_inward_date if h.pass_type == PASS_TYPE_RETURNABLE else None,
         "actual_return_date": actual_return_date,
         "total_qty_sent": qty_sent_total,

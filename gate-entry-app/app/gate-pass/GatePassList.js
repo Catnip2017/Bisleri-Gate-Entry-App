@@ -13,6 +13,7 @@ import { showSuccess, showError, showValidationError, confirmAction } from '../.
 import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
+import { passTypeLabel } from '../../utils/passTypeLabels';
 import printGatePass from '../../utils/printGatePass';
 import styles, { gp } from './styles/gatePassStyles';
 
@@ -233,7 +234,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
 
   const columns = [
     { key: 'gate_pass_no', title: 'Pass No.', flex: 1.3, priority: 1 },
-    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1 },
+    { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1, render: (item) => passTypeLabel(item.pass_type) },
     {
       key: 'status',
       title: 'Status',
@@ -314,7 +315,19 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       render: (item) => `${item.total_quantity} out / ${item.total_quantity - item.outstanding_quantity} back`,
     },
     { key: 'created_by', title: 'Created By', priority: 2 },
+    {
+      key: 'dispatched_by',
+      title: 'Dispatched By',
+      priority: 2,
+      render: (item) => item.dispatched_by || '—',
+    },
     { key: 'cancel_reason_text', title: 'Cancel Reason', priority: 2 },
+    {
+      key: 'cancelled_by',
+      title: 'Cancelled By',
+      priority: 2,
+      render: (item) => item.cancelled_by || '—',
+    },
   ];
 
   return (

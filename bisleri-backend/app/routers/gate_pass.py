@@ -172,7 +172,11 @@ def _next_pass_number(db: Session, location_code: str, pass_type: str) -> str:
     The number is consumed at creation and never recycled — cancelled passes
     keep theirs. The series resets to 1 every new financial year (1 Apr)
     because fy_label is part of the row key.
-    Format: {TYPE}-{LOCATION}-{FYSTART}-{FYEND}-{NNN}, e.g. R-MUM-2026-27-001."""
+    Format: {TYPE}-{LOCATION}-{FYSTART}-{FYEND}-{NNNNNN}, a fixed 6-digit
+    running number, e.g. R-MUM-2026-27-000001. Existing passes already
+    issued under the old 3-digit padding are untouched — this only changes
+    how NEW numbers are formatted going forward; gate_pass_no (String(30))
+    has plenty of headroom for the 3 extra digits."""
     fy_label = _current_fy_label()
     seq = (
         db.query(GatePassSequence)
@@ -197,7 +201,7 @@ def _next_pass_number(db: Session, location_code: str, pass_type: str) -> str:
             .first()
         )
     seq.last_number += 1
-    return f"{pass_type}-{location_code}-{fy_label}-{seq.last_number:03d}"
+    return f"{pass_type}-{location_code}-{fy_label}-{seq.last_number:06d}"
 
 
 def _locked_pass(db: Session, pass_id: int) -> GatePassHeader:
@@ -251,6 +255,8 @@ def _to_list_item(gp: GatePassHeader, today: date) -> GatePassListItem:
         is_overdue=gp.is_overdue(today),
         cancel_reason_text=gp.cancel_reason.reason_text if gp.cancel_reason else None,
         replacement_pass_no=gp.replacement_pass_no,
+        dispatched_by=gp.dispatched_by,
+        cancelled_by=gp.cancelled_by,
     )
 
 

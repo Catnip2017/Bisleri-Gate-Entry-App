@@ -220,6 +220,11 @@ class GatePassListItem(BaseModel):
     is_overdue: bool = False
     cancel_reason_text: Optional[str] = None
     replacement_pass_no: Optional[str] = None
+    # Who dispatched / cancelled this pass — already captured on the header
+    # at the time of the action, just not surfaced on list/worklist grids
+    # until now (21 Oct 2026 request).
+    dispatched_by: Optional[str] = None
+    cancelled_by: Optional[str] = None
 
 
 class GatePassDetailResponse(GatePassListItem):
@@ -295,6 +300,7 @@ class CreatorRegisterRow(BaseModel):
     created_by: str
     gate_pass_created_date: date
     dispatched_at: Optional[datetime] = None
+    dispatched_by: Optional[str] = None
     expected_return_date: Optional[date] = None      # blank for NR passes
     actual_return_date: Optional[datetime] = None     # best available: completed_at
     days_outstanding: Optional[int] = None
@@ -341,6 +347,7 @@ class DispatcherDetailRow(BaseModel):
                                       # Received/Inward Received) — not a re-derived value
     party_name: str
     dispatch_date: Optional[datetime] = None
+    dispatched_by: Optional[str] = None
     expected_return_date: Optional[date] = None
     actual_return_date: Optional[datetime] = None   # best available: last_inward_at/completed_at
     total_qty_sent: int               # summed across this pass's lines
