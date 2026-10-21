@@ -7,7 +7,7 @@
 //   Inward Received / Cancelled / Closed -> Print / view only
 // Cancelled passes are ALWAYS visible to their department — permanent record.
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
@@ -331,27 +331,21 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       {/* Filters (when shown) + search — one horizontally-scrollable line,
           so nothing wraps awkwardly ("View All Passes" gets both; other
           menu tabs get just the search since showFilters is false there). */}
-      {/* A horizontally-scrolling ScrollView clips its content on the
-          cross-axis by default on web, which cuts off an open dropdown's
-          popover (it extends downward, past the row) — same issue fixed in
-          GatePassGuardTab's filter row. A plain View set to scroll via CSS
-          overflow (as GatePassReports' filter bar already does) keeps the
-          popover visible on web and wraps onto new lines on native instead. */}
+      {/* Was a horizontally-scrolling container (ScrollView, then a View
+          faking it with overflowX:'auto'/overflowY:'visible'). Neither
+          worked: per the CSS overflow spec, setting overflow-x to anything
+          but visible forces overflow-y to compute as 'auto' too — you
+          cannot keep one axis scrollable and the other truly open. That
+          silently turned this row into a clipping/scrolling box, which is
+          what made the dropdown render oversized/cut-off with its own extra
+          scrollbar. Just wrapping onto a second line (already how it
+          behaves on native) needs no overflow setting at all, so nothing
+          here clips or rescales the popover. zIndex stays — that part (the
+          row painting above the results table below it) was correct. */}
       <View
         style={[
           styles.filterRow,
-          { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-          Platform.OS === 'web'
-            ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
-            : { flexWrap: 'wrap' },
-          // The actual bug: a dropdown's zIndex:100 only wins against
-          // siblings inside ITS OWN stacking context (its direct parent's).
-          // It does nothing against the results table below, which is a
-          // completely separate branch of the tree — that table paints over
-          // the open popover regardless, because it comes later in the DOM
-          // and this row never had a zIndex of its own to begin with. Fix:
-          // give the whole filter row a zIndex, so the row (and whatever
-          // pops out of it) wins against the table sibling that follows it.
+          { flexDirection: 'row', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' },
           { zIndex: 100 },
         ]}
       >

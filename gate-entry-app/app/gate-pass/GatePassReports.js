@@ -359,18 +359,20 @@ const GatePassReports = () => {
 
       <View
         style={[
-          { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 10, marginBottom: 14 },
-          // Web: keep every filter + the Download button on one line and let
-          // the row scroll sideways instead of wrapping — overflowY stays
-          // visible so an open dropdown's popover panel isn't clipped.
-          // Native: unchanged — filters wrap onto new lines as before.
-          Platform.OS === 'web'
-            ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
-            : { flexWrap: 'wrap' },
-          // Same stacking-context fix as GatePassList/GatePassGuardTab: the
-          // row itself needs a zIndex so an open dropdown in it (FY, Status,
-          // Pass Type, Department) wins against whatever renders below
-          // (summary tiles / table), not just against its own siblings.
+          // Was trying to keep the row scrollable sideways (overflowX:
+          // 'auto') while keeping overflowY 'visible' so an open dropdown
+          // wasn't clipped. Per the CSS overflow spec that combination isn't
+          // actually possible — overflow-x set to anything but visible
+          // forces overflow-y to compute as 'auto' too, which silently made
+          // this row a clipping/scrolling box instead of letting a popover
+          // float freely over the page. Wrapping onto a new line instead
+          // (same as native) needs no overflow setting at all.
+          { flexDirection: 'row', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12, marginTop: 10, marginBottom: 14 },
+          // The row needs its own zIndex so an open dropdown in it (FY,
+          // Status, Pass Type, Department) wins against whatever renders
+          // below (summary tiles / table) — a child's zIndex only beats
+          // siblings inside its own parent's stacking context, not a later,
+          // separate branch of the tree like the table.
           { zIndex: 100 },
         ]}
       >

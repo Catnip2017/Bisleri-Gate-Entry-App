@@ -6,7 +6,7 @@
 // The Cancelled sub-view shows ONLY passes that were released and then
 // cancelled before dispatch — "where did that pass on my list go?"
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView } from 'react-native';
 import { gatePassAPI, handleAPIError } from '../../../services/api';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../../utils/customModal';
 import DataTable from '../../../components/ui/DataTable';
@@ -491,26 +491,20 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
               <>
             {/* All filters (Location, Pass Type, dates) + Refresh — one
                 horizontally-scrollable line, so nothing wraps awkwardly. */}
-            {/* A horizontally-scrolling ScrollView clips its content on the
-                cross-axis by default on web, which cuts off an open dropdown's
-                popover (it extends downward, past the row). A plain View with
-                the row set to scroll via CSS overflow — same fix already used
-                in GatePassReports' filter bar — keeps the popover visible on
-                web and falls back to wrapping onto new lines on native. */}
+            {/* Was a horizontally-scrolling container trying to keep one
+                axis scrollable and the other ('visible', for the dropdown)
+                open. Per the CSS overflow spec that's not actually possible
+                — overflow-x set to anything but visible forces overflow-y to
+                compute as 'auto' too, which silently turned this row into a
+                clipping/scrolling box and made the dropdown render
+                oversized with its own stray scrollbar. Wrapping onto a
+                second line (same as native) needs no overflow setting at
+                all, so nothing here clips or rescales the popover. zIndex
+                stays — the row painting above the results table below it
+                was the correct part of the earlier fix. */}
             <View
               style={[
-                { marginBottom: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
-                Platform.OS === 'web'
-                  ? { flexWrap: 'nowrap', overflowX: 'auto', overflowY: 'visible', paddingBottom: 6 }
-                  : { flexWrap: 'wrap' },
-                // Real root cause of the invisible-dropdown bug: a popover's
-                // own zIndex only beats siblings inside ITS OWN parent's
-                // stacking context — it does nothing against the results
-                // table below, a separate branch of the tree that paints
-                // over it regardless since it comes later in the DOM and
-                // this row had no zIndex of its own. Giving the whole row a
-                // zIndex makes the row (and anything popping out of it) win
-                // against that table.
+                { marginBottom: 10, flexDirection: 'row', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' },
                 { zIndex: 100 },
               ]}
             >
