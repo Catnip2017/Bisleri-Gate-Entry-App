@@ -214,7 +214,9 @@ const AssignAccessScreen = () => {
   // ── Select user ───────────────────────────────────────────────────────────
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
-    setSearchResults([]);
+    // Keep searchResults on screen (selected row is highlighted) — clearing
+    // them while the query text stays made the list show "No users found"
+    // right after a click (30 Oct 2026).
 
     const userRoles = user.role
       ? user.role.split(',').map(r => r.trim()).filter(Boolean)
