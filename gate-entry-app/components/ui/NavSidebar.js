@@ -22,6 +22,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { storage } from '../../utils/storage';
 import { confirmAction } from '../../utils/customModal';
 import { useAccountDetails } from '../../hooks/useAccountDetails';
+import { useCopackerEnabled } from '../../hooks/useCopackerEnabled';
 import {
   APP_VERSION,
   ROLE_LABELS,
@@ -94,6 +95,7 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
   // fields (30 Oct 2026). Hook internally gates its own network fetch on
   // `isVisible`.
   const { roles, details, initials } = useAccountDetails(userData, isVisible);
+  const copackerEnabled = useCopackerEnabled();   // false => hide Co Packer link
 
   // Applications / Documents accordion (30 Oct 2026) — one section open at
   // a time, collapsed again every time the panel is reopened so it never
@@ -122,7 +124,9 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
 
   if (!mounted) return null;
 
-  const links = getNavLinksForRoles(roles);
+  const links = getNavLinksForRoles(roles).filter(
+    (l) => !(l.key === 'copacker' && copackerEnabled === false),
+  );
   // Admin Hub (no group) stays a flat shortcut at the top, same as before.
   // Everything else clusters under its group.
   const homeLinks = links.filter((l) => !l.group);

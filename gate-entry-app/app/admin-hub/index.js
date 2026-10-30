@@ -15,12 +15,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
 import { useAdminHubStyles } from './AdminHubStyles';
+import { useCopackerEnabled } from '../../hooks/useCopackerEnabled';
 
 // ── Tile config ───────────────────────────────────────────────────────────────
 // 'Dashboards' is itadmin-only — filtered out below for everyone else, and the
 // backend enforces the same restriction on every /dashboard/* endpoint, so a
 // non-itadmin can't reach the data even by guessing the route/URL directly.
-const getTiles = (roles = []) => {
+const getTiles = (roles = [], copackerEnabled = true) => {
   const isItAdmin = roles.includes('itadmin');
   const isGatePassCreator = roles.includes('gatepasscreator');
 
@@ -69,6 +70,9 @@ const getTiles = (roles = []) => {
       iconBg: '#fffaf0',
       route: '/copacker',
       disabled: false,
+      // Hidden when COPACKER_FEATURE_ENABLED=false in the backend .env
+      // (and until that flag is known, so a disabled card never flashes up).
+      hidden: copackerEnabled !== true,
     },
     // User Management card removed (30 Oct 2026) — it now lives as its own
     // flat link in the global hamburger menu, alongside the Applications
@@ -88,6 +92,7 @@ const getTiles = (roles = []) => {
 
 export default function AdminHubScreen() {
   const styles = useAdminHubStyles();
+  const copackerEnabled = useCopackerEnabled();
   const router = useRouter();
   const [user, setUser] = useState(null);
 
@@ -112,7 +117,7 @@ export default function AdminHubScreen() {
 
           {/* Tile grid */}
           <View style={styles.grid}>
-            {getTiles(user?.roles || []).map((tile) => (
+            {getTiles(user?.roles || [], copackerEnabled).map((tile) => (
               <Pressable
                 key={tile.key}
                 onPress={() => handleTilePress(tile)}
