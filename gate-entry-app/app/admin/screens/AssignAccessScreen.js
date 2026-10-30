@@ -570,6 +570,7 @@ const AssignAccessScreen = () => {
               flexDirection: 'row', alignItems: 'flex-start', gap: 16,
               paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10,
               borderBottomWidth: 0.5, borderBottomColor: '#e0e0e0',
+              zIndex: 20,   // lets the delete popover float over the content below
             }}>
               <View style={{ flex: 1 }}>
               {/* User header */}
@@ -612,7 +613,7 @@ const AssignAccessScreen = () => {
               {/* Account Status — top-right corner of the page, always visible.
                   Deactivate/Reactivate saves immediately with its own
                   confirmation; Delete unlocks once deactivated. */}
-              <View style={{ flexShrink: 0, alignItems: 'flex-end', maxWidth: 260 }}>
+              <View style={{ flexShrink: 0, alignItems: 'flex-end', maxWidth: 260, position: 'relative', zIndex: 30 }}>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                   {!isActive && !deleteOpen && (
                     <TouchableOpacity
@@ -640,7 +641,16 @@ const AssignAccessScreen = () => {
                 </View>
 
                 {!isActive && deleteOpen && (
-                  <View style={{ marginTop: 8, width: 250, borderWidth: 1, borderColor: '#f0c4c4', backgroundColor: '#fff5f5', borderRadius: 8, padding: 10 }}>
+                  <View style={{
+                    // Floating popover: overlaps the content below instead of
+                    // pushing it down (header bar height never changes).
+                    position: 'absolute', top: '100%', right: 0, marginTop: 6,
+                    width: 270, zIndex: 50, elevation: 12,
+                    borderWidth: 1, borderColor: '#f0c4c4', backgroundColor: '#fff5f5',
+                    borderRadius: 8, padding: 10,
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 6 },
+                    shadowOpacity: 0.18, shadowRadius: 12,
+                  }}>
                     <Text style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 6 }}>
                       Permanently deletes {selectedUser.username}. This cannot be undone. Type the username to confirm:
                     </Text>
