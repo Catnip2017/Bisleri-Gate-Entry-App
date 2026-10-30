@@ -464,6 +464,14 @@ def delete_user(username: str, db: Session = Depends(get_db), current_user: User
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    # Safety rails (30 Oct 2026): never delete yourself, and only accounts
+    # that are already deactivated can be deleted (deactivate-then-delete).
+    if user.username == current_user.username:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account.")
+    if user.is_active is not False:
+        raise HTTPException(status_code=400,
+            detail="Deactivate this user and save before deleting the account.")
+
     db.delete(user)
     db.commit()
     return {"message": f"User {username} deleted successfully"}

@@ -177,6 +177,12 @@ const AssignAccessScreen = () => {
   const [gpLocSelections, setGpLocSelections] = useState([]);
   // Deactivate-don't-delete: account on/off switch
   const [isActive, setIsActive] = useState(true);
+  // Delete User (deactivate-then-delete): `savedActive` is the SAVED account
+  // state — deletion only unlocks once a deactivation has actually been saved.
+  const [savedActive, setSavedActive] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -238,6 +244,9 @@ const AssignAccessScreen = () => {
     setDepartment(user.department || '');
     setGatePassLocation(user.gate_pass_location || '');
     setIsActive(user.is_active !== false);   // NULL/undefined = active
+    setSavedActive(user.is_active !== false);
+    setDeleteOpen(false);
+    setDeleteText('');
     try {
       const mine = await adminAPI.getUserGpLocations(user.username);
       setGpLocSelections(mine.locations || []);
@@ -348,6 +357,25 @@ const AssignAccessScreen = () => {
     setFilteredWarehouses([]);
   };
 
+  // ── Delete user (permanent) ───────────────────────────────────────────────
+  const handleDeleteUser = async () => {
+    if (!selectedUser || deleteText.trim() !== selectedUser.username) return;
+    setDeleting(true);
+    try {
+      await adminAPI.deleteUser(selectedUser.username);
+      const gone = selectedUser.username;
+      setSearchResults(prev => prev.filter(u => u.username !== gone));
+      setSelectedUser(null);
+      setDeleteOpen(false);
+      setDeleteText('');
+      showAlert('User Deleted', `${gone} has been permanently deleted.`);
+    } catch (e) {
+      showAlert('Error', handleAPIError(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ── Reset ─────────────────────────────────────────────────────────────────
   const resetRightPanel = () => {
     setSelectedUser(null);
@@ -400,6 +428,7 @@ const AssignAccessScreen = () => {
         gate_pass_locations: needsGpLocations ? gpLocSelections : null,
         is_active: isActive,
       });
+      setSavedActive(isActive);
 
       // Update personal details
       await adminAPI.updateUser(selectedUser.username, {
@@ -597,6 +626,61 @@ const AssignAccessScreen = () => {
                 onPress={handleSave} disabled={saving}>
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
               </TouchableOpacity>
+
+              {/* Delete User — permanent. Locked until the account is saved
+                  as Deactivated; then needs the username typed to confirm. */}
+              <View style={{ marginTop: 28, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f0d6d6' }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#b71c1c', letterSpacing: 0.5, marginBottom: 8 }}>
+                  DANGER ZONE
+                </Text>
+                {!savedActive ? (
+                  !deleteOpen ? (
+                    <TouchableOpacity
+                      onPress={() => setDeleteOpen(true)}
+                      style={{ borderWidth: 1, borderColor: '#c62828', borderRadius: 8, paddingVertical: 12, alignItems: 'center' }}>
+                      <Text style={{ color: '#c62828', fontWeight: '700', fontSize: 14 }}>Delete User…</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={{ borderWidth: 1, borderColor: '#f0c4c4', backgroundColor: '#fff5f5', borderRadius: 8, padding: 12 }}>
+                      <Text style={{ fontSize: 13, color: '#7f1d1d', marginBottom: 8 }}>
+                        This permanently deletes {selectedUser.username} and cannot be undone.
+                        Type the username to confirm:
+                      </Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder={selectedUser.username}
+                        placeholderTextColor="#bbb"
+                        value={deleteText}
+                        onChangeText={setDeleteText}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <TouchableOpacity
+                          onPress={() => { setDeleteOpen(false); setDeleteText(''); }}
+                          style={{ flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff' }}>
+                          <Text style={{ color: '#555', fontWeight: '600' }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          disabled={deleting || deleteText.trim() !== selectedUser.username}
+                          onPress={handleDeleteUser}
+                          style={{
+                            flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#c62828',
+                            opacity: (deleting || deleteText.trim() !== selectedUser.username) ? 0.4 : 1,
+                          }}>
+                          {deleting
+                            ? <ActivityIndicator color="#fff" />
+                            : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete permanently</Text>}
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )
+                ) : (
+                  <Text style={{ fontSize: 12, color: '#8a6d6d', lineHeight: 18 }}>
+                    To delete this user, first switch the account to Deactivated and press Save Changes. Delete unlocks after that.
+                  </Text>
+                )}
+              </View>
             </ScrollView>
 
             {/* ── SCOPE COLUMN (right side, only when needed) ── */}
