@@ -12,15 +12,27 @@ import { View, Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 
-const AppHeader = ({ rightSlot, backLabel, title, onBack }) => {
+const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
   const { colors, isDark, toggleTheme } = useTheme();
 
   return (
     <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBgEnd }]}>
       <View style={styles.row}>
-        {/* Left cluster — back-chip (+ optional title underline), or an
-            empty spacer so the centered logo stays centered either way. */}
+        {/* Left cluster — hamburger (opens the global Applications /
+            User Management / Documents menu — 30 Oct 2026), then the
+            back-chip (+ optional title underline), or an empty spacer so
+            the centered logo stays centered either way. */}
         <View style={styles.sideCluster}>
+          {onMenuPress ? (
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={onMenuPress}
+              accessibilityRole="button"
+              accessibilityLabel="Open menu"
+            >
+              <MaterialIcons name="menu" size={24} color={colors.headerText} />
+            </TouchableOpacity>
+          ) : null}
           {backLabel ? (
             <TouchableOpacity
               style={styles.backChip}

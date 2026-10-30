@@ -108,6 +108,7 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
         backLabel={backLabel}
         title={title}
         onBack={onBack || defaultOnBack}
+        onMenuPress={() => setSidebarVisible(true)}
       />
 
       {/* Screen content */}

@@ -7,8 +7,8 @@
 //   3. Role-relevant detail rows (WH/site, or copacker location)
 //   4. Pinned red Logout with confirmation — the single logout in the app
 //   5. Footer: app version + connected server
-import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, Pressable, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { authAPI, gatePassAPI, API_BASE_URL } from '../../services/api';
@@ -18,9 +18,63 @@ import { confirmAction } from '../../utils/customModal';
 import {
   APP_VERSION,
   ROLE_LABELS,
+  DOCUMENT_LINKS,
   getUserDetails,
   getNavLinksForRoles,
 } from '../../config/navConfig';
+
+// Row height used by both the real rows and the accordion's animated
+// height target below — keep these in sync if row padding ever changes.
+const ACCORDION_ROW_HEIGHT = 48;
+
+// One accordion section: header row (icon + label + chevron that rotates
+// open) above an Animated.View that grows/shrinks to exactly fit its rows,
+// clipped by overflow:'hidden' so it never pops or jumps.
+const AccordionSection = ({ label, icon, isOpen, onToggle, rows, colors }) => {
+  const anim = useRef(new Animated.Value(isOpen ? 1 : 0)).current;
+  const targetHeight = rows.length * ACCORDION_ROW_HEIGHT;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: isOpen ? 1 : 0,
+      duration: 220,
+      useNativeDriver: false, // animating height — can't use the native driver
+    }).start();
+  }, [isOpen]);
+
+  const height = anim.interpolate({ inputRange: [0, 1], outputRange: [0, targetHeight] });
+  const chevRotate = anim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '90deg'] });
+
+  return (
+    <View>
+      <TouchableOpacity
+        onPress={onToggle}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 12,
+          minHeight: 48, paddingHorizontal: 16,
+          backgroundColor: isOpen ? colors.surfaceMuted : 'transparent',
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}
+        accessibilityLabel={label}
+      >
+        <MaterialIcons name={icon} size={20} color={isOpen ? colors.accent : colors.textSecondary} />
+        <Text style={{
+          flex: 1, fontSize: 14, fontWeight: isOpen ? 'bold' : '600',
+          color: isOpen ? colors.accent : colors.textPrimary,
+        }}>
+          {label}
+        </Text>
+        <Animated.View style={{ transform: [{ rotate: chevRotate }] }}>
+          <MaterialIcons name="chevron-right" size={18} color={colors.textMuted} />
+        </Animated.View>
+      </TouchableOpacity>
+      <Animated.View style={{ height, overflow: 'hidden' }}>
+        {rows}
+      </Animated.View>
+    </View>
+  );
+};
 
 const NavSidebar = ({ isVisible, onClose, userData }) => {
   const router = useRouter();
@@ -44,10 +98,23 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
     return () => { cancelled = true; };
   }, [isVisible, hasGpRole]);
 
+  // Applications / Documents accordion (30 Oct 2026) — one section open at
+  // a time, collapsed again every time the panel is reopened so it never
+  // comes back mid-animation or in a stale state.
+  const [openSection, setOpenSection] = useState(null); // 'apps' | 'documents' | null
+  useEffect(() => {
+    if (isVisible) setOpenSection(null);
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   const roles = userData?.roles || [];
   const links = getNavLinksForRoles(roles);
+  // Admin Hub (no group) stays a flat shortcut at the top, same as before.
+  // Everything else clusters under its group.
+  const homeLinks = links.filter((l) => !l.group);
+  const appLinks = links.filter((l) => l.group === 'app');
+  const managementLinks = links.filter((l) => l.group === 'management');
   let details = getUserDetails(userData);
   // Replace the single legacy value with the full assigned list (★ = default).
   if (gpLocationList && gpLocationList.length > 0) {
@@ -96,6 +163,46 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
 
   const isCurrent = (route) =>
     pathname === route || (route !== '/' && pathname?.startsWith(route + '/'));
+
+  // Shared row renderer — used for the flat Admin Hub / User Management
+  // links and, indented, for rows inside the Applications / Documents
+  // accordions. Keep minHeight in sync with ACCORDION_ROW_HEIGHT above.
+  const renderLink = (link, indented = false) => {
+    const active = isCurrent(link.route);
+    return (
+      <TouchableOpacity
+        key={link.key}
+        onPress={() => handleNavigate(link.route)}
+        style={{
+          flexDirection: 'row', alignItems: 'center', gap: 12,
+          minHeight: ACCORDION_ROW_HEIGHT, paddingHorizontal: 16,
+          paddingLeft: indented ? 44 : 16,
+          backgroundColor: active ? colors.surfaceMuted : 'transparent',
+          borderRightWidth: active ? 3 : 0,
+          borderRightColor: '#00A651',
+        }}
+        accessibilityRole="button"
+        accessibilityState={{ selected: active }}
+        accessibilityLabel={link.label}
+      >
+        <MaterialIcons
+          name={link.icon}
+          size={indented ? 18 : 20}
+          color={active ? colors.textPrimary : colors.textSecondary}
+        />
+        <Text style={{
+          fontSize: indented ? 13 : 14,
+          fontWeight: active ? 'bold' : '500',
+          // Same color either way — active state is carried by the bold
+          // weight + row highlight + right-edge accent above, not by a
+          // separate text color, so it stays legible in both themes.
+          color: colors.textPrimary,
+        }}>
+          {link.label}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={{
@@ -158,45 +265,36 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 2. Navigation links (role-filtered, current highlighted) */}
+        {/* 2. Navigation — flat Admin Hub shortcut, then the Applications
+            accordion, the flat User Management link, and the Documents
+            accordion (30 Oct 2026 hamburger-menu redesign). Documents is
+            shown to every signed-in user — it isn't role-filtered like the
+            rest of NAV_LINKS. */}
         <ScrollView style={{ flex: 1 }}>
           <View style={{ paddingVertical: 8 }}>
-            {links.map((link) => {
-              const active = isCurrent(link.route);
-              return (
-                <TouchableOpacity
-                  key={link.key}
-                  onPress={() => handleNavigate(link.route)}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 12,
-                    minHeight: 48, paddingHorizontal: 16,
-                    backgroundColor: active ? colors.surfaceMuted : 'transparent',
-                    borderRightWidth: active ? 3 : 0,
-                    borderRightColor: '#00A651',
-                  }}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={link.label}
-                >
-                  <MaterialIcons
-                    name={link.icon}
-                    size={20}
-                    color={active ? colors.textPrimary : colors.textSecondary}
-                  />
-                  <Text style={{
-                    fontSize: 14,
-                    fontWeight: active ? 'bold' : '500',
-                    // Both branches are the same color on purpose — active
-                    // state is carried by the bold weight + row highlight +
-                    // right-edge accent above, not by a separate text color,
-                    // so it stays legible in both themes.
-                    color: colors.textPrimary,
-                  }}>
-                    {link.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+            {homeLinks.map((link) => renderLink(link))}
+
+            {appLinks.length > 0 && (
+              <AccordionSection
+                label="Applications"
+                icon="apps"
+                colors={colors}
+                isOpen={openSection === 'apps'}
+                onToggle={() => setOpenSection(openSection === 'apps' ? null : 'apps')}
+                rows={appLinks.map((link) => renderLink(link, true))}
+              />
+            )}
+
+            {managementLinks.map((link) => renderLink(link))}
+
+            <AccordionSection
+              label="Documents"
+              icon="folder"
+              colors={colors}
+              isOpen={openSection === 'documents'}
+              onToggle={() => setOpenSection(openSection === 'documents' ? null : 'documents')}
+              rows={DOCUMENT_LINKS.map((link) => renderLink(link, true))}
+            />
           </View>
 
           {/* 3. Details */}

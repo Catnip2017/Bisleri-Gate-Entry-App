@@ -5,6 +5,10 @@
 
 export const APP_VERSION = 'v1.0.3';
 
+// Each link optionally carries a `group` the sidebar uses to cluster them
+// (30 Oct 2026 hamburger-menu redesign): 'app' → under the "Applications"
+// accordion, 'management' → the flat "User Management" row. A link with no
+// group (just 'admin-hub' today) renders flat at the top, same as before.
 export const NAV_LINKS = [
   {
     // Admin Hub stays FIRST in the sidebar — it's the IT Admin's home.
@@ -24,6 +28,7 @@ export const NAV_LINKS = [
     icon: 'local-shipping',
     route: '/security',
     roles: ['securityguard', 'itadmin'],
+    group: 'app',
   },
   {
     key: 'user-management',
@@ -31,6 +36,7 @@ export const NAV_LINKS = [
     icon: 'group',
     route: '/admin-hub/user-management',
     roles: ['itadmin'],
+    group: 'management',
   },
   {
     key: 'dashboards',
@@ -38,6 +44,7 @@ export const NAV_LINKS = [
     icon: 'bar-chart',
     route: '/admin-hub/dashboard',
     roles: ['itadmin'],
+    group: 'app',
   },
   {
     key: 'rpa',
@@ -45,6 +52,7 @@ export const NAV_LINKS = [
     icon: 'smart-toy',
     route: '/rpa',
     roles: ['itadmin'],
+    group: 'app',
   },
   {
     // Gate Pass (RGP / Non-RGP) — initiator module. Role model LOCKED
@@ -55,6 +63,7 @@ export const NAV_LINKS = [
     icon: 'assignment',
     route: '/gate-pass',
     roles: ['gatepasscreator'],
+    group: 'app',
   },
   {
     key: 'copacker',
@@ -62,6 +71,26 @@ export const NAV_LINKS = [
     icon: 'factory',
     route: '/copacker',
     roles: ['copacker'],
+    group: 'app',
+  },
+];
+
+// "Documents" accordion (30 Oct 2026) — reference PDFs, visible to every
+// signed-in user regardless of role (not filtered through getNavLinksForRoles).
+// Content comes later; the screens behind these routes render an empty state
+// until files are attached.
+export const DOCUMENT_LINKS = [
+  {
+    key: 'process-solution-documents',
+    label: 'Process Solution Documents',
+    icon: 'description',
+    route: '/documents/process-solution-documents',
+  },
+  {
+    key: 'user-guides',
+    label: 'User Guides',
+    icon: 'menu-book',
+    route: '/documents/user-guides',
   },
 ];
 
