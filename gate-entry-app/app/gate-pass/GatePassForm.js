@@ -49,6 +49,11 @@ function LookupModal({
   // Item master's Source column — All / Fabric / Manual — decision 30 Sep
   // 2026, so manually-added items with a blank Item Code are easy to spot).
   filterKey = null, filterOptions = null,
+  // LookupModal is a module-level sibling of GatePassForm, not nested
+  // inside it, so now that styles/gp come from useGatePassStyles() (30 Oct
+  // 2026 theme-aware conversion) instead of a static import, the caller
+  // has to pass its own hook result down explicitly.
+  styles, gp,
 }) {
   const [query, setQuery] = React.useState('');
   const [rows, setRows] = React.useState([]);
@@ -1146,6 +1151,8 @@ const GatePassForm = ({ onCreated }) => {
         fetchRows={(q) => gatePassAPI.searchVendors(q)}
         onPick={pickVendor}
         onClose={() => setVendorModalOpen(false)}
+        styles={styles}
+        gp={gp}
       />
       <LookupModal
         visible={customerModalOpen}
@@ -1162,6 +1169,8 @@ const GatePassForm = ({ onCreated }) => {
         fetchRows={(q) => gatePassAPI.searchCustomers(q)}
         onPick={pickCustomer}
         onClose={() => setCustomerModalOpen(false)}
+        styles={styles}
+        gp={gp}
       />
       <LookupModal
         visible={assetModalLine !== null}
@@ -1175,6 +1184,8 @@ const GatePassForm = ({ onCreated }) => {
         fetchRows={(q) => gatePassAPI.searchAssets(q)}
         onPick={(asset) => pickAsset(assetModalLine, asset)}
         onClose={() => setAssetModalLine(null)}
+        styles={styles}
+        gp={gp}
       />
       <LookupModal
         visible={itemModalLine !== null}
@@ -1192,6 +1203,8 @@ const GatePassForm = ({ onCreated }) => {
         onCreate={(name) => createAndPickItem(itemModalLine, name)}
         filterKey="source"
         filterOptions={['All', 'FABRIC', 'MANUAL']}
+        styles={styles}
+        gp={gp}
       />
     </View>
   );

@@ -27,7 +27,7 @@ const STATUS_STYLES = {
   'Closed Without Return': { bg: '#F1EFE8', fg: '#5F5E5A' },
 };
 
-const StatusBadge = ({ status, overdue }) => {
+const StatusBadge = ({ status, overdue, styles }) => {
   const s = STATUS_STYLES[status] || STATUS_STYLES.Open;
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -241,7 +241,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       title: 'Status',
       flex: 1.4,
       priority: 1,
-      render: (item) => <StatusBadge status={item.status} overdue={item.is_overdue} />,
+      render: (item) => <StatusBadge status={item.status} overdue={item.is_overdue} styles={styles} />,
     },
     { key: 'party_name', title: 'Party', flex: 1.6, priority: 1 },
     {

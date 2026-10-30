@@ -44,7 +44,7 @@ const RECON_COLORS = {
   'Not Applicable': { bg: '#F1EFE8', fg: '#5F5E5A' },
 };
 
-const Badge = ({ label, map }) => {
+const Badge = ({ label, map, styles }) => {
   const c = map[label] || { bg: '#F1EFE8', fg: '#444441' };
   return (
     <View style={[styles.statusBadge, { backgroundColor: c.bg }]}>
@@ -65,14 +65,10 @@ const toISODate = (date) => {
 // Summary tiles — same font sizes as the rest of the module: tile value
 // matches menuTitle's weight/size (16, bold), tile label matches countText
 // (12, muted).
-const Tile = ({ label, value, warn }) => (
-  <View style={[tileStyle.tile, warn && tileStyle.tileWarn]}>
-    <Text style={[tileStyle.value, warn && tileStyle.valueWarn]}>{value}</Text>
-    <Text style={tileStyle.label}>{label}</Text>
-  </View>
-);
-
-const tileStyle = {
+// Factories instead of module-level consts — gp is now theme-derived
+// (useGatePassStyles(), 30 Oct 2026) and only exists inside the component,
+// so these build the style objects from whatever gp the caller passes in.
+const makeTileStyle = (gp) => ({
   tile: {
     backgroundColor: gp.sectionBg,
     borderRadius: 10,
@@ -84,6 +80,16 @@ const tileStyle = {
   value: { fontSize: 20, fontWeight: 'bold', color: gp.accentDark },
   valueWarn: { color: gp.cancel },
   label: { fontSize: 12, color: gp.textMuted, marginTop: 2 },
+});
+
+const Tile = ({ label, value, warn, gp }) => {
+  const tileStyle = makeTileStyle(gp);
+  return (
+    <View style={[tileStyle.tile, warn && tileStyle.tileWarn]}>
+      <Text style={[tileStyle.value, warn && tileStyle.valueWarn]}>{value}</Text>
+      <Text style={tileStyle.label}>{label}</Text>
+    </View>
+  );
 };
 
 // Expandable row content — the line items behind one gate pass. Replaces
@@ -91,7 +97,7 @@ const tileStyle = {
 // `renderExpanded`), since there's nothing to show there: every column in
 // both reports is priority 1 now, the pass is fully summarized on the main
 // row, and line/item detail belongs one level down instead.
-const liStyle = {
+const makeLiStyle = (gp) => ({
   panel: { backgroundColor: '#F7FAF8', paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: gp.borderLight || '#E5EDE8' },
   title: { fontSize: 12, fontWeight: 'bold', color: gp.textMuted, marginBottom: 6 },
   headerRow: { flexDirection: 'row', paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: '#DCE6DF' },
@@ -99,9 +105,11 @@ const liStyle = {
   row: { flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#EAF0EC' },
   cell: { fontSize: 12, color: gp.text || '#1A2E22' },
   empty: { fontSize: 12, color: gp.textMuted, fontStyle: 'italic', paddingVertical: 6 },
-};
+});
 
-const CreatorLineItems = ({ lines }) => (
+const CreatorLineItems = ({ lines, gp }) => {
+  const liStyle = makeLiStyle(gp);
+  return (
   <View style={liStyle.panel}>
     <Text style={liStyle.title}>Line Items ({lines.length})</Text>
     {lines.length === 0 ? (
@@ -131,9 +139,12 @@ const CreatorLineItems = ({ lines }) => (
       </>
     )}
   </View>
-);
+  );
+};
 
-const DispatcherLineItems = ({ lines }) => (
+const DispatcherLineItems = ({ lines, gp, styles }) => {
+  const liStyle = makeLiStyle(gp);
+  return (
   <View style={liStyle.panel}>
     <Text style={liStyle.title}>Line Items ({lines.length})</Text>
     {lines.length === 0 ? (
@@ -154,14 +165,15 @@ const DispatcherLineItems = ({ lines }) => (
             <Text style={[liStyle.cell, { flex: 0.8 }]}>{l.qty_sent}</Text>
             <Text style={[liStyle.cell, { flex: 0.9 }]}>{l.qty_returned}</Text>
             <View style={{ flex: 1.3 }}>
-              <Badge label={l.reconciliation_status} map={RECON_COLORS} />
+              <Badge label={l.reconciliation_status} map={RECON_COLORS} styles={styles} />
             </View>
           </View>
         ))}
       </>
     )}
   </View>
-);
+  );
+};
 
 const GatePassReports = () => {
   const { styles, gp } = useGatePassStyles();
@@ -316,7 +328,7 @@ const GatePassReports = () => {
   const creatorColumns = [
     { key: 'gate_pass_no', title: 'Pass No.', flex: 1.3, priority: 1 },
     { key: 'pass_type', title: 'Type', flex: 0.5, priority: 1, render: (r) => passTypeLabel(r.pass_type) },
-    { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} /> },
+    { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} styles={styles} /> },
     { key: 'party_name', title: 'Vendor/Customer', flex: 1.5, priority: 1 },
     { key: 'gate_pass_created_date', title: 'Gate Pass Created Date', flex: 1.1, priority: 1, render: (r) => fmtDate(r.gate_pass_created_date) },
     { key: 'dispatched_at', title: 'Dispatched Date', flex: 1.0, priority: 1, render: (r) => fmtDate(r.dispatched_at) },
@@ -337,7 +349,7 @@ const GatePassReports = () => {
     { key: 'department', title: 'Department', flex: 1.0, priority: 1 },
     { key: 'pass_type', title: 'Gate Pass Type', flex: 0.8, priority: 1, render: (r) => passTypeLabel(r.pass_type) },
     { key: 'gate_pass_no', title: 'Gate Pass No.', flex: 1.3, priority: 1 },
-    { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} /> },
+    { key: 'status', title: 'Status', flex: 1.3, priority: 1, render: (r) => <Badge label={r.status} map={STATUS_COLORS} styles={styles} /> },
     { key: 'party_name', title: 'Vendor/Customer', flex: 1.4, priority: 1 },
     { key: 'dispatch_date', title: 'Dispatch Date', flex: 1.0, priority: 1, render: (r) => fmtDate(r.dispatch_date) },
     { key: 'dispatched_by', title: 'Dispatched By', flex: 1.0, priority: 2, render: (r) => r.dispatched_by || '—' },
@@ -478,19 +490,19 @@ const GatePassReports = () => {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
               {role === 'creator' ? (
                 <>
-                  <Tile label="Total Gate Passes" value={report.summary.total_passes} />
-                  <Tile label="Returnable" value={report.summary.returnable_count} />
-                  <Tile label="Non-Returnable" value={report.summary.non_returnable_count} />
-                  <Tile label="Pending Return" value={report.summary.pending_return_count} />
-                  <Tile label="Overdue" value={report.summary.overdue_count} warn={report.summary.overdue_count > 0} />
+                  <Tile gp={gp} label="Total Gate Passes" value={report.summary.total_passes} />
+                  <Tile gp={gp} label="Returnable" value={report.summary.returnable_count} />
+                  <Tile gp={gp} label="Non-Returnable" value={report.summary.non_returnable_count} />
+                  <Tile gp={gp} label="Pending Return" value={report.summary.pending_return_count} />
+                  <Tile gp={gp} label="Overdue" value={report.summary.overdue_count} warn={report.summary.overdue_count > 0} />
                 </>
               ) : (
                 <>
-                  <Tile label="Total Gate Passes" value={report.summary.total_passes} />
-                  <Tile label="Total Qty Sent" value={report.summary.total_qty_sent} />
-                  <Tile label="Departments" value={report.summary.departments} />
-                  <Tile label="Pending Return" value={report.summary.pending_lines} />
-                  <Tile label="Overdue" value={report.summary.overdue_lines} warn={report.summary.overdue_lines > 0} />
+                  <Tile gp={gp} label="Total Gate Passes" value={report.summary.total_passes} />
+                  <Tile gp={gp} label="Total Qty Sent" value={report.summary.total_qty_sent} />
+                  <Tile gp={gp} label="Departments" value={report.summary.departments} />
+                  <Tile gp={gp} label="Pending Return" value={report.summary.pending_lines} />
+                  <Tile gp={gp} label="Overdue" value={report.summary.overdue_lines} warn={report.summary.overdue_lines > 0} />
                 </>
               )}
             </View>
@@ -507,8 +519,8 @@ const GatePassReports = () => {
             emptyText={role === 'creator' ? 'No gate passes match these filters' : 'No dispatched passes match these filters'}
             renderExpanded={(item) => (
               role === 'creator'
-                ? <CreatorLineItems lines={item.lines || []} />
-                : <DispatcherLineItems lines={item.lines || []} />
+                ? <CreatorLineItems gp={gp} lines={item.lines || []} />
+                : <DispatcherLineItems gp={gp} styles={styles} lines={item.lines || []} />
             )}
           />
         </>
