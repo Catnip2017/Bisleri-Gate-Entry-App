@@ -15,7 +15,7 @@ import { showError, showAlert } from '../../utils/customModal';
 import DataTable from '../../components/ui/DataTable';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import DateField from '../../components/ui/DateField';
-import styles, { gp } from './styles/gatePassStyles';
+import { useGatePassStyles } from './styles/gatePassStyles';
 import { passTypeLabel } from '../../utils/passTypeLabels';
 
 const STATUS_OPTIONS = [
@@ -164,6 +164,7 @@ const DispatcherLineItems = ({ lines }) => (
 );
 
 const GatePassReports = () => {
+  const { styles, gp } = useGatePassStyles();
   const [role, setRole] = useState(null);        // 'creator' | 'dispatcher' | null
   const [noAccess, setNoAccess] = useState(false);
   const [noGpLocation, setNoGpLocation] = useState(false);

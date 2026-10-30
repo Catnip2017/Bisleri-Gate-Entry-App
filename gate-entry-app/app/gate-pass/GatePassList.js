@@ -15,7 +15,7 @@ import DateField from '../../components/ui/DateField';
 import MultiSelectDropdown from '../../components/ui/MultiSelectDropdown';
 import { passTypeLabel } from '../../utils/passTypeLabels';
 import printGatePass from '../../utils/printGatePass';
-import styles, { gp } from './styles/gatePassStyles';
+import { useGatePassStyles } from './styles/gatePassStyles';
 
 const STATUS_STYLES = {
   Open: { bg: '#F1EFE8', fg: '#444441' },
@@ -55,6 +55,7 @@ const PASS_TYPE_OPTIONS = [
 ];
 
 const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters = true }) => {
+  const { styles, gp } = useGatePassStyles();
   const [items, setItems] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [overdueOnly, setOverdueOnly] = useState(false);

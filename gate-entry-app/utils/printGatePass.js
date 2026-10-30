@@ -156,6 +156,8 @@ export const printGatePass = async (passId) => {
           <div class="sig"><div class="line"></div>Prepared By</div>
           <div class="sig"><div class="line"></div>Security</div>
           <div class="sig"><div class="line"></div>Approved By</div>
+          <div class="sig"><div class="line"></div>Received By (Name/Signature)</div>
+          <div class="sig"><div class="line"></div>Time of Receipt</div>
         </div>
       </div>`;
 
@@ -195,8 +197,11 @@ export const printGatePass = async (passId) => {
   .remarks { font-size:11px; margin: 6px 0 14px; }
   .remarks .lbl { font-weight:bold; margin-right:4px; }
 
-  .sigs { display:flex; justify-content:space-between; margin-top:26px; }
-  .sig { width:30%; text-align:center; font-size:11px; }
+  .sigs { display:flex; justify-content:space-between; margin-top:26px; flex-wrap:wrap; row-gap:14px; }
+  /* 5 blocks now (was 3) — Received By / Time of Receipt added 30 Oct 2026
+     for the warehouse/security to fill in by hand when returned goods come
+     back; nothing here is pulled from stored data, it's blank on purpose. */
+  .sig { width:18%; text-align:center; font-size:11px; }
   .sig .line { border-top:1px solid #333; margin-bottom:4px; height:22px; }
 </style></head><body>
 ${copyBlock('VENDOR COPY')}

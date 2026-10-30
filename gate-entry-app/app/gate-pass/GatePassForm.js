@@ -10,7 +10,7 @@ import { gatePassAPI, handleAPIError } from '../../services/api';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { showSuccess, showError, showValidationError, confirmAction } from '../../utils/customModal';
 import DateField from '../../components/ui/DateField';
-import styles, { gp } from './styles/gatePassStyles';
+import { useGatePassStyles } from './styles/gatePassStyles';
 import { passTypeLabel } from '../../utils/passTypeLabels';
 
 // Indian vehicle registration formats:
@@ -170,6 +170,7 @@ function LookupModal({
 }
 
 const GatePassForm = ({ onCreated }) => {
+  const { styles, gp } = useGatePassStyles();
   const [passType, setPassType] = useState('NR');
   const [username, setUsername] = useState('');
   const [locations, setLocations] = useState([]);
@@ -375,13 +376,19 @@ const GatePassForm = ({ onCreated }) => {
       const qty = parseInt(l.quantity, 10);
       if (!qty || qty <= 0) return `Line ${i + 1}: enter a valid quantity`;
 
-      // Returnable passes: Serial No., Amount and Chargeable are compulsory
-      // on every line (Asset No./Description stay "either one" as above).
+      // Returnable passes: Serial No. and Chargeable are compulsory on every
+      // line (Asset No./Description stay "either one" as above). Amount is
+      // NOT mandatory here (30 Oct 2026 decision) — a returnable item often
+      // has no sale/replacement value to quote, and the backend already
+      // treats amount as fully optional (Decimal, nullable); this was only
+      // ever a frontend-side requirement. A blank/zero amount just means
+      // that line contributes nothing to the chargeable-amount totals.
       if (isReturnable) {
         if (!l.serial_no.trim()) return `Line ${i + 1}: serial no. is required for returnable items`;
-        const amt = parseFloat(l.amount);
-        if (!l.amount || Number.isNaN(amt) || amt <= 0)
-          return `Line ${i + 1}: amount is required for returnable items`;
+        if (l.amount) {
+          const amt = parseFloat(l.amount);
+          if (Number.isNaN(amt) || amt < 0) return `Line ${i + 1}: enter a valid amount`;
+        }
         if (!l.chargeable) return `Line ${i + 1}: select Chargeable / Non-chargeable for returnable items`;
       }
     }

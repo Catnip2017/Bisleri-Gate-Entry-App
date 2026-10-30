@@ -967,7 +967,13 @@ def cancel_gate_pass(
 ):
     """Cancel from Open or Released only, with a mandatory reason from the
     master. Never after Dispatch — material has physically left. The number
-    is spent: it stays with this record forever."""
+    is spent: it stays with this record forever.
+
+    Department/location scoped exactly like viewing a pass (30 Oct 2026) —
+    previously ANY Gate Pass Creator could cancel ANY pass anywhere, since
+    this endpoint never checked location/department at all. Reuses
+    _check_pass_view_access so "can cancel it" never grants more than
+    "can see it" already did."""
     reason = (
         db.query(GatePassCancelReason)
         .filter(GatePassCancelReason.id == payload.cancel_reason_id, GatePassCancelReason.is_active.is_(True))
@@ -978,6 +984,7 @@ def cancel_gate_pass(
 
     try:
         gp = _locked_pass(db, pass_id)
+        _check_pass_view_access(db, gp, current_user)
         if gp.status not in (GP_OPEN, GP_RELEASED):
             raise HTTPException(
                 status_code=409,
@@ -1011,7 +1018,11 @@ def guard_cancel_gate_pass(
     """Security-side cancel: a Gate Pass Dispatcher (guard) may cancel a pass
     only while it is Released — i.e. before they dispatch it. Same mandatory
     reason master as the Creator's cancel; remarks are stored alongside it.
-    Never allowed once Dispatched — material has already left."""
+    Never allowed once Dispatched — material has already left.
+
+    Location-scoped exactly like viewing a pass (30 Oct 2026) — a guard at
+    one gate location could previously cancel a Released pass belonging to
+    a different location's gate entirely."""
     reason = (
         db.query(GatePassCancelReason)
         .filter(GatePassCancelReason.id == payload.cancel_reason_id, GatePassCancelReason.is_active.is_(True))
@@ -1022,6 +1033,7 @@ def guard_cancel_gate_pass(
 
     try:
         gp = _locked_pass(db, pass_id)
+        _check_pass_view_access(db, gp, current_user)
         if gp.status != GP_RELEASED:
             raise HTTPException(
                 status_code=409,

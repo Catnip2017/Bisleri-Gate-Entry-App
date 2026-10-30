@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
-import styles from './AdminHubStyles';
+import { useAdminHubStyles } from './AdminHubStyles';
 
 // ── Tile config ───────────────────────────────────────────────────────────────
 // 'Dashboards' is itadmin-only — filtered out below for everyone else, and the
@@ -94,6 +94,7 @@ const getTiles = (roles = []) => {
 };
 
 export default function AdminHubScreen() {
+  const styles = useAdminHubStyles();
   const router = useRouter();
   const [user, setUser] = useState(null);
 

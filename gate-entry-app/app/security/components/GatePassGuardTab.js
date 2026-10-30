@@ -14,7 +14,7 @@ import DateField from '../../../components/ui/DateField';
 import MultiSelectDropdown from '../../../components/ui/MultiSelectDropdown';
 import printGatePass from '../../../utils/printGatePass';
 import GatePassReports from '../../gate-pass/GatePassReports';
-import styles, { gp } from '../../gate-pass/styles/gatePassStyles';
+import { useGatePassStyles } from '../../gate-pass/styles/gatePassStyles';
 import { passTypeLabel } from '../../../utils/passTypeLabels';
 
 const VIEWS = [
@@ -33,6 +33,7 @@ const PASS_TYPE_OPTIONS = [
 ];
 
 const GatePassGuardTab = ({ hasGpdRole = true }) => {
+  const { styles, gp } = useGatePassStyles();
   const [view, setView] = useState('dispatch');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);

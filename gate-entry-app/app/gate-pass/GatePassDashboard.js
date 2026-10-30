@@ -12,7 +12,7 @@ import AppShell from '../../components/ui/AppShell';
 import GatePassForm from './GatePassForm';
 import GatePassList from './GatePassList';
 import GatePassReports from './GatePassReports';
-import styles from './styles/gatePassStyles';
+import { useGatePassStyles } from './styles/gatePassStyles';
 
 // '+ New Gate Pass' is rendered as its own button above this list (not a
 // tab) — it doesn't represent a status view, so it never belonged in MENU.
@@ -31,6 +31,7 @@ const MENU = [
 ];
 
 const GatePassDashboard = () => {
+  const { styles } = useGatePassStyles();
   const router = useRouter();
   const [activeKey, setActiveKey] = useState('new');
   const [refreshKey, setRefreshKey] = useState(0);

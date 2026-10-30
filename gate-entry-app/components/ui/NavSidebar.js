@@ -121,18 +121,18 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
         {/* 1. Identity */}
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 12,
-          padding: 16, borderBottomWidth: 1, borderBottomColor: '#E5EDE8',
+          padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
         }}>
           <View style={{
-            width: 44, height: 44, borderRadius: 22, backgroundColor: '#D5EEDF',
+            width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceMuted,
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 15, color: '#064D28' }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.textPrimary }}>
               {initials}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#1A2E22' }} numberOfLines={1}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.textPrimary }} numberOfLines={1}>
               {userData?.fullName || userData?.username || 'Loading…'}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
@@ -154,7 +154,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
             accessibilityRole="button"
             accessibilityLabel="Close menu"
           >
-            <MaterialIcons name="close" size={22} color="#5C6B62" />
+            <MaterialIcons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
@@ -170,7 +170,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
                   style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
                     minHeight: 48, paddingHorizontal: 16,
-                    backgroundColor: active ? '#D5EEDF' : 'transparent',
+                    backgroundColor: active ? colors.surfaceMuted : 'transparent',
                     borderRightWidth: active ? 3 : 0,
                     borderRightColor: '#00A651',
                   }}
@@ -181,12 +181,16 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
                   <MaterialIcons
                     name={link.icon}
                     size={20}
-                    color={active ? '#064D28' : '#5C6B62'}
+                    color={active ? colors.textPrimary : colors.textSecondary}
                   />
                   <Text style={{
                     fontSize: 14,
                     fontWeight: active ? 'bold' : '500',
-                    color: active ? '#064D28' : '#1A2E22',
+                    // Both branches are the same color on purpose — active
+                    // state is carried by the bold weight + row highlight +
+                    // right-edge accent above, not by a separate text color,
+                    // so it stays legible in both themes.
+                    color: colors.textPrimary,
                   }}>
                     {link.label}
                   </Text>
@@ -199,17 +203,17 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
           {details.length > 0 && (
             <View style={{
               marginHorizontal: 16, marginTop: 8, padding: 12,
-              backgroundColor: '#EAF7EF', borderRadius: 8,
+              backgroundColor: colors.surfaceMuted, borderRadius: 8,
             }}>
               {details.map(([label, value]) => (
                 <View key={label} style={{ marginBottom: 8 }}>
-                  <Text style={{ fontSize: 11, color: '#5C6B62', marginBottom: 1 }}>{label}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1A2E22' }}>{value}</Text>
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 1 }}>{label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.textPrimary }}>{value}</Text>
                 </View>
               ))}
               <View>
-                <Text style={{ fontSize: 11, color: '#5C6B62', marginBottom: 1 }}>Username</Text>
-                <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#1A2E22' }}>
+                <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 1 }}>Username</Text>
+                <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.textPrimary }}>
                   {userData?.username || '—'}
                 </Text>
               </View>
@@ -218,7 +222,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
         </ScrollView>
 
         {/* 4. Pinned logout */}
-        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: '#E5EDE8' }}>
+        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
           <TouchableOpacity
             onPress={handleLogout}
             style={{
@@ -234,7 +238,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
 
           {/* 5. Footer */}
           <Text style={{
-            marginTop: 10, fontSize: 10, color: '#9FB3A7', textAlign: 'center',
+            marginTop: 10, fontSize: 10, color: colors.textMuted, textAlign: 'center',
           }}>
             {APP_VERSION} · {String(API_BASE_URL || '').replace(/^https?:\/\//, '')}
           </Text>

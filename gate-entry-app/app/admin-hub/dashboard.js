@@ -8,7 +8,7 @@
 //             fire onLoadEnd reliably when CSP headers are active)
 //   Mobile → react-native-webview (full native WebView)
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AppShell from '../../components/ui/AppShell';
 import { API_BASE_URL } from '../../services/api';
 import { storage } from '../../utils/storage';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const DASHBOARD_URL = `${API_BASE_URL}/dashboard`;
 
@@ -31,6 +32,39 @@ if (Platform.OS !== 'web') {
 }
 
 export default function DashboardScreen() {
+  const { isDark, colors } = useTheme();
+  const bandBg = isDark ? colors.surfaceMuted : '#E0F7FA';
+  const styles = useMemo(() => StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: bandBg,
+    },
+
+    webview: { flex: 1 },
+
+    // ── Overlay shared by loading + error ─────────────────────────────────
+    overlay: {
+      ...StyleSheet.absoluteFillObject,
+      top: 0,
+      backgroundColor: bandBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 12,
+      zIndex: 10,
+      paddingHorizontal: 32,
+    },
+    overlayText:  { fontSize: 15, color: colors.textSecondary },
+    errorTitle:   { fontSize: 16, fontWeight: '600', color: colors.textPrimary, textAlign: 'center', marginTop: 8 },
+    errorSub:     { fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+    retryBtn: {
+      marginTop: 12,
+      backgroundColor: '#007bff',
+      paddingVertical: 10,
+      paddingHorizontal: 32,
+      borderRadius: 8,
+    },
+    retryText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  }), [isDark, colors, bandBg]);
   const [loading, setLoading]   = useState(true);
   const [error,   setError]     = useState(false);
   const [src,     setSrc]       = useState(null);
@@ -154,34 +188,3 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#E0F7FA',
-  },
-
-  webview: { flex: 1 },
-
-  // ── Overlay shared by loading + error ─────────────────────────────────────
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    top: 0,
-    backgroundColor: '#E0F7FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    zIndex: 10,
-    paddingHorizontal: 32,
-  },
-  overlayText:  { fontSize: 15, color: '#4a5568' },
-  errorTitle:   { fontSize: 16, fontWeight: '600', color: '#2d3748', textAlign: 'center', marginTop: 8 },
-  errorSub:     { fontSize: 13, color: '#718096', textAlign: 'center', lineHeight: 20 },
-  retryBtn: {
-    marginTop: 12,
-    backgroundColor: '#007bff',
-    paddingVertical: 10,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-  },
-  retryText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-});
