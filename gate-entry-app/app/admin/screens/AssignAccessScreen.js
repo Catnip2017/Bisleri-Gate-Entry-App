@@ -18,6 +18,27 @@ const BADGE = {
   height: 24, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1,
   alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start',
 };
+// users_master.last_login is stored as naive UTC, so tag it as UTC before
+// converting to the viewer's local time. Returns { text, ago } or null.
+function formatLastLogin(raw) {
+  if (!raw) return null;
+  const iso = /(Z|[+-]\d\d:?\d\d)$/.test(raw) ? raw : `${raw}Z`;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const text = d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  let ago;
+  if (mins < 1) ago = 'just now';
+  else if (mins < 60) ago = `${mins} min ago`;
+  else if (mins < 1440) ago = `${Math.floor(mins / 60)} hr ago`;
+  else if (mins < 43200) ago = `${Math.floor(mins / 1440)} day${Math.floor(mins / 1440) === 1 ? '' : 's'} ago`;
+  else ago = null;
+  return { text, ago };
+}
+
 const BADGE_TEXT = { fontSize: 11, fontWeight: '700', lineHeight: 14 };
 
 const MENU_FIX = { borderTopWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8 };
@@ -620,6 +641,16 @@ const AssignAccessScreen = () => {
                         {isActive ? '● Active' : '○ Deactivated'}
                       </Text>
                     </View>
+                    {(() => {
+                      const ll = formatLastLogin(selectedUser.last_login);
+                      return (
+                        <Text style={{ fontSize: 11, color: '#888', marginLeft: 4 }} numberOfLines={1}>
+                          {ll
+                            ? `Last login: ${ll.text}${ll.ago ? ` · ${ll.ago}` : ''}`
+                            : 'Never logged in'}
+                        </Text>
+                      );
+                    })()}
                   </View>
                 </View>
                 {hasNoRoles(selectedUser) && (

@@ -80,6 +80,7 @@ class UserSearchResponse(BaseModel):
     department: Optional[str] = None
     gate_pass_location: Optional[str] = None
     is_active: Optional[bool] = True
+    last_login: Optional[datetime] = None   # users_master.last_login (stored UTC)
 
     class Config:
         from_attributes = True
