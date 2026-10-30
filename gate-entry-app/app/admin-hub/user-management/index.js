@@ -105,9 +105,20 @@ export default function UserManagementScreen() {
       </View>
 
       {/* ── Content ──────────────────────────────────────────────────────── */}
-      <ScrollView style={styles.screenContainer}>
-        {renderActiveScreen()}
-      </ScrollView>
+      {/* Assign Access is a fixed-height two-pane screen: its own search list
+          and detail panel scroll internally, so it must NOT sit inside a
+          page-level ScrollView (that gave the list unbounded height and made
+          the whole page grow/scroll — 30 Oct 2026). Other tabs are plain
+          forms and keep page scrolling. */}
+      {activeTab === 'Assign Access' ? (
+        <View style={styles.screenContainer}>
+          {renderActiveScreen()}
+        </View>
+      ) : (
+        <ScrollView style={styles.screenContainer}>
+          {renderActiveScreen()}
+        </ScrollView>
+      )}
       </>)}
     </View>
     </AppShell>

@@ -14,7 +14,7 @@
 //   4. Pinned red Logout with confirmation — the single logout in the app
 //   5. Footer: app version + connected server
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, Pressable, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, ScrollView, Animated, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { authAPI, API_BASE_URL } from '../../services/api';
@@ -32,6 +32,8 @@ import {
 // Row height used by both the real rows and the accordion's animated
 // height target below — keep these in sync if row padding ever changes.
 const ACCORDION_ROW_HEIGHT = 48;
+const PANEL_WIDTH = 290;
+const SLIDE_MS = 240;
 
 // One accordion section: header row (icon + label + chevron that rotates
 // open) above an Animated.View that grows/shrinks to exactly fit its rows,
@@ -101,7 +103,24 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
     if (isVisible) setOpenSection(null);
   }, [isVisible]);
 
-  if (!isVisible) return null;
+  // Slide-in / fade-out (30 Oct 2026). The panel stays mounted until its exit
+  // animation finishes, so closing slides out instead of vanishing.
+  const [mounted, setMounted] = useState(isVisible);
+  const slide = useRef(new Animated.Value(isVisible ? 1 : 0)).current;
+  useEffect(() => {
+    if (isVisible) {
+      setMounted(true);
+      Animated.timing(slide, {
+        toValue: 1, duration: SLIDE_MS, useNativeDriver: Platform.OS !== 'web',
+      }).start();
+    } else {
+      Animated.timing(slide, {
+        toValue: 0, duration: SLIDE_MS - 40, useNativeDriver: Platform.OS !== 'web',
+      }).start(({ finished }) => { if (finished) setMounted(false); });
+    }
+  }, [isVisible]);
+
+  if (!mounted) return null;
 
   const links = getNavLinksForRoles(roles);
   // Admin Hub (no group) stays a flat shortcut at the top, same as before.
@@ -189,17 +208,20 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
       flexDirection: 'row', zIndex: 100,
     }}>
       {/* Backdrop — tap outside to close */}
-      <Pressable
+      <Animated.View
         style={{
           position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
           backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          opacity: slide,
         }}
-        onPress={onClose}
-      />
+      >
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+      </Animated.View>
 
       {/* Panel */}
-      <View style={{
-        width: 290, height: '100%', backgroundColor: colors.surface,
+      <Animated.View style={{
+        width: PANEL_WIDTH, height: '100%', backgroundColor: colors.surface,
+        transform: [{ translateX: slide.interpolate({ inputRange: [0, 1], outputRange: [-PANEL_WIDTH, 0] }) }],
         elevation: 8,
         shadowColor: '#000', shadowOffset: { width: 2, height: 0 },
         shadowOpacity: 0.3, shadowRadius: 8,
@@ -323,7 +345,7 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
             {APP_VERSION} · {String(API_BASE_URL || '').replace(/^https?:\/\//, '')}
           </Text>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 };
