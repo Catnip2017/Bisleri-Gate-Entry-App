@@ -21,6 +21,11 @@ const EMPTY = {
   copackerLocation: '', department: '', gatePassLocation: '',
 };
 
+// Dropdown menus hang directly under their trigger (trigger has no bottom
+// margin; menu gets a full border + small gap) so the first row is never
+// hidden by a detached/borderless panel (30 Oct 2026).
+const MENU_FIX = { borderTopWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8 };
+
 // ── Reusable inline Dropdown ───────────────────────────────────────────────
 function InlineDropdown({ label, value, options, onSelect, placeholder = 'Select...' }) {
   const [open, setOpen] = useState(false);
@@ -28,14 +33,14 @@ function InlineDropdown({ label, value, options, onSelect, placeholder = 'Select
   return (
     <View style={{ marginBottom: 12, zIndex: open ? 999 : 1 }}>
       {label ? <Text style={S.fieldLabel}>{label}</Text> : null}
-      <TouchableOpacity style={S.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+      <TouchableOpacity style={[S.ddTrigger, { marginBottom: 0 }]} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
         <Text style={[S.ddTriggerText, !selected && { color: '#bbb' }]} numberOfLines={1}>
           {selected ? selected.label : placeholder}
         </Text>
         <Text style={{ color: '#aaa', fontSize: 11 }}>{open ? '▲' : '▼'}</Text>
       </TouchableOpacity>
       {open && (
-        <View style={S.ddMenu}>
+        <View style={[S.ddMenu, MENU_FIX]}>
           <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
             {options.map(opt => (
               <TouchableOpacity key={opt.value}

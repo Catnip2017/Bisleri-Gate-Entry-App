@@ -11,20 +11,25 @@ import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 
+// Dropdown menus hang directly under their trigger (trigger has no bottom
+// margin; menu gets a full border + small gap) so the first row is never
+// hidden by a detached/borderless panel (30 Oct 2026).
+const MENU_FIX = { borderTopWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8 };
+
 // Simple inline dropdown for scope fields
 function ScopeDropdown({ value, options, onSelect, placeholder = 'Select...' }) {
   const [open, setOpen] = React.useState(false);
   const selected = options.find(o => o.value === value);
   return (
     <View style={{ marginBottom: 12, zIndex: open ? 999 : 1 }}>
-      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+      <TouchableOpacity style={[styles.ddTrigger, { marginBottom: 0 }]} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
         <Text style={[styles.ddTriggerText, !selected && { color: '#bbb' }]} numberOfLines={1}>
           {selected ? selected.label : placeholder}
         </Text>
         <Text style={{ color: '#aaa', fontSize: 10 }}>{open ? '▲' : '▼'}</Text>
       </TouchableOpacity>
       {open && (
-        <View style={styles.ddMenu}>
+        <View style={[styles.ddMenu, MENU_FIX]}>
           <ScrollView style={{ maxHeight: 150 }} nestedScrollEnabled>
             {options.map(opt => (
               <TouchableOpacity key={opt.value}
@@ -78,14 +83,14 @@ export function LocationMultiSelect({ options, selections, onChange, showStar })
 
   return (
     <View style={{ marginBottom: 12, zIndex: open ? 998 : 1 }}>
-      <TouchableOpacity style={styles.ddTrigger} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
+      <TouchableOpacity style={[styles.ddTrigger, { marginBottom: 0 }]} onPress={() => setOpen(o => !o)} activeOpacity={0.8}>
         <Text style={[styles.ddTriggerText, !summary && { color: '#bbb' }]} numberOfLines={1}>
           {summary || 'Select locations...'}
         </Text>
         <Text style={{ color: '#aaa', fontSize: 10 }}>{open ? '▲' : '▼'}</Text>
       </TouchableOpacity>
       {open && (
-        <View style={styles.ddMenu}>
+        <View style={[styles.ddMenu, MENU_FIX]}>
           <TextInput
             style={[styles.input, { marginHorizontal: 6, marginTop: 6, marginBottom: 2 }]}
             placeholder="Search code or name..."
