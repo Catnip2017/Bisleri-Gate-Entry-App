@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
-import { showAlert } from '../../../utils/customModal';
+import { showAlert, confirmAction } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 
 // Dropdown menus hang directly under their trigger (trigger has no bottom
@@ -183,6 +183,7 @@ const AssignAccessScreen = () => {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -355,6 +356,41 @@ const AssignAccessScreen = () => {
     setWarehouseSearch(w.warehouse_code);
     setShowWarehouseDropdown(false);
     setFilteredWarehouses([]);
+  };
+
+  // ── Deactivate / Reactivate — saves immediately, own confirmation ─────────
+  const applyActive = async (next) => {
+    setStatusSaving(true);
+    try {
+      await adminAPI.modifyUser(selectedUser.username, { is_active: next });
+      setIsActive(next);
+      setSavedActive(next);
+      setDeleteOpen(false);
+      setDeleteText('');
+      // keep the list entry + selection in sync so re-selecting shows the truth
+      setSelectedUser(u => (u ? { ...u, is_active: next } : u));
+      setSearchResults(prev => prev.map(u =>
+        u.username === selectedUser.username ? { ...u, is_active: next } : u));
+    } catch (e) {
+      showAlert('Error', handleAPIError(e));
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  const handleToggleActive = () => {
+    if (!selectedUser || statusSaving) return;
+    if (isActive) {
+      confirmAction({
+        title: 'Deactivate account',
+        message: `${selectedUser.username} will be logged out on their next action and will not be able to log in until reactivated.`,
+        confirmText: 'Deactivate',
+        destructive: true,
+        onConfirm: () => applyActive(false),
+      });
+    } else {
+      applyActive(true);
+    }
   };
 
   // ── Delete user (permanent) ───────────────────────────────────────────────
@@ -547,13 +583,9 @@ const AssignAccessScreen = () => {
                         {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
                       </Text>
                     </View>
-                    {/* Deactivate-don't-delete: takes effect on the user's NEXT
-                        request (server checks every call). Self-deactivation is
-                        rejected by the backend. */}
-                    <TouchableOpacity
-                      onPress={() => setIsActive((a) => !a)}
-                      accessibilityRole="switch"
-                      accessibilityState={{ checked: isActive }}
+                    {/* Read-only status indicator. Changing it happens in the
+                        "Account Status" section below (saves immediately). */}
+                    <View
                       style={{
                         marginLeft: 8, paddingHorizontal: 10, paddingVertical: 3,
                         borderRadius: 10, borderWidth: 1,
@@ -565,7 +597,7 @@ const AssignAccessScreen = () => {
                         color: isActive ? '#00843D' : '#c0392b' }}>
                         {isActive ? '● Active' : '○ Deactivated'}
                       </Text>
-                    </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
                 {hasNoRoles(selectedUser) && (
@@ -597,6 +629,83 @@ const AssignAccessScreen = () => {
                 <Text style={styles.fieldNote}>Email is linked to Active Directory and cannot be changed here</Text>
               )}
 
+              {/* Account Status — the whole account lifecycle in one place:
+                  Deactivate/Reactivate saves immediately (own confirmation,
+                  no Save Changes needed); Delete unlocks once deactivated. */}
+              <Text style={styles.sectionLabel}>Account Status</Text>
+              <View style={{
+                borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 16,
+                borderColor: isActive ? '#cfe8d8' : '#f0c4c4',
+                backgroundColor: isActive ? '#f4faf6' : '#fff5f5',
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: isActive ? '#00693a' : '#b71c1c', marginBottom: 10 }}>
+                  {isActive
+                    ? 'Active — this user can log in.'
+                    : 'Deactivated — this user cannot log in.'}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleToggleActive}
+                  disabled={statusSaving}
+                  style={{
+                    borderRadius: 8, paddingVertical: 11, alignItems: 'center',
+                    borderWidth: 1, opacity: statusSaving ? 0.6 : 1,
+                    borderColor: isActive ? '#c62828' : '#00843D',
+                    backgroundColor: isActive ? '#fff' : '#00843D',
+                  }}>
+                  {statusSaving
+                    ? <ActivityIndicator color={isActive ? '#c62828' : '#fff'} />
+                    : <Text style={{ fontWeight: '700', fontSize: 14, color: isActive ? '#c62828' : '#fff' }}>
+                        {isActive ? 'Deactivate account' : 'Reactivate account'}
+                      </Text>}
+                </TouchableOpacity>
+
+                {!isActive && (
+                  <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0d6d6' }}>
+                    {!deleteOpen ? (
+                      <TouchableOpacity
+                        onPress={() => setDeleteOpen(true)}
+                        style={{ borderWidth: 1, borderColor: '#c62828', borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff' }}>
+                        <Text style={{ color: '#c62828', fontWeight: '700', fontSize: 13 }}>Delete user permanently…</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View>
+                        <Text style={{ fontSize: 13, color: '#7f1d1d', marginBottom: 8 }}>
+                          This permanently deletes {selectedUser.username} and cannot be undone.
+                          Type the username to confirm:
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder={selectedUser.username}
+                          placeholderTextColor="#bbb"
+                          value={deleteText}
+                          onChangeText={setDeleteText}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 10 }}>
+                          <TouchableOpacity
+                            onPress={() => { setDeleteOpen(false); setDeleteText(''); }}
+                            style={{ flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff' }}>
+                            <Text style={{ color: '#555', fontWeight: '600' }}>Cancel</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            disabled={deleting || deleteText.trim() !== selectedUser.username}
+                            onPress={handleDeleteUser}
+                            style={{
+                              flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#c62828',
+                              opacity: (deleting || deleteText.trim() !== selectedUser.username) ? 0.4 : 1,
+                            }}>
+                            {deleting
+                              ? <ActivityIndicator color="#fff" />
+                              : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete permanently</Text>}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+
               {/* Roles */}
               <Text style={styles.sectionLabel}>Roles</Text>
               <View style={styles.pillRow}>
@@ -626,61 +735,6 @@ const AssignAccessScreen = () => {
                 onPress={handleSave} disabled={saving}>
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
               </TouchableOpacity>
-
-              {/* Delete User — permanent. Locked until the account is saved
-                  as Deactivated; then needs the username typed to confirm. */}
-              <View style={{ marginTop: 28, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f0d6d6' }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: '#b71c1c', letterSpacing: 0.5, marginBottom: 8 }}>
-                  DANGER ZONE
-                </Text>
-                {!savedActive ? (
-                  !deleteOpen ? (
-                    <TouchableOpacity
-                      onPress={() => setDeleteOpen(true)}
-                      style={{ borderWidth: 1, borderColor: '#c62828', borderRadius: 8, paddingVertical: 12, alignItems: 'center' }}>
-                      <Text style={{ color: '#c62828', fontWeight: '700', fontSize: 14 }}>Delete User…</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={{ borderWidth: 1, borderColor: '#f0c4c4', backgroundColor: '#fff5f5', borderRadius: 8, padding: 12 }}>
-                      <Text style={{ fontSize: 13, color: '#7f1d1d', marginBottom: 8 }}>
-                        This permanently deletes {selectedUser.username} and cannot be undone.
-                        Type the username to confirm:
-                      </Text>
-                      <TextInput
-                        style={styles.input}
-                        placeholder={selectedUser.username}
-                        placeholderTextColor="#bbb"
-                        value={deleteText}
-                        onChangeText={setDeleteText}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      <View style={{ flexDirection: 'row', gap: 10 }}>
-                        <TouchableOpacity
-                          onPress={() => { setDeleteOpen(false); setDeleteText(''); }}
-                          style={{ flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#fff' }}>
-                          <Text style={{ color: '#555', fontWeight: '600' }}>Cancel</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          disabled={deleting || deleteText.trim() !== selectedUser.username}
-                          onPress={handleDeleteUser}
-                          style={{
-                            flex: 1, borderRadius: 8, paddingVertical: 11, alignItems: 'center', backgroundColor: '#c62828',
-                            opacity: (deleting || deleteText.trim() !== selectedUser.username) ? 0.4 : 1,
-                          }}>
-                          {deleting
-                            ? <ActivityIndicator color="#fff" />
-                            : <Text style={{ color: '#fff', fontWeight: '700' }}>Delete permanently</Text>}
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )
-                ) : (
-                  <Text style={{ fontSize: 12, color: '#8a6d6d', lineHeight: 18 }}>
-                    To delete this user, first switch the account to Deactivated and press Save Changes. Delete unlocks after that.
-                  </Text>
-                )}
-              </View>
             </ScrollView>
 
             {/* ── SCOPE COLUMN (right side, only when needed) ── */}
