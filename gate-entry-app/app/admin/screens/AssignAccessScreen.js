@@ -14,6 +14,12 @@ import styles from '../styles/AssignAccessScreenStyle';
 // Dropdown menus hang directly under their trigger (trigger has no bottom
 // margin; menu gets a full border + small gap) so the first row is never
 // hidden by a detached/borderless panel (30 Oct 2026).
+const BADGE = {
+  height: 24, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1,
+  alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start',
+};
+const BADGE_TEXT = { fontSize: 11, fontWeight: '700', lineHeight: 14 };
+
 const MENU_FIX = { borderTopWidth: 1, borderRadius: 8, marginTop: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.12, shadowRadius: 8 };
 
 // Simple inline dropdown for scope fields
@@ -184,6 +190,7 @@ const AssignAccessScreen = () => {
   const [deleteText, setDeleteText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -393,6 +400,20 @@ const AssignAccessScreen = () => {
     }
   };
 
+  // Copy the username to the clipboard (where available) AND fill the
+  // confirmation box, so a delete is two clicks instead of typing.
+  const copyUsername = async () => {
+    if (!selectedUser) return;
+    setDeleteText(selectedUser.username);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(selectedUser.username);
+      }
+    } catch (e) { /* clipboard blocked — the box is still filled */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
   // ── Delete user (permanent) ───────────────────────────────────────────────
   const handleDeleteUser = async () => {
     if (!selectedUser || deleteText.trim() !== selectedUser.username) return;
@@ -581,24 +602,21 @@ const AssignAccessScreen = () => {
                 <View style={styles.userHeaderInfo}>
                   <Text style={styles.userHeaderName}>{firstName} {lastName}</Text>
                   <Text style={styles.userHeaderSub}>{selectedUser.email || selectedUser.username}</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={[styles.authBadge, selectedUser.auth_type !== 'ad' && styles.authBadgeLocal]}>
-                      <Text style={[styles.authBadgeText, selectedUser.auth_type !== 'ad' && styles.authBadgeLocalText]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 }}>
+                    {/* Account-type and status badges share one size/font so they
+                        read as a matched pair; only the colours differ. */}
+                    <View style={[BADGE, selectedUser.auth_type === 'ad'
+                      ? { backgroundColor: '#e3f2fd', borderColor: '#bbdefb' }
+                      : { backgroundColor: '#f3e5f5', borderColor: '#dcb8e6' }]}>
+                      <Text style={[BADGE_TEXT, { color: selectedUser.auth_type === 'ad' ? '#1565c0' : '#6a1b9a' }]}>
                         {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
                       </Text>
                     </View>
-                    {/* Read-only indicator; change it with the Account Status
-                        control at the top-right of this bar. */}
-                    <View
-                      style={{
-                        marginLeft: 8, paddingHorizontal: 10, paddingVertical: 3,
-                        borderRadius: 10, borderWidth: 1,
-                        borderColor: isActive ? '#00843D' : '#c0392b',
-                        backgroundColor: isActive ? '#e6f4ec' : '#fdecea',
-                      }}
-                    >
-                      <Text style={{ fontSize: 11, fontWeight: '700',
-                        color: isActive ? '#00843D' : '#c0392b' }}>
+                    <View style={[BADGE, {
+                      borderColor: isActive ? '#00843D' : '#c0392b',
+                      backgroundColor: isActive ? '#e6f4ec' : '#fdecea',
+                    }]}>
+                      <Text style={[BADGE_TEXT, { color: isActive ? '#00843D' : '#c0392b' }]}>
                         {isActive ? '● Active' : '○ Deactivated'}
                       </Text>
                     </View>
@@ -654,6 +672,23 @@ const AssignAccessScreen = () => {
                     <Text style={{ fontSize: 12, color: '#7f1d1d', marginBottom: 6 }}>
                       Permanently deletes {selectedUser.username}. This cannot be undone. Type the username to confirm:
                     </Text>
+                    <View style={{
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                      backgroundColor: '#fff', borderWidth: 1, borderColor: '#f0c4c4',
+                      borderRadius: 6, paddingVertical: 4, paddingLeft: 10, paddingRight: 4, marginBottom: 8,
+                    }}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: '#7f1d1d', flex: 1 }} numberOfLines={1}>
+                        {selectedUser.username}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={copyUsername}
+                        accessibilityLabel="Copy username into the confirmation box"
+                        style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 5, paddingVertical: 3, paddingHorizontal: 10, backgroundColor: '#fff' }}>
+                        <Text style={{ fontSize: 11, fontWeight: '600', color: '#555' }}>
+                          {copied ? '✓ Copied' : 'Copy'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                     <TextInput
                       style={[styles.input, { marginBottom: 8 }]}
                       placeholder={selectedUser.username}
