@@ -55,6 +55,25 @@ def register_user(
         needs_warehouse = "securityguard" in normalized_roles
         needs_copacker_location = "copacker" in normalized_roles
 
+        # ✅ Gate Pass scope — same rules as modify-user: Creator needs a
+        # department + >=1 location, Dispatcher needs >=1 location.
+        gp_locs = user.gate_pass_locations or []
+        if "gatepasscreator" in normalized_roles and not (user.department or "").strip():
+            raise HTTPException(status_code=400,
+                detail="Department is required for the Gate Pass Creator role.")
+        if ("gatepasscreator" in normalized_roles or "gatepassdispatcher" in normalized_roles) and not gp_locs:
+            raise HTTPException(status_code=400,
+                detail="At least one Gate Pass Location is required for the Gate Pass Creator / Dispatcher role.")
+        if gp_locs:
+            from app.models.gate_pass import GatePassLocation
+            codes = {l.location_code for l in gp_locs}
+            found = {c for (c,) in db.query(GatePassLocation.location_code)
+                     .filter(GatePassLocation.location_code.in_(codes)).all()}
+            missing = sorted(codes - found)
+            if missing:
+                raise HTTPException(status_code=400,
+                    detail=f"Unknown Gate Pass Location: {', '.join(missing)}")
+
         # ✅ Warehouse handling
         warehouse_name, final_site_code = None, None
         if needs_warehouse:
@@ -99,7 +118,31 @@ def register_user(
             email=user.email.strip() if user.email else None,
             phone_number=user.phone_number.strip() if user.phone_number else None
         )
+        if "gatepasscreator" in normalized_roles:
+            new_user.department = user.department.strip()
         db.add(new_user)
+
+        # Gate Pass locations -> junction table; users_master.gate_pass_location
+        # keeps the starred default (exactly one star, first if none given).
+        if gp_locs:
+            if not any(l.is_default for l in gp_locs):
+                gp_locs[0].is_default = True
+            default_code = None
+            seen = set()
+            for l in gp_locs:
+                if l.location_code in seen:
+                    continue
+                seen.add(l.location_code)
+                is_def = bool(l.is_default) and default_code is None
+                if is_def:
+                    default_code = l.location_code
+                db.add(UserGatePassLocation(
+                    username=new_user.username,
+                    location_code=l.location_code,
+                    is_default=is_def,
+                ))
+            new_user.gate_pass_location = default_code
+
         db.commit()
         db.refresh(new_user)
 

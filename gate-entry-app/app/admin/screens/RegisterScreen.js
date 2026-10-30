@@ -6,6 +6,9 @@ import {
 import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { validateUsername, validatePassword, validateName, validatePasswordMatch } from '../utils/validation';
 import { showAlert } from '../../../utils/customModal';
+// Same searchable multi-select (with ★ default) used by Assign Access, so
+// Register and Update behave identically (30 Oct 2026).
+import { LocationMultiSelect } from './AssignAccessScreen';
 
 // Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
 const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
@@ -53,6 +56,7 @@ export default function RegisterScreen() {
   const [roles, setRoles]                     = useState([]);
   const [warehouses, setWarehouses]           = useState([]);
   const [gpLocations, setGpLocations]         = useState([]);
+  const [gpLocSelections, setGpLocSelections] = useState([]);   // [{location_code,is_default}]
   const [departments, setDepartments]         = useState([]);   // live from gate_pass_departments
   const [loading, setLoading]                 = useState(false);
   const [whText, setWhText]                   = useState('');
@@ -145,10 +149,10 @@ export default function RegisterScreen() {
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
     if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) { showAlert('Validation Error', 'Enter a valid 10-digit mobile'); return; }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
-    if (needsGuardGPLoc && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required for Gate Pass Dispatcher'); return; }
+    if (needsGuardGPLoc && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
-    if (needsGP && !form.gatePassLocation) { showAlert('Validation Error', 'Gate Pass Location is required'); return; }
+    if (needsGP && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required'); return; }
 
     setLoading(true);
     try {
@@ -157,15 +161,15 @@ export default function RegisterScreen() {
         first_name: form.firstName.trim(), last_name: form.lastName.trim(),
         role: roles.join(', '),
         ...(needsWH && { warehouse_code: form.warehouseCode, site_code: form.siteCode }),
-        ...(needsGuardGPLoc && { gate_pass_location: form.gatePassLocation }),
+        ...((needsGuardGPLoc || needsGP) && { gate_pass_locations: gpLocSelections }),
         ...(needsCP && { copacker_location: form.copackerLocation.trim() }),
-        ...(needsGP && { department: form.department, gate_pass_location: form.gatePassLocation }),
+        ...(needsGP && { department: form.department }),
         ...(form.email?.trim() && { email: form.email.trim() }),
         ...(form.phone_number?.trim() && { phone_number: form.phone_number.trim() }),
       };
       const res = await adminAPI.registerUser(payload);
       showAlert('Success', res.message || 'User registered!', [{
-        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); },
+        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); setGpLocSelections([]); },
       }]);
     } catch (e) { showAlert('Registration Error', handleAPIError(e)); }
     finally { setLoading(false); }
@@ -278,21 +282,25 @@ export default function RegisterScreen() {
                   </View>
                 )}
 
-                {needsGuardGPLoc && (
+                {/* Gate Pass — ONE shared multi-location list for both hats
+                    (same as Assign Access). Department is Creator-only; the
+                    ★ default is shown for Creators only. */}
+                {(needsGuardGPLoc || needsGP) && (
                   <View style={{ marginBottom: 14, zIndex: 1 }}>
-                    <Text style={S.scopeSubLabel}>Gate Pass Dispatcher</Text>
-                    <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
-                      onSelect={v => set('gatePassLocation', v)} placeholder="Select gate location..." />
-                  </View>
-                )}
-
-                {needsGP && (
-                  <View style={{ marginBottom: 14, zIndex: 1 }}>
-                    <Text style={S.scopeSubLabel}>Gate Pass Creator</Text>
-                    <InlineDropdown label="Department *" value={form.department} options={deptOpts}
-                      onSelect={v => set('department', v)} placeholder="Select department..." />
-                    <InlineDropdown label="Gate Pass Location *" value={form.gatePassLocation} options={locOpts}
-                      onSelect={v => set('gatePassLocation', v)} placeholder="Select location..." />
+                    <Text style={S.scopeSubLabel}>Gate Pass</Text>
+                    {needsGP && (
+                      <InlineDropdown label="Department *" value={form.department} options={deptOpts}
+                        onSelect={v => set('department', v)} placeholder="Select department..." />
+                    )}
+                    <Text style={S.fieldLabel}>
+                      {needsGP ? 'Gate Pass Locations * (★ = default)' : 'Gate Pass Locations *'}
+                    </Text>
+                    <LocationMultiSelect
+                      options={gpLocations}
+                      selections={gpLocSelections}
+                      onChange={setGpLocSelections}
+                      showStar={needsGP}
+                    />
                   </View>
                 )}
 

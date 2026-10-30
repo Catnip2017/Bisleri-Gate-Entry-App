@@ -2,6 +2,11 @@ from pydantic import BaseModel,EmailStr,StringConstraints
 from datetime import datetime
 from typing import List, Optional,Annotated
 
+class GatePassLocationAssignment(BaseModel):
+    location_code: str
+    is_default: bool = False
+
+
 # Fixed USER SCHEMAS - add missing fields and make optional fields truly optional
 class UserCreate(BaseModel):
     username: str
@@ -14,6 +19,11 @@ class UserCreate(BaseModel):
     warehouse_code: Optional[str] = None
     site_code: Optional[str] = None
     copacker_location: Optional[str] = None
+    # Gate Pass scope at registration time (same shape as Assign Access /
+    # modify-user): department for Gate Pass Creators, and a multi-location
+    # list with one starred default shared by Creator + Dispatcher roles.
+    department: Optional[str] = None
+    gate_pass_locations: Optional[List[GatePassLocationAssignment]] = None
 
 class UserResponse(BaseModel):
     username: str
@@ -35,11 +45,6 @@ class PasswordReset(BaseModel):
     username: str
     new_password: str
     confirm_password: str
-
-class GatePassLocationAssignment(BaseModel):
-    location_code: str
-    is_default: bool = False
-
 
 class UserRoleUpdate(BaseModel):
     role: Optional[str] = None

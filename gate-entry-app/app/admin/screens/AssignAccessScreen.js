@@ -45,7 +45,7 @@ function ScopeDropdown({ value, options, onSelect, placeholder = 'Select...' }) 
 // options live inside a searchable, scrollable menu — never a flat list.
 // selections: [{ location_code, is_default }]; ★ only rendered when
 // showStar (GPU present) — guards' worklist defaults to All, no star needed.
-function LocationMultiSelect({ options, selections, onChange, showStar }) {
+export function LocationMultiSelect({ options, selections, onChange, showStar }) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const term = search.trim().toLowerCase();
