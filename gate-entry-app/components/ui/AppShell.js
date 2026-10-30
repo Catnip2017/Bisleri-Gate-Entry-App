@@ -16,6 +16,7 @@ import { getCurrentUser } from '../../utils/jwtUtils';
 import { storage } from '../../utils/storage';
 import AppHeader from './AppHeader';
 import NavSidebar from './NavSidebar';
+import AccountDetailsPopover from './AccountDetailsPopover';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const AppShell = ({ children, title, backLabel, onBack }) => {
@@ -34,6 +35,10 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
     }
   };
   const [sidebarVisible, setSidebarVisible] = useState(false);
+  // Avatar chip opens this small popup instead of the full hamburger menu
+  // (30 Oct 2026) — the hamburger menu's "Account Details" row opens the
+  // same popup too, so the two stay a single component, never two copies.
+  const [accountPopoverVisible, setAccountPopoverVisible] = useState(false);
   const [userData, setUserData] = useState(null);
   const { colors } = useTheme();
 
@@ -73,10 +78,12 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
     .slice(0, 2)
     .toUpperCase();
 
-  // Avatar chip on the right — tapping it opens the same sidebar as ☰
+  // Avatar chip on the right — tapping it opens the small Account Details
+  // popup (30 Oct 2026; was the full hamburger menu before). ☰ opens the
+  // hamburger menu.
   const avatarChip = (
     <TouchableOpacity
-      onPress={() => setSidebarVisible(true)}
+      onPress={() => setAccountPopoverVisible(true)}
       style={{
         flexDirection: 'row', alignItems: 'center', gap: 6,
         minHeight: 48, paddingHorizontal: 4, justifyContent: 'flex-end',
@@ -118,6 +125,15 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
       <NavSidebar
         isVisible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
+        onOpenAccountDetails={() => setAccountPopoverVisible(true)}
+        userData={userData}
+      />
+
+      {/* Account Details — opened by the avatar chip or the hamburger
+          menu's "Account Details" row (30 Oct 2026) */}
+      <AccountDetailsPopover
+        isVisible={accountPopoverVisible}
+        onClose={() => setAccountPopoverVisible(false)}
         userData={userData}
       />
     </SafeAreaView>

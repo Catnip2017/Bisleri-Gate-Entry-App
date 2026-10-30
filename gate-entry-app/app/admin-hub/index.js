@@ -70,16 +70,9 @@ const getTiles = (roles = []) => {
       route: '/copacker',
       disabled: false,
     },
-    {
-      key: 'user-management',
-      label: 'User Management',
-      sublabel: 'Register, modify, reset',
-      icon: 'manage-accounts',
-      accentColor: '#d69e2e',
-      iconBg: '#fffff0',
-      route: '/admin-hub/user-management',
-      disabled: false,
-    },
+    // User Management card removed (30 Oct 2026) — it now lives as its own
+    // flat link in the global hamburger menu, alongside the Applications
+    // accordion, not duplicated here as a tile too.
     {
       key: 'rpa',
       label: 'RPA Processes',

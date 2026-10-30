@@ -1,25 +1,31 @@
 // components/ui/NavSidebar.js - The ONE sidebar, for all pages and all roles.
+// Opens from the LEFT, triggered by the header's hamburger icon (or the
+// avatar chip, which opens AccountDetailsPopover instead — 30 Oct 2026).
 //
 // Structure (identical for every role — only the config decides content):
 //   1. Avatar + full name + role chips
-//   2. Role-aware navigation links (from config/navConfig.js), current
-//      page highlighted
-//   3. Role-relevant detail rows (WH/site, or copacker location)
+//   2. Navigation: flat Admin Hub shortcut → Applications accordion → flat
+//      User Management link → Documents accordion (role-aware via
+//      config/navConfig.js; Documents is shown to everyone)
+//   3. "Account Details" row — opens the same small popup as the avatar
+//      chip (components/ui/AccountDetailsPopover.js); the detail rows
+//      (WH/site, Gate Pass Location(s), department, …) no longer render
+//      inline here too, to avoid showing them in two places in one panel
 //   4. Pinned red Logout with confirmation — the single logout in the app
 //   5. Footer: app version + connected server
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Pressable, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { authAPI, gatePassAPI, API_BASE_URL } from '../../services/api';
+import { authAPI, API_BASE_URL } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
 import { storage } from '../../utils/storage';
 import { confirmAction } from '../../utils/customModal';
+import { useAccountDetails } from '../../hooks/useAccountDetails';
 import {
   APP_VERSION,
   ROLE_LABELS,
   DOCUMENT_LINKS,
-  getUserDetails,
   getNavLinksForRoles,
 } from '../../config/navConfig';
 
@@ -76,27 +82,16 @@ const AccordionSection = ({ label, icon, isOpen, onToggle, rows, colors }) => {
   );
 };
 
-const NavSidebar = ({ isVisible, onClose, userData }) => {
+const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { colors } = useTheme();
 
-  // Multi-location: the JWT only carries the legacy single gate_pass_location
-  // (the ★ default). The full assigned list lives in the junction table, so
-  // fetch it when the sidebar opens for guards / gate pass users. Skipped for
-  // other roles (ITA without assignments would get the whole master back).
-  const rolesForFetch = userData?.roles || [];
-  const hasGpRole =
-    rolesForFetch.includes('securityguard') || rolesForFetch.includes('gatepasscreator');
-  const [gpLocationList, setGpLocationList] = useState(null);
-  useEffect(() => {
-    if (!isVisible || !hasGpRole) return;
-    let cancelled = false;
-    gatePassAPI.getMyLocations()
-      .then((d) => { if (!cancelled) setGpLocationList(d.locations || []); })
-      .catch(() => { if (!cancelled) setGpLocationList(null); });
-    return () => { cancelled = true; };
-  }, [isVisible, hasGpRole]);
+  // Identity + detail rows (Gate Pass Location enrichment, Username, …) —
+  // shared with AccountDetailsPopover so both surfaces show the exact same
+  // fields (30 Oct 2026). Hook internally gates its own network fetch on
+  // `isVisible`.
+  const { roles, details, initials } = useAccountDetails(userData, isVisible);
 
   // Applications / Documents accordion (30 Oct 2026) — one section open at
   // a time, collapsed again every time the panel is reopened so it never
@@ -108,31 +103,12 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
 
   if (!isVisible) return null;
 
-  const roles = userData?.roles || [];
   const links = getNavLinksForRoles(roles);
   // Admin Hub (no group) stays a flat shortcut at the top, same as before.
   // Everything else clusters under its group.
   const homeLinks = links.filter((l) => !l.group);
   const appLinks = links.filter((l) => l.group === 'app');
   const managementLinks = links.filter((l) => l.group === 'management');
-  let details = getUserDetails(userData);
-  // Replace the single legacy value with the full assigned list (★ = default).
-  if (gpLocationList && gpLocationList.length > 0) {
-    const joined = gpLocationList
-      .map((l) => l.location_code + (l.is_default && gpLocationList.length > 1 ? ' ★' : ''))
-      .join(', ');
-    details = details.map(([label, value]) =>
-      label === 'Gate Pass Location'
-        ? [gpLocationList.length > 1 ? 'Gate Pass Locations' : 'Gate Pass Location', joined]
-        : [label, value]
-    );
-  }
-  const initials = (userData?.fullName || userData?.username || '?')
-    .split(' ')
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
 
   const handleNavigate = (route) => {
     onClose();
@@ -207,7 +183,10 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
   return (
     <View style={{
       position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-      flexDirection: 'row-reverse', zIndex: 100,
+      // Opens from the LEFT (30 Oct 2026 — was row-reverse/right-docked).
+      // The backdrop is position:absolute regardless, so only the panel's
+      // place in flex order and its shadow direction need to flip.
+      flexDirection: 'row', zIndex: 100,
     }}>
       {/* Backdrop — tap outside to close */}
       <Pressable
@@ -222,7 +201,7 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
       <View style={{
         width: 290, height: '100%', backgroundColor: colors.surface,
         elevation: 8,
-        shadowColor: '#000', shadowOffset: { width: -2, height: 0 },
+        shadowColor: '#000', shadowOffset: { width: 2, height: 0 },
         shadowOpacity: 0.3, shadowRadius: 8,
       }}>
         {/* 1. Identity */}
@@ -297,27 +276,30 @@ const NavSidebar = ({ isVisible, onClose, userData }) => {
             />
           </View>
 
-          {/* 3. Details */}
-          {details.length > 0 && (
-            <View style={{
-              marginHorizontal: 16, marginTop: 8, padding: 12,
-              backgroundColor: colors.surfaceMuted, borderRadius: 8,
-            }}>
-              {details.map(([label, value]) => (
-                <View key={label} style={{ marginBottom: 8 }}>
-                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 1 }}>{label}</Text>
-                  <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.textPrimary }}>{value}</Text>
-                </View>
-              ))}
-              <View>
-                <Text style={{ fontSize: 11, color: colors.textSecondary, marginBottom: 1 }}>Username</Text>
-                <Text style={{ fontSize: 13, fontWeight: 'bold', color: colors.textPrimary }}>
-                  {userData?.username || '—'}
-                </Text>
-              </View>
-            </View>
-          )}
         </ScrollView>
+
+        {/* 3. Account Details — opens the same small popup as the avatar
+            chip (30 Oct 2026), rather than showing the detail rows inline
+            here too; keeps the two surfaces ("tab in the hamburger" +
+            "pop-up from the top-right icon") as the only two places this
+            data lives, per the 30 Oct 2026 decision. Pinned just above
+            Logout. */}
+        <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+          <TouchableOpacity
+            onPress={() => { onClose(); onOpenAccountDetails?.(); }}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 12,
+              minHeight: ACCORDION_ROW_HEIGHT, paddingHorizontal: 16,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Account Details"
+          >
+            <MaterialIcons name="account-circle" size={20} color={colors.textSecondary} />
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textPrimary }}>
+              Account Details
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {/* 4. Pinned logout */}
         <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
