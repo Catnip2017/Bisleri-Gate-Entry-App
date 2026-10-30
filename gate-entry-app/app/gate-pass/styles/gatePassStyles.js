@@ -575,6 +575,25 @@ export function useGatePassStyles() {
       },
       dueBannerTitle: { color: '#791F1F', fontWeight: 'bold', fontSize: 13, marginBottom: 2 },
       dueBannerText: { color: '#791F1F', fontSize: 12 },
+      // Slim one-line alternative (30 Oct 2026) — replaces the tall
+      // dueBanner on GatePassDashboard with a single row + a "View" link
+      // that jumps straight to the Dispatched tab instead of repeating
+      // every overdue pass inline.
+      dueBannerSlim: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#FCEBEB',
+        borderWidth: 1,
+        borderColor: '#F3C6C6',
+        borderRadius: radius.sm,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        marginBottom: spacing.sm,
+        gap: spacing.sm,
+      },
+      dueBannerSlimText: { color: '#791F1F', fontSize: 13, fontWeight: '600', flexShrink: 1 },
+      dueBannerSlimView: { color: '#791F1F', fontSize: 13, fontWeight: 'bold', textDecorationLine: 'underline' },
       guardBlockedContainer: {
         flex: 1,
         alignItems: 'center',

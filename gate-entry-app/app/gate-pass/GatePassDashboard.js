@@ -108,22 +108,24 @@ const GatePassDashboard = () => {
       onBack={isItAdmin ? () => router.replace('/admin-hub') : undefined}
     >
       <ScrollView contentContainerStyle={styles.container}>
-        {/* In-app due-return alert (items expected back today or earlier) */}
+        {/* In-app due-return alert (items expected back today or earlier) —
+            slim one-line bar (30 Oct 2026 redesign): the old version listed
+            every overdue pass inline and grew with the list, which read as
+            a wall of red under the header. This just states the count and
+            jumps to the Dispatched tab (already filtered to "Overdue" per
+            row + the sidebar's red count badge) rather than repeating the
+            detail here too. */}
         {dueItems.length > 0 && (
-          <View style={styles.dueBanner}>
-            <Text style={styles.dueBannerTitle}>
-              {dueItems.length} returnable pass{dueItems.length === 1 ? '' : 'es'} overdue for inward
+          <TouchableOpacity
+            style={styles.dueBannerSlim}
+            onPress={() => setActiveKey('dispatched')}
+            accessibilityRole="button"
+          >
+            <Text style={styles.dueBannerSlimText}>
+              ⚠ {dueItems.length} returnable pass{dueItems.length === 1 ? '' : 'es'} overdue for inward
             </Text>
-            {dueItems.slice(0, 3).map((d) => (
-              <Text key={d.gate_pass_no} style={styles.dueBannerText}>
-                {d.gate_pass_no} — {d.party_name} — {d.outstanding_quantity} item(s), due{' '}
-                {d.days_overdue === 0 ? 'today' : `${d.days_overdue} day(s) ago`}
-              </Text>
-            ))}
-            {dueItems.length > 3 && (
-              <Text style={styles.dueBannerText}>…and {dueItems.length - 3} more</Text>
-            )}
-          </View>
+            <Text style={styles.dueBannerSlimView}>View →</Text>
+          </TouchableOpacity>
         )}
 
         <View style={styles.layoutRow}>
