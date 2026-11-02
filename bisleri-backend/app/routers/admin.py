@@ -162,14 +162,17 @@ def register_user(
     except IntegrityError as e:
         db.rollback()
         err = str(e.orig).lower()
-        if "username" in err:
+        constraint = (getattr(getattr(e.orig, "diag", None), "constraint_name", "") or "").lower()
+        import logging
+        logging.getLogger(__name__).error("[Register] IntegrityError constraint=%s detail=%s", constraint, str(e.orig).strip())
+        if constraint == "users_master_pkey":
             raise HTTPException(status_code=409, detail="Username already exists. Please choose a different username.")
-        elif "email" in err:
+        elif "email" in constraint or "email" in err.split("detail:")[-1].split("=")[0]:
             raise HTTPException(status_code=409, detail="Email already exists. Please use a different email address.")
-        elif "phone" in err:
+        elif "phone" in constraint or "phone" in err.split("detail:")[-1].split("=")[0]:
             raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
         else:
-            raise HTTPException(status_code=409, detail="Duplicate entry. A record with these details already exists.")
+            raise HTTPException(status_code=409, detail=f"Duplicate entry ({constraint or 'unknown constraint'}). A record with these details already exists.")
 
     except HTTPException:
         raise  # keep original 400 / 403 errors intact
