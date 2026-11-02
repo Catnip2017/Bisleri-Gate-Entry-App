@@ -121,6 +121,10 @@ def register_user(
         if "gatepasscreator" in normalized_roles:
             new_user.department = user.department.strip()
         db.add(new_user)
+        # Insert the user row first: the junction table has a foreign key to
+        # users_master.username and there is no ORM relationship, so without
+        # this flush SQLAlchemy may insert the junction rows before the user.
+        db.flush()
 
         # Gate Pass locations -> junction table; users_master.gate_pass_location
         # keeps the starred default (exactly one star, first if none given).
