@@ -75,3 +75,6 @@ scheduler_log.txt
 upload_log.txt
 # Q18: runtime log files (FILE_LOGGING=true)
 bisleri-backend/logs/
+
+# Claude local settings
+.claude/
