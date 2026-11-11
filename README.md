@@ -137,6 +137,11 @@ Bisleri-Gate-Entry-App/
 │   │   ├── test_security_admin_viewonly.py
 │   │   └── test_is_active.py            # account activation / kill switch
 │   │
+│   ├── scripts/
+│   │   ├── init_db.py                   # Fresh install: create DB, load schema, reference data
+│   │   ├── seed_sample_data.py          # Fictional demo data for LOCAL testing (--sample-data)
+│   │   └── check_db.py, test_ad_connection.py
+│   │
 │   ├── csv_to_DB.py                     # Mfabric staging → document_data push
 │   │                                    # (imported and run by the APScheduler job)
 │   ├── pytest.ini                       # Test configuration
@@ -170,7 +175,9 @@ Bisleri-Gate-Entry-App/
 ├── dashboard-web/                       # Separately built static dashboard bundle (RPA/load)
 │
 ├── DB Schemas/                          # Authoritative schema references (per database)
-│   ├── schema_bisleri_01.sql           # Main DB — generated from the ORM (25 tables)
+│   ├── schema_bisleri_ecosystem.sql    # CURRENT main DB (consolidate branch, 28 tables +
+│   │                                   #   alembic_version stamped at head) — loaded by init_db.py
+│   ├── schema_bisleri_01.sql           # SUPERSEDED — old main-branch schema (9 tables), reference only
 │   ├── schema_bisleri_dashboard.sql    # Vehicle/load dashboard DB (ETL-defined)
 │   └── schema_rpa_automation.sql       # RPA DB reference (externally owned, read-only)
 │
@@ -214,15 +221,17 @@ The window and all edit-permission logic are computed server-side (`utils/edit_w
 
 ## User Roles & Access Model
 
-Roles are stored as a comma-separated display string in `users_master.role` (e.g. `IT Admin, Security Guard`). A user may hold multiple roles. Every backend check normalizes roles to lowercase-no-spaces (`itadmin`, `securityguard`, `securityadmin`, `gatepassuser`, `copacker`) via `app/utils/roles.py` — never compare `current_user.role` to a literal.
+Roles are stored as a comma-separated display string in `users_master.role` (e.g. `IT Admin, Security Guard`). A user may hold multiple roles, subject to the combination rules below. Every backend check normalizes roles to lowercase-no-spaces (`itadmin`, `securityguard`, `gatepasscreator`, `gatepassdispatcher`, `copacker`) via `app/utils/roles.py` — never compare `current_user.role` to a literal.
 
 | Role | Capability |
 |---|---|
-| `Security Guard` | Create/edit FG & RM gate entries (own warehouse, within the 48-hour window); process the Gate Pass guard worklist (dispatch / inward) at their assigned gate-pass location(s). |
-| `Security Admin` | Oversight, view-only: reads gate-entry insights scoped to their warehouse/site; the Gate Entry form is view-only; no edit controls; no Gate Pass access. |
-| `IT Admin` | Full administration: user management, dashboards, sync controls, Gate Pass administration. View-only in the gate-entry form. |
-| `Gate Pass User` | Create / release / cancel gate passes for their department at their assigned location(s); sees only their own department + location passes. |
+| `Security Guard` | Create/edit FG & RM gate entries (own warehouse, within the 48-hour window). |
+| `Gate Pass Dispatcher` | Gate actions on the Gate Pass guard worklist (dispatch / inward) at their assigned location(s). Only assignable together with Security Guard. |
+| `Gate Pass Creator` | Create / release / cancel gate passes for their department at their assigned location(s). Cannot be combined with Security Guard or Dispatcher (the creator of a pass can never be the one who dispatches it). May be combined with IT Admin. |
+| `IT Admin` | Full administration: user management, dashboards, sync controls, Gate Pass administration. View-only in the gate-entry form. Cannot be combined with Security Guard or Dispatcher. |
 | `Co Packer` | Co-Packer capture for their assigned location. Exclusive role — cannot be combined with any other, and requires a `copacker_location`. |
+
+The combination rules are enforced in one place (`validate_role_combo()` in `app/utils/roles.py`) and used by Register User and Assign Access. **`Security Admin` has been removed** and can no longer be assigned; `Gate Pass User` is a retired legacy name (use Creator or Dispatcher).
 
 Two scoping attributes accompany roles: **warehouse** (gate-entry visibility/edit) and **gate-pass location(s)** (Gate Pass visibility/actions). A user can be assigned multiple gate-pass locations via the `user_gate_pass_locations` junction table, exactly one marked as the default.
 
@@ -240,7 +249,7 @@ Two scoping attributes accompany roles: **warehouse** (gate-entry visibility/edi
 
 ## Data Model
 
-Core tables (see `DB Schemas/schema_bisleri_01.sql` — generated from the ORM models — for the authoritative DDL):
+Core tables (see `DB Schemas/schema_bisleri_ecosystem.sql` for the authoritative DDL of the current main database):
 
 - **`users_master`** — username (PK), first/last name, `role` (CSV string), `password` (bcrypt hash), `warehouse_code` / `warehouse_name` / `site_code`, `copacker_location`, `department`, `gate_pass_location`, `is_active`, `last_login`.
 - **`location_master`** — warehouse code → name / site mappings.
@@ -303,7 +312,7 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Key packages: `fastapi`, `uvicorn`, `sqlalchemy`, `psycopg2-binary`, `pydantic` / `pydantic-settings`, `python-jose[cryptography]`, `passlib[bcrypt]`, `apscheduler`, `python-dotenv`, `alembic`, plus `pytest` + `httpx` for the test suite.
+Key packages: `fastapi`, `uvicorn`, `sqlalchemy`, `psycopg2-binary`, `pydantic` / `pydantic-settings`, `python-jose[cryptography]`, `passlib[bcrypt]`, `apscheduler`, `python-dotenv`, `alembic`, `email-validator`, `pandas`, `bcrypt`, plus `pytest` + `httpx` for the test suite.
 
 ---
 
@@ -330,7 +339,7 @@ DB_USER=postgres
 DB_PASSWORD=your_db_password
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=Bisleri_01
+DB_NAME=bisleri_ecosystem
 
 # JWT — generate with: python -c "import secrets; print(secrets.token_hex(32))"
 SECRET_KEY=paste_generated_secret_here
@@ -386,24 +395,44 @@ EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
 ## Database Setup & Migrations
 
-The project is migrating to **Alembic as the single source of truth** for the main database. Schema changes are driven by the SQLAlchemy ORM models; Alembic autogenerates and tracks the migrations.
+The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `ed3dc61a3e0f`).
 
-> **Note:** the hand-written `*_migration.sql` files that were previously applied by hand have been archived to `legacy_sql/` (their effects are already baked into existing databases — **do not re-run them**). The current authoritative schema lives in `DB Schemas/schema_bisleri_01.sql`, generated from the ORM.
+> **Notes:** the hand-written `*_migration.sql` files that were previously applied by hand are archived in `legacy_sql/` (**do not re-run them**). The old `Bisleri_01` database (main branch, 9 tables) is described by `DB Schemas/schema_bisleri_01.sql`, which is **superseded** and kept for reference only.
 
-### Fresh installation
+### Fresh installation (new machine / local)
 
-Create the database, then let Alembic build the schema from the models:
+`alembic upgrade head` **cannot build an empty database** — the first migrations assume tables that were originally created by hand. Use the init script instead, which loads the full current schema (already stamped at the latest Alembic revision):
 
 ```bash
-psql -U postgres -c "CREATE DATABASE Bisleri_dev;"   # or your target DB
-# with the backend .env pointing at that DB:
-cd bisleri-backend
-alembic upgrade head
+# with bisleri-backend/.env filled in (DB_USER, DB_PASSWORD, DB_HOST, DB_NAME, SECRET_KEY)
+python bisleri-backend/scripts/init_db.py                 # DB + schema + reference data
+python bisleri-backend/scripts/init_db.py --sample-data   # ... plus fictional demo data
 ```
 
-`DB Schemas/schema_bisleri_01.sql` is the human-readable reference for the resulting 25-table schema. After first login, change the default admin password.
+It creates the database if missing; loads `DB Schemas/schema_bisleri_ecosystem.sql` only when the database has no tables (an existing database's structure is never touched); and loads the reference data (departments, gate pass locations, cancel reasons). `python setup.py` runs this step for you, and `python setup.py --sample-data` adds the demo data.
+
+### Sample data (local testing only)
+
+`--sample-data` loads fictional warehouses, masters, gate entries, documents, raw-material entries and gate passes covering every status (including one overdue, one partially received and one cancelled), so every screen has something to show. Demo logins — **password `Sample@123`** for all:
+
+| Username | Roles / scope |
+|---|---|
+| `demo_itadmin` | IT Admin + Gate Pass Creator (IT dept) |
+| `demo_creator` | Gate Pass Creator — Mumbai (default), Delhi |
+| `demo_guard_mum` | Security Guard — Mumbai |
+| `demo_dispatcher` | Security Guard + Gate Pass Dispatcher — Mumbai |
+| `demo_guard_del` | Security Guard + Gate Pass Dispatcher — Delhi |
+| `demo_inactive` | Deactivated account (shows the "Account deactivated" message) |
+
+Safety guards: the script refuses to load demo data unless `DB_HOST` is `localhost` / `127.0.0.1` / `::1`, and refuses if non-demo users already exist unless `--allow-existing-users` is passed. `--reset` removes the demo data again. **Never run it against UAT or production.**
+
+### Existing databases
+
+Move an existing database forward with `alembic upgrade head` (it applies only the missing revisions).
 
 ### Ongoing schema changes (Alembic workflow)
+
+After adding a migration, regenerate `DB Schemas/schema_bisleri_ecosystem.sql` (and its version stamp) so fresh installs stay current.
 
 ```bash
 # 1. edit the ORM model(s) under app/models/

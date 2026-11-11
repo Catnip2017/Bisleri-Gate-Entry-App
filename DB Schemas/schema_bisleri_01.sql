@@ -1,4 +1,9 @@
 -- ============================================================
+-- SUPERSEDED: this is the OLD main-branch schema (9 tables).
+-- The consolidate branch uses schema_bisleri_ecosystem.sql (the future
+-- production DB). Kept for reference of the legacy Bisleri_01 only.
+-- ============================================================
+-- ============================================================
 --  BISLERI GATE ENTRY APP — Database 1 of 3: Bisleri_01 (MAIN)
 --  PostgreSQL >= 14
 --

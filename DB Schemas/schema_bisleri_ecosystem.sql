@@ -1,18 +1,41 @@
+-- ============================================================
+--  BISLERI GATE ENTRY APP -- main database schema
+--  Database name: bisleri_ecosystem  (the app's primary DB, DB_NAME in .env)
+--  PostgreSQL >= 14        Alembic revision: ed3dc61a3e0f (head)
 --
--- PostgreSQL database dump
+--  Generated 2026-11-05 from the consolidate-branch SQLAlchemy models
+--  (app/models/*) plus the 42 performance indexes that exist on the live database
+--  (idx_* -- these are not defined in the models). Column-for-column
+--  identical to the live bisleri_ecosystem database except one drift:
+--  live gate_pass_assets.asset_name is NULLABLE, the model says NOT NULL.
+--  Server-side column defaults (see the 'Column defaults' block near the end)
+--  mirror the live database / model defaults.
 --
+--  Tables (29): alembic_version, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, user_gate_pass_locations, users_master
+--
+--  Plain DDL only -- no psql meta-commands -- so it also runs through
+--  psycopg2. It stamps alembic_version so `alembic upgrade head` is a
+--  no-op afterwards.
+--
+--  Fresh local install:   python bisleri-backend/scripts/init_db.py
+--  or by hand:
+--    psql -U postgres -c "CREATE DATABASE bisleri_ecosystem;"
+--    psql -U postgres -d bisleri_ecosystem -f "DB Schemas/schema_bisleri_ecosystem.sql"
+--
+--  NOTE: `alembic upgrade head` cannot build an EMPTY database -- the
+--  first migrations assume tables that were created by hand. Use this
+--  file for new databases; use Alembic only to move an existing one forward.
+-- ============================================================
 
-\restrict RCYbpOTQzmjsJ8IhM6C4rHCNaJqcvCbWTn7IDDKNcoDtLW1ThlnzTNKsrdhQegw
-
--- Dumped from database version 16.11
--- Dumped by pg_dump version 16.11
+-- Dumped from database version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
+-- Dumped by pg_dump version 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
+SET search_path = public;
 SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
@@ -75,7 +98,7 @@ CREATE TABLE public.copacker_capture_edit_log (
     original_value text,
     edited_value text,
     edited_by character varying(100) NOT NULL,
-    edited_at timestamp with time zone DEFAULT now() NOT NULL
+    edited_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -112,6 +135,7 @@ CREATE TABLE public.copacker_captures (
     image_path character varying(500),
     ocr_raw text,
     bottle_recipe character varying(500),
+    last_hour_production_count bigint,
     production_count_current_batch bigint,
     total_production_count bigint,
     good_bottles_count bigint,
@@ -123,10 +147,8 @@ CREATE TABLE public.copacker_captures (
     label_format character varying(200),
     packs_counter integer,
     pack_format character varying(200),
-    captured_at timestamp with time zone DEFAULT now() NOT NULL,
-    captured_by character varying(100),
-    last_hour_production_count bigint,
-    CONSTRAINT copacker_captures_step_order_check CHECK (((step_order >= 1) AND (step_order <= 4)))
+    captured_at timestamp with time zone DEFAULT now(),
+    captured_by character varying(100)
 );
 
 
@@ -241,7 +263,7 @@ CREATE TABLE public.copacker_quantity_edit_log (
     edited_by character varying(255) NOT NULL,
     edited_at timestamp without time zone DEFAULT now(),
     auto_remarks text,
-    field_name character varying(50) DEFAULT 'extracted_quantity'::character varying,
+    field_name character varying(50),
     original_text_value text,
     edited_text_value text
 );
@@ -277,13 +299,13 @@ CREATE TABLE public.copacker_sessions (
     line_no integer NOT NULL,
     sku_name character varying(500),
     sku_item_id character varying(100),
-    status character varying(20) DEFAULT 'in_progress'::character varying NOT NULL,
+    status character varying(20) NOT NULL,
     submitted_by character varying(100) NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    completed_at timestamp with time zone,
     shift_no integer,
     shift_start_time character varying(10),
-    shift_end_time character varying(10)
+    shift_end_time character varying(10),
+    created_at timestamp with time zone DEFAULT now(),
+    completed_at timestamp with time zone
 );
 
 
@@ -337,17 +359,15 @@ CREATE TABLE public.document_data (
 
 
 --
--- Name: TABLE document_data; Type: COMMENT; Schema: public; Owner: -
+-- Name: gate_pass_assets; Type: TABLE; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.document_data IS 'Consolidated ERP document index â€” built by data-sync service';
-
-
---
--- Name: COLUMN document_data.document_no; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.document_data.document_no IS 'ERP document number (PK)';
+CREATE TABLE public.gate_pass_assets (
+    asset_code character varying(50) NOT NULL,
+    asset_name character varying(255) NOT NULL,
+    fa_class_code character varying(50),
+    is_active boolean NOT NULL
+);
 
 
 --
@@ -357,8 +377,8 @@ COMMENT ON COLUMN public.document_data.document_no IS 'ERP document number (PK)'
 CREATE TABLE public.gate_pass_cancel_reasons (
     id integer NOT NULL,
     reason_text character varying(255) NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    sort_order integer DEFAULT 0 NOT NULL
+    is_active boolean NOT NULL,
+    sort_order integer NOT NULL
 );
 
 
@@ -380,6 +400,54 @@ CREATE SEQUENCE public.gate_pass_cancel_reasons_id_seq
 --
 
 ALTER SEQUENCE public.gate_pass_cancel_reasons_id_seq OWNED BY public.gate_pass_cancel_reasons.id;
+
+
+--
+-- Name: gate_pass_customers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gate_pass_customers (
+    customer_code character varying(50) NOT NULL,
+    customer_name character varying(255) NOT NULL,
+    city character varying(100),
+    post_code character varying(20),
+    phone_no character varying(20),
+    contact character varying(255),
+    is_active boolean NOT NULL
+);
+
+
+--
+-- Name: gate_pass_departments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gate_pass_departments (
+    id integer NOT NULL,
+    department_name character varying(100) NOT NULL,
+    is_active boolean NOT NULL,
+    sort_order integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: gate_pass_departments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.gate_pass_departments_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: gate_pass_departments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.gate_pass_departments_id_seq OWNED BY public.gate_pass_departments.id;
 
 
 --
@@ -425,11 +493,12 @@ CREATE TABLE public.gate_pass_headers (
     id integer NOT NULL,
     gate_pass_no character varying(30) NOT NULL,
     pass_type character varying(3) NOT NULL,
-    status character varying(30) DEFAULT 'Open'::character varying NOT NULL,
+    status character varying(30) NOT NULL,
     location_code character varying(10) NOT NULL,
     warehouse_code character varying(50),
     document_date date NOT NULL,
     document_time character varying(12) NOT NULL,
+    party_type character varying(10) NOT NULL,
     party_code character varying(50) NOT NULL,
     party_name character varying(255) NOT NULL,
     department character varying(50) NOT NULL,
@@ -446,6 +515,7 @@ CREATE TABLE public.gate_pass_headers (
     dispatched_by character varying(50),
     dispatched_at timestamp with time zone,
     dispatch_remarks text,
+    last_inward_at timestamp with time zone,
     completed_at timestamp with time zone,
     cancelled_by character varying(50),
     cancelled_at timestamp with time zone,
@@ -483,13 +553,32 @@ ALTER SEQUENCE public.gate_pass_headers_id_seq OWNED BY public.gate_pass_headers
 --
 
 CREATE TABLE public.gate_pass_items (
-    item_code character varying(50) NOT NULL,
+    item_id integer NOT NULL,
+    item_code character varying(50),
     item_name character varying(255) NOT NULL,
-    item_type character varying(20) DEFAULT 'Item'::character varying NOT NULL,
-    uom character varying(20),
-    is_active boolean DEFAULT true NOT NULL,
-    fa_class_code character varying(50)
+    source character varying(10) NOT NULL,
+    is_active boolean NOT NULL
 );
+
+
+--
+-- Name: gate_pass_items_item_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.gate_pass_items_item_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: gate_pass_items_item_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.gate_pass_items_item_id_seq OWNED BY public.gate_pass_items.item_id;
 
 
 --
@@ -500,18 +589,17 @@ CREATE TABLE public.gate_pass_lines (
     id integer NOT NULL,
     gate_pass_id integer NOT NULL,
     line_no integer NOT NULL,
-    item_code character varying(50),
     item_type character varying(20),
+    asset_code character varying(50),
+    item_id integer,
+    fa_class_code character varying(50),
     description character varying(250) NOT NULL,
     serial_no character varying(100),
-    uom character varying(20) DEFAULT 'NOS'::character varying NOT NULL,
+    uom character varying(20) NOT NULL,
     quantity integer NOT NULL,
     amount numeric(14,2),
     chargeable character varying(20),
-    received_qty integer DEFAULT 0 NOT NULL,
-    fa_class_code character varying(50),
-    CONSTRAINT gate_pass_lines_quantity_check CHECK ((quantity > 0)),
-    CONSTRAINT gate_pass_lines_received_qty_check CHECK ((received_qty >= 0))
+    received_qty integer NOT NULL
 );
 
 
@@ -544,7 +632,7 @@ CREATE TABLE public.gate_pass_locations (
     location_code character varying(10) NOT NULL,
     location_name character varying(255) NOT NULL,
     warehouse_code character varying(50),
-    is_active boolean DEFAULT true NOT NULL,
+    is_active boolean NOT NULL,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -570,21 +658,6 @@ ALTER SEQUENCE public.gate_pass_locations_id_seq OWNED BY public.gate_pass_locat
 
 
 --
--- Name: gate_pass_parties; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.gate_pass_parties (
-    party_code character varying(50) NOT NULL,
-    party_name character varying(255) NOT NULL,
-    is_active boolean DEFAULT true NOT NULL,
-    city character varying(100),
-    post_code character varying(20),
-    phone_no character varying(20),
-    contact character varying(255)
-);
-
-
---
 -- Name: gate_pass_sequences; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -592,7 +665,8 @@ CREATE TABLE public.gate_pass_sequences (
     id integer NOT NULL,
     location_code character varying(10) NOT NULL,
     pass_type character varying(3) NOT NULL,
-    last_number integer DEFAULT 150000 NOT NULL
+    fy_label character varying(10) NOT NULL,
+    last_number integer NOT NULL
 );
 
 
@@ -614,6 +688,21 @@ CREATE SEQUENCE public.gate_pass_sequences_id_seq
 --
 
 ALTER SEQUENCE public.gate_pass_sequences_id_seq OWNED BY public.gate_pass_sequences.id;
+
+
+--
+-- Name: gate_pass_vendors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.gate_pass_vendors (
+    vendor_code character varying(50) NOT NULL,
+    vendor_name character varying(255) NOT NULL,
+    city character varying(100),
+    post_code character varying(20),
+    phone_no character varying(20),
+    contact character varying(255),
+    is_active boolean NOT NULL
+);
 
 
 --
@@ -641,59 +730,10 @@ CREATE TABLE public.insights_data (
     km_reading character varying(10),
     loader_count integer,
     loader_names character varying(200),
+    interlayer_sheet_count integer DEFAULT 0 NOT NULL,
     last_edited_at timestamp without time zone,
-    edit_count integer DEFAULT 0,
-    interlayer_sheet_count integer DEFAULT 0 NOT NULL
+    edit_count integer
 );
-
-
---
--- Name: TABLE insights_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.insights_data IS 'Gate entry log â€” FG vehicle movements (in/out)';
-
-
---
--- Name: COLUMN insights_data.gate_entry_no; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.gate_entry_no IS 'Format: GATE-YYYYMMDD-NNNN (generated by frontend)';
-
-
---
--- Name: COLUMN insights_data.movement_type; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.movement_type IS '''Gate-In'' or ''Gate-Out''';
-
-
---
--- Name: COLUMN insights_data.driver_name; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.driver_name IS 'Required to move from YELLOW to GREEN edit status';
-
-
---
--- Name: COLUMN insights_data.km_reading; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.km_reading IS 'Required to move from YELLOW to GREEN edit status';
-
-
---
--- Name: COLUMN insights_data.loader_names; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.loader_names IS 'Required to move from YELLOW to GREEN edit status';
-
-
---
--- Name: COLUMN insights_data.edit_count; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.insights_data.edit_count IS 'Incremented on each operational edit; max edits within 48 hrs';
 
 
 --
@@ -742,33 +782,12 @@ CREATE TABLE public.location_master (
 
 
 --
--- Name: TABLE location_master; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.location_master IS 'Warehouse / site master â€” synced from Mfabric ERP';
-
-
---
--- Name: COLUMN location_master.warehouse_code; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.location_master.warehouse_code IS 'Unique warehouse identifier (PK)';
-
-
---
--- Name: COLUMN location_master.site_code; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.location_master.site_code IS 'Parent site grouping multiple warehouses';
-
-
---
 -- Name: mfabric_deliverychallan_data; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.mfabric_deliverychallan_data (
-    document_no character varying(255) NOT NULL,
     document_type character varying(255),
+    document_no character varying(255) NOT NULL,
     document_date timestamp with time zone,
     e_way_bill_no character varying(255),
     transporter_name character varying(255),
@@ -785,26 +804,12 @@ CREATE TABLE public.mfabric_deliverychallan_data (
 
 
 --
--- Name: TABLE mfabric_deliverychallan_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.mfabric_deliverychallan_data IS 'Staging â€” Mfabric Delivery Challan raw sync';
-
-
---
--- Name: COLUMN mfabric_deliverychallan_data.document_no; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.mfabric_deliverychallan_data.document_no IS 'PK for SQLAlchemy only; ERP may have multi-line rows';
-
-
---
 -- Name: mfabric_invoice_data; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.mfabric_invoice_data (
-    document_no character varying(255) NOT NULL,
     document_type character varying(255),
+    document_no character varying(255) NOT NULL,
     document_date timestamp with time zone,
     e_way_bill_no character varying(255),
     transporter_name character varying(255),
@@ -820,27 +825,13 @@ CREATE TABLE public.mfabric_invoice_data (
 
 
 --
--- Name: TABLE mfabric_invoice_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.mfabric_invoice_data IS 'Staging â€” Mfabric Invoice raw sync';
-
-
---
--- Name: COLUMN mfabric_invoice_data.document_no; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.mfabric_invoice_data.document_no IS 'PK for SQLAlchemy only; ERP may have multi-line rows';
-
-
---
 -- Name: mfabric_transferorder_rgp_data; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.mfabric_transferorder_rgp_data (
-    document_no character varying(255) NOT NULL,
     document_type character varying(255),
     sub_document_type character varying(255),
+    document_no character varying(255) NOT NULL,
     document_date timestamp with time zone,
     e_way_bill_no character varying(255),
     transporter_name character varying(255),
@@ -856,20 +847,6 @@ CREATE TABLE public.mfabric_transferorder_rgp_data (
     itemid character varying(255),
     linenum numeric
 );
-
-
---
--- Name: TABLE mfabric_transferorder_rgp_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.mfabric_transferorder_rgp_data IS 'Staging â€” Mfabric Transfer Order / RGP raw sync';
-
-
---
--- Name: COLUMN mfabric_transferorder_rgp_data.document_no; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.mfabric_transferorder_rgp_data.document_no IS 'PK for SQLAlchemy only; ERP may have multi-line rows';
 
 
 --
@@ -891,29 +868,8 @@ CREATE TABLE public.raw_materials_data (
     warehouse_code character varying(50) NOT NULL,
     site_code character varying(50) NOT NULL,
     last_edited_at timestamp without time zone,
-    edit_count integer DEFAULT 0
+    edit_count integer
 );
-
-
---
--- Name: TABLE raw_materials_data; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.raw_materials_data IS 'Gate entry log â€” Raw Material vehicle movements (in/out)';
-
-
---
--- Name: COLUMN raw_materials_data.gate_type; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.raw_materials_data.gate_type IS '''Gate-In'' or ''Gate-Out''';
-
-
---
--- Name: COLUMN raw_materials_data.quantity; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.raw_materials_data.quantity IS 'Stored as text to support units (e.g. "500 KG", "20 MT")';
 
 
 --
@@ -985,39 +941,11 @@ CREATE TABLE public.users_master (
     email character varying(255),
     phone_number character varying(20),
     last_login timestamp without time zone,
-    copacker_location character varying(255) DEFAULT NULL::character varying,
+    copacker_location character varying(255),
     department character varying(50),
     gate_pass_location character varying(50),
     is_active boolean
 );
-
-
---
--- Name: TABLE users_master; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON TABLE public.users_master IS 'Application users â€” managed via Admin â†’ Register Users';
-
-
---
--- Name: COLUMN users_master.username; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.users_master.username IS 'Login username (PK)';
-
-
---
--- Name: COLUMN users_master.role; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.users_master.role IS 'Comma-separated roles: securityguard, securityadmin, itadmin';
-
-
---
--- Name: COLUMN users_master.password; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.users_master.password IS 'bcrypt hash â€” generated by passlib CryptContext';
 
 
 --
@@ -1077,6 +1005,13 @@ ALTER TABLE ONLY public.gate_pass_cancel_reasons ALTER COLUMN id SET DEFAULT nex
 
 
 --
+-- Name: gate_pass_departments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_departments ALTER COLUMN id SET DEFAULT nextval('public.gate_pass_departments_id_seq'::regclass);
+
+
+--
 -- Name: gate_pass_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1088,6 +1023,13 @@ ALTER TABLE ONLY public.gate_pass_events ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.gate_pass_headers ALTER COLUMN id SET DEFAULT nextval('public.gate_pass_headers_id_seq'::regclass);
+
+
+--
+-- Name: gate_pass_items item_id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_items ALTER COLUMN item_id SET DEFAULT nextval('public.gate_pass_items_item_id_seq'::regclass);
 
 
 --
@@ -1165,14 +1107,6 @@ ALTER TABLE ONLY public.copacker_captures
 
 
 --
--- Name: copacker_captures copacker_captures_session_id_step_order_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.copacker_captures
-    ADD CONSTRAINT copacker_captures_session_id_step_order_key UNIQUE (session_id, step_order);
-
-
---
 -- Name: copacker_entries copacker_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1221,6 +1155,14 @@ ALTER TABLE ONLY public.document_data
 
 
 --
+-- Name: gate_pass_assets gate_pass_assets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_assets
+    ADD CONSTRAINT gate_pass_assets_pkey PRIMARY KEY (asset_code);
+
+
+--
 -- Name: gate_pass_cancel_reasons gate_pass_cancel_reasons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1237,19 +1179,35 @@ ALTER TABLE ONLY public.gate_pass_cancel_reasons
 
 
 --
+-- Name: gate_pass_customers gate_pass_customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_customers
+    ADD CONSTRAINT gate_pass_customers_pkey PRIMARY KEY (customer_code);
+
+
+--
+-- Name: gate_pass_departments gate_pass_departments_department_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_departments
+    ADD CONSTRAINT gate_pass_departments_department_name_key UNIQUE (department_name);
+
+
+--
+-- Name: gate_pass_departments gate_pass_departments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_departments
+    ADD CONSTRAINT gate_pass_departments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: gate_pass_events gate_pass_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.gate_pass_events
     ADD CONSTRAINT gate_pass_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: gate_pass_headers gate_pass_headers_gate_pass_no_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.gate_pass_headers
-    ADD CONSTRAINT gate_pass_headers_gate_pass_no_key UNIQUE (gate_pass_no);
 
 
 --
@@ -1265,7 +1223,7 @@ ALTER TABLE ONLY public.gate_pass_headers
 --
 
 ALTER TABLE ONLY public.gate_pass_items
-    ADD CONSTRAINT gate_pass_items_pkey PRIMARY KEY (item_code);
+    ADD CONSTRAINT gate_pass_items_pkey PRIMARY KEY (item_id);
 
 
 --
@@ -1293,19 +1251,19 @@ ALTER TABLE ONLY public.gate_pass_locations
 
 
 --
--- Name: gate_pass_parties gate_pass_parties_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.gate_pass_parties
-    ADD CONSTRAINT gate_pass_parties_pkey PRIMARY KEY (party_code);
-
-
---
 -- Name: gate_pass_sequences gate_pass_sequences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.gate_pass_sequences
     ADD CONSTRAINT gate_pass_sequences_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: gate_pass_vendors gate_pass_vendors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.gate_pass_vendors
+    ADD CONSTRAINT gate_pass_vendors_pkey PRIMARY KEY (vendor_code);
 
 
 --
@@ -1381,11 +1339,11 @@ ALTER TABLE ONLY public.gate_pass_lines
 
 
 --
--- Name: gate_pass_sequences uq_gate_pass_seq_loc_type; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: gate_pass_sequences uq_gate_pass_seq_loc_type_fy; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.gate_pass_sequences
-    ADD CONSTRAINT uq_gate_pass_seq_loc_type UNIQUE (location_code, pass_type);
+    ADD CONSTRAINT uq_gate_pass_seq_loc_type_fy UNIQUE (location_code, pass_type, fy_label);
 
 
 --
@@ -1707,6 +1665,125 @@ CREATE INDEX idx_users_master_warehouse_code ON public.users_master USING btree 
 
 
 --
+-- Name: ix_gate_pass_events_gate_pass_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_events_gate_pass_id ON public.gate_pass_events USING btree (gate_pass_id);
+
+
+--
+-- Name: ix_gate_pass_headers_department; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_department ON public.gate_pass_headers USING btree (department);
+
+
+--
+-- Name: ix_gate_pass_headers_expected_inward_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_expected_inward_date ON public.gate_pass_headers USING btree (expected_inward_date);
+
+
+--
+-- Name: ix_gate_pass_headers_gate_pass_no; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX ix_gate_pass_headers_gate_pass_no ON public.gate_pass_headers USING btree (gate_pass_no);
+
+
+--
+-- Name: ix_gate_pass_headers_location_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_location_code ON public.gate_pass_headers USING btree (location_code);
+
+
+--
+-- Name: ix_gate_pass_headers_pass_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_pass_type ON public.gate_pass_headers USING btree (pass_type);
+
+
+--
+-- Name: ix_gate_pass_headers_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_status ON public.gate_pass_headers USING btree (status);
+
+
+--
+-- Name: ix_gate_pass_headers_warehouse_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_headers_warehouse_code ON public.gate_pass_headers USING btree (warehouse_code);
+
+
+--
+-- Name: ix_gate_pass_lines_gate_pass_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_gate_pass_lines_gate_pass_id ON public.gate_pass_lines USING btree (gate_pass_id);
+
+
+--
+-- Name: ix_insights_data_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_insights_data_date ON public.insights_data USING btree (date);
+
+
+--
+-- Name: ix_insights_data_movement_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_insights_data_movement_type ON public.insights_data USING btree (movement_type);
+
+
+--
+-- Name: ix_insights_data_warehouse_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_insights_data_warehouse_code ON public.insights_data USING btree (warehouse_code);
+
+
+--
+-- Name: ix_insights_warehouse_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_insights_warehouse_date ON public.insights_data USING btree (warehouse_code, date);
+
+
+--
+-- Name: ix_raw_materials_data_date_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_raw_materials_data_date_time ON public.raw_materials_data USING btree (date_time);
+
+
+--
+-- Name: ix_raw_materials_data_gate_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_raw_materials_data_gate_type ON public.raw_materials_data USING btree (gate_type);
+
+
+--
+-- Name: ix_raw_materials_data_warehouse_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_raw_materials_data_warehouse_code ON public.raw_materials_data USING btree (warehouse_code);
+
+
+--
+-- Name: ix_rm_warehouse_datetime; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_rm_warehouse_datetime ON public.raw_materials_data USING btree (warehouse_code, date_time);
+
+
+--
 -- Name: ix_user_gate_pass_locations_username; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1797,5 +1874,29 @@ ALTER TABLE ONLY public.users_master
 -- PostgreSQL database dump complete
 --
 
-\unrestrict RCYbpOTQzmjsJ8IhM6C4rHCNaJqcvCbWTn7IDDKNcoDtLW1ThlnzTNKsrdhQegw
+-- Column defaults
+-- The live database carries these server-side defaults (the SQLAlchemy models only
+-- apply them in Python), so raw SQL inserts and the Fabric sync keep working.
+ALTER TABLE ONLY public.copacker_quantity_edit_log ALTER COLUMN field_name SET DEFAULT 'extracted_quantity';
+ALTER TABLE ONLY public.copacker_sessions ALTER COLUMN status SET DEFAULT 'in_progress';
+ALTER TABLE ONLY public.gate_pass_cancel_reasons ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_cancel_reasons ALTER COLUMN sort_order SET DEFAULT 0;
+ALTER TABLE ONLY public.gate_pass_departments ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_departments ALTER COLUMN sort_order SET DEFAULT 0;
+ALTER TABLE ONLY public.gate_pass_vendors ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_customers ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_assets ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_items ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_items ALTER COLUMN source SET DEFAULT 'FABRIC';
+ALTER TABLE ONLY public.gate_pass_locations ALTER COLUMN is_active SET DEFAULT true;
+ALTER TABLE ONLY public.gate_pass_headers ALTER COLUMN status SET DEFAULT 'Open';
+ALTER TABLE ONLY public.gate_pass_lines ALTER COLUMN received_qty SET DEFAULT 0;
+ALTER TABLE ONLY public.gate_pass_lines ALTER COLUMN uom SET DEFAULT 'NOS';
+ALTER TABLE ONLY public.gate_pass_sequences ALTER COLUMN last_number SET DEFAULT 0;
+ALTER TABLE ONLY public.gate_pass_sequences ALTER COLUMN fy_label SET DEFAULT '';
+ALTER TABLE ONLY public.insights_data ALTER COLUMN edit_count SET DEFAULT 0;
+ALTER TABLE ONLY public.raw_materials_data ALTER COLUMN edit_count SET DEFAULT 0;
+ALTER TABLE ONLY public.users_master ALTER COLUMN is_active SET DEFAULT true;
 
+-- Alembic version stamp (head)
+INSERT INTO public.alembic_version (version_num) VALUES ('ed3dc61a3e0f');
