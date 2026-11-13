@@ -76,8 +76,16 @@ def _fetch_assets(fabric_conn):
     with fabric_conn.cursor() as cur:
         cur.execute(query)
         rows = cur.fetchall()
+    # Rows with no asset code can't be keyed (asset_code is the primary key) or
+    # picked on a gate pass, and one NULL poisons the whole upsert batch. Skip
+    # them - fixing blank codes is data maintenance on the client's ERP side.
+    valid = [r for r in rows if r[0] is not None and str(r[0]).strip() != ""]
+    skipped = len(rows) - len(valid)
+    if skipped:
+        logger.warning("[%s] assets: skipped %d source row(s) with a blank asset code "
+                       "(ERP data issue, not synced)", _JOB_NAME, skipped)
     # fa_class_code has no source match yet (per spec, to be revisited).
-    return [tuple(row) + (None, True) for row in rows]
+    return [tuple(row) + (None, True) for row in valid]
 
 
 def _fetch_items(fabric_conn):
