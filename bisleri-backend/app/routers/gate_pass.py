@@ -120,16 +120,6 @@ def _user_gp_locations(db: Session, user: UsersMaster) -> list:
         return [r.location_code for r in rows]
     if user.gate_pass_location:
         return [user.gate_pass_location]
-    if "securityadmin" in _roles(user) and user.warehouse_code:
-        # Security Admin has no personal gate pass locations: he sees every
-        # active gate pass location mapped to his own warehouse.
-        mapped = (
-            db.query(GatePassLocation.location_code)
-            .filter(GatePassLocation.warehouse_code == user.warehouse_code,
-                    GatePassLocation.is_active.is_(True))
-            .all()
-        )
-        return [m.location_code for m in mapped]
     return []
 
 
@@ -320,11 +310,6 @@ def my_gate_pass_locations(
     if current_user.gate_pass_location:
         return {"locations": [
             {"location_code": current_user.gate_pass_location, "is_default": True}
-        ]}
-    if "securityadmin" in _roles(current_user):
-        return {"locations": [
-            {"location_code": c, "is_default": i == 0}
-            for i, c in enumerate(_user_gp_locations(db, current_user))
         ]}
     return {"locations": []}
 

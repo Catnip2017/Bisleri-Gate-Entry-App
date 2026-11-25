@@ -147,7 +147,7 @@ export default function RegisterScreen() {
   };
 
   const needsWH         = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher');
+  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher') || roles.includes('Security Admin');
   const needsGP         = roles.includes('Gate Pass Creator');
   const needsCP         = roles.includes('Co Packer');
   const needsScope      = needsWH || needsGP || needsCP;
@@ -164,7 +164,7 @@ export default function RegisterScreen() {
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
     if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) { showAlert('Validation Error', 'Enter a valid 10-digit mobile'); return; }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
-    if (needsGuardGPLoc && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher'); return; }
+    if (needsGuardGPLoc && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher / Security Admin'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
     if (needsGP && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required'); return; }

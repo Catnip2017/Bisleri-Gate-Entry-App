@@ -61,9 +61,10 @@ def register_user(
         if "gatepasscreator" in normalized_roles and not (user.department or "").strip():
             raise HTTPException(status_code=400,
                 detail="Department is required for the Gate Pass Creator role.")
-        if ("gatepasscreator" in normalized_roles or "gatepassdispatcher" in normalized_roles) and not gp_locs:
+        if ("gatepasscreator" in normalized_roles or "gatepassdispatcher" in normalized_roles
+                or "securityadmin" in normalized_roles) and not gp_locs:
             raise HTTPException(status_code=400,
-                detail="At least one Gate Pass Location is required for the Gate Pass Creator / Dispatcher role.")
+                detail="At least one Gate Pass Location is required for the Gate Pass Creator / Dispatcher / Security Admin role.")
         if gp_locs:
             from app.models.gate_pass import GatePassLocation
             codes = {l.location_code for l in gp_locs}
@@ -362,6 +363,10 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
     if "gatepassdispatcher" in normalized_new_roles and locs_after_count == 0:
         raise HTTPException(status_code=400,
             detail="At least one Gate Pass Location is required for the Gate Pass Dispatcher role.")
+    # Security Admin sees gate passes ONLY for the locations picked here.
+    if "securityadmin" in normalized_new_roles and locs_after_count == 0:
+        raise HTTPException(status_code=400,
+            detail="At least one Gate Pass Location is required for the Security Admin role.")
 
     if update_data.role:
         user.role = ", ".join(roles_cleaned)

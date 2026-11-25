@@ -223,7 +223,7 @@ const AssignAccessScreen = () => {
   const hasNoRoles = (user) => !user.role || user.role.trim() === '';
 
   const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
-  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher');
+  const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher') || roles.includes('Security Admin');
   const needsGpScope     = roles.includes('Gate Pass Creator');
   // ONE shared location list per user (junction table) covering both hats:
   // guard worklist access AND GPU initiation. The ★ default only matters to
