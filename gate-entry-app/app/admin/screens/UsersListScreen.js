@@ -55,13 +55,92 @@ function FilterSelect({ label, value, options, onChange, width = 190 }) {
   );
 }
 
+// Multi-select with checkboxes + a search box (25 Nov 2026). selected = []
+// means "all". Used for Role and Warehouse.
+function MultiFilter({ label, allLabel, selected, options, onChange, width = 200 }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const term = search.trim().toLowerCase();
+  const shown = term ? options.filter((o) => o.toLowerCase().includes(term)) : options;
+  const toggle = (o) => onChange(selected.includes(o) ? selected.filter((x) => x !== o) : [...selected, o]);
+  const summary = selected.length === 0 ? allLabel
+    : selected.length === 1 ? selected[0] : `${selected.length} selected`;
+  return (
+    <View style={{ width, zIndex: open ? 50 : 1 }}>
+      <TouchableOpacity
+        onPress={() => { setOpen((o) => !o); setSearch(''); }}
+        style={[S.select, selected.length > 0 && { borderColor: '#0F6B46' }]}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${summary}`}
+      >
+        <Text style={S.selectTxt} numberOfLines={1}>
+          <Text style={{ color: '#8B99A3' }}>{label}: </Text>{summary}
+        </Text>
+        <Text style={{ color: '#8B99A3', fontSize: 10 }}>{open ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={[S.selectMenu, { paddingTop: 6 }]}>
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={`Search ${label.toLowerCase()}…`}
+            placeholderTextColor="#8B99A3"
+            autoFocus
+            autoCapitalize="none"
+            style={{
+              marginHorizontal: 8, marginBottom: 4, borderWidth: 1, borderColor: '#CFDDD7', borderRadius: 8,
+              paddingHorizontal: 10, paddingVertical: 7, fontSize: 13, color: '#12202A',
+            }}
+          />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 4 }}>
+            <TouchableOpacity onPress={() => onChange([])}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#0F6B46' }}>{allLabel}</Text>
+            </TouchableOpacity>
+            {selected.length > 0 && (
+              <TouchableOpacity onPress={() => onChange([])}>
+                <Text style={{ fontSize: 12, color: '#C62828' }}>Clear ({selected.length})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+            {shown.map((o) => {
+              const on = selected.includes(o);
+              return (
+                <TouchableOpacity key={o} onPress={() => toggle(o)}
+                  accessibilityRole="checkbox" accessibilityState={{ checked: on }} accessibilityLabel={o}
+                  style={[S.selectItem, { flexDirection: 'row', alignItems: 'center', gap: 8 }, on && { backgroundColor: '#EAF5F0' }]}>
+                  <View style={{
+                    width: 16, height: 16, borderRadius: 4, borderWidth: 1.5,
+                    borderColor: on ? '#0F6B46' : '#9AA8AF', backgroundColor: on ? '#0F6B46' : '#fff',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    {on ? <Text style={{ color: '#fff', fontSize: 10, fontWeight: '900', lineHeight: 12 }}>✓</Text> : null}
+                  </View>
+                  <Text style={{ fontSize: 13, color: '#12202A', fontWeight: on ? '700' : '400' }}>{o}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            {shown.length === 0 && (
+              <Text style={{ padding: 12, fontSize: 12.5, color: '#8B99A3' }}>No matches</Text>
+            )}
+          </ScrollView>
+          <TouchableOpacity onPress={() => setOpen(false)}
+            style={{ alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEF3F1', marginTop: 4 }}>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F6B46' }}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function UsersListScreen({ onOpenUser, onRegister }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [q, setQ] = useState('');
-  const [role, setRole] = useState('All roles');
-  const [warehouse, setWarehouse] = useState('All');
+  const [roleSel, setRoleSel] = useState([]);        // [] = all roles
+  const [warehouseSel, setWarehouseSel] = useState([]); // [] = all warehouses
   const [status, setStatus] = useState('Active');
   const [activity, setActivity] = useState('any');
 
@@ -79,7 +158,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
 
   const warehouses = useMemo(() => {
     const set = new Set(users.map((u) => u.warehouse_code).filter(Boolean));
-    return ['All', ...Array.from(set).sort()];
+    return Array.from(set).sort();
   }, [users]);
 
   const counts = useMemo(() => {
@@ -100,9 +179,9 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
         if (!hay.includes(term)) return false;
       }
       const rl = roleList(u);
-      if (role === 'No role' && rl.length) return false;
-      if (role !== 'All roles' && role !== 'No role' && !rl.includes(role)) return false;
-      if (warehouse !== 'All' && u.warehouse_code !== warehouse) return false;
+      // Role: match ANY of the ticked roles ('No role' = users without a role)
+      if (roleSel.length && !roleSel.some((r) => (r === 'No role' ? rl.length === 0 : rl.includes(r)))) return false;
+      if (warehouseSel.length && !warehouseSel.includes(u.warehouse_code)) return false;
       const isActive = u.is_active !== false;
       if (status === 'Active' && !isActive) return false;
       if (status === 'Deactivated' && isActive) return false;
@@ -113,7 +192,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
       if (activity === 'never' && u.last_login) return false;
       return true;
     });
-  }, [users, q, role, warehouse, status, activity]);
+  }, [users, q, roleSel, warehouseSel, status, activity]);
 
   const kpi = (label, value, onPress, hint) => (
     <TouchableOpacity style={S.kpi} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`}>
@@ -135,8 +214,10 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
           onChangeText={setQ}
           autoCapitalize="none"
         />
-        <FilterSelect label="Role" value={role} options={ROLE_FILTERS.map((r) => [r, r])} onChange={setRole} width={185} />
-        <FilterSelect label="Warehouse" value={warehouse} options={warehouses.map((w) => [w, w])} onChange={setWarehouse} width={175} />
+        <MultiFilter label="Role" allLabel="All roles" selected={roleSel}
+          options={ROLE_FILTERS.filter((r) => r !== 'All roles')} onChange={setRoleSel} width={185} />
+        <MultiFilter label="Warehouse" allLabel="All warehouses" selected={warehouseSel}
+          options={warehouses} onChange={setWarehouseSel} width={185} />
         <FilterSelect label="Status" value={status} options={STATUS_FILTERS.map((s) => [s, s])} onChange={setStatus} width={150} />
         <FilterSelect label="Login" value={activity} options={ACTIVITY_FILTERS} onChange={setActivity} width={210} />
         <TouchableOpacity style={S.primaryBtn} onPress={onRegister} accessibilityRole="button">
@@ -146,7 +227,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
 
       {/* Counts — tap to filter */}
       <View style={S.kpiRow}>
-        {kpi('Total users', counts.total, () => { setStatus('All'); setActivity('any'); })}
+        {kpi('Total users', counts.total, () => { setStatus('All'); setActivity('any'); setRoleSel([]); setWarehouseSel([]); })}
         {kpi('Active', counts.active, () => { setStatus('Active'); setActivity('any'); })}
         {kpi('Never logged in', counts.never, () => { setStatus('Active'); setActivity('never'); }, 'active accounts')}
         {kpi('No login 90+ days', counts.stale90, () => { setStatus('Active'); setActivity('90+'); }, 'active accounts')}

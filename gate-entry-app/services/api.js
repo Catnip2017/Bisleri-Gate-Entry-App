@@ -413,6 +413,23 @@ export const rmAPI = {
     return response.data;
   },
 
+  // RM Insights "Download Report": Excel of ALL rows matching the filters
+  downloadRMReport: async (filters) => {
+    const response = await api.get('/rm/export', {
+      params: {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        site_code: filters.site_code || null,
+        warehouse_code: filters.warehouse_code || null,
+        movement_type: filters.movement_type || null,
+        vehicle_no: filters.vehicle_no || null,
+      },
+      responseType: 'blob',
+      timeout: 180000,
+    });
+    return response.data;
+  },
+
   updateRMEntry: async (editData) => {
     if (!editData.gate_entry_no) {
       throw new Error('Gate entry number is required');

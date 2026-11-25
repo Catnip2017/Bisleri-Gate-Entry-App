@@ -217,6 +217,43 @@ const RMInsightsTab = () => {
     }
   };
 
+  // ✅ Download Report (25 Nov 2026): Excel of EVERY RM movement matching the
+  // current filters, built on the server (not limited to the rows on screen).
+  const [downloading, setDownloading] = useState(false);
+  const handleDownloadReport = async () => {
+    if (Platform.OS !== 'web') {
+      showAlert('Download', 'Report download is available on the web version.');
+      return;
+    }
+    setDownloading(true);
+    try {
+      const { rmAPI } = await import('../../../services/api');
+      const roles = userData?.roles || [];
+      const itadmin = roles.includes('itadmin');
+      const blob = await rmAPI.downloadRMReport({
+        from_date: formatDateForAPI(fromDate),
+        to_date: formatDateForAPI(toDate),
+        warehouse_code: itadmin
+          ? (warehouseFilter.trim().toUpperCase() || null)
+          : (userData?.warehouseCode || null),
+        site_code: itadmin ? (siteFilter.trim().toUpperCase() || null) : null,
+        vehicle_no: vehicleFilter.trim() || null,
+        movement_type: null,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `RM_Movements_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.log('Error downloading RM report:', error);
+      showAlert('Error', handleAPIError(error));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   // ✅ ENHANCED: Apply filters with debug logging
   const handleApplyFilters = () => {
     console.log('Applying RM filters - Vehicle Filter:', vehicleFilter);
@@ -560,6 +597,28 @@ const stats = React.useMemo(() => {
               )}
             </TouchableOpacity>
           </View>
+
+          {/* Download Report (Excel, all matching rows) — admins only (25 Nov 2026) */}
+          {isAdminViewer && (
+            <View style={[styles.filterItem, { minWidth: 172 }]}>
+              <TouchableOpacity
+                style={[styles.searchButton, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }]}
+                onPress={handleDownloadReport}
+                disabled={downloading || loading}
+                accessibilityRole="button"
+                accessibilityLabel="Download Report"
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <MaterialIcons name="download" size={18} color="#fff" />
+                    <Text style={styles.searchButtonText} numberOfLines={1}>Download Report</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Section Title */}

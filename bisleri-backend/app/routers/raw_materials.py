@@ -137,6 +137,86 @@ def get_rm_entries(
     return get_filtered_rm_entries(filters, db, current_user)
 
 
+@router.get("/export")
+def export_rm_entries_excel(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    warehouse_code: str | None = Query(None, max_length=50),
+    site_code: str | None = Query(None, max_length=50),
+    vehicle_no: str | None = Query(None, max_length=50),
+    movement_type: str | None = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """RM Insights "Download Report" (25 Nov 2026): Excel of EVERY raw-material
+    movement matching the filters (no 5,000-row cap). Same filters and the
+    same warehouse scope as /rm/entries. IT Admin and Security Admin only."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    roles = normalize_roles(current_user.role)
+    if not any(r in ("itadmin", "securityadmin") for r in roles):
+        raise HTTPException(status_code=403, detail="Report download is not available for your role")
+    try:
+        query = db.query(RawMaterialsData)
+        if from_date:
+            query = query.filter(RawMaterialsData.date_time >= from_date)
+        if to_date:
+            query = query.filter(RawMaterialsData.date_time <= datetime.combine(to_date, datetime.max.time()))
+        if vehicle_no:
+            query = query.filter(RawMaterialsData.vehicle_no.ilike(f"%{vehicle_no.upper()}%"))
+        if movement_type:
+            query = query.filter(RawMaterialsData.gate_type == movement_type)
+        if warehouse_code:
+            query = query.filter(RawMaterialsData.warehouse_code == warehouse_code)
+        if site_code:
+            query = query.filter(RawMaterialsData.site_code == site_code)
+        if "itadmin" not in roles:
+            query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
+        query = query.order_by(RawMaterialsData.date_time.desc())
+
+        headers = ["Gate Entry No", "Movement", "Vehicle No", "Document No", "Name of Party",
+                   "Description of Material", "Quantity", "Date", "Time",
+                   "Warehouse", "Site", "Security Guard", "Edit Count"]
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "RM Movements"
+        ws.append(headers)
+        for c in ws[1]:
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = PatternFill("solid", fgColor="0F6B46")
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for e in query.yield_per(2000):
+            ws.append([
+                e.gate_entry_no, e.gate_type, e.vehicle_no, e.document_no, e.name_of_party,
+                e.description_of_material, e.quantity,
+                e.date_time.date().isoformat() if e.date_time else None,
+                e.date_time.time().isoformat(timespec="seconds") if e.date_time else None,
+                e.warehouse_code, e.site_code, e.security_name, e.edit_count or 0,
+            ])
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        for i, w in enumerate([22, 11, 14, 18, 28, 32, 12, 12, 10, 13, 10, 20, 10], start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"RM_Movements_{date.today().isoformat()}.xlsx"
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise internal_error("Export error", e)
+
+
 # Q11 phase 2 (12 Jul 2026): POST /rm/filtered-entries route RETIRED — GET
 # /rm/entries above calls this implementation directly.
 def get_filtered_rm_entries(
