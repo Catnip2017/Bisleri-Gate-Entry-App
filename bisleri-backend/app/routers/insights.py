@@ -39,6 +39,12 @@ def get_movements(
     return get_enhanced_filtered_movements(filters, db, current_user)
 
 
+def _require_report_access(current_user):
+    """Summary / Excel report: IT Admin and Security Admin only (guards no)."""
+    if not any(r in ("itadmin", "securityadmin") for r in normalize_roles(current_user.role)):
+        raise HTTPException(status_code=403, detail="Report download is not available for your role")
+
+
 def _apply_movement_filters(query, filters, current_user):
     """Same filters + warehouse scope as the table, shared with the KPI summary."""
     if filters.from_date:
@@ -131,6 +137,7 @@ def export_movements_excel(
     from openpyxl.styles import Font, PatternFill, Alignment
     from openpyxl.utils import get_column_letter
 
+    _require_report_access(current_user)
     filters = MovementFilters(
         from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
         site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,

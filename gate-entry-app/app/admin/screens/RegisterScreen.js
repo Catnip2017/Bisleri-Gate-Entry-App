@@ -11,8 +11,8 @@ import { showAlert } from '../../../utils/customModal';
 import { LocationMultiSelect } from './AssignAccessScreen';
 
 // Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
-const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
-const GUARD_ROLES = ['Security Guard'];
+const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
+const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const EMPTY = {
   username: '', password: '', confirmPassword: '',
@@ -90,6 +90,16 @@ export default function RegisterScreen() {
         return ['Co Packer'];
       }
       const noCp = prev.filter(r => r !== 'Co Packer');
+      // Security Admin is standalone (view-only oversight, one warehouse)
+      if (role === 'Security Admin') {
+        if (noCp.length > 0 && !noCp.includes(role)) {
+          showAlert('Not Allowed', 'Security Admin is a standalone role — untick the other roles first.');
+          return prev;
+        }
+      } else if (noCp.includes('Security Admin')) {
+        showAlert('Not Allowed', 'Security Admin is a standalone role — untick it before adding another role.');
+        return prev;
+      }
       if (noCp.includes(role)) {
         let next = noCp.filter(r => r !== role);
         // GPD can never stand alone — removing SG removes it too

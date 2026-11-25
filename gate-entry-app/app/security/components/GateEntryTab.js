@@ -41,7 +41,7 @@ const GateEntryTab = ({
   // restricted to Vehicle Search only — no write access (manual entry,
   // operational fields, RM entry, or submission).
   const userRoles = userData?.roles || [];
-  const isRestricted = userRoles.includes('itadmin');
+  const isRestricted = userRoles.includes('itadmin') || userRoles.includes('securityadmin');
   const restrictedMessage =
     'Restricted access — you can only search vehicle records. Manual entry and submission are disabled for your role.';
 

@@ -168,8 +168,8 @@ export function LocationMultiSelect({ options, selections, onChange, showStar })
 // split into Creator (initiates; alone or with ITA) and Dispatcher (gate
 // actions; only with Security Guard). Illegal combos are blocked here with
 // explanatory popups AND server-side (validate_role_combo).
-const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Co Packer'];
-const GUARD_ROLES = ['Security Guard'];
+const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
+const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const AssignAccessScreen = () => {
   // ── Left panel state ──────────────────────────────────────────────────────
@@ -323,6 +323,11 @@ const AssignAccessScreen = () => {
     }
     const selected = roles.includes(role);
     if (!selected) {
+      // Security Admin is standalone (view-only oversight, one warehouse)
+      if (role === 'Security Admin' && roles.filter(r => r !== 'Co Packer').length > 0)
+        return showAlert('Not Allowed', 'Security Admin is a standalone role — untick the other roles first.');
+      if (role !== 'Security Admin' && roles.includes('Security Admin'))
+        return showAlert('Not Allowed', 'Security Admin is a standalone role — untick it before adding another role.');
       if (role === 'Gate Pass Dispatcher' && !roles.includes('Security Guard'))
         return showAlert('Not Allowed',
           'Gate Pass Dispatcher can only be assigned together with Security Guard. Tick Security Guard first.');

@@ -42,12 +42,15 @@ def has_any_role(role_string: Optional[str], allowed: List[str]) -> bool:
 # ── Role model redesign (LOCKED 14 Jul 2026 — see CONTEXT_SUMMARY §11) ──────
 # Roles: securityguard (SG), gatepassdispatcher (GPD, only with SG),
 # gatepasscreator (GPC, alone or with itadmin), itadmin (ITA), copacker.
-# securityadmin is REMOVED; gatepassuser is a retired legacy name.
+# securityadmin was removed 14 Jul and re-added 25 Nov 2026 (standalone, view-only); gatepassuser is a retired legacy name.
 GATE_PASS_CREATOR = "gatepasscreator"
 GATE_PASS_DISPATCHER = "gatepassdispatcher"
 
+# securityadmin RE-ADDED 25 Nov 2026: view-only oversight of ONE warehouse
+# (Gate Entry, Insights, Gate Pass list). Standalone role, never combined.
+SECURITY_ADMIN = "securityadmin"
 ASSIGNABLE_ROLES = ["securityguard", "itadmin", GATE_PASS_CREATOR,
-                    GATE_PASS_DISPATCHER, "copacker"]
+                    GATE_PASS_DISPATCHER, "copacker", SECURITY_ADMIN]
 
 
 def validate_role_combo(normalized: List[str]) -> Optional[str]:
@@ -58,8 +61,8 @@ def validate_role_combo(normalized: List[str]) -> Optional[str]:
     API path can create an illegal combo.
     """
     s = set(normalized)
-    if "securityadmin" in s:
-        return "The Security Admin role has been removed and can no longer be assigned."
+    if SECURITY_ADMIN in s and len(s) > 1:
+        return "Security Admin is a standalone role — it cannot be combined with any other role."
     if "gatepassuser" in s:
         return ("'Gate Pass User' is retired — assign 'Gate Pass Creator' "
                 "(initiates passes) or 'Gate Pass Dispatcher' (gate actions, guards only).")

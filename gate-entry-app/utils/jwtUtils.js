@@ -267,5 +267,5 @@ export const getRoleBasedRoute = (roles = []) => {
  * @returns {boolean}
  */
 export const isGateEntryRestricted = (roles = []) => {
-  return roles.includes('itadmin');
+  return roles.includes('itadmin') || roles.includes('securityadmin');
 };

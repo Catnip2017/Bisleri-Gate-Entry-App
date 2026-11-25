@@ -49,7 +49,7 @@ const SecurityDashboard = () => {
 
       // Role-based default tab
       const roles = user?.roles || [];
-      const isAdminViewer = roles.includes('itadmin');
+      const isAdminViewer = roles.includes('itadmin') || roles.includes('securityadmin');
       const initialTab = isAdminViewer ? 'insights' : 'entry';
       setActiveTab(initialTab);
       setVisitedTabs((prev) => ({ ...prev, [initialTab]: true }));
@@ -66,11 +66,11 @@ const SecurityDashboard = () => {
   };
 
   const roles = userData?.roles || [];
-  const isAdminViewer = roles.includes('itadmin');
+  const isAdminViewer = roles.includes('itadmin') || roles.includes('securityadmin');
   // Gate Pass tab: visible to EVERY guard. Guards without the Gate Pass
   // Dispatcher role see a blocked card telling them which role to ask for
   // (show-and-explain — special to this tab, decided 14 Jul 2026).
-  const showGatePassTab = roles.includes('securityguard');
+  const showGatePassTab = roles.includes('securityguard') || roles.includes('securityadmin');
   // IT Admins arrive here from the Admin Hub tile — give them a way back.
   // Guards/Security Admins have no Admin Hub, so they get no back chip.
   const isItAdmin = roles.includes('itadmin');
@@ -116,7 +116,10 @@ const SecurityDashboard = () => {
             {/* Gate Pass worklist (dispatch / inward / cancelled) — lazy mounted */}
             {showGatePassTab && visitedTabs.gatepass && (
               <View style={activeTab === 'gatepass' ? styles.visibleTab : styles.hiddenTab}>
-                <GatePassGuardTab hasGpdRole={roles.includes('gatepassdispatcher')} />
+                <GatePassGuardTab
+                  hasGpdRole={roles.includes('gatepassdispatcher') || roles.includes('securityadmin')}
+                  viewOnly={roles.includes('securityadmin')}
+                />
               </View>
             )}
           </View>

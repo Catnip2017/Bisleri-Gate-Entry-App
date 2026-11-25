@@ -32,7 +32,9 @@ const PASS_TYPE_OPTIONS = [
   { value: 'NR', label: 'Non-Returnable' },
 ];
 
-const GatePassGuardTab = ({ hasGpdRole = true }) => {
+// viewOnly = Security Admin: sees the same worklists but no Dispatch / Inward /
+// Cancel actions and no Reports sub-view (Print + Items stay: read-only).
+const GatePassGuardTab = ({ hasGpdRole = true, viewOnly = false }) => {
   const { styles, gp } = useGatePassStyles();
   const [view, setView] = useState('dispatch');
   const [items, setItems] = useState([]);
@@ -309,9 +311,9 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
     {
       key: 'action',
       title:
-        view === 'dispatch' ? 'Dispatch'
+        view === 'dispatch' ? (viewOnly ? 'View' : 'Dispatch')
         : (view === 'dispatched' || view === 'inward_completed') ? 'Print'
-        : (view === 'inward' || view === 'partial') ? 'Inward'
+        : (view === 'inward' || view === 'partial') ? (viewOnly ? 'View' : 'Inward')
         : 'Reason',
       flex: 1.4,
       priority: 1,
@@ -319,18 +321,22 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
         if (view === 'dispatch') {
           return (
             <View style={styles.rowActions}>
-              <TouchableOpacity style={styles.smallDispatchBtn} onPress={() => openDispatch(item)}>
-                <Text style={styles.smallBtnText}>Dispatch</Text>
-              </TouchableOpacity>
+              {!viewOnly && (
+                <TouchableOpacity style={styles.smallDispatchBtn} onPress={() => openDispatch(item)}>
+                  <Text style={styles.smallBtnText}>Dispatch</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
                 <Text style={styles.smallBtnText}>Items</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.smallPrintBtn} onPress={() => printGatePass(item.id)}>
                 <Text style={styles.smallPrintBtnText}>Print</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.smallDangerBtn} onPress={() => openCancelModal(item)}>
-                <Text style={styles.smallBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              {!viewOnly && (
+                <TouchableOpacity style={styles.smallDangerBtn} onPress={() => openCancelModal(item)}>
+                  <Text style={styles.smallBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
             </View>
           );
         }
@@ -351,9 +357,11 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
           return (
             <View style={{ gap: 2 }}>
               <View style={styles.rowActions}>
-                <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
-                  <Text style={styles.smallBtnText}>Inward</Text>
-                </TouchableOpacity>
+                {!viewOnly && (
+                  <TouchableOpacity style={styles.smallInwardBtn} onPress={() => openInward(item)}>
+                    <Text style={styles.smallBtnText}>Inward</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity style={styles.smallSecondaryBtn} onPress={() => openViewItems(item)}>
                 <Text style={styles.smallBtnText}>Items</Text>
               </TouchableOpacity>
@@ -474,7 +482,7 @@ const GatePassGuardTab = ({ hasGpdRole = true }) => {
         {/* ── Left menu panel (same as GatePassDashboard) ── */}
         <View style={styles.menuPanel}>
           <Text style={styles.menuTitle}>Gate Pass Menu</Text>
-          {VIEWS.map((v) => (
+          {VIEWS.filter((v) => !(viewOnly && v.key === 'reports')).map((v) => (
             <TouchableOpacity
               key={v.key}
               style={styles.menuItem}

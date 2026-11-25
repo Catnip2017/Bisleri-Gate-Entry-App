@@ -52,7 +52,7 @@ def register_user(
         if combo_error:
             raise HTTPException(status_code=400, detail=combo_error)
 
-        needs_warehouse = "securityguard" in normalized_roles
+        needs_warehouse = "securityguard" in normalized_roles or "securityadmin" in normalized_roles
         needs_copacker_location = "copacker" in normalized_roles
 
         # ✅ Gate Pass scope — same rules as modify-user: Creator needs a

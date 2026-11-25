@@ -90,6 +90,19 @@ def _require_guard(current_user: UsersMaster = Depends(get_current_user)) -> Use
     return current_user
 
 
+def _require_guard_view(current_user: UsersMaster = Depends(get_current_user)) -> UsersMaster:
+    """Read-only access to the guard's worklist: Dispatchers (who can also act)
+    and Security Admins (view only — they never reach dispatch/inward/cancel,
+    which stay on _require_guard)."""
+    r = _roles(current_user)
+    if "gatepassdispatcher" not in r and "securityadmin" not in r:
+        raise HTTPException(
+            status_code=403,
+            detail="NO_GPD_ROLE: gate pass processing requires the Gate Pass Dispatcher role",
+        )
+    return current_user
+
+
 def _is_itadmin(user: UsersMaster) -> bool:
     return "itadmin" in _roles(user)
 
@@ -105,7 +118,19 @@ def _user_gp_locations(db: Session, user: UsersMaster) -> list:
     )
     if rows:
         return [r.location_code for r in rows]
-    return [user.gate_pass_location] if user.gate_pass_location else []
+    if user.gate_pass_location:
+        return [user.gate_pass_location]
+    if "securityadmin" in _roles(user) and user.warehouse_code:
+        # Security Admin has no personal gate pass locations: he sees every
+        # active gate pass location mapped to his own warehouse.
+        mapped = (
+            db.query(GatePassLocation.location_code)
+            .filter(GatePassLocation.warehouse_code == user.warehouse_code,
+                    GatePassLocation.is_active.is_(True))
+            .all()
+        )
+        return [m.location_code for m in mapped]
+    return []
 
 
 def _check_pass_view_access(db: Session, gp, user: UsersMaster):
@@ -132,7 +157,7 @@ def _check_pass_view_access(db: Session, gp, user: UsersMaster):
         if gp.department != user.department:
             raise HTTPException(status_code=403, detail="This pass belongs to another department")
         return
-    if "gatepassdispatcher" in roles:
+    if "gatepassdispatcher" in roles or "securityadmin" in roles:
         if gp.status == GP_OPEN:
             raise HTTPException(status_code=403, detail="No access to this gate pass")
         guard_locations = _user_gp_locations(db, user)
@@ -295,6 +320,11 @@ def my_gate_pass_locations(
     if current_user.gate_pass_location:
         return {"locations": [
             {"location_code": current_user.gate_pass_location, "is_default": True}
+        ]}
+    if "securityadmin" in _roles(current_user):
+        return {"locations": [
+            {"location_code": c, "is_default": i == 0}
+            for i, c in enumerate(_user_gp_locations(db, current_user))
         ]}
     return {"locations": []}
 
@@ -745,7 +775,7 @@ def guard_pending(
     to_date: date | None = Query(None),
     q: str | None = Query(None, max_length=100, description="Search — matches vendor/customer name, gate pass no. or vehicle no."),
     db: Session = Depends(get_db),
-    current_user: UsersMaster = Depends(_require_guard),
+    current_user: UsersMaster = Depends(_require_guard_view),
 ):
     """The guard's worklist — a live status query, never a copied list.
     'dispatch'         : Released passes at the guard's location.
@@ -850,7 +880,7 @@ def due_notifications(
     with quantities still outstanding. Guards get their location's set;
     initiators get theirs (all, until department scoping lands)."""
     roles = _roles(current_user)
-    if "gatepassdispatcher" not in roles and "gatepasscreator" not in roles:
+    if not any(r in roles for r in ("gatepassdispatcher", "gatepasscreator", "securityadmin")):
         raise HTTPException(status_code=403, detail="No access to gate pass notifications")
 
     today = date.today()

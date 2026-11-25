@@ -231,7 +231,7 @@ Roles are stored as a comma-separated display string in `users_master.role` (e.g
 | `IT Admin` | Full administration: user management, dashboards, sync controls, Gate Pass administration. View-only in the gate-entry form. Cannot be combined with Security Guard or Dispatcher. |
 | `Co Packer` | Co-Packer capture for their assigned location. Exclusive role — cannot be combined with any other, and requires a `copacker_location`. |
 
-The combination rules are enforced in one place (`validate_role_combo()` in `app/utils/roles.py`) and used by Register User and Assign Access. **`Security Admin` has been removed** and can no longer be assigned; `Gate Pass User` is a retired legacy name (use Creator or Dispatcher).
+The combination rules are enforced in one place (`validate_role_combo()` in `app/utils/roles.py`) and used by Register User and Assign Access. **`Security Admin`** (re-added 25 Nov 2026) is a standalone, view-only role scoped to one warehouse (Gate Entry, Insights incl. Download Report, and the Gate Pass list); it cannot be combined with any other role; `Gate Pass User` is a retired legacy name (use Creator or Dispatcher).
 
 Two scoping attributes accompany roles: **warehouse** (gate-entry visibility/edit) and **gate-pass location(s)** (Gate Pass visibility/actions). A user can be assigned multiple gate-pass locations via the `user_gate_pass_locations` junction table, exactly one marked as the default.
 

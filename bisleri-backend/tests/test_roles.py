@@ -66,7 +66,7 @@ from app.utils.roles import validate_role_combo
 def test_legal_combos_pass():
     for combo in (["securityguard"], ["securityguard", "gatepassdispatcher"],
                   ["gatepasscreator"], ["itadmin"], ["itadmin", "gatepasscreator"],
-                  ["copacker"]):
+                  ["copacker"], ["securityadmin"]):
         assert validate_role_combo(combo) is None, combo
 
 
@@ -76,7 +76,9 @@ def test_illegal_combos_rejected():
                   ["securityguard", "gatepassdispatcher", "gatepasscreator"],
                   ["itadmin", "securityguard"],                 # admin != guard
                   ["itadmin", "gatepassdispatcher", "securityguard"],
-                  ["securityadmin"],                            # role removed
+                  ["securityadmin", "securityguard"],           # SA is standalone
+                  ["securityadmin", "itadmin"],
+                  ["securityadmin", "gatepasscreator"],
                   ["gatepassuser"],                             # legacy name retired
                   ["copacker", "itadmin"]):                     # copacker exclusive
         assert validate_role_combo(combo) is not None, combo

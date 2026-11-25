@@ -27,7 +27,7 @@ export const NAV_LINKS = [
     label: 'Gate Entry & Insights',
     icon: 'local-shipping',
     route: '/security',
-    roles: ['securityguard', 'itadmin'],
+    roles: ['securityguard', 'securityadmin', 'itadmin'],
     group: 'app',
   },
   {
@@ -96,7 +96,7 @@ export const DOCUMENT_LINKS = [
 
 export const ROLE_LABELS = {
   itadmin: 'IT Admin',
-
+  securityadmin: 'Security Admin',
   securityguard: 'Security Guard',
   copacker: 'Co-Packer',
   gatepasscreator: 'Gate Pass Creator',
