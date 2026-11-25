@@ -516,6 +516,25 @@ def search_users(
         .all()
     )
     return users
+# ✅ Users overview — IT Admin only (25 Nov 2026, User Management "Users" tab)
+# Every user with the fields the list needs (roles, scope, status, last
+# login). Filtering/sorting happens in the app — the table is small.
+@router.get("/users-overview", response_model=List[UserSearchResponse])
+def users_overview(
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    roles = normalize_roles(current_user.role)
+    if "itadmin" not in roles:
+        raise HTTPException(status_code=403, detail="Only IT Admins can list users")
+    return (
+        db.query(UsersMaster)
+        .order_by(UsersMaster.first_name, UsersMaster.last_name, UsersMaster.username)
+        .limit(5000)
+        .all()
+    )
+
+
 # ✅ Update User Details — IT Admin only
 @router.put("/users/{username}/update")
 def update_user_details(

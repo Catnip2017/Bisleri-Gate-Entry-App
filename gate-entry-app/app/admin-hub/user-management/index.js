@@ -22,6 +22,7 @@ import AppShell from '../../../components/ui/AppShell';
 import AssignAccessScreen from '../../admin/screens/AssignAccessScreen';
 import RegisterScreen from '../../admin/screens/RegisterScreen';
 import ResetPasswordScreen from '../../admin/screens/ResetPasswordScreen';
+import UsersListScreen from '../../admin/screens/UsersListScreen';
 
 import styles from './UserManagementStyles';
 
@@ -29,11 +30,14 @@ import styles from './UserManagementStyles';
 // • Assign Access   — find AD user by email, assign role + scope (replaces Register + Modify)
 // • Register User   — create local/contractor accounts with username + password
 // • Reset Password  — local users only; AD users see an informational block
-const TABS = ['Assign Access', 'Register User', 'Reset Password'];
+// 25 Nov 2026: 'Users' (full list with filters) added first; clicking a
+// row opens that user in Assign Access.
+const TABS = ['Users', 'Assign Access', 'Register User', 'Reset Password'];
 
 export default function UserManagementScreen() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('Assign Access');
+  const [activeTab, setActiveTab] = useState('Users');
+  const [openUser, setOpenUser] = useState(null);   // user picked in the Users tab
   const [checking, setChecking] = useState(true);
   const [allowed, setAllowed] = useState(false);
 
@@ -66,8 +70,15 @@ export default function UserManagementScreen() {
 
   const renderActiveScreen = () => {
     switch (activeTab) {
+      case 'Users':
+        return (
+          <UsersListScreen
+            onOpenUser={(u) => { setOpenUser(u); setActiveTab('Assign Access'); }}
+            onRegister={() => setActiveTab('Register User')}
+          />
+        );
       case 'Assign Access':
-        return <AssignAccessScreen />;
+        return <AssignAccessScreen initialUser={openUser} />;
       case 'Register User':
         return <RegisterScreen />;
       case 'Reset Password':
@@ -84,7 +95,7 @@ export default function UserManagementScreen() {
       {/* Show spinner inside the shell so the back chip is always reachable */}
       {(checking || !allowed) && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
+          <ActivityIndicator size="large" color="#0F6B46" />
         </View>
       )}
 
@@ -95,7 +106,7 @@ export default function UserManagementScreen() {
           <Pressable
             key={tab}
             style={[styles.tab, activeTab === tab && styles.activeTab]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => { if (tab === 'Assign Access' && activeTab !== 'Assign Access') setOpenUser(null); setActiveTab(tab); }}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.activeTabText]}>
               {tab}
@@ -110,7 +121,7 @@ export default function UserManagementScreen() {
           page-level ScrollView (that gave the list unbounded height and made
           the whole page grow/scroll — 30 Oct 2026). Other tabs are plain
           forms and keep page scrolling. */}
-      {activeTab === 'Assign Access' ? (
+      {activeTab === 'Assign Access' || activeTab === 'Users' ? (
         <View style={styles.screenContainer}>
           {renderActiveScreen()}
         </View>

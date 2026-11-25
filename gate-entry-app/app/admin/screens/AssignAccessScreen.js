@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
 import { showAlert, confirmAction } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
+import { ROLE_INFO, roleBlockReason, accessPreview, UserResultRow } from '../utils/userUi';
 
 // Dropdown menus hang directly under their trigger (trigger has no bottom
 // margin; menu gets a full border + small gap) so the first row is never
@@ -171,7 +172,7 @@ export function LocationMultiSelect({ options, selections, onChange, showStar })
 const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
-const AssignAccessScreen = () => {
+const AssignAccessScreen = ({ initialUser = null }) => {
   // ── Left panel state ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -212,6 +213,18 @@ const AssignAccessScreen = () => {
   const [deleting, setDeleting] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Values as loaded for the selected user — drives the "unsaved changes"
+  // bar (25 Nov 2026). Active/inactive is excluded: it saves immediately.
+  const [snapshot, setSnapshot] = useState(null);
+
+  // Opened from the Users tab with a user already chosen
+  useEffect(() => {
+    if (initialUser) {
+      setSearchQuery(initialUser.username);
+      setSearchResults([initialUser]);
+      handleSelectUser(initialUser);
+    }
+  }, [initialUser]);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const getInitials = (user) => {
@@ -230,6 +243,28 @@ const AssignAccessScreen = () => {
   // GPUs (pre-selects the New Pass form); guards' worklist shows all their
   // locations, so the star is hidden when the user isn't a GPU.
   const needsGpLocations = needsGuardGPLoc || needsGpScope;
+
+  // Which fields differ from what was loaded (for the sticky save bar)
+  const changes = !snapshot ? [] : [
+    ['Roles', roles.slice().sort().join('|') !== snapshot.roles],
+    ['Name', firstName !== snapshot.firstName || lastName !== snapshot.lastName],
+    ['Mobile number', phoneNumber !== snapshot.phone],
+    ['Warehouse', needsWarehouse && warehouseCode !== snapshot.warehouse],
+    ['Department', needsGpScope && department !== snapshot.department],
+    ['Co Packer location', roles.includes('Co Packer') && copackerLocation !== snapshot.copacker],
+    ['Gate Pass Locations', needsGpLocations &&
+      gpLocSelections.map(g => g.location_code + (g.is_default ? '*' : '')).sort().join('|') !== snapshot.gp],
+  ].filter(([, changed]) => changed).map(([label]) => label);
+
+  const preview = accessPreview(
+    roles,
+    {
+      warehouse: warehouseCode,
+      locations: gpLocSelections.map(g => g.location_code),
+      department,
+      copacker: copackerLocation,
+    },
+  );
 
   // ── Search ────────────────────────────────────────────────────────────────
   const handleSearch = async (query) => {
@@ -276,13 +311,26 @@ const AssignAccessScreen = () => {
     setSavedActive(user.is_active !== false);
     setDeleteOpen(false);
     setDeleteText('');
+    setSnapshot(null);
+    let gpSel = [];
     try {
       const mine = await adminAPI.getUserGpLocations(user.username);
-      setGpLocSelections(mine.locations || []);
+      gpSel = mine.locations || [];
     } catch (e) {
-      setGpLocSelections(user.gate_pass_location
-        ? [{ location_code: user.gate_pass_location, is_default: true }] : []);
+      gpSel = user.gate_pass_location
+        ? [{ location_code: user.gate_pass_location, is_default: true }] : [];
     }
+    setGpLocSelections(gpSel);
+    setSnapshot({
+      roles: userRoles.slice().sort().join('|'),
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      phone: user.phone_number || '',
+      warehouse: user.warehouse_code || '',
+      department: user.department || '',
+      copacker: user.copacker_location || '',
+      gp: gpSel.map(g => g.location_code + (g.is_default ? '*' : '')).sort().join('|'),
+    });
 
     if (!warehouses.length) {
       try {
@@ -544,7 +592,7 @@ const AssignAccessScreen = () => {
         <View style={styles.searchWrapper}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Email or username..."
+            placeholder="Name, username or email..."
             placeholderTextColor="#aaa"
             value={searchQuery}
             onChangeText={handleSearch}
@@ -557,36 +605,12 @@ const AssignAccessScreen = () => {
 
         <ScrollView style={styles.resultsList} nestedScrollEnabled>
           {searchResults.map(user => (
-            <TouchableOpacity
+            <UserResultRow
               key={user.username}
-              style={[
-                styles.userRow,
-                selectedUser?.username === user.username && styles.userRowSelected,
-              ]}
+              user={user}
+              selected={selectedUser?.username === user.username}
               onPress={() => handleSelectUser(user)}
-            >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(user)}</Text>
-              </View>
-              <View style={styles.userRowInfo}>
-                <Text style={styles.userRowName} numberOfLines={1}>
-                  {user.first_name} {user.last_name}
-                </Text>
-                <Text style={styles.userRowSub} numberOfLines={1}>
-                  {user.username}
-                </Text>
-                {user.email ? (
-                  <Text style={[styles.userRowSub, { color: '#90a4ae', fontSize: 11 }]} numberOfLines={1}>
-                    {user.email}
-                  </Text>
-                ) : null}
-              </View>
-              {hasNoRoles(user) && (
-                <View style={styles.badgeWarn}>
-                  <Text style={styles.badgeWarnText}>No role</Text>
-                </View>
-              )}
-            </TouchableOpacity>
+            />
           ))}
 
           {!searching && searchQuery.trim() !== '' && searchResults.length === 0 && (
@@ -595,7 +619,7 @@ const AssignAccessScreen = () => {
 
           {searchQuery.trim() === '' && (
             <Text style={styles.emptyText}>
-              Type an email or username to search
+              Type a name, username or email to search{'\n'}— or pick someone from the Users tab
             </Text>
           )}
         </ScrollView>
@@ -786,35 +810,50 @@ const AssignAccessScreen = () => {
                 <Text style={styles.fieldNote}>Email is linked to Active Directory and cannot be changed here</Text>
               )}
 
-              {/* Roles */}
+              {/* Roles — cards that say what each role does; combinations that
+                  aren't allowed are greyed with the reason (25 Nov 2026) */}
               <Text style={styles.sectionLabel}>Roles</Text>
-              <View style={styles.pillRow}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {AVAILABLE_ROLES.map(role => {
-                  const isCp = role === 'Co Packer';
-                  const cpOn = roles.includes('Co Packer');
-                  const isDisabled = (isCp && !cpOn && roles.some(r => r !== 'Co Packer')) || (!isCp && cpOn);
                   const isSelected = roles.includes(role);
+                  const reason = roleBlockReason(role, roles);
+                  const isDisabled = !isSelected && !!reason;
                   return (
                     <TouchableOpacity key={role}
-                      style={[styles.pill, isSelected && styles.pillSelected, isDisabled && styles.pillDisabled]}
-                      onPress={() => !isDisabled && toggleRole(role)} disabled={isDisabled}>
-                      <Text style={[styles.pillText, isSelected && styles.pillTextSelected, isDisabled && styles.pillTextDisabled]}>
-                        {role}
+                      onPress={() => !isDisabled && toggleRole(role)} disabled={isDisabled}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: isSelected, disabled: isDisabled }}
+                      accessibilityLabel={`${role}${isDisabled ? ' (not available)' : ''}`}
+                      style={{
+                        width: '48.5%', minHeight: 62, borderRadius: 10, borderWidth: 1.5,
+                        paddingVertical: 8, paddingHorizontal: 10,
+                        borderColor: isSelected ? '#0F6B46' : '#E0E9E5',
+                        backgroundColor: isSelected ? '#EAF5F0' : isDisabled ? '#F7F8F8' : '#fff',
+                        opacity: isDisabled ? 0.6 : 1,
+                      }}>
+                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: isSelected ? '#0B5236' : '#12202A' }}>
+                        {isSelected ? '☑' : '☐'} {role}
+                      </Text>
+                      <Text style={{ fontSize: 11.5, color: isDisabled ? '#A35F00' : '#5B6B75', marginTop: 2 }} numberOfLines={2}>
+                        {isDisabled ? reason : ROLE_INFO[role]}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              {roles.includes('Co Packer') && (
-                <Text style={styles.copackerNote}>Co Packer is an exclusive role — cannot be combined with others</Text>
-              )}
 
-              {/* Save */}
-              <TouchableOpacity
-                style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-                onPress={handleSave} disabled={saving}>
-                {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Changes</Text>}
-              </TouchableOpacity>
+              {/* What this user will see */}
+              {roles.length > 0 && (
+                <View style={{ marginTop: 14, borderWidth: 1, borderColor: '#E0E9E5', borderRadius: 10, padding: 12, backgroundColor: '#FAFCFB' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#12202A', marginBottom: 6 }}>What this user will see</Text>
+                  {preview.yes.map(line => (
+                    <Text key={line} style={{ fontSize: 12.5, color: '#2B3A42', lineHeight: 20 }}>✓ {line}</Text>
+                  ))}
+                  {preview.no.map(line => (
+                    <Text key={line} style={{ fontSize: 12.5, color: '#8B99A3', lineHeight: 20 }}>✕ {line}</Text>
+                  ))}
+                </View>
+              )}
             </ScrollView>
 
             {/* ── SCOPE COLUMN (right side, only when needed) ── */}
@@ -911,6 +950,40 @@ const AssignAccessScreen = () => {
               </>
             )}
 
+          </View>
+
+          {/* Sticky save bar — shows what's unsaved (25 Nov 2026) */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 10,
+            paddingHorizontal: 20, paddingVertical: 10,
+            borderTopWidth: 1, borderTopColor: '#E0E9E5', backgroundColor: '#fff',
+          }}>
+            {changes.length > 0 ? (
+              <View style={{ backgroundColor: '#FFF3CD', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 1 }}>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#856404' }} numberOfLines={1}>
+                  ● {changes.length} unsaved change{changes.length === 1 ? '' : 's'}: {changes.join(', ')}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ fontSize: 12, color: '#8B99A3' }}>No unsaved changes</Text>
+            )}
+            <View style={{ flex: 1 }} />
+            {changes.length > 0 && (
+              <TouchableOpacity
+                onPress={() => handleSelectUser(selectedUser)}
+                disabled={saving}
+                style={{ borderWidth: 1.5, borderColor: '#0F6B46', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 16 }}>
+                <Text style={{ color: '#0F6B46', fontWeight: '700', fontSize: 13 }}>Discard</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={{
+                backgroundColor: saving ? '#b0bec5' : '#0F6B46', borderRadius: 8,
+                paddingVertical: 10, paddingHorizontal: 22, minWidth: 140, alignItems: 'center',
+              }}
+              onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Save changes</Text>}
+            </TouchableOpacity>
           </View>
           </View>
         )}

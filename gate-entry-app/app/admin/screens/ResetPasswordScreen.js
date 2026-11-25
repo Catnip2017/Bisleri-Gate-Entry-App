@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { adminAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
+import { UserResultRow, generatePassword, passwordStrength, shortLastLogin, initialsOf } from '../utils/userUi';
 
 const ResetPasswordScreen = () => {
   const [searchQuery, setSearchQuery]   = useState('');
@@ -15,6 +16,8 @@ const ResetPasswordScreen = () => {
   const [strength, setStrength]         = useState('');
   const [loading, setLoading]           = useState(false);
   const [searching, setSearching]       = useState(false);
+  const [showPwd, setShowPwd]           = useState(false);
+  const [copied, setCopied]             = useState(false);
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -33,7 +36,26 @@ const ResetPasswordScreen = () => {
     resetPwdFields();
   };
 
-  const resetPwdFields = () => { setNewPassword(''); setConfirmPwd(''); setStrength(''); };
+  const resetPwdFields = () => { setNewPassword(''); setConfirmPwd(''); setStrength(''); setShowPwd(false); setCopied(false); };
+
+  // 25 Nov 2026: one-click temporary password (fills both boxes, shown in
+  // clear text so it can be read out / copied to the user).
+  const handleGenerate = () => {
+    const pw = generatePassword();
+    onPwdChange(pw);
+    setConfirmPwd(pw);
+    setShowPwd(true);
+    setCopied(false);
+  };
+  const handleCopy = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(newPassword);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }
+    } catch (e) { /* clipboard blocked — user can still read it */ }
+  };
 
   const onPwdChange = (v) => {
     setNewPassword(v);
@@ -80,16 +102,9 @@ const ResetPasswordScreen = () => {
           {searching && <ActivityIndicator style={{ position: 'absolute', right: 8, top: 10 }} size="small" color="#0F6B46" />}
           {matchingUsers.length > 0 && (
             <View style={S.searchDrop}>
-              <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+              <ScrollView style={{ maxHeight: 260 }} contentContainerStyle={{ padding: 6 }} nestedScrollEnabled>
                 {matchingUsers.map(u => (
-                  <TouchableOpacity key={u.username} style={S.searchItem} onPress={() => handleSelect(u)}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={S.searchItemName}>{u.first_name} {u.last_name}</Text>
-                      <Text style={S.searchItemSub}>{u.username}</Text>
-                      {u.email ? <Text style={[S.searchItemSub, { color: '#b0bec5' }]}>{u.email}</Text> : null}
-                    </View>
-                    <Text style={S.searchItemRole}>{u.role}</Text>
-                  </TouchableOpacity>
+                  <UserResultRow key={u.username} user={u} onPress={() => handleSelect(u)} />
                 ))}
               </ScrollView>
             </View>
@@ -100,16 +115,24 @@ const ResetPasswordScreen = () => {
         {userFound && (
           <View style={S.userCard}>
             <View style={S.userAvatar}>
-              <Text style={S.userAvatarText}>
-                {((userFound.first_name?.[0] || '') + (userFound.last_name?.[0] || '')).toUpperCase() || userFound.username[0].toUpperCase()}
-              </Text>
+              <Text style={S.userAvatarText}>{initialsOf(userFound)}</Text>
             </View>
             <Text style={S.userName}>{userFound.first_name} {userFound.last_name}</Text>
             <Text style={S.userSub}>{userFound.username}</Text>
-            {userFound.email ? <Text style={S.userSub}>{userFound.email}</Text> : null}
-            {userFound.warehouse_name ? <Text style={[S.userSub, { marginTop: 4 }]}>📍 {userFound.warehouse_name}</Text> : null}
-            <View style={[S.rolePill, { marginTop: 8 }]}>
-              <Text style={S.rolePillText}>{userFound.role || 'No role'}</Text>
+            {userFound.warehouse_code || userFound.warehouse_name ? (
+              <Text style={[S.userSub, { marginTop: 4 }]}>📍 {userFound.warehouse_code}{userFound.warehouse_name ? ` — ${userFound.warehouse_name}` : ''}</Text>
+            ) : null}
+            <Text style={[S.userSub, { marginTop: 4 }]}>Last login: {shortLastLogin(userFound.last_login)}</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
+              {(userFound.role || 'No role').split(',').map(r => r.trim()).filter(Boolean).map(r => (
+                <View key={r} style={S.rolePill}><Text style={S.rolePillText}>{r}</Text></View>
+              ))}
+              <View style={[S.rolePill, userFound.is_active === false
+                ? { backgroundColor: '#FCEBEB', borderColor: '#F0C4C4' } : null]}>
+                <Text style={[S.rolePillText, userFound.is_active === false ? { color: '#A32D2D' } : null]}>
+                  {userFound.is_active === false ? '○ Deactivated' : '● Active'}
+                </Text>
+              </View>
             </View>
             {isAd && (
               <View style={[S.rolePill, { backgroundColor: '#E6F1EC', borderColor: '#9CCBB8', marginTop: 4 }]}>
@@ -145,21 +168,53 @@ const ResetPasswordScreen = () => {
 
         {isLocal && (
           <View style={S.pwdForm}>
-            <Text style={S.formTitle}>Set New Password</Text>
+            <Text style={S.formTitle}>Set a new password for {userFound.username}</Text>
+
+            <TouchableOpacity style={S.genBtn} onPress={handleGenerate} accessibilityRole="button">
+              <Text style={S.genBtnText}>⚄  Generate temporary password</Text>
+            </TouchableOpacity>
+            <Text style={S.orText}>or type one</Text>
+
             <Text style={S.label}>New Password</Text>
-            <TextInput style={S.input} placeholder="Enter new password"
-              secureTextEntry value={newPassword} onChangeText={onPwdChange} />
-            {strength ? (
-              <View style={{ height: 3, borderRadius: 2, backgroundColor: strengthColor, marginTop: -8, marginBottom: 12, width: strength === 'weak' ? '33%' : strength === 'medium' ? '66%' : '100%' }} />
-            ) : null}
+            <View style={{ position: 'relative', justifyContent: 'center' }}>
+              <TextInput style={[S.input, { paddingRight: 120 }]} placeholder="Enter new password"
+                secureTextEntry={!showPwd} value={newPassword} onChangeText={onPwdChange} autoCapitalize="none" />
+              <View style={{ position: 'absolute', right: 8, top: 0, bottom: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <TouchableOpacity onPress={() => setShowPwd(v => !v)} accessibilityLabel={showPwd ? 'Hide password' : 'Show password'} style={S.miniBtn}>
+                  <Text style={S.miniBtnText}>{showPwd ? 'Hide' : 'Show'}</Text>
+                </TouchableOpacity>
+                {newPassword ? (
+                  <TouchableOpacity onPress={handleCopy} accessibilityLabel="Copy password" style={S.miniBtn}>
+                    <Text style={S.miniBtnText}>{copied ? '✓ Copied' : 'Copy'}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+            {(() => {
+              const st = passwordStrength(newPassword);
+              return st ? (
+                <View style={{ marginTop: -8, marginBottom: 12 }}>
+                  <View style={{ height: 5, borderRadius: 3, backgroundColor: '#E0E9E5' }}>
+                    <View style={{ height: 5, borderRadius: 3, width: `${st.pct}%`, backgroundColor: st.color }} />
+                  </View>
+                  <Text style={{ fontSize: 11.5, color: st.color, marginTop: 3, fontWeight: '600' }}>{st.label}</Text>
+                </View>
+              ) : null;
+            })()}
 
             <Text style={S.label}>Confirm New Password</Text>
             <TextInput style={S.input} placeholder="Re-enter new password"
-              secureTextEntry value={confirmPwd} onChangeText={setConfirmPwd} />
+              secureTextEntry={!showPwd} value={confirmPwd} onChangeText={setConfirmPwd} autoCapitalize="none" />
+            {confirmPwd ? (
+              <Text style={{ fontSize: 12, marginTop: -8, marginBottom: 10, fontWeight: '600', color: confirmPwd === newPassword ? '#2FB164' : '#C62828' }}>
+                {confirmPwd === newPassword ? '✓ Passwords match' : "✕ Passwords don't match"}
+              </Text>
+            ) : null}
 
             <TouchableOpacity style={[S.resetBtn, loading && S.resetBtnDis]} onPress={handleReset} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.resetBtnText}>Reset Password</Text>}
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.resetBtnText}>Reset password for {userFound.username}</Text>}
             </TouchableOpacity>
+            <Text style={S.afterNote}>Share the new password with the user directly (call or in person).</Text>
           </View>
         )}
       </View>
@@ -183,7 +238,7 @@ const S = {
   searchItemSub:  { fontSize: 11, color: '#999' },
   searchItemRole: { fontSize: 11, color: '#0F6B46', fontWeight: '500', marginLeft: 6, flexShrink: 0 },
   // User card
-  userCard:       { backgroundColor: '#f5f9ff', borderRadius: 10, borderWidth: 0.5, borderColor: '#c5d9f2', padding: 14, marginTop: 4 },
+  userCard:       { backgroundColor: '#F4FAF7', borderRadius: 10, borderWidth: 0.5, borderColor: '#C5E0D6', padding: 14, marginTop: 4 },
   userAvatar:     { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0F6B46', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   userAvatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   userName:       { fontSize: 14, fontWeight: '700', color: '#00604F' },
@@ -204,7 +259,13 @@ const S = {
   formTitle:      { fontSize: 15, fontWeight: '700', color: '#00604F', marginBottom: 18 },
   label:          { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 5 },
   input:          { backgroundColor: '#f8f9fa', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 14, fontSize: 14, color: '#333' },
-  resetBtn:       { backgroundColor: '#e53935', paddingVertical: 13, borderRadius: 8, marginTop: 8, alignItems: 'center' },
+  genBtn:         { backgroundColor: '#0F6B46', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  genBtnText:     { color: '#fff', fontWeight: '700', fontSize: 14 },
+  orText:         { textAlign: 'center', fontSize: 12, color: '#8B99A3', marginVertical: 10 },
+  miniBtn:        { borderWidth: 1, borderColor: '#CFDDD7', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: '#fff' },
+  miniBtnText:    { fontSize: 12, fontWeight: '600', color: '#0F6B46' },
+  afterNote:      { fontSize: 12, color: '#8B99A3', marginTop: 10 },
+  resetBtn:       { backgroundColor: '#C62828', paddingVertical: 13, borderRadius: 8, marginTop: 8, alignItems: 'center' },
   resetBtnDis:    { backgroundColor: '#b0bec5' },
   resetBtnText:   { color: '#fff', fontWeight: '700', fontSize: 14 },
 };

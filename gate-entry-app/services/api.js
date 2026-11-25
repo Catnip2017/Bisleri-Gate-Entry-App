@@ -297,6 +297,11 @@ getAdminDashboardStats: async (filters = {}) => {
     const response = await api.get('/movements', { params: filters });
     return response.data;
   },
+  // Every user, for the User Management "Users" tab (IT Admin only)
+  getUsersOverview: async () => {
+    const response = await api.get('/users-overview');
+    return response.data;
+  },
   searchUsers: async (query) => {
     const response = await api.get(`/search-users`, { params: { q: query } });
     return response.data;

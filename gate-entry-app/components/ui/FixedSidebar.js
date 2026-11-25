@@ -98,8 +98,15 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
     (l) => !(l.key === 'copacker' && copackerEnabled === false),
   );
 
-  const isCurrent = (route) =>
+  const matches = (route) =>
     pathname === route || (route !== '/' && pathname?.startsWith(route + '/'));
+  // Only the most specific match is "current" — e.g. on
+  // /admin-hub/user-management, User Management lights up, not Admin Hub too.
+  const bestRoute = [...links, ...DOCUMENT_LINKS]
+    .map((l) => l.route)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
+  const isCurrent = (route) => route === bestRoute;
   // The current app's own pages (appNav) open as a sub-dropdown under its
   // link in the ONE Ops Hub list — same sidebar on every page (25 Nov 2026).
   const hasAppNav = !!(appNav && appNav.items && appNav.items.length > 0);

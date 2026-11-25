@@ -9,6 +9,12 @@ import { showAlert } from '../../../utils/customModal';
 // Same searchable multi-select (with ★ default) used by Assign Access, so
 // Register and Update behave identically (30 Oct 2026).
 import { LocationMultiSelect } from './AssignAccessScreen';
+import { ROLE_INFO, roleBlockReason, accessPreview, generatePassword, passwordStrength } from '../utils/userUi';
+
+// 25 Nov 2026: Register is now 4 steps — Role → Details → Scope → Review —
+// so only the fields the chosen role needs are asked for. The final submit
+// (handleRegister) and every validation in it are unchanged.
+const STEPS = ['Role', 'Details', 'Scope', 'Review'];
 
 // Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
 const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
@@ -67,6 +73,24 @@ export default function RegisterScreen() {
   const [whText, setWhText]                   = useState('');
   const [showWH, setShowWH]                   = useState(false);
   const [filteredWH, setFilteredWH]           = useState([]);
+  const [step, setStep]                       = useState(0);
+  const [showPwd, setShowPwd]                 = useState(false);
+  const [userStatus, setUserStatus]           = useState(null);   // null | 'checking' | 'available' | 'taken'
+
+  // Live "username available?" check (uses the existing user search)
+  useEffect(() => {
+    const u = form.username.trim();
+    if (!u || validateUsername(u)) { setUserStatus(null); return; }
+    setUserStatus('checking');
+    const t = setTimeout(async () => {
+      try {
+        const res = await adminAPI.searchUsers(u);
+        const taken = (res || []).some(x => (x.username || '').toLowerCase() === u.toLowerCase());
+        setUserStatus(taken ? 'taken' : 'available');
+      } catch (e) { setUserStatus(null); }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [form.username]);
 
   useEffect(() => {
     adminAPI.getWarehouses().then(setWarehouses).catch(() => {});
@@ -184,7 +208,7 @@ export default function RegisterScreen() {
       };
       const res = await adminAPI.registerUser(payload);
       showAlert('Success', res.message || 'User registered!', [{
-        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); setGpLocSelections([]); },
+        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); setGpLocSelections([]); setStep(0); setShowPwd(false); },
       }]);
     } catch (e) { showAlert('Registration Error', handleAPIError(e)); }
     finally { setLoading(false); }
@@ -193,87 +217,178 @@ export default function RegisterScreen() {
   const deptOpts  = departments.map(d => ({ label: d, value: d }));
   const locOpts   = gpLocations.map(l => ({ label: `${l.location_code} — ${l.location_name}`, value: l.location_code }));
 
-  return (
-    <View style={S.page}>
+  // Per-step checks — same messages as handleRegister, just asked earlier
+  const stepError = (n) => {
+    if (n === 0) return roles.length ? null : 'Select at least one role';
+    if (n === 1) {
+      for (const e of [validateName(form.firstName, 'First name'), validateName(form.lastName, 'Last name'),
+        validateUsername(form.username), validatePassword(form.password),
+        validatePasswordMatch(form.password, form.confirmPassword)]) { if (e) return e; }
+      if (userStatus === 'taken') return 'That username is already taken';
+      if (form.email && !/\S+@\S+\.\S+/.test(form.email)) return 'Enter a valid email';
+      if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) return 'Enter a valid 10-digit mobile';
+      return null;
+    }
+    if (n === 2) {
+      if (needsWH && !form.warehouseName) return 'Select a valid warehouse';
+      if (needsGP && !form.department) return 'Department is required';
+      if ((needsGuardGPLoc || needsGP) && gpLocSelections.length === 0) return 'At least one Gate Pass Location is required';
+      if (needsCP && !form.copackerLocation.trim()) return 'Copacker location is required';
+      return null;
+    }
+    return null;
+  };
+  const goNext = () => {
+    const e = stepError(step);
+    if (e) { showAlert('Validation Error', e); return; }
+    setStep(st => Math.min(st + 1, STEPS.length - 1));
+  };
 
-      {/* ── CARD 1: Auth badge + Role selection ── */}
-      <View style={S.card1}>
-        <View style={S.authBadge}>
-          <Text style={S.authBadgeText}>🔒 Local / Contractor</Text>
-          <Text style={S.authBadgeNote}>Password login only</Text>
+  const strength = passwordStrength(form.password);
+  const preview = accessPreview(roles, {
+    warehouse: form.warehouseCode,
+    locations: gpLocSelections.map(g => g.location_code),
+    department: form.department,
+    copacker: form.copackerLocation,
+  });
+  const summaryRows = [
+    ['Account', 'Local / Contractor (password login)'],
+    ['Role', roles.join(', ') || '—'],
+    ['Name', `${form.firstName} ${form.lastName}`.trim() || '—'],
+    ['Username', form.username || '—'],
+    ['Mobile', form.phone_number || '—'],
+    ...(needsWH ? [['Warehouse', form.warehouseCode ? `${form.warehouseCode} — ${form.warehouseName}` : '—']] : []),
+    ...(needsGP ? [['Department', form.department || '—']] : []),
+    ...((needsGuardGPLoc || needsGP) ? [['Gate Pass Locations', gpLocSelections.map(g => g.location_code).join(', ') || '—']] : []),
+    ...(needsCP ? [['Co Packer location', form.copackerLocation || '—']] : []),
+  ];
+
+  return (
+    <View style={S.wizPage}>
+      <View style={S.wizCard}>
+        {/* Stepper */}
+        <View style={S.stepper}>
+          {STEPS.map((label, n) => {
+            const done = n < step, current = n === step;
+            return (
+              <TouchableOpacity key={label} style={S.stepItem}
+                onPress={() => { if (n < step) setStep(n); }} disabled={n >= step}
+                accessibilityRole="button" accessibilityLabel={`Step ${n + 1}: ${label}`}>
+                <View style={[S.stepDot, done && S.stepDotDone, current && S.stepDotCur]}>
+                  <Text style={[S.stepDotTxt, (done || current) && { color: '#fff' }]}>{done ? '✓' : n + 1}</Text>
+                </View>
+                <Text style={[S.stepLabel, (done || current) && { color: '#12202A' }]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <Text style={S.sectionTitle}>ROLE</Text>
-        {ALL_ROLES.map(role => {
-          const active   = roles.includes(role);
-          const disabled = (role === 'Co Packer' && hasNonCP && !active) || (role !== 'Co Packer' && cpOn && !active);
-          return (
-            <TouchableOpacity key={role}
-              style={[S.roleBtn, active && S.roleBtnActive, disabled && S.roleBtnDisabled]}
-              onPress={() => toggleRole(role)} activeOpacity={disabled ? 1 : 0.7}>
-              <View style={[S.checkbox, {
-                borderColor: disabled ? '#ccc' : active ? '#0F6B46' : '#999',
-                backgroundColor: active ? '#0F6B46' : 'transparent',
-              }]}>
-                {active && <Text style={S.tick}>✓</Text>}
+        <View style={S.wizBody}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+
+            {/* ── Step 1: Role ── */}
+            {step === 0 && (
+              <View>
+                <View style={S.authBadge}>
+                  <Text style={S.authBadgeText}>🔒 Local / Contractor</Text>
+                  <Text style={S.authBadgeNote}>Password login only</Text>
+                </View>
+                <Text style={S.sectionTitle}>WHAT WILL THIS PERSON DO?</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  {ALL_ROLES.map(role => {
+                    const active = roles.includes(role);
+                    const reason = roleBlockReason(role, roles);
+                    const disabled = !active && !!reason;
+                    return (
+                      <TouchableOpacity key={role}
+                        onPress={() => !disabled && toggleRole(role)} disabled={disabled}
+                        accessibilityRole="checkbox" accessibilityState={{ checked: active, disabled }}
+                      accessibilityLabel={`${role}${disabled ? ' (not available)' : ''}`}
+                        style={[S.roleCard, active && S.roleCardOn, disabled && S.roleCardOff]}>
+                        <Text style={[S.roleCardTitle, active && { color: '#0B5236' }]}>{active ? '☑' : '☐'} {role}</Text>
+                        <Text style={[S.roleCardSub, disabled && { color: '#A35F00' }]} numberOfLines={2}>
+                          {disabled ? reason : ROLE_INFO[role]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-              <Text style={[S.roleTxt, active && S.roleTxtActive, disabled && S.roleTxtDisabled]}>{role}</Text>
-            </TouchableOpacity>
-          );
-        })}
-        <Text style={S.hint}>Tap to select · tap again to deselect{'\n'}Co Packer cannot be combined</Text>
-      </View>
+            )}
 
-      {/* ── CARD 2: Personal Details + Scope ── */}
-      <View style={S.card2}>
-        <View style={S.card2Inner}>
+            {/* ── Step 2: Details ── */}
+            {step === 1 && (
+              <View>
+                <Text style={S.sectionTitle}>PERSONAL DETAILS</Text>
+                <View style={S.row}>
+                  <View style={S.field}><Text style={S.fieldLabel}>First Name *</Text>
+                    <TextInput style={S.input} placeholder="First Name" value={form.firstName} onChangeText={v => set('firstName', v)} /></View>
+                  <View style={S.field}><Text style={S.fieldLabel}>Last Name *</Text>
+                    <TextInput style={S.input} placeholder="Last Name" value={form.lastName} onChangeText={v => set('lastName', v)} /></View>
+                </View>
+                <View style={S.row}>
+                  <View style={S.field}><Text style={S.fieldLabel}>Username *</Text>
+                    <TextInput style={S.input} placeholder="Username" value={form.username} onChangeText={v => set('username', v)} autoCapitalize="none" />
+                    {userStatus ? (
+                      <Text style={[S.inlineMsg, { color: userStatus === 'available' ? '#2FB164' : userStatus === 'taken' ? '#C62828' : '#8B99A3' }]}>
+                        {userStatus === 'available' ? '✓ Available' : userStatus === 'taken' ? '✕ Already taken' : 'Checking…'}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={S.field}><Text style={S.fieldLabel}>Mobile Number</Text>
+                    <TextInput style={S.input} placeholder="10-digit mobile" value={form.phone_number}
+                      onChangeText={v => set('phone_number', v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" maxLength={10} /></View>
+                </View>
+                <Text style={S.fieldLabel}>Email</Text>
+                <TextInput style={S.input} placeholder="Email (optional)" value={form.email}
+                  onChangeText={v => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
+                <View style={[S.row, { alignItems: 'flex-end' }]}>
+                  <View style={S.field}><Text style={S.fieldLabel}>Password *</Text>
+                    <TextInput style={S.input} placeholder="Password" secureTextEntry={!showPwd} value={form.password} onChangeText={v => set('password', v)} autoCapitalize="none" /></View>
+                  <View style={S.field}><Text style={S.fieldLabel}>Confirm Password *</Text>
+                    <TextInput style={S.input} placeholder="Confirm Password" secureTextEntry={!showPwd} value={form.confirmPassword} onChangeText={v => set('confirmPassword', v)} autoCapitalize="none" /></View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: -4 }}>
+                  <TouchableOpacity style={S.outlineBtn}
+                    onPress={() => { const pw = generatePassword(); setForm(p => ({ ...p, password: pw, confirmPassword: pw })); setShowPwd(true); }}>
+                    <Text style={S.outlineBtnTxt}>⚄ Generate</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={S.outlineBtn} onPress={() => setShowPwd(v => !v)}>
+                    <Text style={S.outlineBtnTxt}>{showPwd ? 'Hide' : 'Show'}</Text>
+                  </TouchableOpacity>
+                  {strength ? (
+                    <View style={{ flex: 1, marginLeft: 6 }}>
+                      <View style={{ height: 5, borderRadius: 3, backgroundColor: '#E0E9E5' }}>
+                        <View style={{ height: 5, borderRadius: 3, width: `${strength.pct}%`, backgroundColor: strength.color }} />
+                      </View>
+                      <Text style={{ fontSize: 11.5, color: strength.color, marginTop: 3, fontWeight: '600' }}>{strength.label}</Text>
+                    </View>
+                  ) : <View style={{ flex: 1 }} />}
+                </View>
+                {form.confirmPassword ? (
+                  <Text style={[S.inlineMsg, { marginTop: 8, color: form.confirmPassword === form.password ? '#2FB164' : '#C62828' }]}>
+                    {form.confirmPassword === form.password ? '✓ Passwords match' : "✕ Passwords don't match"}
+                  </Text>
+                ) : null}
+              </View>
+            )}
 
-          {/* Details column */}
-          <View style={S.detailsCol}>
-            <Text style={S.sectionTitle}>PERSONAL DETAILS</Text>
-            <View style={S.row}>
-              <View style={S.field}><Text style={S.fieldLabel}>First Name *</Text>
-                <TextInput style={S.input} placeholder="First Name" value={form.firstName} onChangeText={v => set('firstName', v)} /></View>
-              <View style={S.field}><Text style={S.fieldLabel}>Last Name *</Text>
-                <TextInput style={S.input} placeholder="Last Name" value={form.lastName} onChangeText={v => set('lastName', v)} /></View>
-            </View>
-            <View style={S.row}>
-              <View style={S.field}><Text style={S.fieldLabel}>Username *</Text>
-                <TextInput style={S.input} placeholder="Username" value={form.username} onChangeText={v => set('username', v)} autoCapitalize="none" /></View>
-              <View style={S.field}><Text style={S.fieldLabel}>Mobile Number</Text>
-                <TextInput style={S.input} placeholder="10-digit mobile" value={form.phone_number}
-                  onChangeText={v => set('phone_number', v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" maxLength={10} /></View>
-            </View>
-            <View style={S.row}>
-              <View style={S.field}><Text style={S.fieldLabel}>Password *</Text>
-                <TextInput style={S.input} placeholder="Password" secureTextEntry value={form.password} onChangeText={v => set('password', v)} /></View>
-              <View style={S.field}><Text style={S.fieldLabel}>Confirm Password *</Text>
-                <TextInput style={S.input} placeholder="Confirm Password" secureTextEntry value={form.confirmPassword} onChangeText={v => set('confirmPassword', v)} /></View>
-            </View>
-            <Text style={S.fieldLabel}>Email</Text>
-            <TextInput style={S.input} placeholder="Email (optional)" value={form.email}
-              onChangeText={v => set('email', v)} keyboardType="email-address" autoCapitalize="none" />
-            <TouchableOpacity style={[S.submitBtn, loading && S.submitBtnDis]} onPress={handleRegister} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.submitTxt}>Register User</Text>}
-            </TouchableOpacity>
-          </View>
-
-          {/* Scope column — only when needed */}
-          {needsScope && (
-            <>
-              <View style={S.colDivider} />
-              <View style={S.scopeCol}>
+            {/* ── Step 3: Scope ── */}
+            {step === 2 && (
+              <View>
                 <Text style={S.sectionTitle}>SCOPE</Text>
-
+                {!needsScope && (
+                  <View style={S.itNote}><Text style={S.itNoteTxt}>The chosen role needs no warehouse or location — continue to Review.</Text></View>
+                )}
                 {needsWH && (
-                  <View style={{ marginBottom: 14, zIndex: showWH ? 100 : 2 }}>
+                  <View style={{ marginBottom: 14, zIndex: showWH ? 100 : 3, maxWidth: 520 }}>
                     <Text style={S.scopeSubLabel}>Warehouse *</Text>
                     <View style={S.whWrap}>
                       <TextInput style={[S.input, { marginBottom: 0 }]} placeholder="Type code or name..."
                         value={whText} onChangeText={onWhType} autoCapitalize="characters" />
                       {showWH && (
                         <View style={S.whDrop}>
-                          <ScrollView style={{ maxHeight: 130 }} nestedScrollEnabled>
+                          <ScrollView style={{ maxHeight: 160 }} nestedScrollEnabled>
                             {filteredWH.map(w => (
                               <TouchableOpacity key={w.warehouse_code} style={S.whItem} onPress={() => pickWH(w)}>
                                 <Text style={S.whCode}>{w.warehouse_code}</Text>
@@ -289,19 +404,15 @@ export default function RegisterScreen() {
                         <Text style={S.dimLabel}>Name</Text>
                         <TextInput style={[S.input, S.inputDis, { marginBottom: 0 }]} value={form.warehouseName} editable={false} />
                       </View>
-                      <View style={{ width: 72 }}>
+                      <View style={{ width: 90 }}>
                         <Text style={S.dimLabel}>Site Code</Text>
                         <TextInput style={[S.input, S.inputDis, { marginBottom: 0 }]} value={form.siteCode} editable={false} />
                       </View>
                     </View>
                   </View>
                 )}
-
-                {/* Gate Pass — ONE shared multi-location list for both hats
-                    (same as Assign Access). Department is Creator-only; the
-                    ★ default is shown for Creators only. */}
                 {(needsGuardGPLoc || needsGP) && (
-                  <View style={{ marginBottom: 14, zIndex: 1 }}>
+                  <View style={{ marginBottom: 14, zIndex: 2, maxWidth: 520 }}>
                     <Text style={S.scopeSubLabel}>Gate Pass</Text>
                     {needsGP && (
                       <InlineDropdown label="Department *" value={form.department} options={deptOpts}
@@ -318,18 +429,63 @@ export default function RegisterScreen() {
                     />
                   </View>
                 )}
-
                 {needsCP && (
-                  <View style={{ zIndex: 1 }}>
+                  <View style={{ zIndex: 1, maxWidth: 520 }}>
                     <Text style={S.scopeSubLabel}>Co Packer</Text>
-                    <View style={S.cpNote}><Text style={S.cpNoteText}>⚠ Exclusive — no other roles</Text></View>
                     <Text style={S.fieldLabel}>Location *</Text>
                     <TextInput style={S.input} placeholder="Enter location..." value={form.copackerLocation} onChangeText={v => set('copackerLocation', v)} />
                   </View>
                 )}
-
               </View>
-            </>
+            )}
+
+            {/* ── Step 4: Review ── */}
+            {step === 3 && (
+              <View>
+                <Text style={S.sectionTitle}>REVIEW</Text>
+                {summaryRows.map(([k, v]) => (
+                  <View key={k} style={S.reviewRow}>
+                    <Text style={S.reviewKey}>{k}</Text>
+                    <Text style={S.reviewVal}>{v}</Text>
+                  </View>
+                ))}
+                <View style={S.previewBox}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#12202A', marginBottom: 6 }}>What this user will see</Text>
+                  {preview.yes.map(l => <Text key={l} style={{ fontSize: 12.5, color: '#2B3A42', lineHeight: 20 }}>✓ {l}</Text>)}
+                  {preview.no.map(l => <Text key={l} style={{ fontSize: 12.5, color: '#8B99A3', lineHeight: 20 }}>✕ {l}</Text>)}
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Summary (steps 1–3) */}
+          {step < 3 && (
+            <View style={S.summaryCard}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#12202A', marginBottom: 8 }}>Summary</Text>
+              {summaryRows.map(([k, v]) => (
+                <Text key={k} style={{ fontSize: 12.5, color: '#5B6B75', lineHeight: 20 }} numberOfLines={2}>
+                  <Text style={{ fontWeight: '600', color: '#2B3A42' }}>{k}: </Text>{v}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Footer */}
+        <View style={S.wizFooter}>
+          {step > 0 ? (
+            <TouchableOpacity style={S.outlineBtn} onPress={() => setStep(st => st - 1)} disabled={loading}>
+              <Text style={S.outlineBtnTxt}>‹ Back</Text>
+            </TouchableOpacity>
+          ) : <View />}
+          {step < 3 ? (
+            <TouchableOpacity style={S.primaryBtn} onPress={goNext}>
+              <Text style={S.submitTxt}>Next: {STEPS[step + 1]} ›</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[S.primaryBtn, loading && S.submitBtnDis]} onPress={handleRegister} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={S.submitTxt}>Register User</Text>}
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -339,6 +495,32 @@ export default function RegisterScreen() {
 
 // ── Styles ─────────────────────────────────────────────────────────────────
 const S = {
+  // Wizard (25 Nov 2026)
+  wizPage:      { flex: 1, padding: 16, backgroundColor: '#EEF5F2', alignItems: 'center' },
+  wizCard:      { width: '100%', maxWidth: 1040, backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E0E9E5' },
+  stepper:      { flexDirection: 'row', paddingHorizontal: 22, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#E0E9E5', gap: 8 },
+  stepItem:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stepDot:      { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E6F1EC', alignItems: 'center', justifyContent: 'center' },
+  stepDotDone:  { backgroundColor: '#2FB164' },
+  stepDotCur:   { backgroundColor: '#0F6B46' },
+  stepDotTxt:   { fontSize: 13, fontWeight: '700', color: '#5B6B75' },
+  stepLabel:    { fontSize: 14, fontWeight: '700', color: '#8B99A3' },
+  wizBody:      { flexDirection: 'row', gap: 20, padding: 22, alignItems: 'flex-start', zIndex: 5, minHeight: 380 },
+  wizFooter:    { zIndex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 22, paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#E0E9E5' },
+  summaryCard:  { width: 290, backgroundColor: '#FAFCFB', borderRadius: 12, borderWidth: 1, borderColor: '#E0E9E5', padding: 14 },
+  roleCard:     { width: '48.5%', minHeight: 64, borderRadius: 10, borderWidth: 1.5, borderColor: '#E0E9E5', backgroundColor: '#fff', paddingVertical: 9, paddingHorizontal: 11 },
+  roleCardOn:   { borderColor: '#0F6B46', backgroundColor: '#EAF5F0' },
+  roleCardOff:  { backgroundColor: '#F7F8F8', opacity: 0.6 },
+  roleCardTitle:{ fontSize: 13.5, fontWeight: '700', color: '#12202A' },
+  roleCardSub:  { fontSize: 11.5, color: '#5B6B75', marginTop: 2 },
+  inlineMsg:    { fontSize: 12, fontWeight: '600', marginTop: -8, marginBottom: 10 },
+  outlineBtn:   { borderWidth: 1.5, borderColor: '#0F6B46', borderRadius: 8, paddingVertical: 9, paddingHorizontal: 14, backgroundColor: '#fff' },
+  outlineBtnTxt:{ color: '#0F6B46', fontWeight: '700', fontSize: 13 },
+  primaryBtn:   { backgroundColor: '#0F6B46', borderRadius: 8, paddingVertical: 11, paddingHorizontal: 22, minWidth: 170, alignItems: 'center' },
+  reviewRow:    { flexDirection: 'row', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: '#F0F4F2' },
+  reviewKey:    { width: 170, fontSize: 13, color: '#5B6B75' },
+  reviewVal:    { flex: 1, fontSize: 13, fontWeight: '600', color: '#12202A' },
+  previewBox:   { marginTop: 14, borderWidth: 1, borderColor: '#E0E9E5', borderRadius: 10, padding: 12, backgroundColor: '#FAFCFB' },
   page:         { flex: 1, flexDirection: 'row', padding: 16, gap: 12, backgroundColor: '#f4f6f8' },
   card1:        { width: 280, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 16, flexShrink: 0 },
   card2:        { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 20 },
