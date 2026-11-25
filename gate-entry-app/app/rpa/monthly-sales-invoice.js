@@ -26,7 +26,7 @@ export default function MonthlySalesInvoiceScreen() {
 
         <View style={{
           backgroundColor: green.tint2, borderRadius: 12, padding: 20, alignItems: 'center',
-          borderWidth: 1, borderColor: '#BCE5CC', gap: 8,
+          borderWidth: 1, borderColor: '#C5E0D6', gap: 8,
         }}>
           <MaterialIcons name="construction" size={36} color={green.dark} />
           <Text style={{ fontSize: 16, fontWeight: 'bold', color: green.deep }}>

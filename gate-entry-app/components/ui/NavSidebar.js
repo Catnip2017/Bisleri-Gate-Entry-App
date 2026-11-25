@@ -34,6 +34,11 @@ import {
 // height target below — keep these in sync if row padding ever changes.
 const ACCORDION_ROW_HEIGHT = 48;
 const PANEL_WIDTH = 290;
+// Decorative wave (two soft teal layers) shown above the pinned Logout block.
+const WAVE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 26" preserveAspectRatio="none">'
+  + '<path d="M0 14 C 20 4, 40 4, 60 14 S 100 24, 120 14 S 150 6, 160 12 L160 26 L0 26 Z" fill="#C5E0D6"/>'
+  + '<path d="M0 18 C 25 10, 45 12, 70 19 S 115 26, 135 18 S 155 14, 160 17 L160 26 L0 26 Z" fill="#EAF5F1"/>'
+  + '</svg>';
 const SLIDE_MS = 240;
 
 // One accordion section: header row (icon + label + chevron that rotates
@@ -328,8 +333,20 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
           </TouchableOpacity>
         </View>
 
-        {/* 4. Pinned logout */}
-        <View style={{ padding: 16, borderTopWidth: 1, borderTopColor: colors.border }}>
+        {/* 4. Pinned logout — with a soft water-wave strip on top (web, 25 Nov 2026) */}
+        {Platform.OS === 'web' ? (
+          <View
+            pointerEvents="none"
+            style={{
+              height: 26,
+              backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(WAVE_SVG)}")`,
+              backgroundRepeat: 'repeat-x',
+              backgroundSize: '160px 26px',
+              backgroundPosition: 'bottom left',
+            }}
+          />
+        ) : null}
+        <View style={{ padding: 16, backgroundColor: '#EAF5F1', borderTopWidth: Platform.OS === 'web' ? 0 : 1, borderTopColor: colors.border }}>
           <TouchableOpacity
             onPress={handleLogout}
             style={{

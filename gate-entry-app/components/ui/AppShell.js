@@ -10,14 +10,15 @@
 //     ...screen content...
 //   </AppShell>
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, Platform, useWindowDimensions } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import { storage } from '../../utils/storage';
-import AppHeader from './AppHeader';
+import AppHeader, { WIDE_BREAKPOINT } from './AppHeader';
 import NavSidebar from './NavSidebar';
 import AccountDetailsPopover from './AccountDetailsPopover';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme, brand } from '../../contexts/ThemeContext';
 
 const AppShell = ({ children, title, backLabel, onBack }) => {
   const router = useRouter();
@@ -41,6 +42,8 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
   const [accountPopoverVisible, setAccountPopoverVisible] = useState(false);
   const [userData, setUserData] = useState(null);
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = width >= WIDE_BREAKPOINT;
 
   useEffect(() => {
     // ── AUTH GUARD ──────────────────────────────────────────────────────────
@@ -81,28 +84,46 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
   // Avatar chip on the right — tapping it opens the small Account Details
   // popup (30 Oct 2026; was the full hamburger menu before). ☰ opens the
   // hamburger menu.
-  const avatarChip = (
+  // 25 Nov 2026 UI overhaul: wide screens get a white "account pill"
+  // (avatar + first name + chevron) like the wireframe; phones keep a
+  // compact avatar circle. Same tap target and behaviour as before.
+  const avatarChip = wide ? (
     <TouchableOpacity
       onPress={() => setAccountPopoverVisible(true)}
       style={{
-        flexDirection: 'row', alignItems: 'center', gap: 6,
-        minHeight: 48, paddingHorizontal: 4, justifyContent: 'flex-end',
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        minHeight: 46, paddingLeft: 6, paddingRight: 14, borderRadius: 23,
+        backgroundColor: '#FFFFFF',
+        ...(Platform.OS === 'web' ? { boxShadow: '0px 2px 8px rgba(0,0,0,0.12)', cursor: 'pointer' } : {}),
       }}
       accessibilityRole="button"
       accessibilityLabel="Open user menu"
     >
+      <View style={{
+        width: 34, height: 34, borderRadius: 17, backgroundColor: brand.navy,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{ fontSize: 13, fontWeight: 'bold', color: '#FFFFFF' }}>{initials}</Text>
+      </View>
       {firstName ? (
-        <Text style={{ fontSize: 13, color: '#FFFFFF', maxWidth: 90 }} numberOfLines={1}>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: '#12202A', maxWidth: 140 }} numberOfLines={1}>
           {firstName}
         </Text>
       ) : null}
+      <MaterialIcons name="expand-more" size={20} color="#5B6B75" />
+    </TouchableOpacity>
+  ) : (
+    <TouchableOpacity
+      onPress={() => setAccountPopoverVisible(true)}
+      style={{ minHeight: 48, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}
+      accessibilityRole="button"
+      accessibilityLabel="Open user menu"
+    >
       <View style={{
-        width: 32, height: 32, borderRadius: 16, backgroundColor: '#D5EEDF',
+        width: 34, height: 34, borderRadius: 17, backgroundColor: '#FFFFFF',
         alignItems: 'center', justifyContent: 'center',
       }}>
-        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28' }}>
-          {initials}
-        </Text>
+        <Text style={{ fontSize: 13, fontWeight: 'bold', color: brand.navy }}>{initials}</Text>
       </View>
     </TouchableOpacity>
   );

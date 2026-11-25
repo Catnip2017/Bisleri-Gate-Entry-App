@@ -212,8 +212,8 @@ export default function RegisterScreen() {
               style={[S.roleBtn, active && S.roleBtnActive, disabled && S.roleBtnDisabled]}
               onPress={() => toggleRole(role)} activeOpacity={disabled ? 1 : 0.7}>
               <View style={[S.checkbox, {
-                borderColor: disabled ? '#ccc' : active ? '#1976d2' : '#999',
-                backgroundColor: active ? '#1976d2' : 'transparent',
+                borderColor: disabled ? '#ccc' : active ? '#0F6B46' : '#999',
+                backgroundColor: active ? '#0F6B46' : 'transparent',
               }]}>
                 {active && <Text style={S.tick}>✓</Text>}
               </View>
@@ -350,16 +350,16 @@ const S = {
   authBadgeText:{ fontSize: 12, color: '#6a1b9a', fontWeight: '700' },
   authBadgeNote:{ fontSize: 11, color: '#9c27b0', marginTop: 2 },
   sectionTitle: { fontSize: 10, fontWeight: '700', color: '#aaa', letterSpacing: 1, marginBottom: 10 },
-  scopeSubLabel:{ fontSize: 11, fontWeight: '700', color: '#1976d2', letterSpacing: 0.4, marginBottom: 8 },
+  scopeSubLabel:{ fontSize: 11, fontWeight: '700', color: '#0F6B46', letterSpacing: 0.4, marginBottom: 8 },
   hint:         { fontSize: 10, color: '#ccc', marginTop: 8, lineHeight: 15 },
   // Roles
   roleBtn:      { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 9, borderRadius: 7, borderWidth: 1.5, borderColor: '#e0e0e0', backgroundColor: '#fafafa', marginBottom: 5 },
-  roleBtnActive:{ borderColor: '#1976d2', backgroundColor: '#e8f1fb' },
+  roleBtnActive:{ borderColor: '#0F6B46', backgroundColor: '#E6F1EC' },
   roleBtnDisabled: { opacity: 0.4 },
   checkbox:     { width: 14, height: 14, borderRadius: 3, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginRight: 7, flexShrink: 0 },
   tick:         { color: '#fff', fontSize: 8, fontWeight: '900', lineHeight: 10 },
   roleTxt:      { fontSize: 12, fontWeight: '500', color: '#555', flex: 1 },
-  roleTxtActive:{ color: '#1565c0', fontWeight: '600' },
+  roleTxtActive:{ color: '#0B5236', fontWeight: '600' },
   roleTxtDisabled: { color: '#bbb' },
   // Form
   row:          { flexDirection: 'row', gap: 10 },
@@ -368,24 +368,24 @@ const S = {
   dimLabel:     { fontSize: 10, color: '#999', marginBottom: 3 },
   input:        { backgroundColor: '#f8f9fa', paddingVertical: 9, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 12, fontSize: 13, color: '#333' },
   inputDis:     { backgroundColor: '#efefef', color: '#999' },
-  submitBtn:    { backgroundColor: '#1976d2', paddingVertical: 12, borderRadius: 8, marginTop: 8, alignItems: 'center' },
+  submitBtn:    { backgroundColor: '#0F6B46', paddingVertical: 12, borderRadius: 8, marginTop: 8, alignItems: 'center' },
   submitBtnDis: { backgroundColor: '#b0bec5' },
   submitTxt:    { color: '#fff', fontWeight: '700', fontSize: 14 },
   // Scope
   whWrap:       { position: 'relative', zIndex: 999 },
   whDrop:       { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderTopWidth: 0, borderBottomLeftRadius: 6, borderBottomRightRadius: 6, zIndex: 999, elevation: 5 },
   whItem:       { padding: 9, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  whCode:       { fontSize: 12, fontWeight: '700', color: '#1976d2' },
+  whCode:       { fontSize: 12, fontWeight: '700', color: '#0F6B46' },
   whName:       { fontSize: 11, color: '#777' },
   ddTrigger:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8f9fa', paddingVertical: 9, paddingHorizontal: 11, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 12 },
   ddTriggerText:{ fontSize: 12, color: '#333', flex: 1 },
   ddMenu:       { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderTopWidth: 0, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, zIndex: 9999, elevation: 6 },
   ddItem:       { paddingVertical: 9, paddingHorizontal: 11, borderBottomWidth: 1, borderBottomColor: '#f3f3f3' },
-  ddItemActive: { backgroundColor: '#e8f1fb' },
+  ddItemActive: { backgroundColor: '#E6F1EC' },
   ddItemText:   { fontSize: 12, color: '#444' },
-  ddItemTextActive: { color: '#1565c0', fontWeight: '600' },
+  ddItemTextActive: { color: '#0B5236', fontWeight: '600' },
   cpNote:       { backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 6, padding: 7, marginBottom: 8 },
   cpNoteText:   { fontSize: 11, color: '#b45309' },
-  itNote:       { backgroundColor: '#e3f2fd', borderRadius: 7, padding: 10 },
-  itNoteTxt:    { fontSize: 11, color: '#1565c0', lineHeight: 17 },
+  itNote:       { backgroundColor: '#E6F1EC', borderRadius: 7, padding: 10 },
+  itNoteTxt:    { fontSize: 11, color: '#0B5236', lineHeight: 17 },
 };

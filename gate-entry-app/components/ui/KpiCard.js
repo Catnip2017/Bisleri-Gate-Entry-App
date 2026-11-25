@@ -63,7 +63,7 @@ const KpiCard = ({
           <Text
             style={[
               styles.caption,
-              { color: captionColor || (emphasized ? AMBER.caption : brand.teal) },
+              { color: captionColor || (emphasized ? AMBER.caption : 'rgba(255,255,255,0.72)') },
             ]}
           >
             {caption}
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontSize: 12,
-    color: '#B9CBDA',                  // light steel tint on navy surface
+    color: '#D7F0E9',                  // light mint tint on the teal surface (25 Nov 2026)
   },
   valueRow: {
     flexDirection: 'row',

@@ -56,7 +56,7 @@ const DataTable = ({
   if (!data || data.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons name="inbox" size={32} color={colors.textMuted} />
+        <MaterialIcons name="water-drop" size={34} color="#9CCBB8" />
         <Text style={styles.emptyText}>{emptyText}</Text>
       </View>
     );

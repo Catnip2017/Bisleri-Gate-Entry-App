@@ -57,14 +57,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f7ff',
     borderRadius: 10,
     borderWidth: 0.5,
-    borderColor: '#90caf9',
+    borderColor: '#9CCBB8',
     padding: 14,
     marginTop: 8,
   },
   userInfoName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1565c0',
+    color: '#0B5236',
     marginBottom: 4,
   },
   userInfoRow: {
@@ -86,14 +86,14 @@ const styles = StyleSheet.create({
   rolePill: {
     marginTop: 8,
     alignSelf: 'flex-start',
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#E6F1EC',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   rolePillText: {
     fontSize: 12,
-    color: '#1976d2',
+    color: '#0F6B46',
     fontWeight: '600',
   },
   // Password fields

@@ -22,7 +22,7 @@ export default StyleSheet.create({
   panelTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1a365d',
+    color: '#00604F',
     marginBottom: 12,
   },
   searchWrapper: {
@@ -59,14 +59,14 @@ export default StyleSheet.create({
     gap: 8,
   },
   userRowSelected: {
-    borderColor: '#1976d2',
-    backgroundColor: '#e3f2fd',
+    borderColor: '#0F6B46',
+    backgroundColor: '#E6F1EC',
   },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#1976d2',
+    backgroundColor: '#0F6B46',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -91,7 +91,7 @@ export default StyleSheet.create({
   userRowName: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#1a365d',
+    color: '#00604F',
   },
   userRowSub: {
     fontSize: 10,
@@ -146,7 +146,7 @@ export default StyleSheet.create({
   scopeSubLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#1976d2',
+    color: '#0F6B46',
     letterSpacing: 0.4,
     marginBottom: 8,
   },
@@ -185,9 +185,9 @@ export default StyleSheet.create({
     zIndex: 9999, elevation: 6,
   },
   ddItem: { paddingVertical: 8, paddingHorizontal: 10, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
-  ddItemActive: { backgroundColor: '#e8f1fb' },
+  ddItemActive: { backgroundColor: '#E6F1EC' },
   ddItemText: { fontSize: 12, color: '#444' },
-  ddItemTextActive: { color: '#1565c0', fontWeight: '600' },
+  ddItemTextActive: { color: '#0B5236', fontWeight: '600' },
 
   // ── User header ───────────────────────────────────────────────────────────
   userHeader: {
@@ -205,7 +205,7 @@ export default StyleSheet.create({
   userHeaderName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1a365d',
+    color: '#00604F',
   },
   userHeaderSub: {
     fontSize: 12,
@@ -214,7 +214,7 @@ export default StyleSheet.create({
   },
   authBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#E6F1EC',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -222,7 +222,7 @@ export default StyleSheet.create({
   },
   authBadgeText: {
     fontSize: 10,
-    color: '#1565c0',
+    color: '#0B5236',
     fontWeight: '500',
   },
   authBadgeLocal: {
@@ -273,7 +273,7 @@ export default StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 9,
     fontSize: 12,
-    color: '#1a365d',
+    color: '#00604F',
     marginBottom: 12,
     backgroundColor: '#fafafa',
   },
@@ -303,8 +303,8 @@ export default StyleSheet.create({
     backgroundColor: '#fafafa',
   },
   pillSelected: {
-    borderColor: '#1976d2',
-    backgroundColor: '#e3f2fd',
+    borderColor: '#0F6B46',
+    backgroundColor: '#E6F1EC',
   },
   pillDisabled: {
     borderColor: '#eee',
@@ -316,7 +316,7 @@ export default StyleSheet.create({
     color: '#888',
   },
   pillTextSelected: {
-    color: '#1976d2',
+    color: '#0F6B46',
     fontWeight: '500',
   },
   pillTextDisabled: {
@@ -355,7 +355,7 @@ export default StyleSheet.create({
   dropdownCode: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1a365d',
+    color: '#00604F',
   },
   dropdownName: {
     fontSize: 11,
@@ -364,7 +364,7 @@ export default StyleSheet.create({
 
   // ── Save button ───────────────────────────────────────────────────────────
   saveButton: {
-    backgroundColor: '#1976d2',
+    backgroundColor: '#0F6B46',
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',

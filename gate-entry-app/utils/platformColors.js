@@ -30,16 +30,16 @@ const darkenColor = (hexColor, percentage) => {
 // NOTE: PRIMARY_BLUE keeps its key name for backward compatibility across
 // ~40 style files, but its VALUE is now the Bisleri brand green.
 const BASE_COLORS = {
-  BACKGROUND_PRIMARY: '#D5EEDF',   // container tint (green tint2)
+  BACKGROUND_PRIMARY: '#E6F1EC',   // container tint (green tint2)
   BACKGROUND_SECONDARY: '#ffffff',
-  PRIMARY_BLUE: '#00A651',         // Bisleri brand green (primary)
+  PRIMARY_BLUE: '#0F6B46',         // Bisleri brand green (primary)
   SUCCESS_GREEN: '#2E7D32',
   DANGER_RED: '#C62828',
   WARNING_YELLOW: '#F59E0B',
   INFO_CYAN: '#00A8CC',            // accent aqua
   DARK_GRAY: '#5C6B62',
-  LIGHT_GRAY: '#EAF7EF',           // lightest green tint (zebra, muted panels)
-  BORDER_GRAY: '#BCE5CC',
+  LIGHT_GRAY: '#EEF5F2',           // lightest green tint (zebra, muted panels)
+  BORDER_GRAY: '#C5E0D6',
 };
 
 // Platform-specific colors

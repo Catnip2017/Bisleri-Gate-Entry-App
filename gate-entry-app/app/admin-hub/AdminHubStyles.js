@@ -9,7 +9,7 @@
 // here regresses if they're ever reused.
 import { useMemo } from 'react';
 import { StyleSheet, Platform } from 'react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme, brand } from '../../contexts/ThemeContext';
 
 export function useAdminHubStyles() {
   const { isDark, colors } = useTheme();
@@ -23,6 +23,69 @@ export function useAdminHubStyles() {
       container: {
         flex: 1,
         backgroundColor: colors.background,
+        // Very faint water-ripple glow behind the hub (web only)
+        ...Platform.select({
+          web: {
+            backgroundImage:
+              'radial-gradient(circle at 8% 85%, rgba(0,166,139,0.08) 0, rgba(0,166,139,0) 32%),' +
+              'radial-gradient(circle at 92% 70%, rgba(0,166,139,0.07) 0, rgba(0,166,139,0) 30%)',
+          },
+        }),
+      },
+
+      // ── Welcome banner (25 Nov 2026) ───────────────────────────────────────
+      banner: {
+        width: '100%',
+        maxWidth: 1100,
+        minHeight: 120,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.surface,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: colors.border,
+        paddingHorizontal: 28,
+        paddingVertical: 22,
+        marginBottom: 28,
+        overflow: 'hidden',
+        ...Platform.select({
+          web: {
+            boxShadow: '0px 6px 18px rgba(0,96,79,0.08)',
+
+          },
+        }),
+      },
+      bannerNarrow: {
+        minHeight: 0,
+        paddingHorizontal: 18,
+        paddingVertical: 16,
+        marginBottom: 20,
+      },
+      bannerTitle: {
+        fontSize: 26,
+        fontWeight: '700',
+        color: brand.navyDark,
+      },
+      bannerSub: {
+        fontSize: 15,
+        color: colors.textSecondary,
+        marginTop: 6,
+      },
+      bannerWater: {
+        position: 'absolute',
+        right: -20,
+        bottom: -6,
+        width: 460,
+        height: 100,
+        opacity: 0.6,
+      },
+      bannerFade: {
+        position: 'absolute',
+        right: 280,
+        top: 0,
+        bottom: 0,
+        width: 160,
+        ...Platform.select({ web: { backgroundImage: 'linear-gradient(90deg, #FFFFFF 0%, rgba(255,255,255,0) 100%)' } }),
       },
 
       // ── Header (legacy — AppShell now renders the real header) ──────────────
@@ -69,14 +132,18 @@ export function useAdminHubStyles() {
         flex: 1,
         paddingHorizontal: 24,
         paddingTop: 28,
+        paddingBottom: 32,
         alignItems: 'center',
       },
       heading: {
-        fontSize: 22,
+        width: '100%',
+        maxWidth: 1100,
+        fontSize: 13,
         fontWeight: '700',
-        color: colors.textPrimary,
-        marginBottom: 28,
-        textAlign: 'center',
+        letterSpacing: 1.2,
+        textTransform: 'uppercase',
+        color: colors.textSecondary,
+        marginBottom: 14,
       },
 
       // ── Top-right actions (User Management + Logout) ───────────────────────
@@ -118,21 +185,23 @@ export function useAdminHubStyles() {
       grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'center',
-        gap: 16,
+        justifyContent: 'flex-start',
+        gap: 18,
         width: '100%',
         maxWidth: 1100,
       },
       tile: {
         backgroundColor: colors.surface,
-        borderRadius: 14,
-        width: 185,
-        minHeight: 170,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 14,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        width: 200,
+        minHeight: 188,
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+        padding: 18,
         ...Platform.select({
-          web: { boxShadow: '0px 4px 8px rgba(0,0,0,0.12)', cursor: 'pointer' },
+          web: { boxShadow: '0px 4px 14px rgba(0,96,79,0.08)', cursor: 'pointer', transition: 'transform .15s ease, box-shadow .15s ease' },
           android: { elevation: 5 },
           ios: {
             shadowColor: '#000',
@@ -141,6 +210,11 @@ export function useAdminHubStyles() {
             shadowRadius: 6,
           },
         }),
+      },
+      tileHovered: {
+        transform: [{ translateY: -3 }],
+        borderColor: '#BFDCD2',
+        ...Platform.select({ web: { boxShadow: '0px 10px 24px rgba(0,96,79,0.14)' } }),
       },
       tileDisabled: {
         opacity: 0.45,
@@ -158,25 +232,34 @@ export function useAdminHubStyles() {
       },
 
       iconCircle: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        width: 52,
+        height: 52,
+        borderRadius: 14,
         backgroundColor: colors.surfaceMuted,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 10,
+        marginBottom: 14,
       },
       tileLabel: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 16,
+        fontWeight: '700',
         color: colors.textPrimary,
-        textAlign: 'center',
       },
       tileSublabel: {
-        fontSize: 11,
-        color: colors.textMuted,
+        fontSize: 12,
+        color: colors.textSecondary,
         marginTop: 4,
-        textAlign: 'center',
+      },
+      tileFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: 'auto',
+        paddingTop: 14,
+      },
+      tileOpen: {
+        fontSize: 13,
+        fontWeight: '700',
       },
 
       // ── Logout (legacy) ─────────────────────────────────────────────────────

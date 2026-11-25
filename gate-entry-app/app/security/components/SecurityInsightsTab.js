@@ -785,7 +785,7 @@ const SecurityInsightsTab = () => {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#00A651" />
+                  <ActivityIndicator size="large" color="#0F6B46" />
                   <Text style={styles.loadingText}>Loading movements...</Text>
                 </View>
               ) : currentMovements.length === 0 ? (
@@ -983,7 +983,7 @@ const SecurityInsightsTab = () => {
             
             {loadingDocuments ? (
               <View style={styles.assignmentLoadingContainer}>
-                <ActivityIndicator size="large" color="#00A651" />
+                <ActivityIndicator size="large" color="#0F6B46" />
                 <Text>Loading available documents...</Text>
               </View>
             ) : availableDocuments.length === 0 ? (

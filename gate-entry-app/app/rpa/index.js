@@ -28,8 +28,8 @@ const DOMAINS = [
     key: 'finance',
     label: 'Finance',
     icon: 'account-balance',
-    accentColor: '#00A651',
-    iconBg: '#D5EEDF',
+    accentColor: '#0F6B46',
+    iconBg: '#E6F1EC',
     route: '/rpa/finance',
     processCount: 2,
   },
@@ -108,14 +108,14 @@ export default function RpaScreen() {
               {domain.route ? (
                 <View
                   style={{
-                    backgroundColor: '#D5EEDF',
+                    backgroundColor: '#E6F1EC',
                     borderRadius: 12,
                     paddingHorizontal: 10,
                     paddingVertical: 3,
                     marginTop: 6,
                   }}
                 >
-                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#064D28' }}>
+                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#00382D' }}>
                     {domain.processCount} LIVE PROCESS{domain.processCount === 1 ? '' : 'ES'}
                   </Text>
                 </View>

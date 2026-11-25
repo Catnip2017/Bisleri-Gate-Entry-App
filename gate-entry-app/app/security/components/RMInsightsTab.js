@@ -604,7 +604,7 @@ const stats = React.useMemo(() => {
             >
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#00A651" />
+                  <ActivityIndicator size="large" color="#0F6B46" />
                   <Text style={styles.loadingText}>Loading RM entries...</Text>
                 </View>
               ) : currentRMEntries.length === 0 ? (

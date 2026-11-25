@@ -50,7 +50,7 @@ const AccountDetailsPopover = ({ isVisible, onClose, userData }) => {
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {roles.map((role) => (
                 <View key={role} style={{
-                  backgroundColor: '#00843D', borderRadius: 10,
+                  backgroundColor: '#0F6B46', borderRadius: 10,
                   paddingHorizontal: 8, paddingVertical: 2,
                 }}>
                   <Text style={{ fontSize: 10, fontWeight: 'bold', color: '#fff', letterSpacing: 0.2 }}>

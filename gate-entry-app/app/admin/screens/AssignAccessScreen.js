@@ -551,7 +551,7 @@ const AssignAccessScreen = () => {
             autoCapitalize="none"
           />
           {searching && (
-            <ActivityIndicator style={styles.searchSpinner} size="small" color="#1976d2" />
+            <ActivityIndicator style={styles.searchSpinner} size="small" color="#0F6B46" />
           )}
         </View>
 
@@ -632,17 +632,17 @@ const AssignAccessScreen = () => {
                     {/* Account-type and status badges share one size/font so they
                         read as a matched pair; only the colours differ. */}
                     <View style={[BADGE, selectedUser.auth_type === 'ad'
-                      ? { backgroundColor: '#e3f2fd', borderColor: '#bbdefb' }
+                      ? { backgroundColor: '#E6F1EC', borderColor: '#C5E0D6' }
                       : { backgroundColor: '#f3e5f5', borderColor: '#dcb8e6' }]}>
-                      <Text style={[BADGE_TEXT, { color: selectedUser.auth_type === 'ad' ? '#1565c0' : '#6a1b9a' }]}>
+                      <Text style={[BADGE_TEXT, { color: selectedUser.auth_type === 'ad' ? '#0B5236' : '#6a1b9a' }]}>
                         {selectedUser.auth_type === 'ad' ? 'AD Account' : 'Local Account'}
                       </Text>
                     </View>
                     <View style={[BADGE, {
-                      borderColor: isActive ? '#00843D' : '#c0392b',
+                      borderColor: isActive ? '#0F6B46' : '#c0392b',
                       backgroundColor: isActive ? '#e6f4ec' : '#fdecea',
                     }]}>
-                      <Text style={[BADGE_TEXT, { color: isActive ? '#00843D' : '#c0392b' }]}>
+                      <Text style={[BADGE_TEXT, { color: isActive ? '#0F6B46' : '#c0392b' }]}>
                         {isActive ? '● Active' : '○ Deactivated'}
                       </Text>
                     </View>
@@ -683,8 +683,8 @@ const AssignAccessScreen = () => {
                       borderRadius: 6, borderWidth: 1,
                       paddingVertical: 5, paddingHorizontal: 12,
                       minWidth: 92, alignItems: 'center', opacity: statusSaving ? 0.6 : 1,
-                      borderColor: isActive ? '#c62828' : '#00843D',
-                      backgroundColor: isActive ? '#fff' : '#00843D',
+                      borderColor: isActive ? '#c62828' : '#0F6B46',
+                      backgroundColor: isActive ? '#fff' : '#0F6B46',
                     }}>
                     {statusSaving
                       ? <ActivityIndicator size="small" color={isActive ? '#c62828' : '#fff'} />

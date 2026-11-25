@@ -1,33 +1,54 @@
 // components/ui/AppHeader.js - The ONE merged header, for all pages/roles.
 //
-// Aug 2026 redesign: a single navy brand band, one line. The back-chip (when
-// present) sits on the left of the SAME row as the logo — not on a row
-// underneath. The logo is centered via absolute positioning so it stays put
-// regardless of how wide the left/right clusters are.
-//   [ back-chip ]              [ Bisleri logo ]              [ toggle ][ avatar ]
-// The band colour is the brand navy in BOTH light and dark mode; the toggle
-// only changes the page body around it (see contexts/ThemeContext.js).
+// 25 Nov 2026 UI overhaul (Bisleri look, from the Inventory portal wireframe):
+//   Wide screens (web >= 900px) — a thicker 76px teal-gradient band:
+//     [ ☰ ][ Bisleri logo / OPS HUB ] | [ ← back-chip ][ Page title ]   ~water~ [ account pill ]
+//   Narrow screens / phones — the slim 58px band, logo + menu + avatar only
+//   (title, water image and the OPS HUB caption are hidden to save space).
+// Props are unchanged (rightSlot, backLabel, title, onBack, onMenuPress), so
+// every screen using AppShell picks this up without any change of its own.
 import React from 'react';
-import { View, Image, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Image, Text, TouchableOpacity, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme, brand } from '../../contexts/ThemeContext';
 
+export const WIDE_BREAKPOINT = 900;
+
 const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const wide = width >= WIDE_BREAKPOINT;
 
   return (
     <View style={[
       styles.header,
+      wide ? styles.headerWide : styles.headerNarrow,
       { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBgEnd },
       // Teal gradient band (wireframe). Web only; native falls back to solid teal.
       Platform.OS === 'web' ? { backgroundImage: brand.headerGradient } : null,
     ]}>
+      {/* Decorative water splash on the right of the band (wide web only) */}
+      {wide ? (
+        <Image
+          source={require('../../assets/images/header-water.png')}
+          style={styles.water}
+          resizeMode="cover"
+          pointerEvents="none"
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        />
+      ) : null}
+      {/* Soft fades so the splash melts into the band instead of ending in a hard edge */}
+      {wide && Platform.OS === 'web' ? (
+        <>
+          <View pointerEvents="none" style={[styles.fade, { right: 450, backgroundImage: 'linear-gradient(90deg, rgba(0,183,156,1) 0%, rgba(0,183,156,0) 100%)' }]} />
+          <View pointerEvents="none" style={[styles.fade, { right: 150, backgroundImage: 'linear-gradient(90deg, rgba(0,193,165,0) 0%, rgba(0,196,167,1) 100%)' }]} />
+        </>
+      ) : null}
+
       <View style={styles.row}>
-        {/* Left cluster — hamburger (opens the global Applications /
-            User Management / Documents menu — 30 Oct 2026), then the
-            back-chip (+ optional title underline), or an empty spacer so
-            the centered logo stays centered either way. */}
-        <View style={styles.sideCluster}>
+        {/* Left cluster — menu, logo, then back-chip + page title */}
+        <View style={styles.leftCluster}>
           {onMenuPress ? (
             <TouchableOpacity
               style={styles.iconButton}
@@ -35,9 +56,21 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
               accessibilityRole="button"
               accessibilityLabel="Open menu"
             >
-              <MaterialIcons name="menu" size={24} color={colors.headerText} />
+              <MaterialIcons name="menu" size={26} color={colors.headerText} />
             </TouchableOpacity>
           ) : null}
+
+          <View style={styles.brandBlock} accessibilityRole="header" accessibilityLabel="Bisleri Ops Hub">
+            <Image
+              source={require('../../assets/images/bisleri-logo-white.png')}
+              style={wide ? styles.logoWide : styles.logoNarrow}
+              resizeMode="contain"
+            />
+            {wide ? <Text style={styles.brandSub}>OPS HUB</Text> : null}
+          </View>
+
+          {wide && (backLabel || title) ? <View style={styles.divider} /> : null}
+
           {backLabel ? (
             <TouchableOpacity
               style={styles.backChip}
@@ -45,25 +78,18 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
               accessibilityRole="button"
               accessibilityLabel={`Back to ${backLabel}`}
             >
-              <Text style={styles.backChipText} numberOfLines={1}>← {backLabel}</Text>
-              {title ? <Text style={styles.backChipTitle} numberOfLines={1}>{title}</Text> : null}
+              <MaterialIcons name="arrow-back" size={16} color="#FFFFFF" />
+              <Text style={styles.backChipText} numberOfLines={1}>{backLabel}</Text>
             </TouchableOpacity>
-          ) : title ? (
-            <Text style={styles.titleOnly} numberOfLines={1}>{title}</Text>
+          ) : null}
+
+          {title ? (
+            <Text style={wide ? styles.titleWide : styles.titleNarrow} numberOfLines={1}>{title}</Text>
           ) : null}
         </View>
 
-        {/* Logo — absolutely centered on the row, independent of cluster widths */}
-        <View style={styles.logoWrap} pointerEvents="none">
-          <Image
-            source={require('../../assets/images/bisleri-logo-white.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Right cluster — avatar (dark-mode toggle removed 25 Nov 2026) */}
-        <View style={[styles.sideCluster, styles.rightCluster]}>
+        {/* Right cluster — account pill / avatar (dark-mode toggle removed 25 Nov 2026) */}
+        <View style={styles.rightCluster}>
           {rightSlot || <View style={styles.iconButton} />}
         </View>
       </View>
@@ -74,28 +100,50 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
 const styles = StyleSheet.create({
   header: {
     borderBottomWidth: 1,
+    overflow: 'hidden',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
+    zIndex: 5,
+  },
+  headerWide: { minHeight: 76 },
+  headerNarrow: { minHeight: 58 },
+  water: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 150,
+    width: 420,
+    opacity: 0.85,
+  },
+  fade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 120,
   },
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minHeight: 56,
-  },
-  sideCluster: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 2,
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  leftCluster: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 0,
   },
   rightCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'flex-end',
+    marginLeft: 8,
   },
   iconButton: {
     width: 44,
@@ -103,41 +151,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoWrap: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+  brandBlock: {
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    zIndex: 1,
+    marginLeft: 2,
   },
-  logo: {
-    width: 118,
-    height: 44,
+  logoWide: {
+    width: 138,
+    height: 46,
+  },
+  logoNarrow: {
+    width: 96,
+    height: 36,
+  },
+  brandSub: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    marginTop: -2,
+    marginLeft: 4,
+    opacity: 0.92,
+  },
+  divider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+    marginHorizontal: 14,
   },
   backChip: {
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    maxWidth: 150,
+    minHeight: 34,
+    borderRadius: 17,
+    maxWidth: 170,
+    ...Platform.select({ web: { cursor: 'pointer' } }),
   },
   backChipText: {
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: 13,
   },
-  backChipTitle: {
+  titleWide: {
+    flexShrink: 1,
+    marginLeft: 8,
+    fontSize: 24,
+    fontWeight: '700',
     color: '#FFFFFF',
-    fontSize: 10,
-    opacity: 0.8,
-    marginTop: 1,
+    ...Platform.select({ web: { textShadow: '0px 1px 2px rgba(0,0,0,0.15)' } }),
   },
-  titleOnly: {
-    fontSize: 14,
-    fontWeight: 'bold',
+  titleNarrow: {
+    flexShrink: 1,
+    marginLeft: 4,
+    fontSize: 13,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });

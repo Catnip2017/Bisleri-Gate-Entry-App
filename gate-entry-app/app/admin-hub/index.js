@@ -9,6 +9,9 @@ import {
   Text,
   Pressable,
   ScrollView,
+  Image,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -95,6 +98,9 @@ export default function AdminHubScreen() {
   const copackerEnabled = useCopackerEnabled();
   const router = useRouter();
   const [user, setUser] = useState(null);
+  const { width } = useWindowDimensions();
+  const wide = width >= 900;
+  const firstName = user?.firstName || user?.fullName?.split(' ')[0] || '';
 
   useEffect(() => {
     getCurrentUser().then(setUser);
@@ -113,7 +119,28 @@ export default function AdminHubScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.body}>
-          <Text style={styles.heading}>Select an Application</Text>
+          {/* Welcome banner (25 Nov 2026 UI overhaul) */}
+          <View style={[styles.banner, !wide && styles.bannerNarrow]}>
+            <View style={{ flex: 1, zIndex: 1 }}>
+              <Text style={styles.bannerTitle}>
+                {firstName ? `Welcome, ${firstName}!` : 'Welcome!'}
+              </Text>
+              <Text style={styles.bannerSub}>
+                Choose an application below to get started.
+              </Text>
+            </View>
+            {wide ? (
+              <Image
+                source={require('../../assets/images/header-water.png')}
+                style={styles.bannerWater}
+                resizeMode="cover"
+                pointerEvents="none"
+              />
+            ) : null}
+            {wide ? <View style={styles.bannerFade} pointerEvents="none" /> : null}
+          </View>
+
+          <Text style={styles.heading}>Applications</Text>
 
           {/* Tile grid */}
           <View style={styles.grid}>
@@ -122,9 +149,12 @@ export default function AdminHubScreen() {
                 key={tile.key}
                 onPress={() => handleTilePress(tile)}
                 disabled={tile.disabled}
-                style={({ pressed }) => [
+                accessibilityRole="button"
+                accessibilityLabel={`${tile.label}: ${tile.sublabel}`}
+                style={({ pressed, hovered }) => [
                   styles.tile,
-                  { borderTopWidth: 4, borderTopColor: tile.accentColor },
+                  !wide && { width: '46%', minHeight: 160, padding: 14 },
+                  hovered && !tile.disabled && styles.tileHovered,
                   tile.disabled && styles.tileDisabled,
                   pressed && !tile.disabled && styles.tilePressed,
                 ]}
@@ -138,6 +168,10 @@ export default function AdminHubScreen() {
                 </View>
                 <Text style={styles.tileLabel}>{tile.label}</Text>
                 <Text style={styles.tileSublabel}>{tile.sublabel}</Text>
+                <View style={styles.tileFooter}>
+                  <Text style={[styles.tileOpen, { color: tile.accentColor }]}>Open</Text>
+                  <MaterialIcons name="arrow-forward" size={16} color={tile.accentColor} />
+                </View>
               </Pressable>
             ))}
           </View>

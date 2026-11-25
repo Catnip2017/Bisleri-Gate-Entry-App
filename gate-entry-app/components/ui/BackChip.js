@@ -1,6 +1,6 @@
 // components/ui/BackChip.js - Standard back-navigation chip.
 // EXACT match of the Admin Insights reference chip: light-blue background
-// (#e3f2fd), blue 600-weight text (#1976d2), radius 6. Used on every screen
+// (#E6F1EC), blue 600-weight text (#0F6B46), radius 6. Used on every screen
 // so the back button is literally identical app-wide.
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
@@ -18,7 +18,7 @@ const BackChip = ({ label, onPress }) => (
 
 const styles = StyleSheet.create({
   chip: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#E6F1EC',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 6,
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   text: {
-    color: '#1976d2',
+    color: '#0F6B46',
     fontWeight: '600',
     fontSize: 14,
   },

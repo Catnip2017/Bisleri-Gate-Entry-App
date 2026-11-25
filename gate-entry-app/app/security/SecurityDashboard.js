@@ -83,7 +83,7 @@ const SecurityDashboard = () => {
     >
       {activeTab === null ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator size="large" color="#00A651" />
+          <ActivityIndicator size="large" color="#0F6B46" />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.container}>

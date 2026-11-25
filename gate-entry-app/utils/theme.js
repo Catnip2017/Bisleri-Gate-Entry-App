@@ -19,7 +19,7 @@ export const green = {
 
 export const colors = {
   // Brand — Bisleri green palette (chosen July 2026)
-  primary: PLATFORM_COLORS.PRIMARY_BLUE,        // #00843D brand green
+  primary: PLATFORM_COLORS.PRIMARY_BLUE,        // #0F6B46 brand green
   primaryDark: green.dark,
   accent: PLATFORM_COLORS.INFO_CYAN,            // #00A8CC aqua
 
@@ -41,7 +41,7 @@ export const colors = {
   textSecondary: PLATFORM_COLORS.TEXT_SECONDARY, // #666
   textMuted: PLATFORM_COLORS.TEXT_MUTED,         // #999
   textInverse: PLATFORM_COLORS.TEXT_WHITE,       // #fff
-  heading: '#005C2B',                            // brand primary dark
+  heading: '#00604F',                            // brand primary dark
 
   // Borders
   border: PLATFORM_COLORS.BORDER_MEDIUM,         // #ced4da

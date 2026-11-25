@@ -77,7 +77,7 @@ const ResetPasswordScreen = () => {
         <View style={S.searchWrap}>
           <TextInput style={S.searchInput} placeholder="Type username, email or name..."
             value={searchQuery} onChangeText={handleSearch} autoCapitalize="none" />
-          {searching && <ActivityIndicator style={{ position: 'absolute', right: 8, top: 10 }} size="small" color="#1976d2" />}
+          {searching && <ActivityIndicator style={{ position: 'absolute', right: 8, top: 10 }} size="small" color="#0F6B46" />}
           {matchingUsers.length > 0 && (
             <View style={S.searchDrop}>
               <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
@@ -112,8 +112,8 @@ const ResetPasswordScreen = () => {
               <Text style={S.rolePillText}>{userFound.role || 'No role'}</Text>
             </View>
             {isAd && (
-              <View style={[S.rolePill, { backgroundColor: '#e3f2fd', borderColor: '#90caf9', marginTop: 4 }]}>
-                <Text style={[S.rolePillText, { color: '#1565c0' }]}>AD Account</Text>
+              <View style={[S.rolePill, { backgroundColor: '#E6F1EC', borderColor: '#9CCBB8', marginTop: 4 }]}>
+                <Text style={[S.rolePillText, { color: '#0B5236' }]}>AD Account</Text>
               </View>
             )}
           </View>
@@ -174,34 +174,34 @@ const S = {
   page:           { flex: 1, flexDirection: 'row', padding: 16, gap: 12, backgroundColor: '#f4f6f8' },
   // Card 1
   card1:          { width: 280, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 16, flexShrink: 0 },
-  panelTitle:     { fontSize: 13, fontWeight: '700', color: '#1a365d', marginBottom: 12 },
+  panelTitle:     { fontSize: 13, fontWeight: '700', color: '#00604F', marginBottom: 12 },
   searchWrap:     { position: 'relative', marginBottom: 12, zIndex: 99 },
   searchInput:    { borderWidth: 0.5, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 9, fontSize: 13, color: '#333', backgroundColor: '#fafafa' },
   searchDrop:     { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', borderWidth: 0.5, borderColor: '#ccc', borderTopWidth: 0, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, zIndex: 99, elevation: 5 },
   searchItem:     { flexDirection: 'row', alignItems: 'center', padding: 10, borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
   searchItemName: { fontSize: 13, fontWeight: '600', color: '#333' },
   searchItemSub:  { fontSize: 11, color: '#999' },
-  searchItemRole: { fontSize: 11, color: '#1976d2', fontWeight: '500', marginLeft: 6, flexShrink: 0 },
+  searchItemRole: { fontSize: 11, color: '#0F6B46', fontWeight: '500', marginLeft: 6, flexShrink: 0 },
   // User card
   userCard:       { backgroundColor: '#f5f9ff', borderRadius: 10, borderWidth: 0.5, borderColor: '#c5d9f2', padding: 14, marginTop: 4 },
-  userAvatar:     { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1976d2', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  userAvatar:     { width: 40, height: 40, borderRadius: 20, backgroundColor: '#0F6B46', alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   userAvatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  userName:       { fontSize: 14, fontWeight: '700', color: '#1a365d' },
+  userName:       { fontSize: 14, fontWeight: '700', color: '#00604F' },
   userSub:        { fontSize: 11, color: '#888', marginTop: 2 },
-  rolePill:       { alignSelf: 'flex-start', backgroundColor: '#e8f1fb', borderRadius: 20, borderWidth: 0.5, borderColor: '#90bce8', paddingHorizontal: 9, paddingVertical: 3 },
-  rolePillText:   { fontSize: 11, color: '#1976d2', fontWeight: '600' },
+  rolePill:       { alignSelf: 'flex-start', backgroundColor: '#E6F1EC', borderRadius: 20, borderWidth: 0.5, borderColor: '#90bce8', paddingHorizontal: 9, paddingVertical: 3 },
+  rolePillText:   { fontSize: 11, color: '#0F6B46', fontWeight: '600' },
   emptyHint:      { fontSize: 11, color: '#ccc', textAlign: 'center', marginTop: 20, lineHeight: 17 },
   // Card 2
   card2:          { flex: 1, backgroundColor: '#fff', borderRadius: 12, borderWidth: 0.5, borderColor: '#e0e0e0', padding: 20 },
   emptyState:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyStateText: { fontSize: 13, color: '#ccc', textAlign: 'center', lineHeight: 20 },
   // AD block
-  adBlock:        { backgroundColor: '#e3f2fd', borderRadius: 10, borderWidth: 0.5, borderColor: '#90caf9', padding: 20, marginTop: 12 },
-  adBlockTitle:   { fontSize: 14, fontWeight: '700', color: '#1565c0', marginBottom: 8 },
-  adBlockBody:    { fontSize: 13, color: '#1976d2', lineHeight: 20 },
+  adBlock:        { backgroundColor: '#E6F1EC', borderRadius: 10, borderWidth: 0.5, borderColor: '#9CCBB8', padding: 20, marginTop: 12 },
+  adBlockTitle:   { fontSize: 14, fontWeight: '700', color: '#0B5236', marginBottom: 8 },
+  adBlockBody:    { fontSize: 13, color: '#0F6B46', lineHeight: 20 },
   // Password form
   pwdForm:        { maxWidth: 420 },
-  formTitle:      { fontSize: 15, fontWeight: '700', color: '#1a365d', marginBottom: 18 },
+  formTitle:      { fontSize: 15, fontWeight: '700', color: '#00604F', marginBottom: 18 },
   label:          { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 5 },
   input:          { backgroundColor: '#f8f9fa', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 14, fontSize: 14, color: '#333' },
   resetBtn:       { backgroundColor: '#e53935', paddingVertical: 13, borderRadius: 8, marginTop: 8, alignItems: 'center' },

@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 25,
     textAlign: 'center',
-    color: '#1976d2',
+    color: '#0F6B46',
   },
   label: {
     fontWeight: '600',
@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   modifyButton: {
-    backgroundColor: '#1976d2',
+    backgroundColor: '#0F6B46',
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 8,
@@ -88,12 +88,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#bbdefb',
+    borderColor: '#C5E0D6',
   },
   userInfoTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1976d2',
+    color: '#0F6B46',
     marginBottom: 10,
   },
   userInfoText: {
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roleButtonSelected: {
-    backgroundColor: '#1976d2',
+    backgroundColor: '#0F6B46',
   },
   roleButtonText: {
     color: '#333',
@@ -191,8 +191,8 @@ toggleButton: {
   backgroundColor: "#fff",
 },
 activeButton: {
-  backgroundColor: "#1976d2",
-  borderColor: "#1976d2",
+  backgroundColor: "#0F6B46",
+  borderColor: "#0F6B46",
 },
 toggleText: {
   fontSize: 14,

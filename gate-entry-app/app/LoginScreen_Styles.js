@@ -1,121 +1,171 @@
-// app/LoginScreen_Styles.js - Fixed deprecated style properties
-import { StyleSheet, Dimensions, Platform } from 'react-native';
-import { BACKGROUND_PRIMARY } from '../utils/platformColors';
+// app/LoginScreen_Styles.js - Login page styles.
+// 25 Nov 2026 UI overhaul: teal brand band (logo + OPS HUB + water splash),
+// then a rounded card — bottle visual on the left (wide screens), sign-in
+// form on the right. Labels sit ABOVE the inputs (easier to scan on phones).
+import { StyleSheet, Platform } from 'react-native';
 
-const { width, height } = Dimensions.get('window');
+const shadow = (web, ios, android) => Platform.select({
+  web: { boxShadow: web },
+  ios,
+  android: { elevation: android },
+});
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
-    // minHeight: '100%',
-    backgroundColor: BACKGROUND_PRIMARY,  // ← CHANGED
-    paddingTop: height * 0.1,
-    paddingHorizontal: width * 0.05,
+    backgroundColor: '#EEF5F2',
   },
-  topLogo: {
-    width: 120,
-    height: 55,
-    marginBottom: 40,
-    alignSelf: 'flex-start',
+
+  // ── Brand band ──────────────────────────────────────────────────────────
+  band: {
+    backgroundColor: '#00A68B',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  loginBox: {
-    alignSelf: 'center',
-    width: '95%',
-    maxWidth: 500,
-    borderRadius: 10,
-    padding: 30,
-    backgroundColor: '#fff',
-    // Fixed: Use platform-specific shadow styles
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 10,
-      },
-      web: {
-        boxShadow: '0px 2px 4px rgba(0,0,0,0.3)',
-      },
-    }),
+  bandWide: { height: 92, paddingHorizontal: 36 },
+  bandNarrow: { height: 72, paddingHorizontal: 18 },
+  bandWater: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    right: 40,
+    width: 480,
+    opacity: 0.85,
   },
-  header: {
+  bandFade: { position: 'absolute', top: 0, bottom: 0, width: 120 },
+  bandBrand: { alignItems: 'flex-start' },
+  bandLogoWide: { width: 160, height: 54 },
+  bandLogoNarrow: { width: 118, height: 40 },
+  bandSub: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.8,
+    marginTop: -2,
+    marginLeft: 4,
+  },
+
+  // ── Card ────────────────────────────────────────────────────────────────
+  scroll: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 40,
+    paddingHorizontal: 16,
+    paddingVertical: 32,
   },
-  logoSmall: {
-    width: 40,
-    height: 40,
-    marginRight: 12,
+  card: {
+    width: '100%',
+    maxWidth: 460,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E0E9E5',
+    overflow: 'hidden',
+    ...shadow('0px 12px 32px rgba(0,96,79,0.12)',
+      { shadowColor: '#00604F', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.12, shadowRadius: 16 }, 6),
   },
+  cardWide: {
+    maxWidth: 940,
+    flexDirection: 'row',
+    minHeight: 480,
+  },
+  visualPane: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FCFDFD',
+    borderRightWidth: 1,
+    borderRightColor: '#EEF3F1',
+    padding: 20,
+  },
+  bottle: {
+    width: 380,
+    height: 440,
+    maxWidth: '100%',
+  },
+  formPane: {
+    padding: 28,
+    justifyContent: 'center',
+  },
+  formPaneWide: {
+    flex: 1,
+    paddingHorizontal: 48,
+  },
+
+  // ── Text ────────────────────────────────────────────────────────────────
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000',
-    textAlign: 'center',
-    // Fixed: Use platform-specific text shadow
-    ...Platform.select({
-      ios: {
-        textShadowColor: 'rgba(0,0,0,0.1)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 1,
-      },
-      android: {
-        textShadowColor: 'rgba(0,0,0,0.1)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 1,
-      },
-      web: {
-        textShadow: '0px 1px 1px rgba(0,0,0,0.1)',
-      },
-    }),
+    fontWeight: '700',
+    color: '#00604F',
   },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
+  subtitle: {
+    fontSize: 15,
+    color: '#5B6B75',
+    marginTop: 6,
+    marginBottom: 26,
   },
   label: {
-    width: 110,
-    fontWeight: 'bold',
-    fontSize: 16,
-    color: '#111',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#12202A',
+    marginBottom: 6,
+    marginTop: 14,
+  },
+
+  // ── Inputs ──────────────────────────────────────────────────────────────
+  inputWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: 14,
+    zIndex: 1,
   },
   input: {
-    flex: 1,
     borderWidth: 1.5,
-    borderColor: '#555',
-    borderRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderColor: '#CFDDD7',
+    borderRadius: 10,
+    paddingVertical: 13,
+    paddingLeft: 44,
+    paddingRight: 16,
     fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#000',
+    backgroundColor: '#FFFFFF',
+    color: '#12202A',
+    minHeight: 50,
   },
+  eye: {
+    position: 'absolute',
+    right: 0,
+    height: '100%',
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Button + hint ───────────────────────────────────────────────────────
   buttonText: {
     color: '#fff',
     textAlign: 'center',
     fontWeight: 'bold',
-    fontSize: 18,
+    fontSize: 17,
+    letterSpacing: 0.3,
   },
-  // Separate shadow style for button to avoid duplication
-  buttonShadow: Platform.select({
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.3,
-      shadowRadius: 4,
-    },
-    android: {
-      elevation: 4,
-    },
-    web: {
-      boxShadow: '0px 2px 4px rgba(0,0,0,0.3)',
-    },
-  }),
+  buttonShadow: shadow('0px 4px 12px rgba(15,107,70,0.28)',
+    { shadowColor: '#0F6B46', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.28, shadowRadius: 6 }, 4),
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 18,
+  },
+  hint: {
+    fontSize: 12.5,
+    color: '#5B6B75',
+    textAlign: 'center',
+    flexShrink: 1,
+  },
 });
 
 export default styles;

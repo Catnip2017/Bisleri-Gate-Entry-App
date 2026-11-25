@@ -23,14 +23,14 @@ const STEP_LABELS = {
 };
 
 const STEP_COLORS = {
-  1: '#2b6cb0',   // blue
+  1: '#0F6B46',   // blue
   2: '#276749',   // green
   3: '#c05621',   // orange
   4: '#553c9a',   // purple
 };
 
 const CAPTURE_TYPE_COLOR = {
-  blow_molder:  '#2b6cb0',
+  blow_molder:  '#0F6B46',
   bottling:     '#276749',
   labelling:    '#c05621',
   case_counter: '#553c9a',
@@ -557,7 +557,7 @@ const CoPackerDashboard = () => {
                   style={{
                     flex: 1, borderWidth: 1, borderColor: '#3182ce',
                     borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3,
-                    fontSize: 14, color: '#1a365d', backgroundColor: '#ebf8ff',
+                    fontSize: 14, color: '#00604F', backgroundColor: '#ebf8ff',
                   }}
                   value={editAssetValue}
                   onChangeText={setEditAssetValue}
@@ -950,7 +950,7 @@ const CoPackerDashboard = () => {
               {/* Rows */}
               {sessionsLoading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#2b6cb0" />
+                  <ActivityIndicator size="small" color="#0F6B46" />
                 </View>
               ) : sessions.length === 0 ? (
                 <View style={styles.emptyContainer}>

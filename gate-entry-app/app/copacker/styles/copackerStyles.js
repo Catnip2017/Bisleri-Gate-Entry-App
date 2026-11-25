@@ -81,7 +81,7 @@ export const useCopackerStyles = () => {
       fontSize: isSmall ? 15 : 18,
       fontWeight: 'bold',
       marginBottom: 14,
-      color: '#1a365d',
+      color: '#00604F',
     },
     sidebarLabel: { fontSize: isSmall ? 12 : 13, color: '#718096', marginBottom: 2 },
     sidebarValue: {
@@ -117,11 +117,11 @@ export const useCopackerStyles = () => {
     pageTitle: {
       fontSize: isSmall ? 16 : isMedium ? 18 : 20,
       fontWeight: 'bold',
-      color: '#1a365d',
+      color: '#00604F',
       flexShrink: 1,
     },
     addButton: {
-      backgroundColor: '#2b6cb0',
+      backgroundColor: '#0F6B46',
       paddingVertical: isSmall ? 6 : 8,
       paddingHorizontal: isSmall ? 12 : 18,
       borderRadius: 8,
@@ -150,7 +150,7 @@ export const useCopackerStyles = () => {
     },
     tableHeader: {
       flexDirection: 'row',
-      backgroundColor: '#2b6cb0',
+      backgroundColor: '#0F6B46',
       paddingVertical: isSmall ? 8 : 10,
     },
     tableHeaderCell: {
@@ -232,7 +232,7 @@ export const useCopackerStyles = () => {
     modalTitle: {
       fontSize: isSmall ? 15 : 18,
       fontWeight: 'bold',
-      color: '#1a365d',
+      color: '#00604F',
       marginBottom: isSmall ? 10 : 16,
     },
     modalScroll: { maxHeight: modalScrollH },
@@ -298,7 +298,7 @@ export const useCopackerStyles = () => {
 
     // Camera button
     cameraButton: {
-      backgroundColor: '#2b6cb0',
+      backgroundColor: '#0F6B46',
       paddingVertical: isSmall ? 10 : 12,
       borderRadius: 8,
       alignItems: 'center',
@@ -339,7 +339,7 @@ export const useCopackerStyles = () => {
       paddingVertical: isSmall ? 8 : 10,
       paddingHorizontal: isSmall ? 16 : 24,
       borderRadius: 8,
-      backgroundColor: '#2b6cb0',
+      backgroundColor: '#0F6B46',
     },
     submitButtonDisabled: { backgroundColor: '#a0aec0' },
     submitButtonText: { color: '#fff', fontWeight: 'bold', fontSize: isSmall ? 13 : 14 },
@@ -359,7 +359,7 @@ export const useCopackerStyles = () => {
     confirmTitle: {
       fontSize: isSmall ? 15 : 17,
       fontWeight: 'bold',
-      color: '#1a365d',
+      color: '#00604F',
       marginBottom: 10,
     },
     confirmRemark: {

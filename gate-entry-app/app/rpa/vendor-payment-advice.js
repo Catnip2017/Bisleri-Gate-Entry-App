@@ -216,11 +216,11 @@ export default function VendorPaymentAdviceScreen() {
         <View style={{
           flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap',
           backgroundColor: green.tint2, borderRadius: 12, padding: 12, marginBottom: 14,
-          borderWidth: 1, borderColor: '#BCE5CC',
+          borderWidth: 1, borderColor: '#C5E0D6',
         }}>
           <TextInput
             style={{
-              flex: 1, minWidth: 220, backgroundColor: '#fff', borderWidth: 1, borderColor: '#BCE5CC',
+              flex: 1, minWidth: 220, backgroundColor: '#fff', borderWidth: 1, borderColor: '#C5E0D6',
               borderRadius: 8, paddingHorizontal: 12, minHeight: 44, fontSize: 14,
             }}
             placeholder="Search vendor name, vendor code or RECID"
@@ -237,7 +237,7 @@ export default function VendorPaymentAdviceScreen() {
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 6 }}>
           <KpiCard
             label="Completed" value={counts.completed} icon="mark-email-read"
-            tint="#BCE5CC" iconColor={green.deep}
+            tint="#C5E0D6" iconColor={green.deep}
             selected={statusFilter === 'completed'}
             caption={statusFilter === 'completed' ? 'filtering' : 'tap to filter'}
             onPress={() => handleStatusTap('completed')}
@@ -274,7 +274,7 @@ export default function VendorPaymentAdviceScreen() {
         {/* Date-range filters (search bar itself now lives at the top) */}
         <View style={{
           backgroundColor: green.tint2, borderRadius: 12, padding: 14, marginTop: 8, marginBottom: 14,
-          borderWidth: 1, borderColor: '#BCE5CC',
+          borderWidth: 1, borderColor: '#C5E0D6',
         }}>
           {/* Payment date range (left) + Email sent date range (right) —
               always on, one row, fixed widths so fields don't stretch on

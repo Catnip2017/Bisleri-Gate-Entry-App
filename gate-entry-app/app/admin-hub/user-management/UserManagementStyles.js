@@ -34,8 +34,8 @@ export default StyleSheet.create({
     gap: 4,
     width: 90,
   },
-  backText: { fontSize: 14, color: '#1a365d', fontWeight: '500' },
-  topTitle: { fontSize: 16, fontWeight: '700', color: '#1a365d' },
+  backText: { fontSize: 14, color: '#00604F', fontWeight: '500' },
+  topTitle: { fontSize: 16, fontWeight: '700', color: '#00604F' },
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
   tabContainer: {
@@ -52,7 +52,7 @@ export default StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: '#1976d2',
+    borderBottomColor: '#0F6B46',
   },
   tabText: {
     fontSize: 14,
@@ -60,7 +60,7 @@ export default StyleSheet.create({
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#1976d2',
+    color: '#0F6B46',
     fontWeight: '600',
   },
 

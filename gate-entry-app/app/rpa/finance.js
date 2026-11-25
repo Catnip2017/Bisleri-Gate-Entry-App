@@ -23,8 +23,8 @@ const PROCESSES = [
     key: 'vpa',
     name: 'Vendor Payment Advice',
     icon: 'mark-email-read',
-    accentColor: '#00A651',
-    iconBg: '#D5EEDF',
+    accentColor: '#0F6B46',
+    iconBg: '#E6F1EC',
     route: '/rpa/vendor-payment-advice',
     live: true,
     about: {
@@ -94,7 +94,7 @@ export default function FinanceProcessesScreen() {
                   backgroundColor: '#ffffff',
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: '#BCE5CC',
+                  borderColor: '#C5E0D6',
                   borderLeftWidth: 4,
                   borderLeftColor: proc.accentColor,
                   padding: 16,
@@ -125,13 +125,13 @@ export default function FinanceProcessesScreen() {
                   </Text>
                   <View
                     style={{
-                      backgroundColor: proc.live ? '#D5EEDF' : '#F1EFE8',
+                      backgroundColor: proc.live ? '#E6F1EC' : '#F1EFE8',
                       borderRadius: 10,
                       paddingHorizontal: 8,
                       paddingVertical: 2,
                     }}
                   >
-                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: proc.live ? '#064D28' : '#5F5E5A' }}>
+                    <Text style={{ fontSize: 11, fontWeight: 'bold', color: proc.live ? '#00382D' : '#5F5E5A' }}>
                       {proc.live ? 'LIVE' : 'PAUSED'}
                     </Text>
                   </View>
@@ -210,28 +210,28 @@ export default function FinanceProcessesScreen() {
                 </View>
 
                 <ScrollView style={{ maxHeight: 420 }}>
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#00382D', marginBottom: 4 }}>
                     WHAT IT DOES
                   </Text>
                   <Text style={{ fontSize: 14, color: '#1A2E22', lineHeight: 20, marginBottom: 14 }}>
                     {aboutProc.about.purpose}
                   </Text>
 
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#00382D', marginBottom: 4 }}>
                     WHEN IT RUNS
                   </Text>
                   <Text style={{ fontSize: 14, color: '#1A2E22', lineHeight: 20, marginBottom: 14 }}>
                     {aboutProc.about.trigger}
                   </Text>
 
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#00382D', marginBottom: 4 }}>
                     SYSTEMS INVOLVED
                   </Text>
                   <Text style={{ fontSize: 14, color: '#1A2E22', lineHeight: 20, marginBottom: 14 }}>
                     {aboutProc.about.systems}
                   </Text>
 
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28', marginBottom: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#00382D', marginBottom: 6 }}>
                     STATUS MEANINGS
                   </Text>
                   {aboutProc.about.statuses.map(([label, meaning]) => (
@@ -245,7 +245,7 @@ export default function FinanceProcessesScreen() {
                     </View>
                   ))}
 
-                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#064D28', marginTop: 8, marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#00382D', marginTop: 8, marginBottom: 4 }}>
                     ABOUT THE DATA
                   </Text>
                   <Text style={{ fontSize: 14, color: '#1A2E22', lineHeight: 20 }}>

@@ -9,6 +9,7 @@
 // background / status bar icons mismatched with the rest of the app.
 // Now both follow the app's own `isDark` from useTheme() instead, so
 // there is exactly one dark-mode signal in the app.
+import Head from 'expo-router/head';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -29,6 +30,8 @@ function AppNavigator() {
 
   return (
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      {/* Browser-tab title (web) — 25 Nov 2026 UI overhaul */}
+      <Head><title>Bisleri Ops Hub</title></Head>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Authentication Flow */}
         <Stack.Screen name="index" />

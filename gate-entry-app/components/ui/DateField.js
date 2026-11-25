@@ -51,7 +51,7 @@ const DateField = ({ label, value, onChange, placeholder = 'Select date', disabl
             boxSizing: 'border-box',
             width: '100%',
             height: 44,
-            border: '1px solid #BCE5CC',
+            border: '1px solid #C5E0D6',
             borderRadius: 8,
             padding: '0 12px',
             fontSize: 14,

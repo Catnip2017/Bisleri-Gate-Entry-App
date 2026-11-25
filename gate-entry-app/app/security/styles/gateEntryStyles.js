@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
     web: { minHeight: '100vh' }, // Fill the viewport on web
     default: { minHeight: '100%' }
   }),
-  backgroundColor: '#EAF7EF',
+  backgroundColor: '#EEF5F2',
 },
 
   cardContainer: {
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 16,
     textAlign: 'center',
-    color: '#007A3B',
+    color: '#00836F',
   },
 
   // Form Rows
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   // ✅ FIXED: Header Row - Perfectly aligned
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#00A651',
+    backgroundColor: '#0F6B46',
     height: 50,
     borderBottomWidth: 2,
     borderBottomColor: '#0056b3',
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#00A651',
+    borderLeftColor: '#0F6B46',
   },
 
   statusTitle: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
 
   manualEntryButton: {
-    backgroundColor: '#00A651',
+    backgroundColor: '#0F6B46',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 6,
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   },
 
   tableHeader: {
-    backgroundColor: '#00A651',
+    backgroundColor: '#0F6B46',
     height: 50,
   },
 
@@ -570,9 +570,9 @@ const styles = StyleSheet.create({
   },
 
   focusedInput: {
-    borderColor: '#00A651',
+    borderColor: '#0F6B46',
     borderWidth: 2,
-    shadowColor: '#00A651',
+    shadowColor: '#0F6B46',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
 
   tableHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: '#00A651',
+    backgroundColor: '#0F6B46',
     height: 50,
     borderBottomWidth: 2,
     borderBottomColor: '#0056b3',
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: '#00A651',
+    borderColor: '#0F6B46',
   },
 
   entryTypeLabel: {
@@ -695,8 +695,8 @@ const styles = StyleSheet.create({
   },
 
   entryTypeButtonActive: {
-    borderColor: '#00A651',
-    backgroundColor: '#00A651',
+    borderColor: '#0F6B46',
+    backgroundColor: '#0F6B46',
   },
 
   entryTypeButtonText: {
