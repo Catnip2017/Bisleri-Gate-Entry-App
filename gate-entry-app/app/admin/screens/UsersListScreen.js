@@ -102,7 +102,7 @@ function MultiFilter({ label, allLabel, selected, options, onChange, width = 200
               </TouchableOpacity>
             )}
           </View>
-          <ScrollView style={{ maxHeight: 260 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ maxHeight: 260, marginBottom: 4 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
             {shown.map((o) => {
               const on = selected.includes(o);
               return (
@@ -124,10 +124,6 @@ function MultiFilter({ label, allLabel, selected, options, onChange, width = 200
               <Text style={{ padding: 12, fontSize: 12.5, color: '#8B99A3' }}>No matches</Text>
             )}
           </ScrollView>
-          <TouchableOpacity onPress={() => setOpen(false)}
-            style={{ alignItems: 'center', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEF3F1', marginTop: 4 }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#0F6B46' }}>Done</Text>
-          </TouchableOpacity>
         </View>
       )}
     </View>
