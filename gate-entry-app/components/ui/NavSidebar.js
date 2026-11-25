@@ -18,7 +18,7 @@ import { View, Text, Pressable, TouchableOpacity, ScrollView, Animated, Platform
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { authAPI, API_BASE_URL } from '../../services/api';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme, brand } from '../../contexts/ThemeContext';
 import { storage } from '../../utils/storage';
 import { confirmAction } from '../../utils/customModal';
 import { useAccountDetails } from '../../hooks/useAccountDetails';
@@ -178,7 +178,7 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
           paddingLeft: indented ? 44 : 16,
           backgroundColor: active ? colors.surfaceMuted : 'transparent',
           borderRightWidth: active ? 3 : 0,
-          borderRightColor: '#00A651',
+          borderRightColor: brand.active,
         }}
         accessibilityRole="button"
         accessibilityState={{ selected: active }}
@@ -230,27 +230,28 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
         shadowColor: '#000', shadowOffset: { width: 2, height: 0 },
         shadowOpacity: 0.3, shadowRadius: 8,
       }}>
-        {/* 1. Identity */}
-        <View style={{
+        {/* 1. Identity — teal gradient block (25 Nov 2026 UI overhaul) */}
+        <View style={[{
           flexDirection: 'row', alignItems: 'center', gap: 12,
           padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
-        }}>
+          backgroundColor: brand.navy,
+        }, Platform.OS === 'web' ? { backgroundImage: brand.sidebarGradient } : null]}>
           <View style={{
-            width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surfaceMuted,
+            width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF',
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 15, color: colors.textPrimary }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 15, color: brand.navy }}>
               {initials}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: 'bold', color: colors.textPrimary }} numberOfLines={1}>
+            <Text style={{ fontSize: 15, fontWeight: 'bold', color: '#FFFFFF' }} numberOfLines={1}>
               {userData?.fullName || userData?.username || 'Loading…'}
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
               {roles.map((role) => (
                 <View key={role} style={{
-                  backgroundColor: '#00843D', borderRadius: 10,
+                  backgroundColor: 'rgba(255,255,255,0.22)', borderRadius: 10,
                   paddingHorizontal: 9, paddingVertical: 3,
                 }}>
                   <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#fff', letterSpacing: 0.2 }}>
@@ -266,7 +267,7 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
             accessibilityRole="button"
             accessibilityLabel="Close menu"
           >
-            <MaterialIcons name="close" size={22} color={colors.textSecondary} />
+            <MaterialIcons name="close" size={22} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 

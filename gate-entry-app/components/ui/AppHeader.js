@@ -8,15 +8,20 @@
 // The band colour is the brand navy in BOTH light and dark mode; the toggle
 // only changes the page body around it (see contexts/ThemeContext.js).
 import React from 'react';
-import { View, Image, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Image, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useTheme } from '../../contexts/ThemeContext';
+import { useTheme, brand } from '../../contexts/ThemeContext';
 
 const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
-  const { colors, isDark, toggleTheme } = useTheme();
+  const { colors } = useTheme();
 
   return (
-    <View style={[styles.header, { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBgEnd }]}>
+    <View style={[
+      styles.header,
+      { backgroundColor: colors.headerBg, borderBottomColor: colors.headerBgEnd },
+      // Teal gradient band (wireframe). Web only; native falls back to solid teal.
+      Platform.OS === 'web' ? { backgroundImage: brand.headerGradient } : null,
+    ]}>
       <View style={styles.row}>
         {/* Left cluster — hamburger (opens the global Applications /
             User Management / Documents menu — 30 Oct 2026), then the
@@ -51,22 +56,14 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
         {/* Logo — absolutely centered on the row, independent of cluster widths */}
         <View style={styles.logoWrap} pointerEvents="none">
           <Image
-            source={require('../../assets/images/bisleri-logo.png')}
+            source={require('../../assets/images/bisleri-logo-white.png')}
             style={styles.logo}
             resizeMode="contain"
           />
         </View>
 
-        {/* Right cluster — theme toggle + avatar */}
+        {/* Right cluster — avatar (dark-mode toggle removed 25 Nov 2026) */}
         <View style={[styles.sideCluster, styles.rightCluster]}>
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={toggleTheme}
-            accessibilityRole="button"
-            accessibilityLabel={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            <MaterialIcons name={isDark ? 'light-mode' : 'dark-mode'} size={22} color={colors.headerText} />
-          </TouchableOpacity>
           {rightSlot || <View style={styles.iconButton} />}
         </View>
       </View>
@@ -117,7 +114,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   logo: {
-    width: 120,
+    width: 118,
     height: 44,
   },
   backChip: {
