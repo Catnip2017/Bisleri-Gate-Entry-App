@@ -365,32 +365,40 @@ const SecurityInsightsTab = () => {
       };
     }, [movements, summary]);
 
-  // ✅ CSV export (admins only, web) — replaces the retired Admin Insights
-  // download. Exports the CURRENT filtered movement list.
-  const handleDownloadCSV = () => {
+  // ✅ Download Report (admins only, web): Excel of EVERY row matching the
+  // current filters, built on the server (not limited to the 5,000 on screen).
+  const [downloading, setDownloading] = useState(false);
+  const handleDownloadReport = async () => {
     if (Platform.OS !== 'web') {
-      showAlert('Download', 'CSV export is available on the web version.');
+      showAlert('Download', 'Report download is available on the web version.');
       return;
     }
-    const header = ['Gate Entry No', 'Vehicle No', 'Movement', 'Date', 'Time',
-      'Document Type', 'Document No', 'Driver Name', 'KM Reading',
-      'Loader Count', 'Interlayer Sheet Count', 'Loader Names', 'Warehouse', 'Site', 'Security Guard',
-      'Edit Count', 'Remarks'];
-    const escapeCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = movements.map((m) => [
-      m.gate_entry_no, m.vehicle_no, m.movement_type, m.date, m.time,
-      m.document_type, m.document_no, m.driver_name, m.km_reading,
-      m.loader_count, m.interlayer_sheet_count, m.loader_names, m.to_warehouse_code, m.site_code,
-      m.security_name, m.edit_count || 0, m.remarks,
-    ].map(escapeCell).join(','));
-    const csv = [header.map(escapeCell).join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `fg_movements_${formatDateForAPI(new Date())}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setDownloading(true);
+    try {
+      const roles = userData?.roles || [];
+      const itadmin = roles.includes('itadmin');
+      const blob = await insightsAPI.downloadMovementsReport({
+        from_date: formatDateForAPI(fromDate),
+        to_date: formatDateForAPI(toDate),
+        warehouse_code: itadmin
+          ? (warehouseFilter.trim().toUpperCase() || null)
+          : (userData?.warehouseCode || null),
+        site_code: itadmin ? (siteFilter.trim().toUpperCase() || null) : null,
+        vehicle_no: vehicleFilter.trim() || null,
+        movement_type: null,
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Gate_Movements_${formatDateForAPI(fromDate)}_to_${formatDateForAPI(toDate)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.log('Error downloading report:', error);
+      showAlert('Error', handleAPIError(error));
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // Open edit modal
@@ -704,6 +712,28 @@ const SecurityInsightsTab = () => {
               )}
             </TouchableOpacity>
           </View>
+
+          {/* Download Report (Excel) — admins only, same row as the filters */}
+          {isAdminViewer && (
+            <View style={styles.filterItem}>
+              <TouchableOpacity
+                style={[styles.searchButton, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }]}
+                onPress={handleDownloadReport}
+                disabled={downloading || loading}
+                accessibilityRole="button"
+                accessibilityLabel="Download Report"
+              >
+                {downloading ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <>
+                    <MaterialIcons name="download" size={18} color="#fff" />
+                    <Text style={styles.searchButtonText}>Download Report</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* Section Title */}
@@ -908,28 +938,6 @@ const SecurityInsightsTab = () => {
             <MaterialIcons name="last-page" size={22} color={currentPage === totalPages ? '#adb5bd' : '#333'} />
           </TouchableOpacity>
         </View>
-
-        {/* ✅ Admin-only CSV export of the current filtered list */}
-        {isAdminViewer && (
-          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 12 }}>
-            <TouchableOpacity
-              onPress={handleDownloadCSV}
-              disabled={movements.length === 0}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: movements.length === 0 ? '#ccc' : '#00A651',
-                minHeight: 48, paddingHorizontal: 20, borderRadius: 8,
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Download CSV"
-            >
-              <MaterialIcons name="download" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>
-                Download CSV
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* Operational Edit Modal */}

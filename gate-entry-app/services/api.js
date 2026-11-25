@@ -198,6 +198,23 @@ export const insightsAPI = {
     return response.data;
   },
 
+  // Excel report of ALL rows matching the filters (raw Blob; caller downloads).
+  downloadMovementsReport: async (filters) => {
+    const response = await api.get('/movements/export', {
+      params: {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        site_code: filters.site_code || null,
+        warehouse_code: filters.warehouse_code || null,
+        movement_type: filters.movement_type || null,
+        vehicle_no: filters.vehicle_no || null,
+      },
+      responseType: 'blob',
+      timeout: 180000,
+    });
+    return response.data;
+  },
+
   // KPI totals across ALL rows matching the filters (table is capped at 5000).
   getMovementsSummary: async (filters) => {
     const response = await api.get('/movements/summary', {

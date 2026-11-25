@@ -113,6 +113,77 @@ def get_movements_summary(
         raise internal_error("Summary error", e)
 
 
+@router.get("/movements/export")
+def export_movements_excel(
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    warehouse_code: Optional[str] = Query(None, max_length=50),
+    site_code: Optional[str] = Query(None, max_length=50),
+    vehicle_no: Optional[str] = Query(None, max_length=50),
+    movement_type: Optional[str] = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Excel report of EVERY row matching the filters (no 5,000-row cap)."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.utils import get_column_letter
+
+    filters = MovementFilters(
+        from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
+        site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+    )
+    try:
+        query = _apply_movement_filters(db.query(InsightsData), filters, current_user)
+        query = query.order_by(InsightsData.date.desc(), InsightsData.time.desc())
+
+        headers = ["Gate Entry No", "Vehicle No", "Movement", "Date", "Time",
+                   "Document Type", "Document No", "Driver Name", "KM Reading",
+                   "Loader Count", "Interlayer Sheet Count", "Loader Names",
+                   "Warehouse", "Site", "Security Guard", "Edit Count", "Remarks"]
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Gate Movements"
+        ws.append(headers)
+        for c in ws[1]:
+            c.font = Font(bold=True, color="FFFFFF")
+            c.fill = PatternFill("solid", fgColor="00A651")
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        for m in query.yield_per(2000):
+            ws.append([
+                m.gate_entry_no, m.vehicle_no, m.movement_type,
+                m.date.isoformat() if m.date else None,
+                m.time.isoformat(timespec="seconds") if m.time else None,
+                m.document_type, m.document_no, m.driver_name, m.km_reading,
+                m.loader_count, m.interlayer_sheet_count, m.loader_names,
+                m.warehouse_code, m.site_code, m.security_name,
+                m.edit_count or 0, m.remarks,
+            ])
+
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        widths = [22, 14, 12, 12, 10, 22, 18, 20, 12, 10, 14, 28, 14, 12, 20, 10, 30]
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        filename = f"Gate_Movements_{date.today().isoformat()}.xlsx"
+        return StreamingResponse(
+            buf,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise internal_error("Export error", e)
+
+
 # Q11 phase 2 (12 Jul 2026): POST /filtered-movements route RETIRED — all
 # clients (Expo Go, always-fresh bundles) now use GET /movements above, which
 # calls this implementation directly.
