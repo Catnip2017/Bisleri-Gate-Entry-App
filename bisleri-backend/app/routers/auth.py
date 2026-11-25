@@ -6,6 +6,8 @@ from app.schemas import UserCreate, UserResponse, LoginRequest, Token, PasswordR
 from app.auth import create_access_token, get_password_hash, get_current_user, verify_password
 from app.models import UsersMaster, LocationMaster
 from datetime import datetime, timedelta
+from pydantic import BaseModel
+from app.utils.account_rules import normalise_mobile
 
 router = APIRouter(tags=["Authentication"])
 
@@ -51,6 +53,40 @@ def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     })
 
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+# ── Compulsory mobile number (25 Nov 2026) ────────────────────────────────────
+# Every signed-in user, whatever their role, must have a mobile number. The
+# app checks this right after login and shows a one-field page until it is
+# filled in. These two endpoints are self-service (own account only).
+class MobileUpdate(BaseModel):
+    phone_number: str
+
+
+@router.get("/me/mobile-status")
+def my_mobile_status(current_user: UsersMaster = Depends(get_current_user)):
+    return {"has_mobile": bool(normalise_mobile(current_user.phone_number))}
+
+
+@router.put("/me/mobile")
+def set_my_mobile(
+    payload: MobileUpdate,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    mobile = normalise_mobile(payload.phone_number)
+    if not mobile:
+        raise HTTPException(status_code=400, detail="Enter a valid 10-digit mobile number.")
+    clash = db.query(UsersMaster).filter(
+        UsersMaster.phone_number == mobile,
+        UsersMaster.username != current_user.username,
+    ).first()
+    if clash:
+        raise HTTPException(status_code=409, detail="This mobile number is already used by another account. Contact your IT Admin.")
+    user = db.query(UsersMaster).filter(UsersMaster.username == current_user.username).first()
+    user.phone_number = mobile
+    db.commit()
+    return {"message": "Mobile number saved", "has_mobile": True}
 
 
 @router.post("/logout")

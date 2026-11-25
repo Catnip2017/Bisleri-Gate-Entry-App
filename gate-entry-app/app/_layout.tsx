@@ -10,6 +10,7 @@
 // Now both follow the app's own `isDark` from useTheme() instead, so
 // there is exactly one dark-mode signal in the app.
 import Head from 'expo-router/head';
+import MobileGate from '../components/ui/MobileGate';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -32,6 +33,8 @@ function AppNavigator() {
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       {/* Browser-tab title (web) — 25 Nov 2026 UI overhaul */}
       <Head><title>Bisleri Ops Hub</title></Head>
+      {/* Compulsory mobile number check for every signed-in user (25 Nov 2026) */}
+      <MobileGate>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Authentication Flow */}
         <Stack.Screen name="index" />
@@ -72,6 +75,7 @@ function AppNavigator() {
         {/* 404 Screen */}
         <Stack.Screen name="+not-found" />
       </Stack>
+      </MobileGate>
       {/* "light" = light-coloured icons for a dark background, "dark" =
           dark-coloured icons for a light background — explicit, tied to
           the app's own toggle, not "auto" (which read the OS setting). */}

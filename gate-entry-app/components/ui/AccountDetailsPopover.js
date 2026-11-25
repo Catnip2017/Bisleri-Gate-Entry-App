@@ -108,18 +108,18 @@ const AccountDetailsPopover = ({ isVisible, onClose, userData }) => {
           </View>
         </ScrollView>
 
-        <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <View style={{ paddingVertical: 10, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: colors.border, alignItems: 'flex-end' }}>
           <TouchableOpacity
             onPress={handleLogout}
             style={{
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-              backgroundColor: '#C62828', minHeight: 44, borderRadius: 8,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              backgroundColor: '#C62828', minHeight: 32, paddingHorizontal: 16, borderRadius: 8,
             }}
             accessibilityRole="button"
             accessibilityLabel="Logout"
           >
-            <MaterialIcons name="logout" size={18} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+            <MaterialIcons name="logout" size={15} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>Logout</Text>
           </TouchableOpacity>
         </View>
       </View>

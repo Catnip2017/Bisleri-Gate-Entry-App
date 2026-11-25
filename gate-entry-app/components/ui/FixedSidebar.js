@@ -246,16 +246,16 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
         <TouchableOpacity
           onPress={handleLogout}
           style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-            marginHorizontal: 16, marginTop: 6, minHeight: 44, borderRadius: 10,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+            alignSelf: 'center', marginTop: 6, minHeight: 34, paddingHorizontal: 22, borderRadius: 8,
             backgroundColor: '#C62828', borderWidth: 1, borderColor: '#E0574F',
             ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
           }}
           accessibilityRole="button"
           accessibilityLabel="Logout"
         >
-          <MaterialIcons name="logout" size={18} color={WHITE} />
-          <Text style={{ color: WHITE, fontWeight: '700', fontSize: 14 }}>Logout</Text>
+          <MaterialIcons name="logout" size={15} color={WHITE} />
+          <Text style={{ color: WHITE, fontWeight: '700', fontSize: 13 }}>Logout</Text>
         </TouchableOpacity>
         <Text style={{ marginTop: 10, fontSize: 10, color: WHITE_50, textAlign: 'center' }} numberOfLines={1}>
           {APP_VERSION} · {String(API_BASE_URL || '').replace(/^https?:\/\//, '')}

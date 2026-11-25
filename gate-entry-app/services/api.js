@@ -66,6 +66,15 @@ api.interceptors.response.use(
 
 // Auth APIs
 export const authAPI = {
+  // Compulsory mobile number (25 Nov 2026) — own account only
+  getMobileStatus: async () => {
+    const response = await api.get('/me/mobile-status');
+    return response.data;
+  },
+  setMyMobile: async (phone_number) => {
+    const response = await api.put('/me/mobile', { phone_number });
+    return response.data;
+  },
   login: async (credentials) => {
     const response = await api.post('/login', credentials);
     return response.data;

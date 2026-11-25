@@ -12,13 +12,22 @@ export const validateUsername = (username) => {
   return null;
 };
 
+// Password policy (25 Nov 2026) — mirrored on the server
+// (bisleri-backend/app/utils/account_rules.py): min 6 characters,
+// 1 upper-case letter, 1 number, 1 special character.
 export const validatePassword = (password) => {
-  if (!password || password.length < 6) {
-    return 'Password must be at least 6 characters';
-  }
-  
-  return null;
+  const pw = password || '';
+  const missing = [];
+  if (pw.length < 6) missing.push('at least 6 characters');
+  if (!/[A-Z]/.test(pw)) missing.push('1 upper-case letter');
+  if (!/\d/.test(pw)) missing.push('1 number');
+  if (!/[^A-Za-z0-9]/.test(pw)) missing.push('1 special character');
+  return missing.length ? `Password must have ${missing.join(', ')}.` : null;
 };
+
+// Compulsory 10-digit mobile number (25 Nov 2026)
+export const validateMobile = (phone) =>
+  /^\d{10}$/.test((phone || '').trim()) ? null : 'A valid 10-digit mobile number is required';
 
 export const validateName = (name, fieldName) => {
   if (!name || name.trim().length < 2) {

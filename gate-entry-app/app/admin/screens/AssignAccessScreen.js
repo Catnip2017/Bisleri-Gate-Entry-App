@@ -532,6 +532,10 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (!roles.length)
       return showAlert('Validation Error', 'Please assign at least one role');
 
+    // Mobile number is compulsory for every user (25 Nov 2026)
+    if (!/^\d{10}$/.test(phoneNumber.trim()))
+      return showAlert('Validation Error', 'A valid 10-digit mobile number is required');
+
     if (roles.includes('Co Packer') && !copackerLocation.trim())
       return showAlert('Validation Error', 'Copacker Location is required for Co Packer role');
 
@@ -798,7 +802,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                   <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor="#aaa" />
                 </View>
               </View>
-              <Text style={styles.fieldLabel}>Mobile number</Text>
+              <Text style={styles.fieldLabel}>Mobile number *</Text>
               <TextInput style={styles.input} value={phoneNumber}
                 onChangeText={v => setPhoneNumber(v.replace(/[^0-9]/g, ''))}
                 keyboardType="number-pad" maxLength={10} placeholder="10-digit mobile" placeholderTextColor="#aaa" />

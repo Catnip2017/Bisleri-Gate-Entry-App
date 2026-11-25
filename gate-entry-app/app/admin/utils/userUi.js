@@ -81,6 +81,36 @@ export function generatePassword() {
   return chars.join('');
 }
 
+// The four policy rules, each with pass/fail — shown as a live checklist
+// under password boxes (min 6, upper-case, number, special character).
+export function passwordChecks(pw) {
+  const p = pw || '';
+  return [
+    ['6+ characters', p.length >= 6],
+    ['1 upper-case letter', /[A-Z]/.test(p)],
+    ['1 number', /\d/.test(p)],
+    ['1 special character', /[^A-Za-z0-9]/.test(p)],
+  ];
+}
+
+export function PasswordChecklist({ password }) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -4, marginBottom: 10 }}>
+      {passwordChecks(password).map(([label, ok]) => (
+        <View key={label} style={{
+          flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 10,
+          paddingHorizontal: 8, paddingVertical: 3,
+          backgroundColor: ok ? '#E6F4EC' : '#F4F5F5',
+        }}>
+          <Text style={{ fontSize: 11.5, fontWeight: '700', color: ok ? '#1E8A4C' : '#8B99A3' }}>
+            {ok ? '✓' : '○'} {label}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function passwordStrength(pw) {
   if (!pw) return null;
   let score = 0;
@@ -90,6 +120,7 @@ export function passwordStrength(pw) {
   if (/\d/.test(pw)) score++;
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   if (pw.length < 6) return { label: 'Too short', pct: 15, color: '#C62828' };
+  if (passwordChecks(pw).some(([, ok]) => !ok)) return { label: 'Does not meet the rules yet', pct: 35, color: '#E07B00' };
   if (score <= 2) return { label: 'Weak', pct: 35, color: '#E07B00' };
   if (score <= 3) return { label: 'Medium', pct: 65, color: '#C9A100' };
   return { label: 'Strong', pct: 100, color: '#2FB164' };

@@ -14,6 +14,7 @@ from app.auth import get_current_user, get_password_hash
 from app.utils.errors import internal_error
 from sqlalchemy import and_, case, distinct, func, or_
 from app.utils.roles import normalize_roles, normalize_role_list, validate_role_combo
+from app.utils.account_rules import password_error, normalise_mobile
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,15 @@ def register_user(
         # ✅ Only IT Admins can create users
         if "itadmin" not in normalize_roles(current_user.role):
             raise HTTPException(status_code=403, detail="Only ITAdmins can register users")
+
+        # ✅ Password policy + compulsory mobile number (25 Nov 2026)
+        pw_err = password_error(user.password)
+        if pw_err:
+            raise HTTPException(status_code=400, detail=pw_err)
+        mobile = normalise_mobile(user.phone_number)
+        if not mobile:
+            raise HTTPException(status_code=400, detail="A valid 10-digit mobile number is required.")
+        user.phone_number = mobile
 
         # ✅ Duplicate username check
         if db.query(UsersMaster).filter(UsersMaster.username == user.username).first():
@@ -205,6 +215,9 @@ def reset_password(
 
         if reset_data.new_password != reset_data.confirm_password:
             raise HTTPException(status_code=400, detail="Passwords do not match")
+        pw_err = password_error(reset_data.new_password)
+        if pw_err:
+            raise HTTPException(status_code=400, detail=pw_err)
 
         user.password = get_password_hash(reset_data.new_password)
         db.commit()
@@ -557,8 +570,17 @@ def update_user_details(
         user.last_name = payload.last_name.strip() or None
     if payload.email is not None:
         user.email = payload.email.strip() or None
-    if payload.phone_number is not None:
-        user.phone_number = payload.phone_number.strip() or None
+    if payload.phone_number is not None and payload.phone_number.strip():
+        # Mobile is compulsory (25 Nov 2026): a blank value never clears it,
+        # and a new value must be a valid, unused 10-digit number.
+        mobile = normalise_mobile(payload.phone_number)
+        if not mobile:
+            raise HTTPException(status_code=400, detail="A valid 10-digit mobile number is required.")
+        clash = db.query(UsersMaster).filter(
+            UsersMaster.phone_number == mobile, UsersMaster.username != user.username).first()
+        if clash:
+            raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
+        user.phone_number = mobile
 
     db.commit()
     db.refresh(user)

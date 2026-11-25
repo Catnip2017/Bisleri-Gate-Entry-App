@@ -4,12 +4,12 @@ import {
   ScrollView, ActivityIndicator,
 } from 'react-native';
 import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
-import { validateUsername, validatePassword, validateName, validatePasswordMatch } from '../utils/validation';
+import { validateUsername, validatePassword, validateName, validatePasswordMatch, validateMobile } from '../utils/validation';
 import { showAlert } from '../../../utils/customModal';
 // Same searchable multi-select (with ★ default) used by Assign Access, so
 // Register and Update behave identically (30 Oct 2026).
 import { LocationMultiSelect } from './AssignAccessScreen';
-import { ROLE_INFO, roleBlockReason, accessPreview, generatePassword, passwordStrength } from '../utils/userUi';
+import { ROLE_INFO, roleBlockReason, accessPreview, generatePassword, passwordStrength, PasswordChecklist } from '../utils/userUi';
 
 // 25 Nov 2026: Register is now 4 steps — Role → Details → Scope → Review —
 // so only the fields the chosen role needs are asked for. The final submit
@@ -186,7 +186,7 @@ export default function RegisterScreen() {
       if (e) { showAlert('Validation Error', e); return; }
     }
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
-    if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) { showAlert('Validation Error', 'Enter a valid 10-digit mobile'); return; }
+    { const m = validateMobile(form.phone_number); if (m) { showAlert('Validation Error', m); return; } }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
     if (needsGuardGPLoc && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher / Security Admin'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
@@ -226,7 +226,7 @@ export default function RegisterScreen() {
         validatePasswordMatch(form.password, form.confirmPassword)]) { if (e) return e; }
       if (userStatus === 'taken') return 'That username is already taken';
       if (form.email && !/\S+@\S+\.\S+/.test(form.email)) return 'Enter a valid email';
-      if (form.phone_number && !/^\d{10}$/.test(form.phone_number)) return 'Enter a valid 10-digit mobile';
+      { const m = validateMobile(form.phone_number); if (m) return m; }
       return null;
     }
     if (n === 2) {
@@ -335,7 +335,7 @@ export default function RegisterScreen() {
                       </Text>
                     ) : null}
                   </View>
-                  <View style={S.field}><Text style={S.fieldLabel}>Mobile Number</Text>
+                  <View style={S.field}><Text style={S.fieldLabel}>Mobile Number *</Text>
                     <TextInput style={S.input} placeholder="10-digit mobile" value={form.phone_number}
                       onChangeText={v => set('phone_number', v.replace(/[^0-9]/g, ''))} keyboardType="number-pad" maxLength={10} /></View>
                 </View>
@@ -365,8 +365,9 @@ export default function RegisterScreen() {
                     </View>
                   ) : <View style={{ flex: 1 }} />}
                 </View>
+                <View style={{ marginTop: 12 }}><PasswordChecklist password={form.password} /></View>
                 {form.confirmPassword ? (
-                  <Text style={[S.inlineMsg, { marginTop: 8, color: form.confirmPassword === form.password ? '#2FB164' : '#C62828' }]}>
+                  <Text style={[S.inlineMsg, { marginTop: 0, color: form.confirmPassword === form.password ? '#2FB164' : '#C62828' }]}>
                     {form.confirmPassword === form.password ? '✓ Passwords match' : "✕ Passwords don't match"}
                   </Text>
                 ) : null}

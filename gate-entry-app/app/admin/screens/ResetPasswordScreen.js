@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { adminAPI, handleAPIError } from '../../../services/api';
 import { showAlert } from '../../../utils/customModal';
-import { UserResultRow, generatePassword, passwordStrength, shortLastLogin, initialsOf } from '../utils/userUi';
+import { UserResultRow, generatePassword, passwordStrength, shortLastLogin, initialsOf, PasswordChecklist } from '../utils/userUi';
+import { validatePassword } from '../utils/validation';
 
 const ResetPasswordScreen = () => {
   const [searchQuery, setSearchQuery]   = useState('');
@@ -66,7 +67,7 @@ const ResetPasswordScreen = () => {
   const handleReset = () => {
     if (!userFound) { showAlert('Error', 'Select a user first'); return; }
     if (!newPassword.trim()) { showAlert('Error', 'New password is required'); return; }
-    if (newPassword.length < 6) { showAlert('Error', 'Password must be at least 6 characters'); return; }
+    { const pe = validatePassword(newPassword); if (pe) { showAlert('Error', pe); return; } }
     if (newPassword !== confirmPwd) { showAlert('Error', 'Passwords do not match'); return; }
     showAlert('Confirm Reset', `Reset password for "${userFound.username}"?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -201,6 +202,8 @@ const ResetPasswordScreen = () => {
                 </View>
               ) : null;
             })()}
+
+            <PasswordChecklist password={newPassword} />
 
             <Text style={S.label}>Confirm New Password</Text>
             <TextInput style={S.input} placeholder="Re-enter new password"
