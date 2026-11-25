@@ -14,7 +14,7 @@ import { useTheme, brand } from '../../contexts/ThemeContext';
 
 export const WIDE_BREAKPOINT = 900;
 
-const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
+const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress, hideBrand = false }) => {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
@@ -60,6 +60,8 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
             </TouchableOpacity>
           ) : null}
 
+          {/* Logo lives in the fixed sidebar on desktop web (hideBrand) */}
+          {!hideBrand ? (
           <View style={styles.brandBlock} accessibilityRole="header" accessibilityLabel="Bisleri Ops Hub">
             <Image
               source={require('../../assets/images/bisleri-logo-white.png')}
@@ -68,8 +70,9 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress }) => {
             />
             {wide ? <Text style={styles.brandSub}>OPS HUB</Text> : null}
           </View>
+          ) : <View style={{ width: 12 }} />}
 
-          {wide && (backLabel || title) ? <View style={styles.divider} /> : null}
+          {wide && !hideBrand && (backLabel || title) ? <View style={styles.divider} /> : null}
 
           {backLabel ? (
             <TouchableOpacity

@@ -715,7 +715,7 @@ const SecurityInsightsTab = () => {
 
           {/* Download Report (Excel) — admins only, same row as the filters */}
           {isAdminViewer && (
-            <View style={styles.filterItem}>
+            <View style={[styles.filterItem, { minWidth: 172 }]}>
               <TouchableOpacity
                 style={[styles.searchButton, { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }]}
                 onPress={handleDownloadReport}
@@ -728,7 +728,7 @@ const SecurityInsightsTab = () => {
                 ) : (
                   <>
                     <MaterialIcons name="download" size={18} color="#fff" />
-                    <Text style={styles.searchButtonText}>Download Report</Text>
+                    <Text style={styles.searchButtonText} numberOfLines={1}>Download Report</Text>
                   </>
                 )}
               </TouchableOpacity>

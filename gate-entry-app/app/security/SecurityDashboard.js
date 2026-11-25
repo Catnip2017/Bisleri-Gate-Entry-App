@@ -2,10 +2,11 @@
 // Wrapped in the shared AppShell: standard header (menu + logo + avatar),
 // the one role-aware sidebar with pinned logout. No screen-owned chrome.
 import React, { useState, useEffect } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
+import { WIDE_BREAKPOINT } from '../../components/ui/AppHeader';
 import TabNavigation from './components/TabNavigation';
 import GateEntryTab from './components/GateEntryTab';
 import InsightsTab from './components/InsightsTab';
@@ -75,9 +76,24 @@ const SecurityDashboard = () => {
   // Guards/Security Admins have no Admin Hub, so they get no back chip.
   const isItAdmin = roles.includes('itadmin');
 
+  // Desktop web (25 Nov 2026): the tabs move into the always-open sidebar
+  // (AppShell's FixedSidebar) and the top tab buttons are hidden. Phones,
+  // narrow windows and the native apps keep the top tab buttons.
+  const { width } = useWindowDimensions();
+  const fixedNav = Platform.OS === 'web' && width >= WIDE_BREAKPOINT;
+  const appNav = activeTab === null ? null : {
+    title: 'Gate Entry & Insights',
+    items: [
+      { key: 'entry', label: 'Gate Entry', icon: 'local-shipping', badge: isAdminViewer ? 'View only' : null },
+      { key: 'insights', label: 'Insights', icon: 'insights' },
+      ...(showGatePassTab ? [{ key: 'gatepass', label: 'Gate Pass', icon: 'assignment' }] : []),
+    ].map((t) => ({ ...t, active: activeTab === t.key, onPress: () => handleTabChange(t.key) })),
+  };
+
   return (
     <AppShell
-      title={isItAdmin ? 'Gate Entry & Insights' : undefined}
+      appNav={appNav}
+      title={isItAdmin || fixedNav ? 'Gate Entry & Insights' : undefined}
       backLabel={isItAdmin ? 'Admin Hub' : undefined}
       onBack={isItAdmin ? () => router.replace('/admin-hub') : undefined}
     >
@@ -87,12 +103,14 @@ const SecurityDashboard = () => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.container}>
-          <TabNavigation
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            viewOnlyEntry={isAdminViewer}
-            showGatePass={showGatePassTab}
-          />
+          {!fixedNav && (
+            <TabNavigation
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              viewOnlyEntry={isAdminViewer}
+              showGatePass={showGatePassTab}
+            />
+          )}
 
           <View style={styles.tabContent}>
             {/* Gate Entry (FG/RM toggle inside) — lazy mounted */}

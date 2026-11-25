@@ -17,10 +17,11 @@ import { getCurrentUser } from '../../utils/jwtUtils';
 import { storage } from '../../utils/storage';
 import AppHeader, { WIDE_BREAKPOINT } from './AppHeader';
 import NavSidebar from './NavSidebar';
+import FixedSidebar from './FixedSidebar';
 import AccountDetailsPopover from './AccountDetailsPopover';
 import { useTheme, brand } from '../../contexts/ThemeContext';
 
-const AppShell = ({ children, title, backLabel, onBack }) => {
+const AppShell = ({ children, title, backLabel, onBack, appNav }) => {
   const router = useRouter();
 
   // Default back handler: router.back() silently does nothing when this
@@ -44,6 +45,8 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
+  // Always-open sidebar on desktop web (25 Nov 2026); phones/native keep ☰.
+  const fixedNav = wide && Platform.OS === 'web';
 
   useEffect(() => {
     // ── AUTH GUARD ──────────────────────────────────────────────────────────
@@ -128,21 +131,54 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
     </TouchableOpacity>
   );
 
+  const header = (
+    <AppHeader
+      rightSlot={avatarChip}
+      backLabel={backLabel}
+      title={title}
+      onBack={onBack || defaultOnBack}
+      onMenuPress={fixedNav ? undefined : () => setSidebarVisible(true)}
+      hideBrand={fixedNav}
+    />
+  );
+
+  const accountPopover = (
+    // Account Details — opened by the avatar chip or the menu's
+    // "Account Details" row (30 Oct 2026)
+    <AccountDetailsPopover
+      isVisible={accountPopoverVisible}
+      onClose={() => setAccountPopoverVisible(false)}
+      userData={userData}
+    />
+  );
+
+  if (fixedNav) {
+    // Desktop web: [ fixed teal sidebar | header + page ]
+    return (
+      <SafeAreaView style={{ flex: 1, flexDirection: 'row', backgroundColor: colors.background }}>
+        <FixedSidebar
+          userData={userData}
+          appNav={appNav}
+          onOpenAccountDetails={() => setAccountPopoverVisible(true)}
+        />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          {header}
+          <View style={{ flex: 1 }}>{children}</View>
+        </View>
+        {accountPopover}
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      {/* One merged header — navy band with logo, back-chip/title and avatar */}
-      <AppHeader
-        rightSlot={avatarChip}
-        backLabel={backLabel}
-        title={title}
-        onBack={onBack || defaultOnBack}
-        onMenuPress={() => setSidebarVisible(true)}
-      />
+      {/* One merged header — teal band with logo, back-chip/title and avatar */}
+      {header}
 
       {/* Screen content */}
       <View style={{ flex: 1 }}>{children}</View>
 
-      {/* The one sidebar */}
+      {/* The slide-in sidebar (phones, narrow windows, native apps) */}
       <NavSidebar
         isVisible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
@@ -150,13 +186,7 @@ const AppShell = ({ children, title, backLabel, onBack }) => {
         userData={userData}
       />
 
-      {/* Account Details — opened by the avatar chip or the hamburger
-          menu's "Account Details" row (30 Oct 2026) */}
-      <AccountDetailsPopover
-        isVisible={accountPopoverVisible}
-        onClose={() => setAccountPopoverVisible(false)}
-        userData={userData}
-      />
+      {accountPopover}
     </SafeAreaView>
   );
 };
