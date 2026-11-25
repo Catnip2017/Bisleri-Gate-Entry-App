@@ -198,6 +198,22 @@ export const insightsAPI = {
     return response.data;
   },
 
+  // KPI totals across ALL rows matching the filters (table is capped at 5000).
+  getMovementsSummary: async (filters) => {
+    const response = await api.get('/movements/summary', {
+      params: {
+        from_date: filters.from_date,
+        to_date: filters.to_date,
+        site_code: filters.site_code || null,
+        warehouse_code: filters.warehouse_code || null,
+        movement_type: filters.movement_type || null,
+        vehicle_no: filters.vehicle_no || null,
+      },
+      timeout: 60000,
+    });
+    return response.data;
+  },
+
   updateOperationalData: async (editData) => {
     if (!editData.gate_entry_no) {
       throw new Error('Gate entry number is required');

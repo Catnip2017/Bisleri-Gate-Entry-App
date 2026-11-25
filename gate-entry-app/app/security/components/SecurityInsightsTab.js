@@ -30,6 +30,8 @@ const SecurityInsightsTab = () => {
   // State management
   const [loading, setLoading] = useState(false);
   const [movements, setMovements] = useState([]);
+  const [summary, setSummary] = useState(null);        // KPI totals for the whole query
+  const [matchingTotal, setMatchingTotal] = useState(0); // rows matching the query
   const [kpiFilter, setKpiFilter] = useState('all'); // 'all' | 'gate_in' | 'gate_out' | 'needs_completion' | 'pending_assignment'
   const [userData, setUserData] = useState(null);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -124,7 +126,16 @@ const SecurityInsightsTab = () => {
         movement_type: null
       };
 
-      const response = await insightsAPI.getFilteredMovements(filter);
+      // Table rows (newest 5,000) and KPI totals (whole date range) in parallel.
+      const [response, summaryData] = await Promise.all([
+        insightsAPI.getFilteredMovements(filter),
+        insightsAPI.getMovementsSummary(filter).catch((e) => {
+          console.log('Summary load failed, falling back to loaded rows:', e);
+          return null;
+        }),
+      ]);
+      setSummary(summaryData);
+      setMatchingTotal(response.total_count ?? (response.results || []).length);
 
       const sortedMovements = editStatusUtils.sortByEditPriority(response.results || []);
       setMovements(sortedMovements);
@@ -295,6 +306,18 @@ const SecurityInsightsTab = () => {
 
         // Enhanced stats calculation with date filtering
     const stats = React.useMemo(() => {
+      // Prefer server totals so KPIs match the whole date query, not just the loaded rows.
+      if (summary) {
+        return {
+          gateInCount: summary.gate_in_count,
+          gateOutCount: summary.gate_out_count,
+          totalMovements: summary.total_count,
+          uniqueVehicles: summary.unique_vehicles,
+          needsCompletion: summary.needs_completion,
+          pendingAssignment: summary.pending_assignment,
+          assigned: summary.total_count - summary.pending_assignment,
+        };
+      }
       if (!movements || movements.length === 0) {
         return {
           gateInCount: 0,
@@ -340,7 +363,7 @@ const SecurityInsightsTab = () => {
         pendingAssignment,
         assigned: movements.length - pendingAssignment,
       };
-    }, [movements]);
+    }, [movements, summary]);
 
   // ✅ CSV export (admins only, web) — replaces the retired Admin Insights
   // download. Exports the CURRENT filtered movement list.
@@ -690,6 +713,7 @@ const SecurityInsightsTab = () => {
         <View style={styles.paginationInfo}>
           <Text style={styles.paginationText}>
             {startItem} to {endItem} of {totalItems}
+            {kpiFilter === 'all' && matchingTotal > movements.length ? `  (newest ${movements.length.toLocaleString()} of ${matchingTotal.toLocaleString()} matching rows; KPIs count all ${matchingTotal.toLocaleString()})` : ''}
           </Text>
           <Text style={styles.paginationText}>
             Page {currentPage} of {totalPages}

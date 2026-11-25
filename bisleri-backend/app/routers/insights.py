@@ -39,6 +39,80 @@ def get_movements(
     return get_enhanced_filtered_movements(filters, db, current_user)
 
 
+def _apply_movement_filters(query, filters, current_user):
+    """Same filters + warehouse scope as the table, shared with the KPI summary."""
+    if filters.from_date:
+        query = query.filter(InsightsData.date >= filters.from_date)
+    if filters.to_date:
+        query = query.filter(InsightsData.date <= filters.to_date)
+    if filters.warehouse_code:
+        query = query.filter(InsightsData.warehouse_code == filters.warehouse_code)
+    if filters.site_code:
+        query = query.filter(InsightsData.site_code == filters.site_code)
+    if filters.vehicle_no:
+        query = query.filter(InsightsData.vehicle_no.ilike(f"%{filters.vehicle_no.upper()}%"))
+    if filters.movement_type:
+        query = query.filter(InsightsData.movement_type == filters.movement_type)
+    if "itadmin" not in normalize_roles(current_user.role):
+        query = query.filter(InsightsData.warehouse_code == current_user.warehouse_code)
+    return query
+
+
+@router.get("/movements/summary")
+def get_movements_summary(
+    from_date: Optional[date] = Query(None),
+    to_date: Optional[date] = Query(None),
+    warehouse_code: Optional[str] = Query(None, max_length=50),
+    site_code: Optional[str] = Query(None, max_length=50),
+    vehicle_no: Optional[str] = Query(None, max_length=50),
+    movement_type: Optional[str] = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """KPI totals over EVERY row matching the filters (not just the loaded page).
+
+    Uses the same definitions as the table cards: Gate-In / Gate-Out are
+    distinct gate entry numbers, Need completion uses the same edit rules the
+    table uses, Pending assignment uses the same document rule.
+    """
+    filters = MovementFilters(
+        from_date=from_date, to_date=to_date, warehouse_code=warehouse_code,
+        site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
+    )
+    try:
+        query = _apply_movement_filters(db.query(InsightsData), filters, current_user)
+        gate_in, gate_out, vehicles = set(), set(), set()
+        total = needs_completion = pending_assignment = 0
+        for m in query.yield_per(2000):
+            total += 1
+            if m.movement_type == "Gate-In":
+                gate_in.add(m.gate_entry_no)
+            elif m.movement_type == "Gate-Out":
+                gate_out.add(m.gate_entry_no)
+            vehicles.add(m.vehicle_no)
+            cfg = edit_service.get_edit_button_config(
+                m, current_user.username, current_user.role, current_user.warehouse_code
+            )
+            if cfg.get("action") == "complete_required":
+                needs_completion += 1
+            if m.document_type == "Manual Entry - Pending Assignment" or (
+                m.document_type == "Manual Entry" and not m.document_date
+            ):
+                pending_assignment += 1
+        return {
+            "total_count": total,
+            "gate_in_count": len(gate_in),
+            "gate_out_count": len(gate_out),
+            "unique_vehicles": len(vehicles),
+            "needs_completion": needs_completion,
+            "pending_assignment": pending_assignment,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise internal_error("Summary error", e)
+
+
 # Q11 phase 2 (12 Jul 2026): POST /filtered-movements route RETIRED — all
 # clients (Expo Go, always-fresh bundles) now use GET /movements above, which
 # calls this implementation directly.
