@@ -81,7 +81,7 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress, hideBrand
               accessibilityRole="button"
               accessibilityLabel={`Back to ${backLabel}`}
             >
-              <MaterialIcons name="arrow-back" size={16} color="#FFFFFF" />
+              <MaterialIcons name="arrow-back" size={16} color={brand.navyDark} />
               <Text style={styles.backChipText} numberOfLines={1}>{backLabel}</Text>
             </TouchableOpacity>
           ) : null}
@@ -186,9 +186,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    // 25 Nov 2026: solid white pill + deep-teal text — was translucent and
+    // hard to see against the teal band.
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: 'rgba(0,96,79,0.15)',
+    ...Platform.select({ web: { boxShadow: '0px 2px 6px rgba(0,0,0,0.12)' } }),
     paddingHorizontal: 12,
     minHeight: 34,
     borderRadius: 17,
@@ -196,7 +199,7 @@ const styles = StyleSheet.create({
     ...Platform.select({ web: { cursor: 'pointer' } }),
   },
   backChipText: {
-    color: '#FFFFFF',
+    color: brand.navyDark,
     fontWeight: '600',
     fontSize: 13,
   },

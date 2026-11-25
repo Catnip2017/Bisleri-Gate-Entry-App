@@ -9,10 +9,37 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAccountDetails } from '../../hooks/useAccountDetails';
 import { ROLE_LABELS } from '../../config/navConfig';
+import { useRouter } from 'expo-router';
+import { authAPI } from '../../services/api';
+import { storage } from '../../utils/storage';
+import { confirmAction } from '../../utils/customModal';
 
 const AccountDetailsPopover = ({ isVisible, onClose, userData }) => {
   const { colors } = useTheme();
   const { roles, details, initials } = useAccountDetails(userData, isVisible);
+  const router = useRouter();
+
+  // Same logout flow as the sidebars (confirmation first) — 25 Nov 2026:
+  // a Logout button here too, so it's one tap away from the account pill.
+  const handleLogout = () => {
+    confirmAction({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          await authAPI.logout();
+        } catch (e) {
+          console.log('Logout API error:', e);
+        } finally {
+          await storage.removeItem('access_token');
+          onClose?.();
+          router.replace('/LoginScreen');
+        }
+      },
+    });
+  };
 
   if (!isVisible) return null;
 
@@ -27,7 +54,7 @@ const AccountDetailsPopover = ({ isVisible, onClose, userData }) => {
       {/* Card — "small half page" per the 30 Oct 2026 request: a compact
           dropdown anchored top-right, not a full-screen sheet. */}
       <View style={{
-        position: 'absolute', top: 60, right: 10, width: 300, maxHeight: '55%',
+        position: 'absolute', top: 64, right: 10, width: 300, maxHeight: '75%',
         backgroundColor: colors.surface, borderRadius: 12, overflow: 'hidden',
         borderWidth: 1, borderColor: colors.border,
         elevation: 10,
@@ -80,6 +107,21 @@ const AccountDetailsPopover = ({ isVisible, onClose, userData }) => {
             ))}
           </View>
         </ScrollView>
+
+        <View style={{ padding: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+          <TouchableOpacity
+            onPress={handleLogout}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              backgroundColor: '#C62828', minHeight: 44, borderRadius: 8,
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Logout"
+          >
+            <MaterialIcons name="logout" size={18} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

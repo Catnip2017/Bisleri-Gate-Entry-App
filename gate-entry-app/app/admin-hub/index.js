@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getCurrentUser } from '../../utils/jwtUtils';
 import AppShell from '../../components/ui/AppShell';
+import HubTile from '../../components/ui/HubTile';
 import { useAdminHubStyles } from './AdminHubStyles';
 import { useCopackerEnabled } from '../../hooks/useCopackerEnabled';
 
@@ -145,34 +146,16 @@ export default function AdminHubScreen() {
           {/* Tile grid */}
           <View style={styles.grid}>
             {getTiles(user?.roles || [], copackerEnabled).map((tile) => (
-              <Pressable
+              <HubTile
                 key={tile.key}
-                onPress={() => handleTilePress(tile)}
+                label={tile.label}
+                sublabel={tile.sublabel}
+                icon={tile.icon}
+                accentColor={tile.accentColor}
+                iconBg={tile.iconBg}
                 disabled={tile.disabled}
-                accessibilityRole="button"
-                accessibilityLabel={`${tile.label}: ${tile.sublabel}`}
-                style={({ pressed, hovered }) => [
-                  styles.tile,
-                  !wide && { width: '46%', minHeight: 160, padding: 14 },
-                  hovered && !tile.disabled && styles.tileHovered,
-                  tile.disabled && styles.tileDisabled,
-                  pressed && !tile.disabled && styles.tilePressed,
-                ]}
-              >
-                <View style={[styles.iconCircle, { backgroundColor: tile.iconBg }]}>
-                  <MaterialIcons
-                    name={tile.icon}
-                    size={28}
-                    color={tile.accentColor}
-                  />
-                </View>
-                <Text style={styles.tileLabel}>{tile.label}</Text>
-                <Text style={styles.tileSublabel}>{tile.sublabel}</Text>
-                <View style={styles.tileFooter}>
-                  <Text style={[styles.tileOpen, { color: tile.accentColor }]}>Open</Text>
-                  <MaterialIcons name="arrow-forward" size={16} color={tile.accentColor} />
-                </View>
-              </Pressable>
+                onPress={() => handleTilePress(tile)}
+              />
             ))}
           </View>
         </View>

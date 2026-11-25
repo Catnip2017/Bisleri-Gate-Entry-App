@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import AppShell from '../../components/ui/AppShell';
+import HubTile from '../../components/ui/HubTile';
 import styles from './RpaStyles';
 
 // ── Domain definitions ────────────────────────────────────────────────────
@@ -62,70 +63,34 @@ export default function RpaScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ── Body ─────────────────────────────────────────────────────────── */}
-      <View style={styles.body}>
-        <Text style={styles.heading}>Select a Domain</Text>
-        <Text style={styles.subheading}>
-          Choose the domain to view its automation processes
-        </Text>
+      <View style={[styles.body, { alignItems: 'center' }]}>
+        <View style={{ width: '100%', maxWidth: 1100 }}>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: '#00604F' }}>Select a Domain</Text>
+          <Text style={[styles.subheading, { textAlign: 'left', marginBottom: 20 }]}>
+            Choose the domain to view its automation processes
+          </Text>
 
-        <View style={styles.grid}>
-          {DOMAINS.map((domain) => (
-            <Pressable
-              key={domain.key}
-              onPress={() => {
-                if (domain.route) router.push(domain.route);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={
-                domain.route
+          {/* Same card look as the Admin Hub (components/ui/HubTile) */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
+            {DOMAINS.map((domain) => (
+              <HubTile
+                key={domain.key}
+                label={domain.label}
+                sublabel={domain.route
+                  ? `${domain.processCount} live process${domain.processCount === 1 ? '' : 'es'}`
+                  : 'Automation processes'}
+                icon={domain.icon}
+                accentColor={domain.accentColor}
+                iconBg={domain.iconBg}
+                disabled={!domain.route}
+                statusText={domain.route ? null : 'COMING SOON'}
+                accessibilityLabel={domain.route
                   ? `Open ${domain.label} processes`
-                  : `${domain.label} — coming soon`
-              }
-              style={({ pressed }) => [
-                styles.domainTile,
-                { borderTopWidth: 4, borderTopColor: domain.accentColor },
-                pressed && domain.route && styles.domainTilePressed,
-                !domain.route && { opacity: 0.65 },
-                Platform.OS === 'web' && {
-                  cursor: domain.route ? 'pointer' : 'not-allowed',
-                },
-              ]}
-            >
-              <View
-                style={[
-                  styles.iconCircle,
-                  { backgroundColor: domain.iconBg },
-                ]}
-              >
-                <MaterialIcons
-                  name={domain.icon}
-                  size={32}
-                  color={domain.accentColor}
-                />
-              </View>
-              <Text style={styles.domainLabel}>{domain.label}</Text>
-
-              {domain.route ? (
-                <View
-                  style={{
-                    backgroundColor: '#E6F1EC',
-                    borderRadius: 12,
-                    paddingHorizontal: 10,
-                    paddingVertical: 3,
-                    marginTop: 6,
-                  }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: 'bold', color: '#00382D' }}>
-                    {domain.processCount} LIVE PROCESS{domain.processCount === 1 ? '' : 'ES'}
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.comingSoonBadge}>
-                  <Text style={styles.comingSoonText}>COMING SOON</Text>
-                </View>
-              )}
-            </Pressable>
-          ))}
+                  : `${domain.label} — coming soon`}
+                onPress={() => { if (domain.route) router.push(domain.route); }}
+              />
+            ))}
+          </View>
         </View>
       </View>
     </ScrollView>

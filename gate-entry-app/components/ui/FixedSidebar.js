@@ -16,7 +16,7 @@
 //      Documents.
 //   5. Account Details row + Logout (same confirmation as NavSidebar) +
 //      version footer.
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -48,14 +48,14 @@ const SectionLabel = ({ children }) => (
   </Text>
 );
 
-const NavItem = ({ label, icon, active, badge, onPress, small }) => (
+const NavItem = ({ label, icon, active, badge, onPress, small, indent, parentOpen, chevron, tint }) => (
   <TouchableOpacity
     onPress={onPress}
     style={{
       flexDirection: 'row', alignItems: 'center', gap: 12,
       minHeight: small ? 40 : 46, marginHorizontal: 12, marginBottom: 4,
-      paddingHorizontal: 12, borderRadius: 10,
-      backgroundColor: active ? brand.active : 'transparent',
+      paddingHorizontal: 12, paddingLeft: indent ? 40 : 12, borderRadius: 10,
+      backgroundColor: active ? brand.active : tint ? 'rgba(255,255,255,0.12)' : 'transparent',
       ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
     }}
     accessibilityRole="button"
@@ -64,7 +64,7 @@ const NavItem = ({ label, icon, active, badge, onPress, small }) => (
   >
     <MaterialIcons name={icon} size={small ? 18 : 20} color={WHITE} />
     <Text style={{
-      flex: 1, color: WHITE, fontSize: small ? 13.5 : 15,
+      flex: 1, color: WHITE, fontSize: small ? 13.5 : chevron ? 14 : 15,
       fontWeight: active ? '700' : '500',
     }} numberOfLines={1}>
       {label}
@@ -76,6 +76,9 @@ const NavItem = ({ label, icon, active, badge, onPress, small }) => (
       }}>
         <Text style={{ color: WHITE, fontSize: 10, fontWeight: '700' }}>{badge}</Text>
       </View>
+    ) : null}
+    {chevron ? (
+      <MaterialIcons name={parentOpen ? 'expand-less' : 'expand-more'} size={20} color={WHITE_70} />
     ) : null}
   </TouchableOpacity>
 );
@@ -97,8 +100,10 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
 
   const isCurrent = (route) =>
     pathname === route || (route !== '/' && pathname?.startsWith(route + '/'));
-  // Inside an app, its own link would just repeat the section above it
-  const hubLinks = links.filter((link) => !(appNav && isCurrent(link.route)));
+  // The current app's own pages (appNav) open as a sub-dropdown under its
+  // link in the ONE Ops Hub list — same sidebar on every page (25 Nov 2026).
+  const hasAppNav = !!(appNav && appNav.items && appNav.items.length > 0);
+  const [appOpen, setAppOpen] = useState(true);
 
   const go = (route) => {
     if (pathname !== route) router.push(route);
@@ -170,33 +175,45 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
 
       {/* 3 + 4. Menus */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }}>
-        {appNav && appNav.items && appNav.items.length > 0 ? (
-          <>
-            <SectionLabel>{appNav.title || 'This application'}</SectionLabel>
-            {appNav.items.map((item) => (
-              <NavItem
-                key={item.key}
-                label={item.label}
-                icon={item.icon}
-                active={item.active}
-                badge={item.badge}
-                onPress={item.onPress}
-              />
-            ))}
-          </>
-        ) : null}
-
-        {hubLinks.length > 0 ? <SectionLabel>Ops Hub</SectionLabel> : null}
-        {hubLinks.map((link) => (
-          <NavItem
-            key={link.key}
-            label={link.label}
-            icon={link.icon}
-            active={!appNav && isCurrent(link.route)}
-            onPress={() => go(link.route)}
-            small={!!appNav}
-          />
-        ))}
+        <SectionLabel>Ops Hub</SectionLabel>
+        {links.map((link) => {
+          const current = isCurrent(link.route);
+          if (hasAppNav && current) {
+            return (
+              <View key={link.key}>
+                <NavItem
+                  label={link.label}
+                  icon={link.icon}
+                  tint
+                  chevron
+                  parentOpen={appOpen}
+                  onPress={() => setAppOpen((o) => !o)}
+                />
+                {appOpen && appNav.items.map((item) => (
+                  <NavItem
+                    key={item.key}
+                    label={item.label}
+                    icon={item.icon}
+                    active={item.active}
+                    badge={item.badge}
+                    onPress={item.onPress}
+                    indent
+                    small
+                  />
+                ))}
+              </View>
+            );
+          }
+          return (
+            <NavItem
+              key={link.key}
+              label={link.label}
+              icon={link.icon}
+              active={current}
+              onPress={() => go(link.route)}
+            />
+          );
+        })}
 
         <SectionLabel>Documents</SectionLabel>
         {DOCUMENT_LINKS.map((link) => (
@@ -224,7 +241,7 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
           style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             marginHorizontal: 16, marginTop: 6, minHeight: 44, borderRadius: 10,
-            backgroundColor: 'rgba(255,255,255,0.14)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+            backgroundColor: '#C62828', borderWidth: 1, borderColor: '#E0574F',
             ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
           }}
           accessibilityRole="button"
