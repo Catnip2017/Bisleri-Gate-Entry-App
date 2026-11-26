@@ -283,8 +283,8 @@ def _msi_filters(status, date_from, date_to, sites, routes, challan, search):
     clause = " WHERE 1=1"
     params = []
     if status and status.lower() != "all":
-        clause += " AND UPPER(status) = %s"
-        params.append(status.upper())
+        clause += " AND UPPER(TRIM(status)) = %s"
+        params.append(status.strip().upper())
     d_from = _parse_date(date_from, "date_from")
     d_to = _parse_date(date_to, "date_to")
     if d_from:
@@ -321,7 +321,7 @@ def _msi_filters(status, date_from, date_to, sites, routes, challan, search):
 
 MSI_COLUMNS = """
     invoice_number, invoice_account, customer_name, invoice_date, voucher,
-    currency, delivery_challan, irn_number, site, UPPER(status) AS status, route_code
+    currency, delivery_challan, irn_number, site, UPPER(TRIM(status)) AS status, route_code
 """
 
 
@@ -351,7 +351,15 @@ def msi_filter_options(current_user: UsersMaster = Depends(get_current_user)):
                           WHERE site IS NOT NULL AND site <> '' ORDER BY site""")
         routes = _fetch("""SELECT DISTINCT route_code FROM customer_invoice_journal
                            WHERE route_code IS NOT NULL AND route_code <> '' ORDER BY route_code""")
-        return {"sites": [r[0] for r in sites], "routes": [r[0] for r in routes]}
+        # Date span of the whole journal — the screen uses it to say where the
+        # data is when the chosen dates return nothing.
+        span = _fetch("SELECT MIN(invoice_date), MAX(invoice_date), COUNT(*) FROM customer_invoice_journal")[0]
+        return {
+            "sites": [r[0] for r in sites], "routes": [r[0] for r in routes],
+            "first_invoice_date": span[0].isoformat() if span[0] else None,
+            "latest_invoice_date": span[1].isoformat() if span[1] else None,
+            "total_in_journal": int(span[2] or 0),
+        }
     except HTTPException:
         raise
     except Exception:
@@ -370,7 +378,7 @@ def msi_summary(
     _require_itadmin(current_user)
     clause, params = _msi_filters(None, date_from, date_to, sites, routes, challan, search)
     try:
-        rows = _fetch(f"SELECT UPPER(status), COUNT(*) FROM customer_invoice_journal {clause} GROUP BY UPPER(status)", params)
+        rows = _fetch(f"SELECT UPPER(TRIM(status)), COUNT(*) FROM customer_invoice_journal {clause} GROUP BY 1", params)
         counts = {"total": 0, "completed": 0, "pending": 0, "issue": 0}
         for st, n in rows:
             counts["total"] += int(n)

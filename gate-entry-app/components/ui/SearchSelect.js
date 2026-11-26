@@ -6,7 +6,7 @@
 //
 // options: [{ value, label }] (or plain strings). Same look as the
 // User Management filters (teal border when something is chosen).
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform } from 'react-native';
 
 const norm = (o) => (typeof o === 'string' ? { value: o, label: o } : o);
@@ -45,13 +45,33 @@ function Check({ on }) {
   );
 }
 
+// Open/close state shared by both dropdowns. On web the menu also closes on
+// a click anywhere outside it (or Esc) — before 26 Nov 2026 it only closed
+// from its own ▲ button.
 function useMenu(options) {
   const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (!open || Platform.OS !== 'web' || typeof document === 'undefined') return undefined;
+    const onDown = (e) => {
+      const el = ref.current;
+      if (el && typeof el.contains === 'function' && !el.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown, true);
+    document.addEventListener('touchstart', onDown, true);
+    document.addEventListener('keydown', onKey, true);
+    return () => {
+      document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('touchstart', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+    };
+  }, [open]);
   const [search, setSearch] = useState('');
   const all = (options || []).map(norm);
   const term = search.trim().toLowerCase();
   const shown = term ? all.filter((o) => `${o.label} ${o.value}`.toLowerCase().includes(term)) : all;
-  return { open, setOpen, search, setSearch, all, shown };
+  return { open, setOpen, search, setSearch, all, shown, ref };
 }
 
 export function SearchMultiSelect({
@@ -64,7 +84,7 @@ export function SearchMultiSelect({
   const summary = selected.length === 0 ? (allLabel || placeholder)
     : selected.length === 1 ? labelOf(selected[0]) : `${selected.length} selected`;
   return (
-    <View style={[{ zIndex: m.open ? 60 : 1 }, width ? { width } : null]} testID={testID}>
+    <View ref={m.ref} style={[{ zIndex: m.open ? 60 : 1 }, width ? { width } : null]} testID={testID}>
       {title ? <Text style={S.label}>{title}</Text> : null}
       <TouchableOpacity
         onPress={() => { m.setOpen((o) => !o); m.setSearch(''); }}
@@ -125,7 +145,7 @@ export function SearchSelect({
   const m = useMenu(options);
   const current = m.all.find((o) => o.value === value);
   return (
-    <View style={[{ zIndex: m.open ? 60 : 1 }, width ? { width } : null]} testID={testID}>
+    <View ref={m.ref} style={[{ zIndex: m.open ? 60 : 1 }, width ? { width } : null]} testID={testID}>
       {title ? <Text style={S.label}>{title}</Text> : null}
       <TouchableOpacity
         disabled={disabled}

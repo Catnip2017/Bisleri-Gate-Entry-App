@@ -5,7 +5,8 @@
 //  - search at the top (invoice no., account, customer, IRN, voucher)
 //  - KPI cards (Total / Completed / Pending / Issue) counting EVERY invoice
 //    that matches the filters; tap a status card to filter, tap again to clear
-//  - filters: invoice date range (defaults to this month), Site and Route
+//  - filters: invoice date range (defaults to the 1st of LAST month → today,
+//    because the month-close run carries last month's invoice dates), Site and Route
 //    (options read from the data — a new site appears automatically),
 //    Delivery challan, Download Report (.xlsx of all matching invoices)
 //  - server-side paging (25 per page), expandable rows for the details
@@ -35,7 +36,8 @@ const fmtDate = (d) => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   return `${d.getFullYear()}-${month}-${day}`;
 };
-const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); };
+// Default range starts on the 1st of the previous month (month-close run)
+const monthStart = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 1, 1); };
 const showDate = (iso) => (iso ? `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}` : '—');
 
 const CHALLAN_OPTIONS = [
@@ -64,7 +66,7 @@ export default function MonthlySalesInvoiceScreen() {
   const [challan, setChallan] = useState('all');
   const [searchDraft, setSearchDraft] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [options, setOptions] = useState({ sites: [], routes: [] });
+  const [options, setOptions] = useState({ sites: [], routes: [], first_invoice_date: null, latest_invoice_date: null, total_in_journal: null });
   // The filters actually used for the data on screen (paging + download)
   const [applied, setApplied] = useState(null);
 
@@ -110,7 +112,7 @@ export default function MonthlySalesInvoiceScreen() {
     }
     setApplied(params);
     const { status: _s, ...summaryParams } = params;
-    rpaAPI.getMsiSummary(summaryParams).then(setCounts).catch(() => {});
+    rpaAPI.getMsiSummary(summaryParams).then(setCounts).catch((e) => showAlert('Error', handleAPIError(e)));
     loadPage(params, 1);
   }, [loadPage]);
 
@@ -125,7 +127,8 @@ export default function MonthlySalesInvoiceScreen() {
         return;
       }
       setAllowed(true);
-      rpaAPI.getMsiFilters().then((o) => setOptions({ sites: o.sites || [], routes: o.routes || [] })).catch(() => {});
+      rpaAPI.getMsiFilters().then((o) => setOptions({ ...o, sites: o.sites || [], routes: o.routes || [] }))
+        .catch((e) => showAlert('Monthly Sales Invoice', handleAPIError(e)));
       loadAll(currentParams());
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,7 +309,13 @@ export default function MonthlySalesInvoiceScreen() {
               columns={columns}
               data={records}
               keyExtractor={(r) => String(r.invoice_number)}
-              emptyText="No invoices match the current filters"
+              emptyText={
+                options.total_in_journal === 0
+                  ? 'The invoice journal is empty — the bot has not written any invoices yet'
+                  : options.latest_invoice_date
+                    ? `No invoices match the current filters. The journal has ${Number(options.total_in_journal || 0).toLocaleString('en-IN')} invoices dated ${showDate(options.first_invoice_date)} to ${showDate(options.latest_invoice_date)} — widen the invoice dates.`
+                    : 'No invoices match the current filters'
+              }
               detailLayout="row"
             />
 
