@@ -17,7 +17,7 @@ export const ROLE_INFO = {
   'Security Admin':       'View-only Gate Entry, Insights (with report download) and Gate Pass list',
   'Co Packer':            'Production line capture (exclusive role)',
   'Bisleri Inventory Operator': 'Enters Blinkit stock for mapped warehouses (exclusive role)',
-  'Blinkit Inventory Viewer':   'Blinkit login: views own customer stock, read-only (exclusive role)',
+  'Blinkit Inventory Viewer':   'Blinkit login: views own store stock, read-only (exclusive role)',
 };
 
 // Roles that can't be combined with anything else (server: validate_role_combo).
@@ -60,17 +60,17 @@ export function accessPreview(roles, { warehouse, locations = [], department, co
   if (has('Security Admin')) {
     yes.push(`Gate Entry (view only) — ${wh}`);
     yes.push(`Insights + Download Report — ${wh}`);
-    yes.push(`Gate Pass list (view only) — ${locs}`);
+    yes.push(locations?.length ? `Gate Pass list (view only) — ${locs}` : 'Gate Pass list — none (no location assigned; page says so)');
   }
   if (has('Gate Pass Creator')) yes.push(`Gate Pass: create passes — ${department || 'department'}, ${locs}`);
   if (has('Co Packer')) yes.push(`Co Packer sessions — ${copacker || 'their location'}`);
   const invWh = inventory?.warehouses?.length ? inventory.warehouses.join(', ') : 'selected warehouses';
   if (has('Bisleri Inventory Operator')) {
     yes.push(`Blinkit Inventory Portal: Dashboard, Entry (manual + Excel upload) — ${invWh}`);
-    yes.push(`Inventory View / History + Excel export — ${inventory?.viewers?.length || 0} Blinkit user(s)' customer codes`);
+    yes.push(`Inventory View / History + Excel export — ${inventory?.viewers?.length || 0} Blinkit user(s)' stores`);
   }
   if (has('Blinkit Inventory Viewer')) {
-    yes.push(`Blinkit Inventory Portal: View / History + Excel export (read-only) — customer ${inventory?.customer_code || 'code'}, ${invWh}`);
+    yes.push(`Blinkit Inventory Portal: View / History + Excel export (read-only) — store ${inventory?.store_code || '(not chosen)'}, ${invWh}`);
   }
   const no = has('IT Admin') ? [] : ['Admin Hub, User Management'];
   return { yes, no };

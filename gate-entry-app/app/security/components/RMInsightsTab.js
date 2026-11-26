@@ -27,6 +27,9 @@ const RMInsightsTab = () => {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [statistics, setStatistics] = useState(null);
+  // KPI totals for the WHOLE date range from the server (26 Nov 2026) — the
+  // table itself is capped at 5,000 rows, so counting loaded rows undercounted.
+  const [summary, setSummary] = useState(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   // ✅ NEW: Pagination states
@@ -188,8 +191,15 @@ const RMInsightsTab = () => {
         movement_type: null
       };
 
-      const response = await rmAPI.getFilteredRMEntries(filter);
+      const [response, summaryData] = await Promise.all([
+        rmAPI.getFilteredRMEntries(filter),
+        rmAPI.getRMSummary(filter).catch((e) => {
+          console.log('RM summary load failed, falling back to loaded rows:', e);
+          return null;
+        }),
+      ]);
       setRMEntries(response.results || []);
+      setSummary(summaryData);
       setCurrentPage(1); // Reset to first page when data loads
       
     } catch (error) {
@@ -448,6 +458,14 @@ const RMInsightsTab = () => {
   // Calculate statistics
 // Calculate statistics with date filtering
 const stats = React.useMemo(() => {
+  if (summary) {
+    return {
+      totalEntries: summary.total_entries,
+      gateInCount: summary.gate_in_count,
+      gateOutCount: summary.gate_out_count,
+      uniqueVehicles: summary.unique_vehicles,
+    };
+  }
   if (!rmEntries || rmEntries.length === 0) {
     return {
       totalEntries: 0,
@@ -467,7 +485,7 @@ const stats = React.useMemo(() => {
     gateOutCount,
     uniqueVehicles
   };
-}, [rmEntries]);
+}, [rmEntries, summary]);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

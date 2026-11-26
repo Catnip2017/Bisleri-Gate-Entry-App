@@ -184,6 +184,8 @@ export default function RegisterScreen() {
   const needsWH         = roles.some(r => GUARD_ROLES.includes(r));
   const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher') || roles.includes('Security Admin');
   const needsGP         = roles.includes('Gate Pass Creator');
+  // Security Admin: Gate Pass locations are optional (26 Nov 2026)
+  const gpLocRequired   = roles.includes('Gate Pass Dispatcher') || needsGP;
   const needsCP         = roles.includes('Co Packer');
   const needsInv        = needsInventoryScope(roles);
   const needsScope      = needsWH || needsGP || needsCP || needsInv;
@@ -200,7 +202,7 @@ export default function RegisterScreen() {
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) { showAlert('Validation Error', 'Enter a valid email'); return; }
     { const m = validateMobile(form.phone_number); if (m) { showAlert('Validation Error', m); return; } }
     if (needsWH && !form.warehouseName) { showAlert('Validation Error', 'Select a valid warehouse'); return; }
-    if (needsGuardGPLoc && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher / Security Admin'); return; }
+    if (roles.includes('Gate Pass Dispatcher') && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required for Gate Pass Dispatcher'); return; }
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
     if (needsGP && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required'); return; }
@@ -221,7 +223,7 @@ export default function RegisterScreen() {
         ...(needsInv && {
           inventory_warehouses: invScope.warehouses,
           inventory_viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
-          customer_code: roles.includes(INV_VIEWER) ? invScope.customer_code.trim() : null,
+          store_code: roles.includes(INV_VIEWER) ? invScope.store_code : null,
         }),
       };
       const res = await adminAPI.registerUser(payload);
@@ -250,7 +252,7 @@ export default function RegisterScreen() {
     if (n === 2) {
       if (needsWH && !form.warehouseName) return 'Select a valid warehouse';
       if (needsGP && !form.department) return 'Department is required';
-      if ((needsGuardGPLoc || needsGP) && gpLocSelections.length === 0) return 'At least one Gate Pass Location is required';
+      if (gpLocRequired && gpLocSelections.length === 0) return 'At least one Gate Pass Location is required';
       if (needsCP && !form.copackerLocation.trim()) return 'Copacker location is required';
       { const ie = inventoryScopeError(roles, invScope); if (ie) return ie; }
       return null;
@@ -281,7 +283,7 @@ export default function RegisterScreen() {
     ...(needsGP ? [['Department', form.department || '—']] : []),
     ...((needsGuardGPLoc || needsGP) ? [['Gate Pass Locations', gpLocSelections.map(g => g.location_code).join(', ') || '—']] : []),
     ...(needsCP ? [['Co Packer location', form.copackerLocation || '—']] : []),
-    ...(roles.includes(INV_VIEWER) ? [['Customer code', invScope.customer_code || '—']] : []),
+    ...(roles.includes(INV_VIEWER) ? [['Blinkit store', invScope.store_code || '—']] : []),
     ...(needsInv ? [['Inventory warehouses', invScope.warehouses.join(', ') || '—']] : []),
     ...(roles.includes(INV_OPERATOR) ? [['Blinkit users', invScope.viewers.join(', ') || '—']] : []),
   ];
@@ -443,8 +445,13 @@ export default function RegisterScreen() {
                         onSelect={v => set('department', v)} placeholder="Select department..." />
                     )}
                     <Text style={S.fieldLabel}>
-                      {needsGP ? 'Gate Pass Locations * (★ = default)' : 'Gate Pass Locations *'}
+                      {needsGP ? 'Gate Pass Locations * (★ = default)' : gpLocRequired ? 'Gate Pass Locations *' : 'Gate Pass Locations (optional)'}
                     </Text>
+                    {roles.includes('Security Admin') && !gpLocRequired ? (
+                      <Text style={{ fontSize: 11.5, color: '#8B99A3', marginBottom: 6 }}>
+                        Optional for Security Admin — leave empty if this person does not oversee gate passes (their Gate Pass page will say no location is assigned).
+                      </Text>
+                    ) : null}
                     <LocationMultiSelect
                       options={gpLocations}
                       selections={gpLocSelections}

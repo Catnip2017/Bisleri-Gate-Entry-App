@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from typing import List
@@ -21,6 +21,33 @@ from app.services.inventory_access import (
     get_access as inventory_get_access, set_access as inventory_set_access,
 )
 from app.schemas.user_schemas import InventoryAccessUpdate
+from app.services.security import audit, diff, client_ip
+from urllib.parse import unquote
+
+
+# ── Audit trail helpers (26 Nov 2026) ─────────────────────────────────────────
+def _reason(raw: Optional[str]) -> Optional[str]:
+    """Optional 'reason for change' typed in Assign Access, sent URL-encoded
+    in the X-Audit-Reason header."""
+    return unquote(raw)[:500] if raw else None
+
+
+def _snap(db: Session, user: UsersMaster) -> dict:
+    """The access-relevant state of one user, for before/after in the audit log."""
+    locs = sorted(c for (c,) in db.query(UserGatePassLocation.location_code)
+                  .filter(UserGatePassLocation.username == user.username).all())
+    out = {
+        "role": user.role, "warehouse_code": user.warehouse_code, "department": user.department,
+        "copacker_location": user.copacker_location, "gate_pass_locations": locs,
+        "gate_pass_default": user.gate_pass_location,
+        "is_active": user.is_active is not False,
+    }
+    # Inventory tables are only touched for portal roles (they may not exist yet).
+    if {INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(user.role)):
+        acc = inventory_get_access(db, user.username)
+        out.update({"inventory_warehouses": acc["warehouses"], "inventory_viewers": acc["viewers"],
+                    "inventory_store": acc["store_code"]})
+    return out
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -31,8 +58,10 @@ router = APIRouter(tags=["Admin Operations"])
 @router.post("/register", response_model=UserResponse)
 def register_user(
     user: UserCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
+    x_audit_reason: Optional[str] = Header(None),
 ):
     try:
         # ✅ Only IT Admins can create users
@@ -77,10 +106,12 @@ def register_user(
         if "gatepasscreator" in normalized_roles and not (user.department or "").strip():
             raise HTTPException(status_code=400,
                 detail="Department is required for the Gate Pass Creator role.")
-        if ("gatepasscreator" in normalized_roles or "gatepassdispatcher" in normalized_roles
-                or "securityadmin" in normalized_roles) and not gp_locs:
+        # Security Admin: Gate Pass locations are OPTIONAL (26 Nov 2026) — some
+        # Security Admins don't oversee gate passes; their Gate Pass page says
+        # "no location assigned" instead.
+        if ("gatepasscreator" in normalized_roles or "gatepassdispatcher" in normalized_roles) and not gp_locs:
             raise HTTPException(status_code=400,
-                detail="At least one Gate Pass Location is required for the Gate Pass Creator / Dispatcher / Security Admin role.")
+                detail="At least one Gate Pass Location is required for the Gate Pass Creator / Dispatcher role.")
         if gp_locs:
             from app.models.gate_pass import GatePassLocation
             codes = {l.location_code for l in gp_locs}
@@ -150,7 +181,7 @@ def register_user(
         if {INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(new_user.role)):
             inventory_set_access(
                 db, new_user.username, new_user.role,
-                user.inventory_warehouses, user.inventory_viewers, user.customer_code,
+                user.inventory_warehouses, user.inventory_viewers, user.store_code,
             )
 
         # Gate Pass locations -> junction table; users_master.gate_pass_location
@@ -174,6 +205,9 @@ def register_user(
                 ))
             new_user.gate_pass_location = default_code
 
+        db.flush()
+        audit(db, current_user.username, "user_created", new_user.username,
+              {"after": _snap(db, new_user)}, _reason(x_audit_reason), client_ip(request))
         db.commit()
         db.refresh(new_user)
 
@@ -217,8 +251,10 @@ def register_user(
 @router.post("/reset-password")
 def reset_password(
     reset_data: PasswordReset,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
+    x_audit_reason: Optional[str] = Header(None),
 ):
     try:
         roles = normalize_roles(current_user.role)
@@ -236,6 +272,8 @@ def reset_password(
             raise HTTPException(status_code=400, detail=pw_err)
 
         user.password = get_password_hash(reset_data.new_password)
+        audit(db, current_user.username, "password_reset", user.username, None,
+              _reason(x_audit_reason), client_ip(request))
         db.commit()
         return {"message": f"Password updated successfully for user {user.username}"}
     except:
@@ -328,7 +366,9 @@ def get_user_gp_locations(username: str, db: Session = Depends(get_db),
 
 
 @router.put("/modify-user/{username}", response_model=UserResponse)
-def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
+def modify_user(username: str, update_data: UserRoleUpdate, request: Request,
+                db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user),
+                x_audit_reason: Optional[str] = Header(None)):
     roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only ITAdmins can modify users")
@@ -336,6 +376,7 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
     user = db.query(UsersMaster).filter(UsersMaster.username.ilike(username.strip())).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    before = _snap(db, user)
 
     # Resolve the role set this update will leave the user with — either
     # the new one being assigned now, or (if `role` isn't part of this
@@ -393,9 +434,8 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
         raise HTTPException(status_code=400,
             detail="At least one Gate Pass Location is required for the Gate Pass Dispatcher role.")
     # Security Admin sees gate passes ONLY for the locations picked here.
-    if "securityadmin" in normalized_new_roles and locs_after_count == 0:
-        raise HTTPException(status_code=400,
-            detail="At least one Gate Pass Location is required for the Security Admin role.")
+    # Locations are optional for Security Admin (26 Nov 2026): with none, the
+    # Gate Pass page shows "no location assigned — ask IT".
 
     if update_data.role:
         user.role = ", ".join(roles_cleaned)
@@ -479,6 +519,16 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
                 is_default=True,
             ))
 
+    db.flush()
+    after = _snap(db, user)
+    changes = diff(before, after)
+    reason, ip = _reason(x_audit_reason), client_ip(request)
+    if "is_active" in changes:
+        audit(db, current_user.username, "user_activated" if after["is_active"] else "user_deactivated",
+              user.username, None, reason, ip)
+        changes.pop("is_active")
+    if changes:
+        audit(db, current_user.username, "access_changed", user.username, {"changes": changes}, reason, ip)
     db.commit()
     db.refresh(user)
 
@@ -496,7 +546,9 @@ def modify_user(username: str, update_data: UserRoleUpdate, db: Session = Depend
 
 # ✅ Delete User
 @router.delete("/user/{username}/delete")
-def delete_user(username: str, db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
+def delete_user(username: str, request: Request, db: Session = Depends(get_db),
+                current_user: UsersMaster = Depends(get_current_user),
+                x_audit_reason: Optional[str] = Header(None)):
     roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only ITAdmins can delete users")
@@ -513,6 +565,9 @@ def delete_user(username: str, db: Session = Depends(get_db), current_user: User
         raise HTTPException(status_code=400,
             detail="Deactivate this user and save before deleting the account.")
 
+    audit(db, current_user.username, "user_deleted", user.username,
+          {"before": {**_snap(db, user), "name": f"{user.first_name or ''} {user.last_name or ''}".strip()}},
+          _reason(x_audit_reason), client_ip(request))
     db.delete(user)
     db.commit()
     return {"message": f"User {username} deleted successfully"}
@@ -561,15 +616,23 @@ def get_inventory_access(
 def put_inventory_access(
     username: str,
     payload: InventoryAccessUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
+    x_audit_reason: Optional[str] = Header(None),
 ):
     if "itadmin" not in normalize_roles(current_user.role):
         raise HTTPException(status_code=403, detail="Only IT Admins can change portal access")
     user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    inventory_set_access(db, username, user.role, payload.warehouses, payload.viewers, payload.customer_code)
+    before = inventory_get_access(db, username)
+    inventory_set_access(db, username, user.role, payload.warehouses, payload.viewers, payload.store_code)
+    db.flush()
+    changes = diff(before, inventory_get_access(db, username))
+    if changes:
+        audit(db, current_user.username, "inventory_access_changed", username, {"changes": changes},
+              _reason(x_audit_reason), client_ip(request))
     db.commit()
     return inventory_get_access(db, username)
 
@@ -598,8 +661,10 @@ def users_overview(
 def update_user_details(
     username: str,
     payload: UserUpdate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
+    x_audit_reason: Optional[str] = Header(None),
 ):
     roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
@@ -607,6 +672,9 @@ def update_user_details(
     user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    _fields = lambda u: {"first_name": u.first_name, "last_name": u.last_name, "email": u.email,  # noqa: E731
+                         "phone_number": u.phone_number}
+    before = _fields(user)
 
     # ✅ Update only if payload has value
     if payload.first_name is not None:
@@ -627,6 +695,10 @@ def update_user_details(
             raise HTTPException(status_code=409, detail="Mobile number already exists. Please use a different number.")
         user.phone_number = mobile
 
+    changes = diff(before, _fields(user))
+    if changes:
+        audit(db, current_user.username, "details_changed", user.username, {"changes": changes},
+              _reason(x_audit_reason), client_ip(request))
     db.commit()
     db.refresh(user)
     return {"message": "User details updated successfully"}

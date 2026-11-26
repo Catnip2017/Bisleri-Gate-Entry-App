@@ -236,6 +236,82 @@ def vpa_records(
             conn.close()
 
 
+VPA_EXPORT_MAX = 100000
+
+
+@router.get("/vpa/export")
+def vpa_export(
+    status: str = Query("all"),
+    payment_from: str = Query(None),
+    payment_to: str = Query(None),
+    email_from: str = Query(None),
+    email_to: str = Query(None),
+    search: str = Query(None),
+    payment_types: str = Query(None, max_length=2000),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """VPA Download Report (26 Nov 2026, replaces the old Download CSV):
+    .xlsx of ALL payments matching the filters (not just the rows loaded on
+    screen), one row per payment with every invoice number in it."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    _require_itadmin(current_user)
+    clause, params = _build_filters(status, payment_from, payment_to, email_from, email_to, search, payment_types)
+    try:
+        total = _fetch(f"SELECT COUNT(DISTINCT recid) FROM payment_details {clause}", params)[0][0]
+        if total > VPA_EXPORT_MAX:
+            raise HTTPException(status_code=400, detail=f"{total:,} payments match — please narrow the filters "
+                                                        f"(max {VPA_EXPORT_MAX:,} per download).")
+        rows = _fetch(f"""
+            SELECT recid, vendor_name, vendor_code, vendor_email, site, status,
+                   MIN(payment_date) AS payment_date, MAX(payment_amount) AS payment_amount, payment_type,
+                   COUNT(DISTINCT NULLIF(invoice_number, '')) AS invoice_count,
+                   ARRAY_REMOVE(ARRAY_AGG(DISTINCT NULLIF(invoice_number, '')), NULL) AS invoice_numbers,
+                   CASE WHEN MAX(status) = 'completed' THEN MAX(updated_at) ELSE NULL END AS email_sent_date
+            FROM payment_details {clause}
+            GROUP BY recid, vendor_name, vendor_code, vendor_email, site, status, payment_type
+            ORDER BY payment_date DESC, recid DESC""", params, dict_rows=True)
+        heads = ["RECID", "Vendor Name", "Vendor Code", "Vendor Email", "Site", "Payment Date", "Amount",
+                 "Payment Type", "Status", "Email Sent", "No. of Invoices", "Invoice Numbers"]
+        wb = Workbook(); ws = wb.active; ws.title = "Vendor Payment Advice"
+        ws.append(heads)
+        for c in ws[1]:
+            c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="0F6B46")
+        for r in rows:
+            sent = r["email_sent_date"]
+            ws.append([
+                int(r["recid"]) if r["recid"] is not None else None, r["vendor_name"], r["vendor_code"],
+                r["vendor_email"], r["site"], r["payment_date"],
+                float(r["payment_amount"]) if r["payment_amount"] is not None else None,
+                r["payment_type"], (r["status"] or "").capitalize(),
+                sent.replace(tzinfo=None) if sent is not None and getattr(sent, "tzinfo", None) else sent,
+                int(r["invoice_count"] or 0), ", ".join(sorted(r["invoice_numbers"] or [])),
+            ])
+        for row in ws.iter_rows(min_row=2):
+            row[5].number_format = "DD/MM/YYYY"
+            row[6].number_format = "#,##0.00"
+            row[9].number_format = "DD/MM/YYYY HH:MM"
+            row[11].alignment = Alignment(wrap_text=True, vertical="top")
+        for i, w in enumerate([12, 36, 14, 30, 8, 13, 14, 14, 13, 17, 10, 60], start=1):
+            ws.column_dimensions[chr(64 + i)].width = w
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("vpa_export failed")
+        raise HTTPException(status_code=500, detail="Failed to build the Vendor Payment Advice report")
+    fname = f"Vendor_Payment_Advice_{payment_from or 'all'}_to_{payment_to or 'all'}.xlsx"
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 def _fetch(query, params=None, dict_rows=False):
     """Run one read-only query on RPA_Automation and return all rows."""
     conn = None

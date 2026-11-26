@@ -337,7 +337,7 @@ const GatePassList = ({ refreshKey, onChanged, fixedStatus = null, showFilters =
       {noGpLocation && (
         <View style={styles.noLocBanner}>
           <Text style={styles.noLocBannerText}>
-            ⚠ No gate pass location is assigned to your profile. Contact IT Admin to assign a location before you can process passes.
+            ⚠ No Gate Pass location is assigned to your profile, so there are no gate passes to show here. Ask IT Admin to assign a location if you need access.
           </Text>
         </View>
       )}

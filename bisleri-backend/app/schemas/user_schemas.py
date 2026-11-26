@@ -27,13 +27,13 @@ class UserCreate(BaseModel):
     # Blinkit Inventory Portal mapping (26 Nov 2026)
     inventory_warehouses: Optional[List[str]] = None   # operator + viewer
     inventory_viewers: Optional[List[str]] = None      # operator only (Blinkit usernames)
-    customer_code: Optional[str] = None                # viewer only
+    store_code: Optional[str] = None                   # viewer only (blinkit_stores.store_code)
 
 
 class InventoryAccessUpdate(BaseModel):
     warehouses: List[str] = []
     viewers: List[str] = []
-    customer_code: Optional[str] = None
+    store_code: Optional[str] = None
 
 class UserResponse(BaseModel):
     username: str

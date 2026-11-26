@@ -293,6 +293,8 @@ The sync runs on a fixed interval via **APScheduler**, started with the backend 
 
 ## Prerequisites
 
+Full list with versions, and the `setup.bat` / `start_local.bat` / `start_prod.bat` start-up files: see **[PREREQUISITES.md](PREREQUISITES.md)**.
+
 Install on the host before setup:
 
 | Tool | Minimum version |
@@ -395,7 +397,7 @@ EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
 ## Database Setup & Migrations
 
-The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `c4e8a1f7d2b9`).
+The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `c4e8a1f7d2b9`; chain `ed3dc61a3e0f` → `b9e4d2a7c1f5` security → `c4e8a1f7d2b9` inventory).
 
 > **Notes:** the hand-written `*_migration.sql` files that were previously applied by hand are archived in `legacy_sql/` (**do not re-run them**). The old `Bisleri_01` database (main branch, 9 tables) is described by `DB Schemas/schema_bisleri_01.sql`, which is **superseded** and kept for reference only.
 
@@ -429,6 +431,19 @@ Safety guards: the script refuses to load demo data unless `DB_HOST` is `localho
 ### Existing databases
 
 Move an existing database forward with `alembic upgrade head` (it applies only the missing revisions).
+
+26 Nov 2026 release — two migrations that can be applied separately:
+
+```bash
+cd bisleri-backend
+alembic upgrade b9e4d2a7c1f5   # audit trail, users_master.created_at/last_seen_at, Security Settings, alerts
+alembic upgrade head           # Blinkit Inventory Portal (item_master columns, blinkit_stores, inventory_*)
+python scripts/load_inventory_masters.py --items FG_Item_Master.xlsx --stores Blinkit_Stores.xlsx
+```
+
+The app runs before either is applied: Security pages say the update is pending and the Inventory Portal answers "not set up yet". `alembic downgrade ed3dc61a3e0f` removes both.
+
+First IT Admin on a brand-new database: `python scripts/init_db.py --create-admin` (command line only, hidden password prompt, refuses if an IT Admin exists).
 
 ### Ongoing schema changes (Alembic workflow)
 

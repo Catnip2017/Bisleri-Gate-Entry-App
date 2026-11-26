@@ -109,6 +109,15 @@ class Settings(BaseSettings):
     AD_BIND_PASSWORD: str = Field(default="", env="AD_BIND_PASSWORD")
     AD_DOMAIN: str = Field(default="", env="AD_DOMAIN")
 
+    # Dormant-account alert email (26 Nov 2026) — Microsoft Entra app
+    # registration with the Graph "Mail.Send" application permission.
+    # Leave blank to keep alerts in the app only. The secret lives ONLY here
+    # in .env — never in the database, the app screens or chat.
+    GRAPH_TENANT_ID: str = Field(default="", env="GRAPH_TENANT_ID")
+    GRAPH_CLIENT_ID: str = Field(default="", env="GRAPH_CLIENT_ID")
+    GRAPH_CLIENT_SECRET: str = Field(default="", env="GRAPH_CLIENT_SECRET")
+    ALERT_SENDER_MAILBOX: str = Field(default="", env="ALERT_SENDER_MAILBOX")
+
     class Config:
         env_file = ".env"
 

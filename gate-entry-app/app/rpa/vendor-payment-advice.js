@@ -9,7 +9,8 @@
 //    across vendor name / vendor code / RECID — one filter state for all
 //  - Paginated records table (25/page) via the shared DataTable with
 //    expandable rows instead of an 11-column horizontal scroll
-//  - CSV export of the filtered data (web) and refresh
+//  - Download Report: .xlsx of ALL matching payments (server-built; replaced
+//    the on-screen-rows-only CSV on 26 Nov 2026) and refresh
 //  - 26 Nov 2026: Payment Type filter (options read from the data) and the
 //    invoice numbers of each payment (column + full list in the row panel;
 //    search also finds a payment by any of its invoice numbers)
@@ -215,29 +216,35 @@ export default function VendorPaymentAdviceScreen() {
     setStatusFilter(next);   // the filter effect reloads
   };
 
-  // CSV export (web)
-  const handleDownload = () => {
+  // Download Report (26 Nov 2026, replaces Download CSV): .xlsx built on the
+  // server with EVERY payment matching the filters (the CSV only had the
+  // rows loaded on screen), invoice numbers included.
+  const [downloading, setDownloading] = useState(false);
+  const handleDownload = async () => {
     if (Platform.OS !== 'web') {
-      showAlert('Download', 'CSV export is available on the web version.');
+      showAlert('Download', 'Report download is available on the web version.');
       return;
     }
-    const header = ['RECID', 'Payment Date', 'Email Sent', 'Vendor Code', 'Vendor Name',
-      'Email (TO)', 'Site', 'Amount', 'Payment Type', 'Invoices', 'Invoice Numbers', 'Status'];
-    const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = records.map((r) => [
-      r.recid, r.payment_date || '', formatDateTime(r.email_sent_date),
-      r.vendor_code || '', r.vendor_name || '', r.vendor_email || '',
-      r.site || '', r.payment_amount ?? '', r.payment_type || '',
-      r.invoice_count, (r.invoice_numbers || []).join(', '), (r.status || '').toUpperCase(),
-    ].map(escape).join(','));
-    const csv = [header.map(escape).join(','), ...lines].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vpa_${statusFilter}_${fmtDate(new Date())}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setDownloading(true);
+    try {
+      const params = buildParams(statusFilter, appliedSearch);
+      const blob = await rpaAPI.downloadVpaReport(params);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Vendor_Payment_Advice_${params.payment_from || 'all'}_to_${params.payment_to || 'all'}.xlsx`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      let msg = handleAPIError(error);
+      try {
+        const txt = await error?.response?.data?.text?.();
+        if (txt) msg = JSON.parse(txt).detail || msg;
+      } catch (e) { /* keep msg */ }
+      showAlert('Download', msg);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   // Table config — 5 primary columns, rest in the expandable panel
@@ -336,6 +343,8 @@ export default function VendorPaymentAdviceScreen() {
           />
           <AppButton title="Search" icon="search" onPress={handleApply} />
           <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
+          <AppButton title="Download Report" icon="download" variant="success"
+            onPress={handleDownload} loading={downloading} disabled={records.length === 0 || !!dateError} />
         </View>
 
         {/* KPI cards — tap to filter by status, tap again to clear */}
@@ -462,7 +471,6 @@ export default function VendorPaymentAdviceScreen() {
 
             {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
-              <AppButton title="Download CSV" icon="download" variant="success" onPress={handleDownload} disabled={records.length === 0} />
               <AppButton title="Refresh" icon="refresh" variant="secondary" onPress={() => loadData()} />
             </View>
           </>

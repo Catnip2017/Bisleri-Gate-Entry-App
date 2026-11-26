@@ -8,7 +8,7 @@
 // onPress is optional; when provided the card behaves as a button
 // (tap-to-filter wiring comes later). Without it, the card is static.
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { green, colors, radius, spacing, TOUCH_TARGET } from '../../utils/theme';
 import { brand } from '../../contexts/ThemeContext';
@@ -32,7 +32,7 @@ const KpiCard = ({
   caption,            // small text next to the number (e.g. "tap to view")
   captionColor,
   emphasized = false, // amber "action needed" treatment
-  selected = false,   // active quick-filter state (future use)
+  selected = false,   // active quick-filter state (white ring + lift)
   onPress,
 }) => {
   const displayValue =
@@ -122,9 +122,22 @@ const styles = StyleSheet.create({
     backgroundColor: AMBER.bg,
     borderColor: AMBER.border,
   },
+  // Active filter (26 Nov 2026): white ring + a dark outer edge and a lift,
+  // so the selected card stands out on the light page. Padding drops by the
+  // extra border width so nothing inside moves.
   cardSelected: {
     borderWidth: 2,
-    borderColor: brand.maroon,         // maroon outline for the active filter
+    borderColor: '#FFFFFF',
+    paddingVertical: spacing.sm + 3,
+    paddingHorizontal: spacing.md - 1,
+    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    ...(Platform.OS === 'web' ? {
+      boxShadow: `0px 0px 0px 2px ${brand.navyDark}, 0px 6px 16px rgba(0,0,0,0.28)`,
+      transform: [{ translateY: -1 }],
+    } : {}),
   },
   headerRow: {
     flexDirection: 'row',

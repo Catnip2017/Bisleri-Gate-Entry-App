@@ -9,7 +9,8 @@
 //
 // All scope rules live on the server (/inventory/*): the screen only shows
 // what the API returns. Rules mirrored here for instant feedback: date today
-// or later, whole cases >= 1, mapped customer / warehouse, SKU from master.
+// or later, whole cases >= 1, mapped Blinkit store / warehouse, SKU (item
+// number) from item_master. The warehouse name is saved with each line.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform,
@@ -189,7 +190,7 @@ function DashboardPage({ user, onGo, active }) {
         <View style={{ flex: 1, minWidth: 220 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: C.deep }}>Welcome{user?.firstName ? `, ${user.firstName}` : ''}</Text>
           <Text style={{ fontSize: 13.5, color: C.sub, marginTop: 3 }}>
-            Record today's stock for your Blinkit customers. Lines can't be edited after Submit All.
+            Record today's stock for your Blinkit stores. Lines can't be edited after Submit All.
           </Text>
         </View>
         <Btn label="Inventory Entry" icon="add-box" onPress={() => onGo('entry')} />
@@ -201,7 +202,7 @@ function DashboardPage({ user, onGo, active }) {
           <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
             <Stat label="Lines today" value={d.lines_today} icon="list-alt" />
             <Stat label="Cases today" value={d.cases_today.toLocaleString('en-IN')} icon="inventory-2" />
-            <Stat label="Customers today" value={d.customers_today} icon="storefront" />
+            <Stat label="Stores today" value={d.stores_today} icon="storefront" />
             <Stat label="Mapped warehouses" value={d.warehouses.length} icon="warehouse" />
           </View>
           <View style={card}>
@@ -226,10 +227,11 @@ let lineSeq = 1;
 function EntryPage({ lookups, lines, setLines }) {
   const today = lookups.today;
   const whOptions = lookups.warehouses.map((w) => ({ value: w.code, label: w.name ? `${w.code} — ${w.name}` : w.code }));
-  const custOptions = lookups.customers.map((c) => ({ value: c.code, label: c.label }));
+  const storeOptions = lookups.stores.map((c) => ({ value: c.code, label: c.label }));
+  const storeName = (code) => lookups.stores.find((c) => c.code === code)?.name || '';
   const whName = (code) => lookups.warehouses.find((w) => w.code === code)?.name || '';
 
-  const blank = { inv_date: today, customer_code: custOptions.length === 1 ? custOptions[0].value : null, warehouse_code: whOptions.length === 1 ? whOptions[0].value : null, sku: null, quantity: '', batch_no: '', mfg_date: null };
+  const blank = { inv_date: today, store_code: storeOptions.length === 1 ? storeOptions[0].value : null, warehouse_code: whOptions.length === 1 ? whOptions[0].value : null, sku: null, quantity: '', batch_no: '', mfg_date: null };
   const [form, setForm] = useState(blank);
   const [fErr, setFErr] = useState({});
   const [upload, setUpload] = useState(null);   // { file_name, total_rows, valid, errors }
@@ -244,7 +246,7 @@ function EntryPage({ lookups, lines, setLines }) {
     const e = {};
     if (!form.inv_date) e.inv_date = 'Pick a date';
     else if (form.inv_date < today) e.inv_date = 'Past dates are not allowed';
-    if (!form.customer_code) e.customer_code = 'Pick a customer';
+    if (!form.store_code) e.store_code = 'Pick a store';
     if (!form.warehouse_code) e.warehouse_code = 'Pick a warehouse';
     if (!form.sku) e.sku = 'Pick a SKU';
     if (!/^\d+$/.test(String(form.quantity)) || Number(form.quantity) < 1) e.quantity = 'Whole cases, 1 or more';
@@ -252,12 +254,12 @@ function EntryPage({ lookups, lines, setLines }) {
     setFErr(e);
     if (Object.keys(e).length) return;
     setLines((ls) => [...ls, {
-      id: lineSeq++, source: 'manual', inv_date: form.inv_date, customer_code: form.customer_code,
+      id: lineSeq++, source: 'manual', inv_date: form.inv_date, store_code: form.store_code, store_name: storeName(form.store_code),
       warehouse_code: form.warehouse_code, warehouse_name: whName(form.warehouse_code),
       sku_code: form.sku.code, sku_name: form.sku.name, quantity: Number(form.quantity),
       batch_no: form.batch_no.trim() || null, mfg_date: form.mfg_date || null,
     }]);
-    // keep date / customer / warehouse for fast repeated entry
+    // keep date / store / warehouse for fast repeated entry
     setForm((f) => ({ ...f, sku: null, quantity: '', batch_no: '', mfg_date: null }));
   };
 
@@ -304,8 +306,8 @@ function EntryPage({ lookups, lines, setLines }) {
           const res = await inventoryAPI.submit({
             source: fromUpload ? 'upload' : 'manual',
             file_name: fromUpload?.file_name || null,
-            lines: lines.map(({ inv_date, customer_code, warehouse_code, sku_code, sku_name, quantity, batch_no, mfg_date }) => ({
-              inv_date, customer_code, warehouse_code, sku_code, sku_name, quantity, batch_no, mfg_date,
+            lines: lines.map(({ inv_date, store_code, warehouse_code, sku_code, sku_name, quantity, batch_no, mfg_date }) => ({
+              inv_date, store_code, warehouse_code, sku_code, sku_name, quantity, batch_no, mfg_date,
             })),
           });
           const bad = new Map(res.errors.map((er) => [er.index, er.error]));
@@ -381,9 +383,9 @@ function EntryPage({ lookups, lines, setLines }) {
             <DateField value={dateOf(form.inv_date)} minDate={dateOf(today)} onChange={(d) => set('inv_date', isoOf(d))} />
             {fErr.inv_date ? <Text style={{ color: C.red, fontSize: 12 }}>{fErr.inv_date}</Text> : null}
           </Field>
-          <Field title="Customer code *" z={40}>
-            <SearchSelect name="Customer code" options={custOptions} value={form.customer_code} onChange={(v) => set('customer_code', v)} placeholder="Select customer" error={fErr.customer_code} />
-            {fErr.customer_code ? <Text style={{ color: C.red, fontSize: 12 }}>{fErr.customer_code}</Text> : null}
+          <Field title="Blinkit store *" z={40}>
+            <SearchSelect name="Blinkit store" options={storeOptions} value={form.store_code} onChange={(v) => set('store_code', v)} placeholder="Select store" error={fErr.store_code} />
+            {fErr.store_code ? <Text style={{ color: C.red, fontSize: 12 }}>{fErr.store_code}</Text> : null}
           </Field>
           <Field title="BIPL warehouse *" z={39}>
             <SearchSelect name="BIPL warehouse" options={whOptions} value={form.warehouse_code} onChange={(v) => set('warehouse_code', v)} placeholder="Select warehouse" error={fErr.warehouse_code} />
@@ -431,13 +433,13 @@ function EntryPage({ lookups, lines, setLines }) {
         ) : (
           <ScrollView horizontal>
             <View style={{ minWidth: 900, flex: 1 }}>
-              <Row head cells={['Date', 'Customer', 'Warehouse', 'SKU', 'Cases', 'Batch', 'Mfg. date', '']} widths={ENTRY_W} />
+              <Row head cells={['Date', 'Store', 'Warehouse', 'SKU', 'Cases', 'Batch', 'Mfg. date', '']} widths={ENTRY_W} />
               {lines.map((l) => (
                 <View key={l.id}>
                   <Row
                     widths={ENTRY_W}
                     cells={[
-                      ddmmyyyy(l.inv_date), l.customer_code,
+                      ddmmyyyy(l.inv_date), `${l.store_code}${l.store_name ? ` · ${l.store_name}` : ''}`,
                       `${l.warehouse_code}${l.warehouse_name ? ` · ${l.warehouse_name}` : ''}`,
                       `${l.sku_name || ''} (${l.sku_code})`, String(l.quantity), l.batch_no || '—',
                       l.mfg_date ? ddmmyyyy(l.mfg_date) : '—',
@@ -458,7 +460,7 @@ function EntryPage({ lookups, lines, setLines }) {
     </View>
   );
 }
-const ENTRY_W = [100, 110, 190, 260, 70, 110, 100, 44];
+const ENTRY_W = [100, 170, 190, 250, 70, 100, 100, 44];
 
 function Row({ cells, widths, head, tint }) {
   return (
@@ -501,7 +503,7 @@ function EntriesPage({ mode, lookups, active }) {
       : daysBetween(range[0], range[1]) > max ? `Please choose at most ${max} days` : '';
   const params = useMemo(() => ({
     date_from: range[0], date_to: range[1],
-    warehouses: whSel.join(',') || undefined, customers: custSel.join(',') || undefined,
+    warehouses: whSel.join(',') || undefined, stores: custSel.join(',') || undefined,
   }), [range[0], range[1], whSel, custSel]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setPage(1); }, [params]);
@@ -529,13 +531,14 @@ function EntriesPage({ mode, lookups, active }) {
   };
 
   const whOptions = lookups.warehouses.map((w) => ({ value: w.code, label: w.name ? `${w.code} — ${w.name}` : w.code }));
-  const custOptions = lookups.customers.map((c) => ({ value: c.code, label: c.label }));
+  const custOptions = lookups.stores.map((c) => ({ value: c.code, label: c.label }));
+  const storeLabel = (r) => `${r.store_code}${r.store_name ? ` · ${r.store_name}` : ''}`;
   const cols = viewer
-    ? [['Date', 100], ['Customer', 110], ['BIPL warehouse', 200], ['SKU', 260], ['Cases', 80], ['Updated', 150]]
-    : [['Date', 96], ['Customer', 96], ['BIPL warehouse', 180], ['SKU', 210], ['Cases', 64], ['Batch', 90], ['Mfg. date', 96], ['Entered by', 100], ['Updated', 140]];
+    ? [['Date', 100], ['Blinkit store', 190], ['BIPL warehouse', 200], ['SKU', 260], ['Cases', 80], ['Updated', 150]]
+    : [['Date', 96], ['Blinkit store', 170], ['BIPL warehouse', 180], ['SKU', 210], ['Cases', 64], ['Batch', 90], ['Mfg. date', 96], ['Entered by', 100], ['Updated', 140]];
   const cellsOf = (r) => (viewer
-    ? [ddmmyyyy(r.inv_date), r.customer_code, r.warehouse_name || '—', r.sku_name || '—', String(r.quantity), stamp(r.updated_at)]
-    : [ddmmyyyy(r.inv_date), r.customer_code, `${r.warehouse_code}${r.warehouse_name ? ` · ${r.warehouse_name}` : ''}`,
+    ? [ddmmyyyy(r.inv_date), storeLabel(r), r.warehouse_name || '—', r.sku_name || '—', String(r.quantity), stamp(r.updated_at)]
+    : [ddmmyyyy(r.inv_date), storeLabel(r), `${r.warehouse_code}${r.warehouse_name ? ` · ${r.warehouse_name}` : ''}`,
       `${r.sku_name || ''} (${r.sku_code})`, String(r.quantity), r.batch_no || '—', r.mfg_date ? ddmmyyyy(r.mfg_date) : '—',
       r.created_by || '—', stamp(r.updated_at)]);
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE)) : 1;
@@ -562,8 +565,8 @@ function EntriesPage({ mode, lookups, active }) {
             <SearchMultiSelect name="Warehouses" options={whOptions} selected={whSel} onChange={setWhSel} allLabel="All warehouses" />
           </Field>
           {!viewer && (
-            <Field title="Customers" minWidth={220} z={39}>
-              <SearchMultiSelect name="Customers" options={custOptions} selected={custSel} onChange={setCustSel} allLabel="All customers" />
+            <Field title="Blinkit stores" minWidth={220} z={39}>
+              <SearchMultiSelect name="Blinkit stores" options={custOptions} selected={custSel} onChange={setCustSel} allLabel="All stores" />
             </Field>
           )}
           <Btn label="Export to Excel" icon="download" onPress={doExport} busy={exporting} disabled={!!rangeErr || !data?.total} />
@@ -684,10 +687,10 @@ export default function InventoryPortal() {
                 ))}
               </ScrollView>
             )}
-            {lookups.kind === 'operator' && (lookups.warehouses.length === 0 || lookups.customers.length === 0) && (
+            {lookups.kind === 'operator' && (lookups.warehouses.length === 0 || lookups.stores.length === 0) && (
               <View style={[card, { backgroundColor: '#FFF8E6', borderColor: '#F3D58A', marginBottom: 14 }]}>
                 <Text style={{ color: '#7A5A00', fontSize: 13.5 }}>
-                  Your account has no {lookups.warehouses.length === 0 ? 'warehouses' : 'Blinkit customers'} mapped yet. Please ask IT Admin to update your access.
+                  Your account has no {lookups.warehouses.length === 0 ? 'warehouses' : 'Blinkit stores'} mapped yet. Please ask IT Admin to update your access.
                 </Text>
               </View>
             )}

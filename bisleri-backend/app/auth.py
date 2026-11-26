@@ -14,8 +14,28 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
+def is_legacy_hash(hashed_password) -> bool:
+    """True for the first app's unsalted SHA-256 hex passwords (64 hex chars),
+    which this app does not accept (it reads bcrypt only)."""
+    import re
+    return bool(hashed_password) and re.fullmatch(r"[0-9a-fA-F]{64}", hashed_password) is not None
+
+
+def legacy_password_matches(plain_password, hashed_password) -> bool:
+    import hashlib, hmac
+    return hmac.compare_digest(hashlib.sha256((plain_password or "").encode()).hexdigest(),
+                               (hashed_password or "").lower())
+
+
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    """bcrypt only. Any other / unreadable hash (e.g. an old SHA-256 password
+    from Bisleri_01) is simply 'no match' instead of a server error."""
+    if not hashed_password or not plain_password:
+        return False
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except (ValueError, TypeError):
+        return False
 
 def get_password_hash(password):
     return pwd_context.hash(password)
@@ -68,6 +88,11 @@ async def get_current_user(
 
     # 🔥 Normalize roles into list (single source of truth: app/utils/roles.py)
     user.roles = normalize_roles(user.role)
+
+    # Last activity for the dormant-account check (at most one write per
+    # user every 5 minutes; no-op until migration b9e4d2a7c1f5 is applied).
+    from app.services.security import touch_last_seen
+    touch_last_seen(db, user.username)
 
     return user
 

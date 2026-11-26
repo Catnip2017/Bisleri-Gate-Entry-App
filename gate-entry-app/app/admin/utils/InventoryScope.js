@@ -2,17 +2,17 @@
 // Inventory Portal roles (26 Nov 2026), shared by Register and Assign Access.
 //
 //   Bisleri Inventory Operator : Warehouses (many) + Blinkit users (many)
-//   Blinkit Inventory Viewer   : Customer code (one) + Warehouses (many)
+//   Blinkit Inventory Viewer   : Blinkit store (one, from blinkit_stores) + Warehouses (many)
 //
-// value = { warehouses: [], viewers: [], customer_code: '' }
+// value = { warehouses: [], viewers: [], store_code: '' }
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput } from 'react-native';
-import { SearchMultiSelect } from '../../../components/ui/SearchSelect';
-import { adminAPI } from '../../../services/api';
+import { View, Text } from 'react-native';
+import { SearchMultiSelect, SearchSelect } from '../../../components/ui/SearchSelect';
+import { adminAPI, inventoryAPI } from '../../../services/api';
 
 export const INV_OPERATOR = 'Bisleri Inventory Operator';
 export const INV_VIEWER = 'Blinkit Inventory Viewer';
-export const EMPTY_INV_SCOPE = { warehouses: [], viewers: [], customer_code: '' };
+export const EMPTY_INV_SCOPE = { warehouses: [], viewers: [], store_code: '' };
 
 const norm = (r) => (r || '').toLowerCase().replace(/\s+/g, '');
 const isViewerRole = (roleString) =>
@@ -25,17 +25,31 @@ export function inventoryScopeError(roles, v) {
   if (!needsInventoryScope(roles)) return null;
   if (!v.warehouses.length) return 'Select at least one warehouse for the Inventory Portal';
   if (roles.includes(INV_OPERATOR) && !v.viewers.length) return 'Select at least one Blinkit user for this operator';
-  if (roles.includes(INV_VIEWER) && !v.customer_code.trim()) return 'Customer code is required for a Blinkit Inventory Viewer';
+  if (roles.includes(INV_VIEWER) && !(v.store_code || '').trim()) return 'Select the Blinkit store for this Blinkit Inventory Viewer';
   return null;
 }
 
 export const inventoryScopeKey = (v) =>
-  `${[...v.warehouses].sort().join(',')}|${[...v.viewers].sort().join(',')}|${(v.customer_code || '').trim().toUpperCase()}`;
+  `${[...v.warehouses].sort().join(',')}|${[...v.viewers].sort().join(',')}|${(v.store_code || '').trim().toUpperCase()}`;
 
 export default function InventoryScope({ roles, value, onChange, warehouses = [], selfUsername }) {
   const operator = roles.includes(INV_OPERATOR);
   const viewer = roles.includes(INV_VIEWER);
   const [viewerUsers, setViewerUsers] = useState([]);
+  const [stores, setStores] = useState(null);       // null = loading
+  const [storeErr, setStoreErr] = useState('');
+
+  useEffect(() => {
+    if (!viewer) return;
+    inventoryAPI.getStores()
+      .then((list) => { setStores(list || []); setStoreErr(''); })
+      .catch((e) => {
+        setStores([]);
+        setStoreErr(e?.response?.status === 503
+          ? 'The Inventory Portal tables are not set up on this database yet.'
+          : 'Could not load the Blinkit store list.');
+      });
+  }, [viewer]);
 
   useEffect(() => {
     if (!operator) return;
@@ -57,16 +71,21 @@ export default function InventoryScope({ roles, value, onChange, warehouses = []
         Blinkit Inventory Portal
       </Text>
       {viewer && (
-        <View style={{ marginBottom: 12 }}>
-          <Text style={label}>Customer code *</Text>
-          <TextInput
-            value={value.customer_code}
-            onChangeText={(t) => set('customer_code', t.toUpperCase().replace(/\s/g, ''))}
-            placeholder="e.g. BLK001" placeholderTextColor="#aaa" maxLength={50} autoCapitalize="characters"
-            accessibilityLabel="Customer code"
-            style={{ borderWidth: 1.5, borderColor: '#CFDDD7', borderRadius: 10, paddingHorizontal: 12, minHeight: 44, fontSize: 14, color: '#12202A', backgroundColor: '#fff' }}
+        <View style={{ marginBottom: 12, zIndex: 30 }}>
+          <Text style={label}>Blinkit store *</Text>
+          <SearchSelect
+            name="Blinkit store"
+            options={(stores || []).map((st) => ({ value: st.code, label: st.label }))
+              .concat(value.store_code && stores && !stores.some((st) => st.code === value.store_code)
+                ? [{ value: value.store_code, label: value.store_code }] : [])}
+            value={value.store_code || null}
+            onChange={(v) => set('store_code', v)}
+            placeholder={stores === null ? 'Loading stores…' : stores.length ? 'Select store' : 'No stores in the store master yet'}
+            disabled={stores === null}
           />
-          <Text style={{ fontSize: 11.5, color: '#8B99A3', marginTop: 4 }}>The one customer code this Blinkit user sees.</Text>
+          <Text style={{ fontSize: 11.5, color: storeErr ? '#C62828' : '#8B99A3', marginTop: 4 }}>
+            {storeErr || 'The one Blinkit store this user sees (from the Blinkit stores master).'}
+          </Text>
         </View>
       )}
       <View style={{ marginBottom: 12, zIndex: 20 }}>
@@ -86,7 +105,7 @@ export default function InventoryScope({ roles, value, onChange, warehouses = []
             allLabel={null} placeholder={viewerUsers.length ? 'Select Blinkit users' : 'No Blinkit users yet — register them first'}
           />
           <Text style={{ fontSize: 11.5, color: '#8B99A3', marginTop: 4 }}>
-            The operator enters stock for these users' customer codes.
+            The operator enters stock for these users' Blinkit stores.
           </Text>
         </View>
       )}

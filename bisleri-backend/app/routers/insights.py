@@ -86,30 +86,46 @@ def get_movements_summary(
         site_code=site_code, vehicle_no=vehicle_no, movement_type=movement_type,
     )
     try:
+        # 26 Nov 2026: totals are counted by the database (was: every row
+        # pulled into Python). Same definitions as before:
+        #   Gate-In / Gate-Out = distinct gate entry numbers,
+        #   unique vehicles    = distinct vehicle numbers,
+        #   pending assignment = the document rule below.
+        from sqlalchemy import and_, case, distinct, func, or_
         query = _apply_movement_filters(db.query(InsightsData), filters, current_user)
-        gate_in, gate_out, vehicles = set(), set(), set()
-        total = needs_completion = pending_assignment = 0
-        for m in query.yield_per(2000):
-            total += 1
-            if m.movement_type == "Gate-In":
-                gate_in.add(m.gate_entry_no)
-            elif m.movement_type == "Gate-Out":
-                gate_out.add(m.gate_entry_no)
-            vehicles.add(m.vehicle_no)
-            cfg = edit_service.get_edit_button_config(
-                m, current_user.username, current_user.role, current_user.warehouse_code
-            )
-            if cfg.get("action") == "complete_required":
-                needs_completion += 1
-            if m.document_type == "Manual Entry - Pending Assignment" or (
-                m.document_type == "Manual Entry" and not m.document_date
-            ):
-                pending_assignment += 1
+        pending = or_(InsightsData.document_type == "Manual Entry - Pending Assignment",
+                      and_(InsightsData.document_type == "Manual Entry", InsightsData.document_date.is_(None)))
+        agg = query.with_entities(
+            func.count(InsightsData.id),
+            func.count(distinct(case((InsightsData.movement_type == "Gate-In", InsightsData.gate_entry_no)))),
+            func.count(distinct(case((InsightsData.movement_type == "Gate-Out", InsightsData.gate_entry_no)))),
+            func.count(distinct(InsightsData.vehicle_no)),
+            func.count(case((pending, 1))),
+        ).one()
+        total, gate_in, gate_out, vehicles, pending_assignment = (int(x or 0) for x in agg)
+
+        # "Need completion" only exists for Security Guards (the only role
+        # that may edit) and only inside the 48-hour window, so just the last
+        # three days of incomplete rows are looked at, then the exact edit
+        # rules are applied to that small set.
+        needs_completion = 0
+        if "securityguard" in normalize_roles(current_user.role):
+            recent = query.filter(
+                InsightsData.date >= datetime.combine(date.today() - timedelta(days=3), datetime.min.time()),
+                or_(InsightsData.driver_name.is_(None), InsightsData.driver_name == "",
+                    InsightsData.km_reading.is_(None), InsightsData.km_reading == "",
+                    InsightsData.loader_names.is_(None), InsightsData.loader_names == "",
+                    InsightsData.interlayer_sheet_count.is_(None)))
+            for m in recent.yield_per(500):
+                cfg = edit_service.get_edit_button_config(
+                    m, current_user.username, current_user.role, current_user.warehouse_code)
+                if cfg.get("action") == "complete_required":
+                    needs_completion += 1
         return {
             "total_count": total,
-            "gate_in_count": len(gate_in),
-            "gate_out_count": len(gate_out),
-            "unique_vehicles": len(vehicles),
+            "gate_in_count": gate_in,
+            "gate_out_count": gate_out,
+            "unique_vehicles": vehicles,
             "needs_completion": needs_completion,
             "pending_assignment": pending_assignment,
         }

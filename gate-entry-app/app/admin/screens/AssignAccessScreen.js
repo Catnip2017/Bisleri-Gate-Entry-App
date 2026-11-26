@@ -7,7 +7,9 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI, gatePassAPI, inventoryAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, gatePassAPI, inventoryAPI, securityAPI, handleAPIError } from '../../../services/api';
+import UserHistory from '../utils/UserHistory';
+import { saveBlob, blobErrorMessage, canDownload, today } from '../../../utils/download';
 import { showAlert, confirmAction } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 import { ROLE_INFO, roleBlockReason, accessPreview, UserResultRow } from '../utils/userUi';
@@ -172,12 +174,26 @@ export function LocationMultiSelect({ options, selections, onChange, showStar })
 // split into Creator (initiates; alone or with ITA) and Dispatcher (gate
 // actions; only with Security Guard). Illegal combos are blocked here with
 // explanatory popups AND server-side (validate_role_combo).
+// Section card look for the Assign Access body (26 Nov 2026 re-layout)
+const CARD = {
+  backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#E0E9E5', padding: 16,
+};
+const CARD_TITLE = {
+  fontSize: 11.5, fontWeight: '700', color: '#0F6B46', letterSpacing: 0.8,
+  textTransform: 'uppercase', marginBottom: 12,
+};
+const FIELD = { flexGrow: 1, flexBasis: 140, minWidth: 130 };
+
 const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer',
   INV_OPERATOR, INV_VIEWER];   // Blinkit Inventory Portal roles (26 Nov 2026), exclusive
 const EXCLUSIVE_ROLES = ['Co Packer', INV_OPERATOR, INV_VIEWER];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const AssignAccessScreen = ({ initialUser = null }) => {
+  // Role cards: 4 / 3 / 2 / 1 per row depending on the space available
+  const [rolesWidth, setRolesWidth] = useState(0);
+  const roleCols = rolesWidth >= 900 ? 4 : rolesWidth >= 600 ? 3 : rolesWidth >= 380 ? 2 : 1;
+  const roleCardWidth = rolesWidth ? Math.floor((rolesWidth - 10 * (roleCols - 1)) / roleCols) : '48.5%';
   // ── Left panel state ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
@@ -223,6 +239,20 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   const [snapshot, setSnapshot] = useState(null);
   // Blinkit Inventory Portal mapping (warehouses / Blinkit users / customer code)
   const [invScope, setInvScope] = useState(EMPTY_INV_SCOPE);
+  // Audit trail (26 Nov 2026): optional reason saved with the change, and a
+  // counter that reloads the History card after a save.
+  const [reason, setReason] = useState('');
+  const [historyKey, setHistoryKey] = useState(0);
+  const [exportingUser, setExportingUser] = useState(false);
+  const downloadUserExcel = async () => {
+    if (!selectedUser) return;
+    if (!canDownload()) { showAlert('Download', 'Excel download is available on the web version.'); return; }
+    setExportingUser(true);
+    try {
+      saveBlob(await securityAPI.exportUsersAccess([selectedUser.username]), `${selectedUser.username}_Access_${today()}.xlsx`);
+    } catch (e) { showAlert('Download', await blobErrorMessage(e)); }
+    finally { setExportingUser(false); }
+  };
 
   // Opened from the Users tab with a user already chosen
   useEffect(() => {
@@ -251,6 +281,8 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   // GPUs (pre-selects the New Pass form); guards' worklist shows all their
   // locations, so the star is hidden when the user isn't a GPU.
   const needsGpLocations = needsGuardGPLoc || needsGpScope;
+  // Security Admin: Gate Pass locations are optional (26 Nov 2026)
+  const gpLocRequired = roles.includes('Gate Pass Dispatcher') || needsGpScope;
 
   // Which fields differ from what was loaded (for the sticky save bar)
   const changes = !snapshot ? [] : [
@@ -299,6 +331,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   // ── Select user ───────────────────────────────────────────────────────────
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
+    setReason('');
     // Keep searchResults on screen (selected row is highlighted) — clearing
     // them while the query text stays made the list show "No users found"
     // right after a click (30 Oct 2026).
@@ -335,7 +368,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (needsInventoryScope(userRoles)) {
       try {
         const a = await inventoryAPI.getAccess(user.username);
-        inv = { warehouses: a.warehouses || [], viewers: a.viewers || [], customer_code: a.customer_code || '' };
+        inv = { warehouses: a.warehouses || [], viewers: a.viewers || [], store_code: a.store_code || '' };
       } catch (e) {
         console.error('Failed to load inventory access:', e);
       }
@@ -466,7 +499,8 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   const applyActive = async (next) => {
     setStatusSaving(true);
     try {
-      await adminAPI.modifyUser(selectedUser.username, { is_active: next });
+      await adminAPI.modifyUser(selectedUser.username, { is_active: next }, reason);
+      setHistoryKey(k => k + 1);
       setIsActive(next);
       setSavedActive(next);
       setDeleteOpen(false);
@@ -516,7 +550,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (!selectedUser || deleteText.trim() !== selectedUser.username) return;
     setDeleting(true);
     try {
-      await adminAPI.deleteUser(selectedUser.username);
+      await adminAPI.deleteUser(selectedUser.username, reason);
       const gone = selectedUser.username;
       setSearchResults(prev => prev.filter(u => u.username !== gone));
       setSelectedUser(null);
@@ -569,7 +603,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (needsGpScope && !department)
       return showAlert('Validation Error', 'Department is required for the Gate Pass Creator role');
 
-    if (needsGpLocations && gpLocSelections.length === 0)
+    if (gpLocRequired && gpLocSelections.length === 0)
       return showAlert('Validation Error', 'At least one Gate Pass Location is required');
 
     const invErr = inventoryScopeError(roles, invScope);
@@ -589,7 +623,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
         gate_pass_location: null,
         gate_pass_locations: needsGpLocations ? gpLocSelections : null,
         is_active: isActive,
-      });
+      }, reason);
       setSavedActive(isActive);
 
       // Inventory Portal mapping — saved for portal users, and cleared when a
@@ -599,8 +633,8 @@ const AssignAccessScreen = ({ initialUser = null }) => {
         await inventoryAPI.setAccess(selectedUser.username, needsInv ? {
           warehouses: invScope.warehouses,
           viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
-          customer_code: roles.includes(INV_VIEWER) ? invScope.customer_code.trim() : null,
-        } : { warehouses: [], viewers: [], customer_code: null });
+          store_code: roles.includes(INV_VIEWER) ? invScope.store_code : null,
+        } : { warehouses: [], viewers: [], store_code: null }, reason);
       }
 
       // Update personal details
@@ -608,7 +642,9 @@ const AssignAccessScreen = ({ initialUser = null }) => {
         first_name: firstName.trim() || null,
         last_name: lastName.trim() || null,
         phone_number: phoneNumber.trim() || null,
-      });
+      }, reason);
+      setReason('');
+      setHistoryKey(k => k + 1);
 
       showAlert(
         'Success',
@@ -735,6 +771,14 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                   confirmation; Delete unlocks once deactivated. */}
               <View style={{ flexShrink: 0, alignItems: 'flex-end', maxWidth: 260, position: 'relative', zIndex: 30 }}>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={downloadUserExcel}
+                    disabled={exportingUser}
+                    accessibilityRole="button" accessibilityLabel="Download this user's access as Excel"
+                    style={{ borderWidth: 1, borderColor: '#0F6B46', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: '#fff', minWidth: 64, alignItems: 'center' }}>
+                    {exportingUser ? <ActivityIndicator size="small" color="#0F6B46" />
+                      : <Text style={{ color: '#0F6B46', fontWeight: '600', fontSize: 12 }}>⬇ Excel</Text>}
+                  </TouchableOpacity>
                   {!isActive && !deleteOpen && (
                     <TouchableOpacity
                       onPress={() => setDeleteOpen(true)}
@@ -823,39 +867,53 @@ const AssignAccessScreen = ({ initialUser = null }) => {
               </View>
             </View>
 
-          <View style={styles.rightPanelRow}>
+          {/* ── BODY (26 Nov 2026 re-layout): ONE scroll area with full-width
+              sections — Details in one row, Roles as a grid, then Scope and
+              "What this user will see" side by side. Replaces the narrow
+              details column + mostly empty scope column. ── */}
+          <ScrollView style={{ flex: 1, backgroundColor: '#F6FAF8' }} contentContainerStyle={{ padding: 16, gap: 14 }}>
 
-            {/* ── MAIN COLUMN: header + details + roles + save ── */}
-            <ScrollView style={styles.mainCol} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 0, paddingBottom: 16 }}>
-
-              {/* Details */}
-              <Text style={styles.sectionLabel}>Details</Text>
-              <View style={styles.row}>
-                <View style={styles.halfField}>
+            {/* Details */}
+            <View style={CARD}>
+              <Text style={CARD_TITLE}>Details</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                <View style={FIELD}>
                   <Text style={styles.fieldLabel}>First name</Text>
                   <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor="#aaa" />
                 </View>
-                <View style={styles.halfField}>
+                <View style={FIELD}>
                   <Text style={styles.fieldLabel}>Last name</Text>
                   <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor="#aaa" />
                 </View>
-              </View>
-              <Text style={styles.fieldLabel}>Mobile number *</Text>
-              <TextInput style={styles.input} value={phoneNumber}
-                onChangeText={v => setPhoneNumber(v.replace(/[^0-9]/g, ''))}
-                keyboardType="number-pad" maxLength={10} placeholder="10-digit mobile" placeholderTextColor="#aaa" />
-              <Text style={styles.fieldLabel}>Email</Text>
-              <View style={[styles.input, styles.inputDisabled]}>
-                <Text style={styles.inputDisabledText}>{selectedUser.email || '—'}</Text>
+                <View style={FIELD}>
+                  <Text style={styles.fieldLabel}>Mobile number *</Text>
+                  <TextInput style={[styles.input, !/^\d{10}$/.test(phoneNumber) && { borderColor: '#E0A33A' }]} value={phoneNumber}
+                    onChangeText={v => setPhoneNumber(v.replace(/[^0-9]/g, ''))}
+                    keyboardType="number-pad" maxLength={10} placeholder="10-digit mobile" placeholderTextColor="#aaa" />
+                </View>
+                <View style={FIELD}>
+                  <Text style={styles.fieldLabel}>Email</Text>
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.inputDisabledText} numberOfLines={1}>{selectedUser.email || '—'}</Text>
+                  </View>
+                </View>
               </View>
               {selectedUser.auth_type === 'ad' && (
                 <Text style={styles.fieldNote}>Email is linked to Active Directory and cannot be changed here</Text>
               )}
+            </View>
 
-              {/* Roles — cards that say what each role does; combinations that
-                  aren't allowed are greyed with the reason (25 Nov 2026) */}
-              <Text style={styles.sectionLabel}>Roles</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {/* Roles — cards that say what each role does; combinations that
+                aren't allowed are greyed with the reason (25 Nov 2026) */}
+            <View style={CARD}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+                <Text style={[CARD_TITLE, { marginBottom: 0 }]}>Roles</Text>
+                <Text style={{ fontSize: 12, color: '#8B99A3' }}>
+                  {roles.length ? `${roles.length} selected` : 'Pick at least one'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}
+                onLayout={(e) => setRolesWidth(e.nativeEvent.layout.width)}>
                 {AVAILABLE_ROLES.map(role => {
                   const isSelected = roles.includes(role);
                   const reason = roleBlockReason(role, roles);
@@ -867,44 +925,34 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                       accessibilityState={{ checked: isSelected, disabled: isDisabled }}
                       accessibilityLabel={`${role}${isDisabled ? ' (not available)' : ''}`}
                       style={{
-                        width: '48.5%', minHeight: 62, borderRadius: 10, borderWidth: 1.5,
-                        paddingVertical: 8, paddingHorizontal: 10,
+                        width: roleCardWidth, minHeight: 68, borderRadius: 10, borderWidth: 1.5,
+                        paddingVertical: 10, paddingHorizontal: 12,
                         borderColor: isSelected ? '#0F6B46' : '#E0E9E5',
                         backgroundColor: isSelected ? '#EAF5F0' : isDisabled ? '#F7F8F8' : '#fff',
                         opacity: isDisabled ? 0.6 : 1,
                       }}>
-                      <Text style={{ fontSize: 13.5, fontWeight: '700', color: isSelected ? '#0B5236' : '#12202A' }}>
+                      <Text style={{ fontSize: 14, fontWeight: '700', color: isSelected ? '#0B5236' : '#12202A' }} numberOfLines={2}>
                         {isSelected ? '☑' : '☐'} {role}
                       </Text>
-                      <Text style={{ fontSize: 11.5, color: isDisabled ? '#A35F00' : '#5B6B75', marginTop: 2 }} numberOfLines={2}>
+                      <Text style={{ fontSize: 12, color: isDisabled ? '#A35F00' : '#5B6B75', marginTop: 3, lineHeight: 17 }} numberOfLines={2}>
                         {isDisabled ? reason : ROLE_INFO[role]}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
+            </View>
 
-              {/* What this user will see */}
-              {roles.length > 0 && (
-                <View style={{ marginTop: 14, borderWidth: 1, borderColor: '#E0E9E5', borderRadius: 10, padding: 12, backgroundColor: '#FAFCFB' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: '#12202A', marginBottom: 6 }}>What this user will see</Text>
-                  {preview.yes.map(line => (
-                    <Text key={line} style={{ fontSize: 12.5, color: '#2B3A42', lineHeight: 20 }}>✓ {line}</Text>
-                  ))}
-                  {preview.no.map(line => (
-                    <Text key={line} style={{ fontSize: 12.5, color: '#8B99A3', lineHeight: 20 }}>✕ {line}</Text>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-
-            {/* ── SCOPE COLUMN (right side, only when needed) ── */}
-            {(needsWarehouse || needsGuardGPLoc || needsGpScope || roles.includes('Co Packer') || needsInv) && (
-              <>
-                <View style={styles.scopeDivider} />
-                <ScrollView style={styles.scopeCol} contentContainerStyle={{ padding: 16 }}>
-                  <Text style={styles.sectionLabel}>Scope</Text>
-
+            {/* Scope (left) + What this user will see (right) */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, alignItems: 'flex-start', zIndex: 10 }}>
+              <View style={[CARD, { flexGrow: 3, flexBasis: 360, minWidth: 300, zIndex: 10 }]}>
+                <Text style={CARD_TITLE}>Scope</Text>
+                {!(needsWarehouse || needsGuardGPLoc || needsGpScope || roles.includes('Co Packer') || needsInv) ? (
+                  <Text style={{ fontSize: 13, color: '#8B99A3' }}>
+                    {roles.length ? 'The selected roles need no warehouse or location.' : 'Pick a role above — its warehouse / location fields appear here.'}
+                  </Text>
+                ) : (
+                  <View style={{ maxWidth: 620 }}>
                   {/* Warehouse */}
                   {needsWarehouse && (
                     <View style={{ marginBottom: 16, zIndex: showWarehouseDropdown ? 100 : 2 }}>
@@ -984,8 +1032,13 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                       <Text style={styles.fieldLabel}>
                         {needsGpScope
                           ? 'Gate Pass Locations * (★ = default)'
-                          : 'Gate Pass Locations *'}
+                          : gpLocRequired ? 'Gate Pass Locations *' : 'Gate Pass Locations (optional)'}
                       </Text>
+                      {roles.includes('Security Admin') && !gpLocRequired ? (
+                        <Text style={{ fontSize: 11.5, color: '#8B99A3', marginBottom: 6 }}>
+                          Optional for Security Admin — leave empty if this person does not oversee gate passes (their Gate Pass page will say no location is assigned).
+                        </Text>
+                      ) : null}
                       <LocationMultiSelect
                         options={gpLocations}
                         selections={gpLocSelections}
@@ -994,11 +1047,30 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                       />
                     </View>
                   )}
-                </ScrollView>
-              </>
-            )}
+                  </View>
+                )}
+              </View>
 
-          </View>
+              <View style={[CARD, { flexGrow: 2, flexBasis: 280, minWidth: 260 }]}>
+                <Text style={CARD_TITLE}>What this user will see</Text>
+                {roles.length === 0 ? (
+                  <Text style={{ fontSize: 13, color: '#8B99A3' }}>No roles yet — the user can't open any page.</Text>
+                ) : (
+                  <>
+                    {preview.yes.map(line => (
+                      <Text key={line} style={{ fontSize: 13, color: '#2B3A42', lineHeight: 21 }}>✓ {line}</Text>
+                    ))}
+                    {preview.no.map(line => (
+                      <Text key={line} style={{ fontSize: 13, color: '#8B99A3', lineHeight: 21 }}>✕ {line}</Text>
+                    ))}
+                  </>
+                )}
+              </View>
+            </View>
+
+            {/* History — audit trail for this user (26 Nov 2026) */}
+            <UserHistory username={selectedUser.username} refreshKey={historyKey} cardStyle={CARD} titleStyle={CARD_TITLE} />
+          </ScrollView>
 
           {/* Sticky save bar — shows what's unsaved (25 Nov 2026) */}
           <View style={{
@@ -1016,6 +1088,20 @@ const AssignAccessScreen = ({ initialUser = null }) => {
               <Text style={{ fontSize: 12, color: '#8B99A3' }}>No unsaved changes</Text>
             )}
             <View style={{ flex: 1 }} />
+            {changes.length > 0 && (
+              <TextInput
+                value={reason}
+                onChangeText={setReason}
+                maxLength={500}
+                placeholder="Reason (optional — saved in History)"
+                placeholderTextColor="#8B99A3"
+                accessibilityLabel="Reason for change"
+                style={{
+                  borderWidth: 1.5, borderColor: '#CFDDD7', borderRadius: 8, paddingHorizontal: 10,
+                  minHeight: 38, fontSize: 13, color: '#12202A', backgroundColor: '#fff', width: 260, flexShrink: 1,
+                }}
+              />
+            )}
             {changes.length > 0 && (
               <TouchableOpacity
                 onPress={() => handleSelectUser(selectedUser)}

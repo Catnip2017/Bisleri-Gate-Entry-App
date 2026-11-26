@@ -11,7 +11,7 @@
 --  Server-side column defaults (see the 'Column defaults' block near the end)
 --  mirror the live database / model defaults.
 --
---  Tables (34): alembic_version, inventory_batches, inventory_entries, inventory_operator_viewers, inventory_user_warehouses, inventory_viewer_customer, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, user_gate_pass_locations, users_master
+--  Tables (38): alembic_version, audit_log, blinkit_stores, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, inventory_batches, inventory_entries, inventory_operator_viewers, inventory_user_warehouses, inventory_viewer_store, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, security_alerts, security_settings, user_gate_pass_locations, users_master
 --
 --  Plain DDL only -- no psql meta-commands -- so it also runs through
 --  psycopg2. It stamps alembic_version so `alembic upgrade head` is a
@@ -1898,10 +1898,72 @@ ALTER TABLE ONLY public.insights_data ALTER COLUMN edit_count SET DEFAULT 0;
 ALTER TABLE ONLY public.raw_materials_data ALTER COLUMN edit_count SET DEFAULT 0;
 ALTER TABLE ONLY public.users_master ALTER COLUMN is_active SET DEFAULT true;
 
--- Alembic version stamp (head)
+-- Audit trail / Security Settings / dormant-account alerts (Alembic b9e4d2a7c1f5, 26 Nov 2026)
 --
--- Blinkit Inventory Portal (Alembic c4e8a1f7d2b9, 26 Nov 2026)
+
+ALTER TABLE public.users_master ADD COLUMN created_at timestamp without time zone DEFAULT now();
+ALTER TABLE public.users_master ADD COLUMN last_seen_at timestamp without time zone;
+
+CREATE TABLE public.audit_log (
+    id bigserial PRIMARY KEY,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor character varying(50),
+    action character varying(50) NOT NULL,
+    target_user character varying(50),
+    details json,
+    reason character varying(500),
+    ip character varying(64)
+);
+CREATE INDEX ix_audit_log_target_created ON public.audit_log (target_user, created_at);
+CREATE INDEX ix_audit_log_created ON public.audit_log (created_at);
+CREATE INDEX ix_audit_log_action ON public.audit_log (action);
+
+CREATE TABLE public.security_settings (
+    key character varying(50) PRIMARY KEY,
+    value text,
+    updated_by character varying(50),
+    updated_at timestamp with time zone DEFAULT now()
+);
+INSERT INTO public.security_settings (key, value, updated_by) VALUES
+    ('inactive_days', '90', 'migration'), ('warning_days', '75', 'migration'),
+    ('never_used_days', '30', 'migration'), ('alerts_enabled', 'true', 'migration'),
+    ('alert_inapp', 'true', 'migration'), ('alert_email', 'false', 'migration'),
+    ('alert_emails', '', 'migration'), ('exempt_users', '', 'migration');
+
+CREATE TABLE public.security_alerts (
+    id bigserial PRIMARY KEY,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    username character varying(50) NOT NULL,
+    kind character varying(30) NOT NULL,
+    days integer,
+    message character varying(500),
+    status character varying(15) DEFAULT 'open' NOT NULL,
+    handled_by character varying(50),
+    handled_at timestamp with time zone,
+    emailed_at timestamp with time zone
+);
+CREATE INDEX ix_security_alerts_status ON public.security_alerts (status);
+CREATE INDEX ix_security_alerts_user_kind ON public.security_alerts (username, kind);
+
 --
+-- Blinkit Inventory Portal (Alembic c4e8a1f7d2b9, 26 Nov 2026 — store master version)
+--
+
+ALTER TABLE public.item_master ADD COLUMN search_name character varying(255);
+ALTER TABLE public.item_master ADD COLUMN product_service_type character varying(100);
+ALTER TABLE public.item_master ADD COLUMN product_dimension_group character varying(50);
+ALTER TABLE public.item_master ADD COLUMN product_lifecycle_state character varying(50);
+ALTER TABLE public.item_master ADD COLUMN packing_group character varying(100);
+ALTER TABLE public.item_master ADD COLUMN item_group character varying(20);
+
+CREATE TABLE public.blinkit_stores (
+    id serial PRIMARY KEY,
+    store_code character varying(50) NOT NULL,
+    store_name character varying(255),
+    is_active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT uq_blinkit_stores_store_code UNIQUE (store_code)
+);
 
 CREATE TABLE public.inventory_batches (
     id bigserial PRIMARY KEY,
@@ -1916,9 +1978,10 @@ CREATE TABLE public.inventory_entries (
     id bigserial PRIMARY KEY,
     batch_id bigint NOT NULL REFERENCES public.inventory_batches(id),
     inv_date date NOT NULL,
-    customer_code character varying(50) NOT NULL,
+    store_code character varying(50) NOT NULL REFERENCES public.blinkit_stores(store_code),
     warehouse_code character varying(50) NOT NULL REFERENCES public.location_master(warehouse_code),
-    sku_code character varying(255) NOT NULL,
+    warehouse_name character varying(255),
+    sku_code character varying(255) NOT NULL REFERENCES public.item_master(item_number),
     sku_name character varying(255),
     quantity integer NOT NULL,
     batch_no character varying(100),
@@ -1929,7 +1992,7 @@ CREATE TABLE public.inventory_entries (
 );
 CREATE INDEX ix_inventory_entries_batch_id ON public.inventory_entries (batch_id);
 CREATE INDEX ix_inventory_entries_date_wh ON public.inventory_entries (inv_date, warehouse_code);
-CREATE INDEX ix_inventory_entries_cust_date ON public.inventory_entries (customer_code, inv_date);
+CREATE INDEX ix_inventory_entries_store_date ON public.inventory_entries (store_code, inv_date);
 
 CREATE TABLE public.inventory_user_warehouses (
     username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
@@ -1943,10 +2006,13 @@ CREATE TABLE public.inventory_operator_viewers (
     PRIMARY KEY (operator_username, viewer_username)
 );
 
-CREATE TABLE public.inventory_viewer_customer (
+CREATE TABLE public.inventory_viewer_store (
     username character varying(50) PRIMARY KEY REFERENCES public.users_master(username) ON DELETE CASCADE,
-    customer_code character varying(50) NOT NULL
+    store_code character varying(50) NOT NULL REFERENCES public.blinkit_stores(store_code)
 );
-CREATE INDEX ix_inventory_viewer_customer_customer_code ON public.inventory_viewer_customer (customer_code);
+CREATE INDEX ix_inventory_viewer_store_store_code ON public.inventory_viewer_store (store_code);
 
+--
+-- Alembic version stamp (head)
+--
 INSERT INTO public.alembic_version (version_num) VALUES ('c4e8a1f7d2b9');

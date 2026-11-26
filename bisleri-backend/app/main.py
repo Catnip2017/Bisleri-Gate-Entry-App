@@ -9,7 +9,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import logging
 import os
-from app.routers import auth, documents, gate, insights, admin, sync, raw_materials, rpa, gate_pass, gate_pass_reports, dashboard, inventory
+from app.routers import auth, documents, gate, insights, admin, sync, raw_materials, rpa, gate_pass, gate_pass_reports, dashboard, inventory, security
 from app.routers import copacker as copacker_router
 from app.config import settings as _settings
 
@@ -110,6 +110,22 @@ def _run_fabric_erp_sync():
         logger.error(f"[Scheduler] Fabric ERP sync failed: {exc}")
 
 
+def _run_dormant_check():
+    """Nightly (01:40 IST). Builds the dormant-account alert list and sends
+    the alert email if switched on in Security Settings. NEVER disables or
+    deletes an account. No-op until migration b9e4d2a7c1f5 is applied."""
+    from app.database import SessionLocal
+    from app.services.security import run_dormant_check
+    db = SessionLocal()
+    try:
+        logger.info("[Scheduler] Dormant-account check: %s", run_dormant_check(db))
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[Scheduler] Dormant-account check failed: {exc}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ──────────────────────────────────────────────────────────────
@@ -159,6 +175,13 @@ async def lifespan(app: FastAPI):
         max_instances=1,       # never overlap two sync runs
         replace_existing=True,
         next_run_time=datetime.now(),  # fire once immediately, in the background
+    )
+    scheduler.add_job(
+        _run_dormant_check,
+        trigger="cron", hour=1, minute=40,   # every night, IST
+        id="dormant_check",
+        max_instances=1,
+        replace_existing=True,
     )
     scheduler.start()
     logger.info("Background sync scheduler started — mfabric_sync every 10 minutes, "
@@ -251,6 +274,7 @@ app.include_router(gate_pass.router)
 app.include_router(gate_pass_reports.router)
 app.include_router(dashboard.router)
 app.include_router(inventory.router)   # Blinkit Inventory Portal (26 Nov 2026)
+app.include_router(security.router)    # Security Settings / alerts / audit trail (26 Nov 2026)
 
 # Ensure the copacker images directory exists on startup
 _copacker_img_dir = _settings.COPACKER_IMAGE_PATH

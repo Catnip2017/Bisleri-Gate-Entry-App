@@ -46,6 +46,8 @@ export default StyleSheet.create({
     paddingHorizontal: 10,
   },
   tab: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 2,

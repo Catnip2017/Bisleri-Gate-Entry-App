@@ -15,6 +15,8 @@ from .gate_pass import (
 )
 # Blinkit Inventory Portal (26 Nov 2026)
 from .inventory import (
-    InventoryBatch, InventoryEntry, InventoryUserWarehouse,
-    InventoryOperatorViewer, InventoryViewerCustomer,
+    BlinkitStore, InventoryBatch, InventoryEntry, InventoryUserWarehouse,
+    InventoryOperatorViewer, InventoryViewerStore,
 )
+# Audit trail / Security Settings / dormant alerts (26 Nov 2026)
+from .security import AuditLog, SecuritySetting, SecurityAlert

@@ -1,8 +1,12 @@
 # app/routers/inventory.py - Blinkit Inventory Portal API (26 Nov 2026).
 #
 # Roles: Bisleri Inventory Operator (enters stock for mapped warehouses +
-# mapped Blinkit customers), Blinkit Inventory Viewer (read-only, own customer
-# code, mapped warehouses), IT Admin (read-only, everything).
+# the stores of mapped Blinkit users), Blinkit Inventory Viewer (read-only,
+# own Blinkit store, mapped warehouses), IT Admin (read-only, everything).
+#
+# Masters: item_master (SKU code = item_number, SKU name = product_name),
+# blinkit_stores (store_code / store_name), location_master (warehouses —
+# the warehouse name is copied onto each line when it is saved).
 #
 # Rules agreed with the business:
 #   - lines are never edited or deleted; duplicates are separate lines
@@ -10,7 +14,7 @@
 #   - quantity = whole cases > 0; batch and mfg date optional, free format
 #   - Excel upload: every valid row is accepted, invalid rows are reported
 #   - one search covers at most 92 days (export up to 366 days)
-#   - viewers never receive batch, mfg date, warehouse code or entered-by
+#   - viewers never receive batch, mfg date, warehouse code, SKU code or entered-by
 import io
 import re
 from datetime import date, datetime, timedelta
@@ -27,7 +31,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import UsersMaster, LocationMaster, ItemMaster
-from app.models.inventory import InventoryBatch, InventoryEntry, InventoryViewerCustomer
+from app.models.inventory import BlinkitStore, InventoryBatch, InventoryEntry
 from app.services.inventory_access import user_scope
 from app.utils.errors import internal_error
 
@@ -51,18 +55,19 @@ def _wh_names(db: Session, codes=None) -> dict:
     return {c: n for (c, n) in q.all()}
 
 
-def _customer_options(db: Session, scope: dict) -> list:
-    """Customer code dropdown: one entry per code, labelled with the Blinkit
-    user(s) holding it (customer master to be added later)."""
-    q = db.query(InventoryViewerCustomer.customer_code, UsersMaster.first_name, UsersMaster.last_name) \
-        .join(UsersMaster, UsersMaster.username == InventoryViewerCustomer.username)
-    if scope["customers"] is not None:
-        q = q.filter(InventoryViewerCustomer.customer_code.in_(list(scope["customers"]) or [""]))
-    out = {}
-    for code, fn, ln in q.all():
-        out.setdefault(code, []).append(f"{fn or ''} {ln or ''}".strip())
-    return [{"code": c, "label": f"{c} — {', '.join(sorted(set(n for n in names if n)))}" if any(names) else c}
-            for c, names in sorted(out.items())]
+def _store_names(db: Session, codes=None) -> dict:
+    q = db.query(BlinkitStore.store_code, BlinkitStore.store_name)
+    if codes is not None:
+        q = q.filter(BlinkitStore.store_code.in_(list(codes) or [""]))
+    return {c: n for (c, n) in q.all()}
+
+
+def _store_options(db: Session, scope: dict) -> list:
+    """Blinkit store dropdown (from blinkit_stores), limited to the user's scope.
+    IT Admin sees every store, operators the stores of their Blinkit users."""
+    names = _store_names(db, scope["stores"])
+    return [{"code": c, "name": names[c] or "", "label": f"{c} — {names[c]}" if names[c] else c}
+            for c in sorted(names)]
 
 
 # ── Lookups ───────────────────────────────────────────────────────────────────
@@ -75,16 +80,31 @@ def lookups(db: Session = Depends(get_db), current_user: UsersMaster = Depends(g
         # say so plainly instead of a generic server error.
         db.rollback()
         raise HTTPException(status_code=503, detail="The Inventory Portal is not set up on this database yet "
-                            "(run 'alembic upgrade head' on the backend).")
+                            "(run 'alembic upgrade head' on the backend, then load the item and store masters).")
     scope = user_scope(db, current_user)
     names = _wh_names(db, scope["warehouses"])
     return {
         "kind": scope["kind"],
         "today": _today().isoformat(),
         "warehouses": [{"code": c, "name": names.get(c) or ""} for c in sorted(names)],
-        "customers": _customer_options(db, scope),
+        "stores": _store_options(db, scope),
         "max_search_days": MAX_SEARCH_DAYS,
     }
+
+
+@router.get("/stores")
+def list_stores(db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
+    """Blinkit store master for the User Management store picker (IT Admin)."""
+    from app.utils.roles import normalize_roles
+    if "itadmin" not in normalize_roles(current_user.role):
+        raise HTTPException(status_code=403, detail="Only IT Admins can list Blinkit stores")
+    try:
+        rows = db.query(BlinkitStore.store_code, BlinkitStore.store_name) \
+            .filter(BlinkitStore.is_active.is_(True)).order_by(BlinkitStore.store_code).all()
+    except ProgrammingError:
+        db.rollback()
+        raise HTTPException(status_code=503, detail="The Inventory Portal is not set up on this database yet.")
+    return [{"code": c, "name": n or "", "label": f"{c} — {n}" if n else c} for (c, n) in rows]
 
 
 @router.get("/skus")
@@ -112,17 +132,17 @@ def dashboard(db: Session = Depends(get_db), current_user: UsersMaster = Depends
         raise HTTPException(status_code=403, detail="Dashboard is not available for your role")
     q = db.query(InventoryEntry).filter(InventoryEntry.inv_date == _today())
     q = _apply_scope(q, scope)
-    lines, cases, customers = q.with_entities(
+    lines, cases, stores = q.with_entities(
         func.count(InventoryEntry.id),
         func.coalesce(func.sum(InventoryEntry.quantity), 0),
-        func.count(func.distinct(InventoryEntry.customer_code)),
+        func.count(func.distinct(InventoryEntry.store_code)),
     ).one()
     names = _wh_names(db, scope["warehouses"])
     return {
         "today": _today().isoformat(),
         "lines_today": int(lines or 0),
         "cases_today": int(cases or 0),
-        "customers_today": int(customers or 0),
+        "stores_today": int(stores or 0),
         "warehouses": [{"code": c, "name": names.get(c) or ""} for c in sorted(names)],
     }
 
@@ -150,6 +170,8 @@ class _Checker:
     def __init__(self, db: Session, scope: dict):
         self.db, self.scope, self.today = db, scope, _today()
         self.sku_cache, self.sku_name_cache = {}, {}
+        self.store_names = _store_names(db, scope["stores"])
+        self.wh_names = _wh_names(db, scope["warehouses"])
 
     def sku(self, code: Optional[str], name: Optional[str]):
         code = (code or "").strip()
@@ -183,16 +205,20 @@ class _Checker:
             raise ValueError("Date is missing")
         if d < self.today:
             raise ValueError("Date is in the past — only today or a future date is allowed")
-        cust = (str(raw.get("customer_code") or "")).strip().upper()
-        if not cust:
-            raise ValueError("Customer code is missing")
-        if self.scope["customers"] is not None and cust not in self.scope["customers"]:
-            raise ValueError(f"Customer '{cust}' is not mapped to you")
+        store = (str(raw.get("store_code") or "")).strip().upper()
+        if not store:
+            raise ValueError("Store code is missing")
+        if self.scope["stores"] is not None and store not in self.scope["stores"]:
+            raise ValueError(f"Store '{store}' is not mapped to you")
+        if store not in self.store_names:
+            raise ValueError(f"Store '{store}' is not in the Blinkit store master")
         wh = (str(raw.get("warehouse_code") or "")).strip().upper()
         if not wh:
             raise ValueError("Warehouse code is missing")
         if self.scope["warehouses"] is not None and wh not in self.scope["warehouses"]:
             raise ValueError(f"Warehouse '{wh}' is not mapped to you")
+        if wh not in self.wh_names:
+            raise ValueError(f"Warehouse '{wh}' is not in the location master")
         sku_code, sku_name = self.sku(raw.get("sku_code"), raw.get("sku_name"))
         q = raw.get("quantity")
         try:
@@ -206,7 +232,8 @@ class _Checker:
             raise ValueError("Manufacturing date is after the inventory date")
         batch = (str(raw.get("batch_no") or "")).strip() or None
         return {
-            "inv_date": d.isoformat(), "customer_code": cust, "warehouse_code": wh,
+            "inv_date": d.isoformat(), "store_code": store, "store_name": self.store_names.get(store) or "",
+            "warehouse_code": wh, "warehouse_name": self.wh_names.get(wh) or "",
             "sku_code": sku_code, "sku_name": sku_name, "quantity": int(qf),
             "batch_no": batch[:100] if batch else None,
             "mfg_date": mfg.isoformat() if mfg else None,
@@ -216,7 +243,7 @@ class _Checker:
 # ── Submit All ────────────────────────────────────────────────────────────────
 class LineIn(BaseModel):
     inv_date: str
-    customer_code: str
+    store_code: str
     warehouse_code: str
     sku_code: Optional[str] = None
     sku_name: Optional[str] = None
@@ -261,7 +288,8 @@ def submit_batch(payload: BatchIn, db: Session = Depends(get_db),
         for g in good:
             db.add(InventoryEntry(
                 batch_id=batch.id, inv_date=date.fromisoformat(g["inv_date"]),
-                customer_code=g["customer_code"], warehouse_code=g["warehouse_code"],
+                store_code=g["store_code"], warehouse_code=g["warehouse_code"],
+                warehouse_name=g["warehouse_name"] or None,
                 sku_code=g["sku_code"], sku_name=g["sku_name"], quantity=g["quantity"],
                 batch_no=g["batch_no"],
                 mfg_date=date.fromisoformat(g["mfg_date"]) if g["mfg_date"] else None,
@@ -275,7 +303,7 @@ def submit_batch(payload: BatchIn, db: Session = Depends(get_db),
 
 
 # ── Excel template + upload check ─────────────────────────────────────────────
-TEMPLATE_HEADERS = ["Date (DD/MM/YYYY)", "Customer Code", "BIPL Warehouse Code", "SKU Code",
+TEMPLATE_HEADERS = ["Date (DD/MM/YYYY)", "Blinkit Store Code", "BIPL Warehouse Code", "SKU Code (Item number)",
                     "SKU Name", "Quantity (cases)", "Batch (optional)", "Manufacturing Date (optional)"]
 
 
@@ -289,7 +317,8 @@ def download_template(db: Session = Depends(get_db), current_user: UsersMaster =
     if scope["kind"] != "operator":
         raise HTTPException(status_code=403, detail="Only Bisleri Inventory Operators can upload inventory")
     wh = _wh_names(db, scope["warehouses"])
-    custs = sorted(scope["customers"] or [])
+    stores = _store_names(db, scope["stores"])
+    custs = sorted(stores)
     wb = Workbook()
     ws = wb.active
     ws.title = "Inventory"
@@ -300,12 +329,13 @@ def download_template(db: Session = Depends(get_db), current_user: UsersMaster =
     for i, w in enumerate([18, 16, 20, 18, 34, 16, 18, 26], start=1):
         ws.column_dimensions[chr(64 + i)].width = w
     lists = wb.create_sheet("Lists")
-    lists.append(["Your customer codes", "Your warehouses", "Warehouse name"])
+    lists.append(["Your Blinkit store codes", "Your warehouses", "Warehouse name", "Store name"])
+    codes = sorted(wh)
     for i in range(max(len(custs), len(wh))):
-        codes = sorted(wh)
         lists.append([custs[i] if i < len(custs) else None,
                       codes[i] if i < len(codes) else None,
-                      wh[codes[i]] if i < len(codes) else None])
+                      wh[codes[i]] if i < len(codes) else None,
+                      stores[custs[i]] if i < len(custs) else None])
     if custs:
         dv = DataValidation(type="list", formula1=f"=Lists!$A$2:$A${len(custs) + 1}", allow_blank=False)
         ws.add_data_validation(dv); dv.add("B2:B5001")
@@ -314,10 +344,10 @@ def download_template(db: Session = Depends(get_db), current_user: UsersMaster =
         ws.add_data_validation(dv2); dv2.add("C2:C5001")
     notes = wb.create_sheet("How to fill")
     for line in [
-        "One row per stock line. Required: Date, Customer Code, BIPL Warehouse Code, SKU Code (or exact SKU Name), Quantity.",
+        "One row per stock line. Required: Date, Blinkit Store Code, BIPL Warehouse Code, SKU Code (Item number, or exact SKU Name), Quantity.",
         "Date must be today or a future date (DD/MM/YYYY). Past dates are rejected.",
         "Quantity is in whole cases (1 or more). Batch and Manufacturing Date are optional.",
-        "Only your mapped customers and warehouses are accepted (see the Lists sheet).",
+        "Only your mapped Blinkit stores and warehouses are accepted (see the Lists sheet). The warehouse name is filled in automatically.",
         f"Maximum {MAX_UPLOAD_ROWS} rows per file. Correct rows are accepted; rows with errors are listed back to you.",
     ]:
         notes.append([line])
@@ -365,7 +395,7 @@ async def upload_check(file: UploadFile = File(...), db: Session = Depends(get_d
 
     idx = {
         "inv_date": col("date", exclude=("manufactur", "mfg")),
-        "customer_code": col("customer"),
+        "store_code": col("store", exclude=("name",)),
         "warehouse_code": col("warehouse", exclude=("name",)),
         "sku_code": col("skucode", "itemcode", "itemnumber"),
         "sku_name": col("skuname", "productname"),
@@ -373,14 +403,13 @@ async def upload_check(file: UploadFile = File(...), db: Session = Depends(get_d
         "batch_no": col("batch"),
         "mfg_date": col("manufactur", "mfg"),
     }
-    missing = [k for k in ("inv_date", "customer_code", "warehouse_code", "quantity") if idx[k] is None]
+    missing = [k for k in ("inv_date", "store_code", "warehouse_code", "quantity") if idx[k] is None]
     if idx["sku_code"] is None and idx["sku_name"] is None:
         missing.append("sku_code")
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing column(s): {', '.join(missing)} — please use the template")
 
     checker = _Checker(db, scope)
-    wh = _wh_names(db, scope["warehouses"])
     good, errors, total = [], [], 0
     for rnum, r in enumerate(rows, start=2):
         if r is None or all(v is None or str(v).strip() == "" for v in r):
@@ -392,7 +421,6 @@ async def upload_check(file: UploadFile = File(...), db: Session = Depends(get_d
         raw = {k: (r[i] if i is not None and i < len(r) else None) for k, i in idx.items()}
         try:
             g = checker.check(raw)
-            g["warehouse_name"] = wh.get(g["warehouse_code"], "")
             g["row"] = rnum
             good.append(g)
         except ValueError as e:
@@ -404,12 +432,12 @@ async def upload_check(file: UploadFile = File(...), db: Session = Depends(get_d
 def _apply_scope(q, scope):
     if scope["warehouses"] is not None:
         q = q.filter(InventoryEntry.warehouse_code.in_(list(scope["warehouses"]) or [""]))
-    if scope["customers"] is not None:
-        q = q.filter(InventoryEntry.customer_code.in_(list(scope["customers"]) or [""]))
+    if scope["stores"] is not None:
+        q = q.filter(InventoryEntry.store_code.in_(list(scope["stores"]) or [""]))
     return q
 
 
-def _filtered(db, scope, date_from: date, date_to: date, warehouses: Optional[str], customers: Optional[str], max_days: int):
+def _filtered(db, scope, date_from: date, date_to: date, warehouses: Optional[str], stores: Optional[str], max_days: int):
     if date_to < date_from:
         raise HTTPException(status_code=400, detail="'To' date is before 'From' date")
     if (date_to - date_from).days + 1 > max_days:
@@ -419,18 +447,19 @@ def _filtered(db, scope, date_from: date, date_to: date, warehouses: Optional[st
     wl = [w.strip().upper() for w in (warehouses or "").split(",") if w.strip()]
     if wl:
         q = q.filter(InventoryEntry.warehouse_code.in_(wl))
-    cl = [c.strip().upper() for c in (customers or "").split(",") if c.strip()]
-    if cl:
-        q = q.filter(InventoryEntry.customer_code.in_(cl))
+    sl = [c.strip().upper() for c in (stores or "").split(",") if c.strip()]
+    if sl:
+        q = q.filter(InventoryEntry.store_code.in_(sl))
     return q
 
 
-def _row(e: InventoryEntry, wh_names: dict, viewer: bool) -> dict:
+def _row(e: InventoryEntry, wh_names: dict, store_names: dict, viewer: bool) -> dict:
     base = {
         "id": e.id,
         "inv_date": e.inv_date.isoformat(),
-        "customer_code": e.customer_code,
-        "warehouse_name": wh_names.get(e.warehouse_code, ""),
+        "store_code": e.store_code,
+        "store_name": store_names.get(e.store_code) or "",
+        "warehouse_name": e.warehouse_name or wh_names.get(e.warehouse_code, ""),
         "sku_name": e.sku_name,
         "quantity": e.quantity,
         "updated_at": e.created_at.isoformat() if e.created_at else None,
@@ -451,24 +480,25 @@ def list_entries(
     date_from: date = Query(...),
     date_to: date = Query(...),
     warehouses: Optional[str] = Query(None, max_length=2000),
-    customers: Optional[str] = Query(None, max_length=2000),
+    stores: Optional[str] = Query(None, max_length=2000),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     scope = user_scope(db, current_user)
-    q = _filtered(db, scope, date_from, date_to, warehouses, customers, MAX_SEARCH_DAYS)
+    q = _filtered(db, scope, date_from, date_to, warehouses, stores, MAX_SEARCH_DAYS)
     total, cases = q.with_entities(func.count(InventoryEntry.id),
                                    func.coalesce(func.sum(InventoryEntry.quantity), 0)).one()
     rows = q.order_by(InventoryEntry.inv_date.desc(), InventoryEntry.created_at.desc(), InventoryEntry.id.desc()) \
         .offset((page - 1) * page_size).limit(page_size).all()
-    names = _wh_names(db, {r.warehouse_code for r in rows})
+    names = _wh_names(db, {r.warehouse_code for r in rows if not r.warehouse_name})
+    snames = _store_names(db, {r.store_code for r in rows})
     viewer = scope["kind"] == "viewer"
     return {
         "total": int(total or 0), "total_cases": int(cases or 0),
         "page": page, "page_size": page_size,
-        "results": [_row(r, names, viewer) for r in rows],
+        "results": [_row(r, names, snames, viewer) for r in rows],
     }
 
 
@@ -477,7 +507,7 @@ def export_entries(
     date_from: date = Query(...),
     date_to: date = Query(...),
     warehouses: Optional[str] = Query(None, max_length=2000),
-    customers: Optional[str] = Query(None, max_length=2000),
+    stores: Optional[str] = Query(None, max_length=2000),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
@@ -485,14 +515,16 @@ def export_entries(
     from openpyxl.styles import Font, PatternFill
 
     scope = user_scope(db, current_user)
-    q = _filtered(db, scope, date_from, date_to, warehouses, customers, MAX_EXPORT_DAYS)
+    q = _filtered(db, scope, date_from, date_to, warehouses, stores, MAX_EXPORT_DAYS)
     viewer = scope["kind"] == "viewer"
     names = _wh_names(db)
+    snames = _store_names(db)
     if viewer:
-        heads = ["Date", "Customer Code", "BIPL Warehouse Name", "SKU Name", "Quantity (cases)", "Updated Date & Time"]
+        heads = ["Date", "Store Code", "Store Name", "BIPL Warehouse Name", "SKU Name", "Quantity (cases)",
+                 "Updated Date & Time"]
     else:
-        heads = ["Date", "Customer Code", "BIPL Warehouse Code", "BIPL Warehouse Name", "SKU Code", "SKU Name",
-                 "Quantity (cases)", "Batch", "Mfg. Date", "Entered By", "Updated Date & Time"]
+        heads = ["Date", "Store Code", "Store Name", "BIPL Warehouse Code", "BIPL Warehouse Name", "SKU Code",
+                 "SKU Name", "Quantity (cases)", "Batch", "Mfg. Date", "Entered By", "Updated Date & Time"]
     try:
         wb = Workbook(); ws = wb.active; ws.title = "Inventory"
         ws.append(heads)
@@ -505,10 +537,12 @@ def export_entries(
                 ca = ca.replace(tzinfo=ZoneInfo("UTC"))
             upd = ca.astimezone(IST).strftime("%d/%m/%Y %H:%M") if ca else None
             d = e.inv_date.strftime("%d/%m/%Y")
+            whn = e.warehouse_name or names.get(e.warehouse_code, "")
+            sn = snames.get(e.store_code) or ""
             if viewer:
-                ws.append([d, e.customer_code, names.get(e.warehouse_code, ""), e.sku_name, e.quantity, upd])
+                ws.append([d, e.store_code, sn, whn, e.sku_name, e.quantity, upd])
             else:
-                ws.append([d, e.customer_code, e.warehouse_code, names.get(e.warehouse_code, ""), e.sku_code,
+                ws.append([d, e.store_code, sn, e.warehouse_code, whn, e.sku_code,
                            e.sku_name, e.quantity, e.batch_no,
                            e.mfg_date.strftime("%d/%m/%Y") if e.mfg_date else None, e.created_by, upd])
         ws.freeze_panes = "A2"

@@ -1,9 +1,10 @@
 # app/routers/auth.py
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import UserCreate, UserResponse, LoginRequest, Token, PasswordReset
-from app.auth import create_access_token, get_password_hash, get_current_user, verify_password
+from app.auth import create_access_token, get_password_hash, get_current_user, verify_password, is_legacy_hash, legacy_password_matches
+from app.services.security import audit_now, client_ip
 from app.models import UsersMaster, LocationMaster
 from datetime import datetime, timedelta
 from pydantic import BaseModel
@@ -13,15 +14,34 @@ router = APIRouter(tags=["Authentication"])
 
 
 @router.post("/login", response_model=Token)
-def login(login_data: LoginRequest, db: Session = Depends(get_db)):
+def login(login_data: LoginRequest, request: Request, db: Session = Depends(get_db)):
     # Single generic failure message for both "no such user" and "wrong
     # password" — prevents account enumeration (an attacker must not be able
     # to tell whether a username exists from the login response).
-    db_user = db.query(UsersMaster).filter(
-        UsersMaster.username == login_data.username.strip()
-    ).first()
+    uname = (login_data.username or "").strip()
+    db_user = db.query(UsersMaster).filter(UsersMaster.username == uname).first()
+    ip = client_ip(request)
 
-    if not db_user or not verify_password(login_data.password, db_user.password):
+    if db_user and is_legacy_hash(db_user.password):
+        # Old Bisleri_01 SHA-256 password (26 Nov 2026): never a server error.
+        # Only someone who typed the RIGHT old password is told why it can't
+        # be used, so this does not reveal which accounts exist.
+        if legacy_password_matches(login_data.password, db_user.password):
+            audit_now(db, None, "login_failed", db_user.username, {"why": "old password format"}, ip=ip)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Your password is in an old format that this app cannot use. "
+                       "Please ask your IT Admin to reset it.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        db_user_ok = False
+    else:
+        db_user_ok = bool(db_user) and verify_password(login_data.password, db_user.password)
+
+    if not db_user_ok:
+        audit_now(db, None, "login_failed", db_user.username if db_user else None,
+                  {"why": "wrong password" if db_user else "unknown username",
+                   **({} if db_user else {"username_tried": uname[:50]})}, ip=ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password.",

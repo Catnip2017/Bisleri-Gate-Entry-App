@@ -18,9 +18,18 @@ Run from the bisleri-backend folder:
 
     python scripts/init_db.py                  # structure + reference data
     python scripts/init_db.py --sample-data    # ... plus demo data for local testing
+    python scripts/init_db.py --create-admin   # ... plus the FIRST IT Admin (asks for the details)
+
+--create-admin (26 Nov 2026) is for a brand-new database only: it refuses if
+any IT Admin already exists, runs only from this command line on the server
+(there is no web page or API for it), and the password is typed at a hidden
+prompt — it is never passed on the command line or stored in a file. The new
+password must meet the app's password policy and is stored bcrypt-hashed.
 """
 import argparse
+import getpass
 import os
+import re
 import sys
 
 import psycopg2
@@ -57,9 +66,68 @@ def ensure_database(settings):
     return _connect(settings, settings.DB_NAME)
 
 
+def _is_it_admin(role_string):
+    return "itadmin" in [r.strip().lower().replace(" ", "") for r in (role_string or "").split(",") if r.strip()]
+
+
+def create_first_admin(cur):
+    """Interactive: create the first IT Admin. Refuses if one already exists."""
+    from app.utils.account_rules import password_error, normalise_mobile
+    from passlib.context import CryptContext
+
+    cur.execute("SELECT username, role FROM users_master")
+    admins = [u for (u, r) in cur.fetchall() if _is_it_admin(r)]
+    if admins:
+        raise SystemExit(f"Refusing: an IT Admin already exists ({', '.join(sorted(admins))}). "
+                         "Create further users from User Management in the app.")
+    if not sys.stdin.isatty():
+        raise SystemExit("--create-admin must be run interactively (it asks for the password).")
+
+    print("\nCreate the first IT Admin")
+    while True:
+        username = input("  Username: ").strip()
+        if re.fullmatch(r"[A-Za-z0-9._-]{3,50}", username):
+            break
+        print("  3-50 characters: letters, numbers, dot, dash or underscore.")
+    first = input("  First name: ").strip() or username
+    last = input("  Last name: ").strip()
+    while True:
+        mobile = normalise_mobile(input("  Mobile number (10 digits): "))
+        if mobile:
+            break
+        print("  Enter a valid 10-digit mobile number.")
+    email = input("  Email (optional): ").strip() or None
+    while True:
+        pw = getpass.getpass("  Password (hidden): ")
+        err = password_error(pw)
+        if err:
+            print(f"  {err}")
+            continue
+        if getpass.getpass("  Repeat password: ") != pw:
+            print("  Passwords do not match.")
+            continue
+        break
+
+    cur.execute("SELECT 1 FROM users_master WHERE username = %s", (username,))
+    if cur.fetchone():
+        raise SystemExit(f"Refusing: user '{username}' already exists.")
+    hashed = CryptContext(schemes=["bcrypt"], deprecated="auto").hash(pw)
+    cur.execute(
+        "INSERT INTO users_master (username, first_name, last_name, role, password, email, phone_number, is_active) "
+        "VALUES (%s, %s, %s, 'IT Admin', %s, %s, %s, TRUE)",
+        (username, first, last, hashed, email, mobile))
+    cur.execute("SELECT to_regclass('public.audit_log') IS NOT NULL")
+    if cur.fetchone()[0]:
+        cur.execute("INSERT INTO audit_log (actor, action, target_user, details) VALUES (NULL, 'user_created', %s, %s)",
+                    (username, '{"after": {"role": "IT Admin"}, "via": "init_db.py --create-admin"}'))
+    print(f"IT Admin '{username}' created. Log in to the app and create the other users from User Management.")
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sample-data", action="store_true", help="also load fictional demo data (local only)")
+    ap.add_argument("--create-admin", action="store_true",
+                    help="create the first IT Admin (interactive; refuses if one exists)")
     ap.add_argument("--allow-existing-users", action="store_true",
                     help="load demo data even if non-demo users already exist")
     args = ap.parse_args()
@@ -88,6 +156,8 @@ def main():
                 if seed_sample_data.seed_sample_data(cur, settings.DB_HOST, args.allow_existing_users):
                     print("Sample data loaded.")
                     seed_sample_data.print_logins()
+            if args.create_admin:
+                create_first_admin(cur)
     finally:
         conn.close()
 

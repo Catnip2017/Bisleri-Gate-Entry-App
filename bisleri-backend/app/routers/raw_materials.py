@@ -137,6 +137,57 @@ def get_rm_entries(
     return get_filtered_rm_entries(filters, db, current_user)
 
 
+def _rm_filtered(db, current_user, from_date, to_date, warehouse_code, site_code, vehicle_no, movement_type):
+    """Same filters + warehouse scope as /rm/entries and /rm/export."""
+    query = db.query(RawMaterialsData)
+    if from_date:
+        query = query.filter(RawMaterialsData.date_time >= from_date)
+    if to_date:
+        query = query.filter(RawMaterialsData.date_time <= datetime.combine(to_date, datetime.max.time()))
+    if vehicle_no:
+        query = query.filter(RawMaterialsData.vehicle_no.ilike(f"%{vehicle_no.upper()}%"))
+    if movement_type:
+        query = query.filter(RawMaterialsData.gate_type == movement_type)
+    if warehouse_code:
+        query = query.filter(RawMaterialsData.warehouse_code == warehouse_code)
+    if site_code:
+        query = query.filter(RawMaterialsData.site_code == site_code)
+    if "itadmin" not in normalize_roles(current_user.role):
+        query = query.filter(RawMaterialsData.warehouse_code == current_user.warehouse_code)
+    return query
+
+
+@router.get("/summary")
+def rm_summary(
+    from_date: date | None = Query(None),
+    to_date: date | None = Query(None),
+    warehouse_code: str | None = Query(None, max_length=50),
+    site_code: str | None = Query(None, max_length=50),
+    vehicle_no: str | None = Query(None, max_length=50),
+    movement_type: str | None = Query(None, max_length=20),
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """RM Insights KPI cards (26 Nov 2026): totals over EVERY row matching the
+    filters for the whole date range (the table itself is capped at 5,000),
+    counted by the database. Same definitions the cards used before."""
+    from sqlalchemy import case, distinct
+    try:
+        q = _rm_filtered(db, current_user, from_date, to_date, warehouse_code, site_code, vehicle_no, movement_type)
+        total, gin, gout, vehicles = q.with_entities(
+            func.count(RawMaterialsData.id),
+            func.count(case((RawMaterialsData.gate_type == "Gate-In", 1))),
+            func.count(case((RawMaterialsData.gate_type == "Gate-Out", 1))),
+            func.count(distinct(RawMaterialsData.vehicle_no)),
+        ).one()
+        return {"total_entries": int(total or 0), "gate_in_count": int(gin or 0),
+                "gate_out_count": int(gout or 0), "unique_vehicles": int(vehicles or 0)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise internal_error("Summary error", e)
+
+
 @router.get("/export")
 def export_rm_entries_excel(
     from_date: date | None = Query(None),

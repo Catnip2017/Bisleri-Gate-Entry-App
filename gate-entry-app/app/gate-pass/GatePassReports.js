@@ -317,7 +317,7 @@ const GatePassReports = () => {
     return (
       <View style={styles.loadingBox}>
         <Text style={{ fontSize: 14, color: gp.textMuted }}>
-          No Gate Pass Location assigned to your profile — reports need a location to scope to.
+          No Gate Pass location is assigned to your profile, so there are no reports to show. Ask IT Admin to assign a location if you need access.
         </Text>
       </View>
     );

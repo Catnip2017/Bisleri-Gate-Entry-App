@@ -254,34 +254,39 @@ export const insightsAPI = {
   },
 };
 
+// Audit trail (26 Nov 2026): optional "reason for change" typed by the IT
+// Admin, sent URL-encoded in a header so every existing body stays the same.
+const reasonHeaders = (reason) => (reason && reason.trim()
+  ? { headers: { 'X-Audit-Reason': encodeURIComponent(reason.trim().slice(0, 500)) } } : {});
+
 // ✅ MERGED: Complete Admin APIs
 export const adminAPI = {
   getUserGpLocations: async (username) => {
     const response = await api.get(`/user-gp-locations/${username}`);
     return response.data;
   },
-  registerUser: async (userData) => {
-    const response = await api.post("/register", userData);
+  registerUser: async (userData, reason) => {
+    const response = await api.post("/register", userData, reasonHeaders(reason));
     return response.data;
   },
 
-  resetPassword: async (resetData) => {
-    const response = await api.post("/reset-password", resetData);
+  resetPassword: async (resetData, reason) => {
+    const response = await api.post("/reset-password", resetData, reasonHeaders(reason));
     return response.data;
   },
 
-  modifyUser: async (username, data) => {
-    const response = await api.put(`/modify-user/${username}`, data);
+  modifyUser: async (username, data, reason) => {
+    const response = await api.put(`/modify-user/${username}`, data, reasonHeaders(reason));
     return response.data;
   },
-  updateUser: async (username, data) => {
-  const response = await api.put(`/users/${username}/update`, data);
+  updateUser: async (username, data, reason) => {
+  const response = await api.put(`/users/${username}/update`, data, reasonHeaders(reason));
   return response.data;
 },
 
 
-  deleteUser: async (username) => {
-    const response = await api.delete(`/user/${username}/delete`);
+  deleteUser: async (username, reason) => {
+    const response = await api.delete(`/user/${username}/delete`, reasonHeaders(reason));
     return response.data;
   },
 
@@ -437,6 +442,19 @@ export const rmAPI = {
     const response = await api.put('/rm/update-entry', editData);
     return response.data;
   },
+
+  // KPI totals over EVERY row matching the filters (26 Nov 2026)
+  getRMSummary: async (filters) => (await api.get('/rm/summary', {
+    params: {
+      from_date: filters.from_date,
+      to_date: filters.to_date,
+      site_code: filters.site_code || null,
+      warehouse_code: filters.warehouse_code || null,
+      movement_type: filters.movement_type || null,
+      vehicle_no: filters.vehicle_no || null,
+    },
+    timeout: 60000,
+  })).data,
 
   getRMStatistics: async () => {
     const response = await api.get('/rm/statistics');
@@ -955,7 +973,27 @@ export const inventoryAPI = {
   })).data,
   // IT Admin: an operator's / viewer's portal mapping
   getAccess: async (username) => (await api.get(`/inventory-access/${encodeURIComponent(username)}`)).data,
-  setAccess: async (username, body) => (await api.put(`/inventory-access/${encodeURIComponent(username)}`, body)).data,
+  setAccess: async (username, body, reason) => (await api.put(`/inventory-access/${encodeURIComponent(username)}`, body, reasonHeaders(reason))).data,
+  // IT Admin: Blinkit store master (store picker in User Management)
+  getStores: async () => (await api.get('/inventory/stores')).data,
+};
+
+// Security (26 Nov 2026, IT Admin): settings, dormant-account alerts,
+// audit trail and the Users access Excel.
+export const securityAPI = {
+  getSettings: async () => (await api.get('/security/settings')).data,
+  saveSettings: async (body) => (await api.put('/security/settings', body)).data,
+  getAlerts: async (status = 'open') => (await api.get('/security/alerts', { params: { status } })).data,
+  dismissAlert: async (id, reason) => (await api.post(`/security/alerts/${id}/dismiss`, { reason: reason || null })).data,
+  runCheckNow: async () => (await api.post('/security/alerts/run-now', {}, { timeout: 120000 })).data,
+  getAudit: async (params = {}) => (await api.get('/security/audit', { params })).data,
+  exportAudit: async (params = {}) => (await api.get('/security/audit/export', {
+    params, responseType: 'blob', timeout: 180000,
+  })).data,
+  // usernames = null -> every user; [..] -> just these (the filtered list / one user)
+  exportUsersAccess: async (usernames = null) => (await api.post('/security/users-access/export', { usernames }, {
+    responseType: 'blob', timeout: 180000,
+  })).data,
 };
 
 export const rpaAPI = {
@@ -971,6 +1009,10 @@ export const rpaAPI = {
   },
   // Vendor Payment Advice — Payment Type filter options (from the data)
   getVpaPaymentTypes: async () => (await api.get('/rpa/vpa/payment-types')).data,
+  // Vendor Payment Advice — Download Report (.xlsx, every matching payment)
+  downloadVpaReport: async (params = {}) => (await api.get('/rpa/vpa/export', {
+    params, responseType: 'blob', timeout: 180000,
+  })).data,
 
   // Monthly Sales Invoice (26 Nov 2026) — customer_invoice_journal
   getMsiFilters: async () => (await api.get('/rpa/msi/filters')).data,

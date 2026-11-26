@@ -8,7 +8,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform,
 } from 'react-native';
-import { adminAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, securityAPI, handleAPIError } from '../../../services/api';
+import { saveBlob, blobErrorMessage, canDownload, today } from '../../../utils/download';
+import { showAlert } from '../../../utils/customModal';
 import { daysSinceLogin, shortLastLogin, initialsOf } from '../utils/userUi';
 
 const ROLE_FILTERS = ['All roles', 'Security Guard', 'Gate Pass Dispatcher', 'IT Admin',
@@ -139,6 +141,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
   const [warehouseSel, setWarehouseSel] = useState([]); // [] = all warehouses
   const [status, setStatus] = useState('Active');
   const [activity, setActivity] = useState('any');
+  const [exporting, setExporting] = useState(false);
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -189,6 +192,20 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
       return true;
     });
   }, [users, q, roleSel, warehouseSel, status, activity]);
+
+  // Users access Excel (26 Nov 2026, replaces access-review campaigns):
+  // the list exactly as filtered on screen, with roles, scope and logins.
+  const filtersOn = q.trim() || roleSel.length || warehouseSel.length || status !== 'All' || activity !== 'any';
+  const downloadExcel = async () => {
+    if (!canDownload()) { showAlert('Download', 'Excel download is available on the web version.'); return; }
+    setExporting(true);
+    try {
+      const blob = await securityAPI.exportUsersAccess(filtersOn ? rows.map((u) => u.username) : null);
+      saveBlob(blob, `Users_Access_${today()}.xlsx`);
+    } catch (e) {
+      showAlert('Download', await blobErrorMessage(e));
+    } finally { setExporting(false); }
+  };
 
   const kpi = (label, value, onPress, hint) => (
     <TouchableOpacity style={S.kpi} onPress={onPress} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`}>
@@ -298,7 +315,16 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
           </ScrollView>
         )}
         {!loading && !error && (
-          <Text style={S.footer}>Showing {rows.length} of {users.length} users</Text>
+          <View style={[S.footerRow]}>
+            <Text style={[S.footer, { borderTopWidth: 0, flex: 1 }]}>Showing {rows.length} of {users.length} users</Text>
+            {/* Users access Excel — exactly the list shown (26 Nov 2026) */}
+            <TouchableOpacity style={[S.outlineBtn, { paddingVertical: 6, marginRight: 12 }, (exporting || !rows.length) && { opacity: 0.5 }]}
+              onPress={downloadExcel} disabled={exporting || !rows.length}
+              accessibilityRole="button" accessibilityLabel="Download Excel of the users shown">
+              {exporting ? <ActivityIndicator size="small" color="#0F6B46" />
+                : <Text style={[S.outlineBtnTxt, { fontSize: 13 }]}>⬇ Download Excel ({rows.length})</Text>}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </View>
@@ -333,5 +359,6 @@ const S = {
   cell:       { fontSize: 13.5, color: '#2B3A42' },
   chip:       { backgroundColor: '#E6F1EC', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3, alignSelf: 'flex-start', flexShrink: 1 },
   chipTxt:    { fontSize: 11.5, fontWeight: '600', color: '#00604F' },
+  footerRow:  { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#EEF3F1', paddingVertical: 4 },
   footer:     { fontSize: 12, color: '#8B99A3', paddingHorizontal: 16, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#EEF3F1' },
 };

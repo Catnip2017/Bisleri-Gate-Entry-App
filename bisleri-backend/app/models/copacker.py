@@ -84,7 +84,9 @@ class CopackerQuantityEditLog(Base):
 
 
 class ItemMaster(Base):
-    """Read-only reference to existing item_master table in Bisleri_01"""
+    """item_master — SKU list. Co Packer reads item_number/product_name; the
+    Blinkit Inventory Portal uses item_number as the SKU code. Columns from
+    FG_Item_Master.xlsx were added on 26 Nov 2026 (migration c4e8a1f7d2b9)."""
     __tablename__ = "item_master"
 
     # Use explicit lowercase DB column names — PostgreSQL lowercases unquoted identifiers
@@ -93,6 +95,13 @@ class ItemMaster(Base):
     Product_type  = Column("product_type",   String(255))
     Product_Subtype = Column("product_subtype", String(255))
     net_weight    = Column("net_weight",     String(255))
+    # FG_Item_Master.xlsx columns (26 Nov 2026)
+    Search_name   = Column("search_name",    String(255))
+    Product_service_type = Column("product_service_type", String(100))
+    Product_dimension_group = Column("product_dimension_group", String(50))
+    Product_lifecycle_state = Column("product_lifecycle_state", String(50))
+    Packing_group = Column("packing_group",  String(100))
+    Item_group    = Column("item_group",     String(20))
 
 
 # ── Phase 2: Session-based 4-machine capture system ──────────────────────────

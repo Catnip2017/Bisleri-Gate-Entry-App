@@ -1,5 +1,6 @@
 from sqlalchemy import Boolean, Column, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, deferred
+from sqlalchemy.sql import func
 from app.database import Base
 
 class LocationMaster(Base):
@@ -31,5 +32,14 @@ class UsersMaster(Base):
     # Deactivate-don't-delete (12 Jul 2026). NULL (pre-migration rows) is
     # treated as active everywhere — only an explicit False blocks access.
     is_active = Column(Boolean, nullable=True, default=True)
+    # Dormant-account tracking (26 Nov 2026, migration b9e4d2a7c1f5).
+    # created_at: existing rows were back-filled with the date the migration
+    # ran (= go-live). last_seen_at: last time the user used the app (any
+    # signed-in request, written at most every 5 minutes).
+    # Both are deferred (not in normal SELECTs) so the app keeps working on a
+    # database where that migration has not been run yet — see
+    # app/services/security.py: security_ready().
+    created_at = deferred(Column(DateTime, nullable=True, server_default=func.now()))
+    last_seen_at = deferred(Column(DateTime, nullable=True))
 
     location = relationship("LocationMaster")

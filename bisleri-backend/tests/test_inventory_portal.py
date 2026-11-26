@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.auth import get_current_user
 from app.database import Base, get_db
-from app.models import UsersMaster, LocationMaster, ItemMaster
+from app.models import UsersMaster, LocationMaster, ItemMaster, BlinkitStore
 from app.routers import inventory as inv
 from app.services.inventory_access import set_access
 from tests.conftest import engine, TestingSession
@@ -25,6 +25,8 @@ def env():
         LocationMaster(warehouse_code="WH3", warehouse_name="Delhi DC"),
         ItemMaster(Item_number="SKU1", Product_name="Bisleri 1L x 12"),
         ItemMaster(Item_number="SKU2", Product_name="Bisleri 500ml x 24"),
+        BlinkitStore(store_code="C100", store_name="Blinkit Andheri"),
+        BlinkitStore(store_code="C200", store_name="Blinkit Pune"),
         UsersMaster(username="op1", first_name="Op", last_name="One", role="Bisleri Inventory Operator"),
         UsersMaster(username="bk1", first_name="Blink", last_name="One", role="Blinkit Inventory Viewer"),
         UsersMaster(username="bk2", first_name="Blink", last_name="Two", role="Blinkit Inventory Viewer"),
@@ -60,7 +62,7 @@ def env():
 
 
 def line(**kw):
-    d = {"inv_date": inv._today().isoformat(), "customer_code": "C100", "warehouse_code": "WH1",
+    d = {"inv_date": inv._today().isoformat(), "store_code": "C100", "warehouse_code": "WH1",
          "sku_code": "SKU1", "quantity": 5}
     d.update(kw)
     return d
@@ -74,7 +76,9 @@ def test_set_access_rules(env):
     with pytest.raises(HTTPException):
         set_access(db, "op1", "bisleriinventoryoperator", ["WH1"], ["sg"], None)      # not a viewer
     with pytest.raises(HTTPException):
-        set_access(db, "bk1", "blinkitinventoryviewer", ["WH1"], [], "")              # no customer
+        set_access(db, "bk1", "blinkitinventoryviewer", ["WH1"], [], "")              # no store
+    with pytest.raises(HTTPException):
+        set_access(db, "bk1", "blinkitinventoryviewer", ["WH1"], [], "C999")          # unknown store
     with pytest.raises(HTTPException):
         set_access(db, "bk1", "blinkitinventoryviewer", ["NOPE"], [], "C1")           # unknown wh
     db.rollback()
@@ -85,7 +89,9 @@ def test_lookups_scope(env):
     r = as_("op1").get("/inventory/lookups").json()
     assert r["kind"] == "operator"
     assert [w["code"] for w in r["warehouses"]] == ["WH1", "WH2"]
-    assert [c["code"] for c in r["customers"]] == ["C100"]
+    assert [c["code"] for c in r["stores"]] == ["C100"]
+    assert r["stores"][0]["name"] == "Blinkit Andheri"
+    assert [c["code"] for c in as_("adm").get("/inventory/lookups").json()["stores"]] == ["C100", "C200"]
     assert as_("sg").get("/inventory/lookups").status_code == 403
     assert as_("adm").get("/inventory/lookups").json()["kind"] == "admin"
 
@@ -97,7 +103,7 @@ def test_submit_partial_and_rules(env):
     r = c.post("/inventory/batches", json={"lines": [
         line(),                                   # ok
         line(inv_date=past),                      # past date
-        line(customer_code="C200"),               # not mapped customer
+        line(store_code="C200"),                  # not mapped store
         line(warehouse_code="WH3"),               # not mapped warehouse
         line(sku_code="XXX"),                     # unknown sku
         line(quantity=2.5),                       # fractional
@@ -123,6 +129,11 @@ def test_view_projection_and_range(env):
     op = as_("op1").get(f"/inventory/entries?date_from={t}&date_to={t}").json()
     assert op["total"] == 2 and op["total_cases"] == 10
     assert "batch_no" in op["results"][0] and "created_by" in op["results"][0]
+    assert op["results"][0]["warehouse_name"] in ("Mumbai DC", "Pune DC")
+    assert op["results"][0]["store_name"] == "Blinkit Andheri"
+    _, db = env
+    from app.models.inventory import InventoryEntry
+    assert {e.warehouse_name for e in db.query(InventoryEntry).all()} == {"Mumbai DC", "Pune DC"}
     vw = as_("bk1").get(f"/inventory/entries?date_from={t}&date_to={t}").json()
     assert vw["total"] == 2
     for k in ("batch_no", "mfg_date", "warehouse_code", "created_by", "sku_code"):
@@ -136,7 +147,7 @@ def test_view_projection_and_range(env):
     assert ex.status_code == 200
     from openpyxl import load_workbook
     ws = load_workbook(io.BytesIO(ex.content)).active
-    assert [c.value for c in ws[1]][:3] == ["Date", "Customer Code", "BIPL Warehouse Name"]
+    assert [c.value for c in ws[1]][:4] == ["Date", "Store Code", "Store Name", "BIPL Warehouse Name"]
     assert ws.max_row == 3
     assert as_("bk1").get("/inventory/dashboard").status_code == 403
     d = as_("op1").get("/inventory/dashboard").json()
