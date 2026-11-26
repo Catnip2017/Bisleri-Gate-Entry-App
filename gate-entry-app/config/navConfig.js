@@ -73,6 +73,16 @@ export const NAV_LINKS = [
     roles: ['copacker'],
     group: 'app',
   },
+  {
+    // Blinkit Inventory Portal (26 Nov 2026): operators enter stock, Blinkit
+    // viewers read their own customer's stock, IT Admin views everything.
+    key: 'inventory',
+    label: 'Blinkit Inventory Portal',
+    icon: 'inventory',
+    route: '/inventory',
+    roles: ['itadmin', 'bisleriinventoryoperator', 'blinkitinventoryviewer'],
+    group: 'app',
+  },
 ];
 
 // "Documents" accordion (30 Oct 2026) — reference PDFs, visible to every
@@ -101,6 +111,8 @@ export const ROLE_LABELS = {
   copacker: 'Co-Packer',
   gatepasscreator: 'Gate Pass Creator',
   gatepassdispatcher: 'Gate Pass Dispatcher',
+  bisleriinventoryoperator: 'Bisleri Inventory Operator',
+  blinkitinventoryviewer: 'Blinkit Inventory Viewer',
 };
 
 /**

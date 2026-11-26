@@ -395,7 +395,7 @@ EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
 ## Database Setup & Migrations
 
-The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `ed3dc61a3e0f`).
+The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `c4e8a1f7d2b9`).
 
 > **Notes:** the hand-written `*_migration.sql` files that were previously applied by hand are archived in `legacy_sql/` (**do not re-run them**). The old `Bisleri_01` database (main branch, 9 tables) is described by `DB Schemas/schema_bisleri_01.sql`, which is **superseded** and kept for reference only.
 

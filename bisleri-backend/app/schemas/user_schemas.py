@@ -24,6 +24,16 @@ class UserCreate(BaseModel):
     # list with one starred default shared by Creator + Dispatcher roles.
     department: Optional[str] = None
     gate_pass_locations: Optional[List[GatePassLocationAssignment]] = None
+    # Blinkit Inventory Portal mapping (26 Nov 2026)
+    inventory_warehouses: Optional[List[str]] = None   # operator + viewer
+    inventory_viewers: Optional[List[str]] = None      # operator only (Blinkit usernames)
+    customer_code: Optional[str] = None                # viewer only
+
+
+class InventoryAccessUpdate(BaseModel):
+    warehouses: List[str] = []
+    viewers: List[str] = []
+    customer_code: Optional[str] = None
 
 class UserResponse(BaseModel):
     username: str

@@ -1,7 +1,7 @@
 -- ============================================================
 --  BISLERI GATE ENTRY APP -- main database schema
 --  Database name: bisleri_ecosystem  (the app's primary DB, DB_NAME in .env)
---  PostgreSQL >= 14        Alembic revision: ed3dc61a3e0f (head)
+--  PostgreSQL >= 14        Alembic revision: c4e8a1f7d2b9 (head)
 --
 --  Generated 2026-11-05 from the consolidate-branch SQLAlchemy models
 --  (app/models/*) plus the 42 performance indexes that exist on the live database
@@ -11,7 +11,7 @@
 --  Server-side column defaults (see the 'Column defaults' block near the end)
 --  mirror the live database / model defaults.
 --
---  Tables (29): alembic_version, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, user_gate_pass_locations, users_master
+--  Tables (34): alembic_version, inventory_batches, inventory_entries, inventory_operator_viewers, inventory_user_warehouses, inventory_viewer_customer, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, user_gate_pass_locations, users_master
 --
 --  Plain DDL only -- no psql meta-commands -- so it also runs through
 --  psycopg2. It stamps alembic_version so `alembic upgrade head` is a
@@ -1899,4 +1899,54 @@ ALTER TABLE ONLY public.raw_materials_data ALTER COLUMN edit_count SET DEFAULT 0
 ALTER TABLE ONLY public.users_master ALTER COLUMN is_active SET DEFAULT true;
 
 -- Alembic version stamp (head)
-INSERT INTO public.alembic_version (version_num) VALUES ('ed3dc61a3e0f');
+--
+-- Blinkit Inventory Portal (Alembic c4e8a1f7d2b9, 26 Nov 2026)
+--
+
+CREATE TABLE public.inventory_batches (
+    id bigserial PRIMARY KEY,
+    source character varying(10) NOT NULL,
+    file_name character varying(255),
+    line_count integer DEFAULT 0 NOT NULL,
+    created_by character varying(50) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE TABLE public.inventory_entries (
+    id bigserial PRIMARY KEY,
+    batch_id bigint NOT NULL REFERENCES public.inventory_batches(id),
+    inv_date date NOT NULL,
+    customer_code character varying(50) NOT NULL,
+    warehouse_code character varying(50) NOT NULL REFERENCES public.location_master(warehouse_code),
+    sku_code character varying(255) NOT NULL,
+    sku_name character varying(255),
+    quantity integer NOT NULL,
+    batch_no character varying(100),
+    mfg_date date,
+    created_by character varying(50) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ck_inventory_entries_quantity_positive CHECK (quantity > 0)
+);
+CREATE INDEX ix_inventory_entries_batch_id ON public.inventory_entries (batch_id);
+CREATE INDEX ix_inventory_entries_date_wh ON public.inventory_entries (inv_date, warehouse_code);
+CREATE INDEX ix_inventory_entries_cust_date ON public.inventory_entries (customer_code, inv_date);
+
+CREATE TABLE public.inventory_user_warehouses (
+    username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
+    warehouse_code character varying(50) NOT NULL REFERENCES public.location_master(warehouse_code),
+    PRIMARY KEY (username, warehouse_code)
+);
+
+CREATE TABLE public.inventory_operator_viewers (
+    operator_username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
+    viewer_username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
+    PRIMARY KEY (operator_username, viewer_username)
+);
+
+CREATE TABLE public.inventory_viewer_customer (
+    username character varying(50) PRIMARY KEY REFERENCES public.users_master(username) ON DELETE CASCADE,
+    customer_code character varying(50) NOT NULL
+);
+CREATE INDEX ix_inventory_viewer_customer_customer_code ON public.inventory_viewer_customer (customer_code);
+
+INSERT INTO public.alembic_version (version_num) VALUES ('c4e8a1f7d2b9');

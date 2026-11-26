@@ -28,7 +28,9 @@ const toISODate = (date) => {
 // value: Date | null (null only makes sense when the field is optional,
 // e.g. a filter — required fields such as the create-pass form always pass
 // a real Date and never see the placeholder/clear-button state).
-const DateField = ({ label, value, onChange, placeholder = 'Select date', disabled = false }) => {
+// minDate / maxDate (optional, Date): limit what can be picked — e.g. the
+// Inventory Portal's "no past dates" rule (26 Nov 2026).
+const DateField = ({ label, value, onChange, placeholder = 'Select date', disabled = false, minDate, maxDate }) => {
   const [showPicker, setShowPicker] = useState(false);
 
   const handleNativeChange = (event, selectedDate) => {
@@ -45,6 +47,9 @@ const DateField = ({ label, value, onChange, placeholder = 'Select date', disabl
         <input
           type="date"
           value={value ? toISODate(value) : ''}
+          min={minDate ? toISODate(minDate) : undefined}
+          max={maxDate ? toISODate(maxDate) : undefined}
+          aria-label={label || placeholder}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value ? new Date(`${e.target.value}T00:00:00`) : null)}
           style={{
@@ -91,6 +96,8 @@ const DateField = ({ label, value, onChange, placeholder = 'Select date', disabl
             <DateTimePicker
               value={value || new Date()}
               mode="date"
+              minimumDate={minDate}
+              maximumDate={maxDate}
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleNativeChange}
             />

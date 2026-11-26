@@ -15,6 +15,10 @@ from app.utils.errors import internal_error
 from sqlalchemy import and_, case, distinct, func, or_
 from app.utils.roles import normalize_roles, normalize_role_list, validate_role_combo
 from app.utils.account_rules import password_error, normalise_mobile
+from app.services.inventory_access import (
+    get_access as inventory_get_access, set_access as inventory_set_access,
+)
+from app.schemas.user_schemas import InventoryAccessUpdate
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -136,6 +140,12 @@ def register_user(
         # users_master.username and there is no ORM relationship, so without
         # this flush SQLAlchemy may insert the junction rows before the user.
         db.flush()
+
+        # Blinkit Inventory Portal mapping (validated; same transaction)
+        inventory_set_access(
+            db, new_user.username, new_user.role,
+            user.inventory_warehouses, user.inventory_viewers, user.customer_code,
+        )
 
         # Gate Pass locations -> junction table; users_master.gate_pass_location
         # keeps the starred default (exactly one star, first if none given).
@@ -529,6 +539,35 @@ def search_users(
         .all()
     )
     return users
+# ✅ Blinkit Inventory Portal mapping — IT Admin only (26 Nov 2026)
+@router.get("/inventory-access/{username}")
+def get_inventory_access(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    if "itadmin" not in normalize_roles(current_user.role):
+        raise HTTPException(status_code=403, detail="Only IT Admins can view portal access")
+    return inventory_get_access(db, username)
+
+
+@router.put("/inventory-access/{username}")
+def put_inventory_access(
+    username: str,
+    payload: InventoryAccessUpdate,
+    db: Session = Depends(get_db),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    if "itadmin" not in normalize_roles(current_user.role):
+        raise HTTPException(status_code=403, detail="Only IT Admins can change portal access")
+    user = db.query(UsersMaster).filter(UsersMaster.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    inventory_set_access(db, username, user.role, payload.warehouses, payload.viewers, payload.customer_code)
+    db.commit()
+    return inventory_get_access(db, username)
+
+
 # ✅ Users overview — IT Admin only (25 Nov 2026, User Management "Users" tab)
 # Every user with the fields the list needs (roles, scope, status, last
 # login). Filtering/sorting happens in the app — the table is small.

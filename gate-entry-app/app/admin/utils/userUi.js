@@ -16,15 +16,21 @@ export const ROLE_INFO = {
   'Gate Pass Creator':    'Raises gate passes for their department',
   'Security Admin':       'View-only Gate Entry, Insights (with report download) and Gate Pass list',
   'Co Packer':            'Production line capture (exclusive role)',
+  'Bisleri Inventory Operator': 'Enters Blinkit stock for mapped warehouses (exclusive role)',
+  'Blinkit Inventory Viewer':   'Blinkit login: views own customer stock, read-only (exclusive role)',
 };
+
+// Roles that can't be combined with anything else (server: validate_role_combo).
+const EXCLUSIVE = ['Co Packer', 'Bisleri Inventory Operator', 'Blinkit Inventory Viewer'];
 
 // Why a role can't be added to the current selection, or null if it can.
 export function roleBlockReason(role, roles) {
   if (roles.includes(role)) return null;
   const has = (r) => roles.includes(r);
-  const others = roles.filter((r) => r !== 'Co Packer');
-  if (role === 'Co Packer') return others.length ? "Can't be combined with other roles" : null;
-  if (has('Co Packer')) return 'Untick Co Packer first';
+  if (EXCLUSIVE.includes(role)) return roles.length ? "Exclusive role — untick the others first" : null;
+  const ex = roles.find((r) => EXCLUSIVE.includes(r));
+  if (ex) return `${ex.replace('Bisleri ', '').replace('Blinkit ', '')} is exclusive`;
+  const others = roles;
   if (role === 'Security Admin') return others.length ? 'Standalone role — untick the others first' : null;
   if (has('Security Admin')) return "Can't be combined with Security Admin";
   if (role === 'Gate Pass Dispatcher' && !has('Security Guard')) return 'Needs Security Guard ticked first';
@@ -38,7 +44,7 @@ export function roleBlockReason(role, roles) {
 }
 
 // Plain-language list of what the chosen roles + scope give access to.
-export function accessPreview(roles, { warehouse, locations = [], department, copacker } = {}) {
+export function accessPreview(roles, { warehouse, locations = [], department, copacker, inventory } = {}) {
   const wh = warehouse || 'their warehouse';
   const locs = locations.length ? locations.join(', ') : 'selected locations';
   const yes = [];
@@ -58,6 +64,14 @@ export function accessPreview(roles, { warehouse, locations = [], department, co
   }
   if (has('Gate Pass Creator')) yes.push(`Gate Pass: create passes — ${department || 'department'}, ${locs}`);
   if (has('Co Packer')) yes.push(`Co Packer sessions — ${copacker || 'their location'}`);
+  const invWh = inventory?.warehouses?.length ? inventory.warehouses.join(', ') : 'selected warehouses';
+  if (has('Bisleri Inventory Operator')) {
+    yes.push(`Blinkit Inventory Portal: Dashboard, Entry (manual + Excel upload) — ${invWh}`);
+    yes.push(`Inventory View / History + Excel export — ${inventory?.viewers?.length || 0} Blinkit user(s)' customer codes`);
+  }
+  if (has('Blinkit Inventory Viewer')) {
+    yes.push(`Blinkit Inventory Portal: View / History + Excel export (read-only) — customer ${inventory?.customer_code || 'code'}, ${invWh}`);
+  }
   const no = has('IT Admin') ? [] : ['Admin Hub, User Management'];
   return { yes, no };
 }

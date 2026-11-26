@@ -7,10 +7,13 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { adminAPI, gatePassAPI, handleAPIError } from '../../../services/api';
+import { adminAPI, gatePassAPI, inventoryAPI, handleAPIError } from '../../../services/api';
 import { showAlert, confirmAction } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
 import { ROLE_INFO, roleBlockReason, accessPreview, UserResultRow } from '../utils/userUi';
+import InventoryScope, {
+  INV_OPERATOR, INV_VIEWER, EMPTY_INV_SCOPE, needsInventoryScope, inventoryScopeError, inventoryScopeKey,
+} from '../utils/InventoryScope';
 
 // Dropdown menus hang directly under their trigger (trigger has no bottom
 // margin; menu gets a full border + small gap) so the first row is never
@@ -169,7 +172,9 @@ export function LocationMultiSelect({ options, selections, onChange, showStar })
 // split into Creator (initiates; alone or with ITA) and Dispatcher (gate
 // actions; only with Security Guard). Illegal combos are blocked here with
 // explanatory popups AND server-side (validate_role_combo).
-const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
+const AVAILABLE_ROLES = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer',
+  INV_OPERATOR, INV_VIEWER];   // Blinkit Inventory Portal roles (26 Nov 2026), exclusive
+const EXCLUSIVE_ROLES = ['Co Packer', INV_OPERATOR, INV_VIEWER];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const AssignAccessScreen = ({ initialUser = null }) => {
@@ -216,6 +221,8 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   // Values as loaded for the selected user — drives the "unsaved changes"
   // bar (25 Nov 2026). Active/inactive is excluded: it saves immediately.
   const [snapshot, setSnapshot] = useState(null);
+  // Blinkit Inventory Portal mapping (warehouses / Blinkit users / customer code)
+  const [invScope, setInvScope] = useState(EMPTY_INV_SCOPE);
 
   // Opened from the Users tab with a user already chosen
   useEffect(() => {
@@ -238,6 +245,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   const needsWarehouse   = roles.some(r => GUARD_ROLES.includes(r));
   const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher') || roles.includes('Security Admin');
   const needsGpScope     = roles.includes('Gate Pass Creator');
+  const needsInv         = needsInventoryScope(roles);
   // ONE shared location list per user (junction table) covering both hats:
   // guard worklist access AND GPU initiation. The ★ default only matters to
   // GPUs (pre-selects the New Pass form); guards' worklist shows all their
@@ -254,6 +262,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     ['Co Packer location', roles.includes('Co Packer') && copackerLocation !== snapshot.copacker],
     ['Gate Pass Locations', needsGpLocations &&
       gpLocSelections.map(g => g.location_code + (g.is_default ? '*' : '')).sort().join('|') !== snapshot.gp],
+    ['Inventory Portal access', needsInv && inventoryScopeKey(invScope) !== snapshot.inv],
   ].filter(([, changed]) => changed).map(([label]) => label);
 
   const preview = accessPreview(
@@ -263,6 +272,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
       locations: gpLocSelections.map(g => g.location_code),
       department,
       copacker: copackerLocation,
+      inventory: invScope,
     },
   );
 
@@ -321,7 +331,18 @@ const AssignAccessScreen = ({ initialUser = null }) => {
         ? [{ location_code: user.gate_pass_location, is_default: true }] : [];
     }
     setGpLocSelections(gpSel);
+    let inv = EMPTY_INV_SCOPE;
+    if (needsInventoryScope(userRoles)) {
+      try {
+        const a = await inventoryAPI.getAccess(user.username);
+        inv = { warehouses: a.warehouses || [], viewers: a.viewers || [], customer_code: a.customer_code || '' };
+      } catch (e) {
+        console.error('Failed to load inventory access:', e);
+      }
+    }
+    setInvScope(inv);
     setSnapshot({
+      inv: inventoryScopeKey(inv),
       roles: userRoles.slice().sort().join('|'),
       firstName: user.first_name || '',
       lastName: user.last_name || '',
@@ -365,8 +386,10 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   // the combos below are impossible to even assign. Server enforces the
   // same matrix (validate_role_combo) — the popups are the friendly layer.
   const toggleRole = (role) => {
-    if (role === 'Co Packer') {
-      setRoles(prev => prev.includes(role) ? [] : ['Co Packer']);
+    // Exclusive roles (Co Packer + the two Inventory Portal roles) replace
+    // everything else; the cards already grey out illegal combinations.
+    if (EXCLUSIVE_ROLES.includes(role)) {
+      setRoles(prev => prev.includes(role) ? [] : [role]);
       return;
     }
     const selected = roles.includes(role);
@@ -393,7 +416,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
       if (role === 'Security Guard' && roles.includes('IT Admin'))
         return showAlert('Not Allowed',
           'Security Guard cannot be combined with IT Admin.');
-      setRoles(prev => [...prev.filter(r => r !== 'Co Packer'), role]);
+      setRoles(prev => [...prev.filter(r => !EXCLUSIVE_ROLES.includes(r)), role]);
     } else {
       setRoles(prev => {
         let next = prev.filter(r => r !== role);
@@ -517,6 +540,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     setLastName('');
     setPhoneNumber('');
     setCopackerLocation('');
+    setInvScope(EMPTY_INV_SCOPE);
     setWarehouseCode('');
     setWarehouseName('');
     setSiteCode('');
@@ -548,6 +572,9 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (needsGpLocations && gpLocSelections.length === 0)
       return showAlert('Validation Error', 'At least one Gate Pass Location is required');
 
+    const invErr = inventoryScopeError(roles, invScope);
+    if (invErr) return showAlert('Validation Error', invErr);
+
     setSaving(true);
     try {
       // Update role + scope
@@ -564,6 +591,17 @@ const AssignAccessScreen = ({ initialUser = null }) => {
         is_active: isActive,
       });
       setSavedActive(isActive);
+
+      // Inventory Portal mapping — saved for portal users, and cleared when a
+      // user moves off a portal role (server validates against the new role).
+      const hadInv = needsInventoryScope((selectedUser.role || '').split(',').map(r => r.trim()));
+      if (needsInv || hadInv) {
+        await inventoryAPI.setAccess(selectedUser.username, needsInv ? {
+          warehouses: invScope.warehouses,
+          viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
+          customer_code: roles.includes(INV_VIEWER) ? invScope.customer_code.trim() : null,
+        } : { warehouses: [], viewers: [], customer_code: null });
+      }
 
       // Update personal details
       await adminAPI.updateUser(selectedUser.username, {
@@ -861,7 +899,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
             </ScrollView>
 
             {/* ── SCOPE COLUMN (right side, only when needed) ── */}
-            {(needsWarehouse || needsGuardGPLoc || needsGpScope || roles.includes('Co Packer')) && (
+            {(needsWarehouse || needsGuardGPLoc || needsGpScope || roles.includes('Co Packer') || needsInv) && (
               <>
                 <View style={styles.scopeDivider} />
                 <ScrollView style={styles.scopeCol} contentContainerStyle={{ padding: 16 }}>
@@ -903,6 +941,12 @@ const AssignAccessScreen = ({ initialUser = null }) => {
                         </View>
                       </View>
                     </View>
+                  )}
+
+                  {/* Blinkit Inventory Portal (26 Nov 2026) */}
+                  {needsInv && (
+                    <InventoryScope roles={roles} value={invScope} onChange={setInvScope}
+                      warehouses={warehouses} selfUsername={selectedUser?.username} />
                   )}
 
                   {/* Co Packer */}

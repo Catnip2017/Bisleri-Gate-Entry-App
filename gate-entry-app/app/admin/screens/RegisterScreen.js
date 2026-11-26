@@ -10,6 +10,9 @@ import { showAlert } from '../../../utils/customModal';
 // Register and Update behave identically (30 Oct 2026).
 import { LocationMultiSelect } from './AssignAccessScreen';
 import { ROLE_INFO, roleBlockReason, accessPreview, generatePassword, passwordStrength, PasswordChecklist } from '../utils/userUi';
+import InventoryScope, {
+  INV_OPERATOR, INV_VIEWER, EMPTY_INV_SCOPE, needsInventoryScope, inventoryScopeError,
+} from '../utils/InventoryScope';
 
 // 25 Nov 2026: Register is now 4 steps — Role → Details → Scope → Review —
 // so only the fields the chosen role needs are asked for. The final submit
@@ -17,7 +20,8 @@ import { ROLE_INFO, roleBlockReason, accessPreview, generatePassword, passwordSt
 const STEPS = ['Role', 'Details', 'Scope', 'Review'];
 
 // Role model LOCKED 14 Jul 2026 — same matrix as Assign Access + backend.
-const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer'];
+const ALL_ROLES   = ['Security Guard', 'Gate Pass Dispatcher', 'IT Admin', 'Gate Pass Creator', 'Security Admin', 'Co Packer',
+  INV_OPERATOR, INV_VIEWER];   // Blinkit Inventory Portal roles (26 Nov 2026), exclusive
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const EMPTY = {
@@ -76,6 +80,7 @@ export default function RegisterScreen() {
   const [step, setStep]                       = useState(0);
   const [showPwd, setShowPwd]                 = useState(false);
   const [userStatus, setUserStatus]           = useState(null);   // null | 'checking' | 'available' | 'taken'
+  const [invScope, setInvScope]               = useState(EMPTY_INV_SCOPE);
 
   // Live "username available?" check (uses the existing user search)
   useEffect(() => {
@@ -101,6 +106,12 @@ export default function RegisterScreen() {
   const set = (f, v) => setForm(p => ({ ...p, [f]: v }));
 
   const toggleRole = (role) => {
+    // Inventory Portal roles are exclusive: picking one replaces any others
+    // (the cards are greyed while another role is ticked).
+    if (role === INV_OPERATOR || role === INV_VIEWER) {
+      setRoles(prev => (prev.includes(role) ? [] : [role]));
+      return;
+    }
     setRoles(prev => {
       if (role === 'Co Packer') {
         if (prev.includes('Co Packer')) return [];
@@ -174,7 +185,8 @@ export default function RegisterScreen() {
   const needsGuardGPLoc = roles.includes('Gate Pass Dispatcher') || roles.includes('Security Admin');
   const needsGP         = roles.includes('Gate Pass Creator');
   const needsCP         = roles.includes('Co Packer');
-  const needsScope      = needsWH || needsGP || needsCP;
+  const needsInv        = needsInventoryScope(roles);
+  const needsScope      = needsWH || needsGP || needsCP || needsInv;
   const cpOn      = roles.includes('Co Packer');
   const hasNonCP  = roles.some(r => r !== 'Co Packer');
 
@@ -192,6 +204,7 @@ export default function RegisterScreen() {
     if (needsCP && !form.copackerLocation.trim()) { showAlert('Validation Error', 'Copacker location is required'); return; }
     if (needsGP && !form.department) { showAlert('Validation Error', 'Department is required'); return; }
     if (needsGP && gpLocSelections.length === 0) { showAlert('Validation Error', 'At least one Gate Pass Location is required'); return; }
+    { const ie = inventoryScopeError(roles, invScope); if (ie) { showAlert('Validation Error', ie); return; } }
 
     setLoading(true);
     try {
@@ -205,10 +218,15 @@ export default function RegisterScreen() {
         ...(needsGP && { department: form.department }),
         ...(form.email?.trim() && { email: form.email.trim() }),
         ...(form.phone_number?.trim() && { phone_number: form.phone_number.trim() }),
+        ...(needsInv && {
+          inventory_warehouses: invScope.warehouses,
+          inventory_viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
+          customer_code: roles.includes(INV_VIEWER) ? invScope.customer_code.trim() : null,
+        }),
       };
       const res = await adminAPI.registerUser(payload);
       showAlert('Success', res.message || 'User registered!', [{
-        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); setGpLocSelections([]); setStep(0); setShowPwd(false); },
+        text: 'OK', onPress: () => { setForm({ ...EMPTY }); setRoles([]); setWhText(''); setGpLocSelections([]); setInvScope(EMPTY_INV_SCOPE); setStep(0); setShowPwd(false); },
       }]);
     } catch (e) { showAlert('Registration Error', handleAPIError(e)); }
     finally { setLoading(false); }
@@ -234,6 +252,7 @@ export default function RegisterScreen() {
       if (needsGP && !form.department) return 'Department is required';
       if ((needsGuardGPLoc || needsGP) && gpLocSelections.length === 0) return 'At least one Gate Pass Location is required';
       if (needsCP && !form.copackerLocation.trim()) return 'Copacker location is required';
+      { const ie = inventoryScopeError(roles, invScope); if (ie) return ie; }
       return null;
     }
     return null;
@@ -250,6 +269,7 @@ export default function RegisterScreen() {
     locations: gpLocSelections.map(g => g.location_code),
     department: form.department,
     copacker: form.copackerLocation,
+    inventory: invScope,
   });
   const summaryRows = [
     ['Account', 'Local / Contractor (password login)'],
@@ -261,6 +281,9 @@ export default function RegisterScreen() {
     ...(needsGP ? [['Department', form.department || '—']] : []),
     ...((needsGuardGPLoc || needsGP) ? [['Gate Pass Locations', gpLocSelections.map(g => g.location_code).join(', ') || '—']] : []),
     ...(needsCP ? [['Co Packer location', form.copackerLocation || '—']] : []),
+    ...(roles.includes(INV_VIEWER) ? [['Customer code', invScope.customer_code || '—']] : []),
+    ...(needsInv ? [['Inventory warehouses', invScope.warehouses.join(', ') || '—']] : []),
+    ...(roles.includes(INV_OPERATOR) ? [['Blinkit users', invScope.viewers.join(', ') || '—']] : []),
   ];
 
   return (
@@ -428,6 +451,11 @@ export default function RegisterScreen() {
                       onChange={setGpLocSelections}
                       showStar={needsGP}
                     />
+                  </View>
+                )}
+                {needsInv && (
+                  <View style={{ zIndex: 4, maxWidth: 520 }}>
+                    <InventoryScope roles={roles} value={invScope} onChange={setInvScope} warehouses={warehouses} />
                   </View>
                 )}
                 {needsCP && (

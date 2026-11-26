@@ -243,6 +243,9 @@ export const getRoleBasedRoute = (roles = []) => {
   // Copacker only → straight to copacker dashboard (exclusive role)
   if (roles.includes('copacker')) return '/copacker';
 
+  // Blinkit Inventory Portal roles are exclusive → straight to the portal.
+  if (roles.includes('bisleriinventoryoperator') || roles.includes('blinkitinventoryviewer')) return '/inventory';
+
   // Gate Pass Creator without ITA → straight to the Gate Pass form.
   // ITA+GPC lands on the Admin Hub and reaches Gate Pass via tile/sidebar.
   if (roles.includes('gatepasscreator') && !roles.includes('itadmin')) return '/gate-pass';

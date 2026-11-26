@@ -82,6 +82,17 @@ const getTiles = (roles = [], copackerEnabled = true) => {
     // flat link in the global hamburger menu, alongside the Applications
     // accordion, not duplicated here as a tile too.
     {
+      key: 'inventory',
+      label: 'Blinkit Inventory Portal',
+      sublabel: 'Stock entry & view',
+      icon: 'inventory',
+      accentColor: '#0F6B46',
+      iconBg: '#E6F1EC',
+      route: '/inventory',
+      disabled: false,
+      hidden: !isItAdmin,
+    },
+    {
       key: 'rpa',
       label: 'RPA Processes',
       sublabel: 'Automation by domain',

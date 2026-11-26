@@ -12,7 +12,7 @@ import { adminAPI, handleAPIError } from '../../../services/api';
 import { daysSinceLogin, shortLastLogin, initialsOf } from '../utils/userUi';
 
 const ROLE_FILTERS = ['All roles', 'Security Guard', 'Gate Pass Dispatcher', 'IT Admin',
-  'Gate Pass Creator', 'Security Admin', 'Co Packer', 'No role'];
+  'Gate Pass Creator', 'Security Admin', 'Co Packer', 'Bisleri Inventory Operator', 'Blinkit Inventory Viewer', 'No role'];
 const STATUS_FILTERS = ['All', 'Active', 'Deactivated'];
 const ACTIVITY_FILTERS = [
   ['any', 'Any login'],

@@ -13,3 +13,8 @@ from .gate_pass import (
     GatePassItem, GatePassCancelReason,
     GatePassSequence, GatePassHeader, GatePassLine, GatePassEvent,
 )
+# Blinkit Inventory Portal (26 Nov 2026)
+from .inventory import (
+    InventoryBatch, InventoryEntry, InventoryUserWarehouse,
+    InventoryOperatorViewer, InventoryViewerCustomer,
+)

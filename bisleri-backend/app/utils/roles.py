@@ -49,8 +49,12 @@ GATE_PASS_DISPATCHER = "gatepassdispatcher"
 # securityadmin RE-ADDED 25 Nov 2026: view-only oversight of ONE warehouse
 # (Gate Entry, Insights, Gate Pass list). Standalone role, never combined.
 SECURITY_ADMIN = "securityadmin"
+# Blinkit Inventory Portal (26 Nov 2026): both roles are exclusive.
+INVENTORY_OPERATOR = "bisleriinventoryoperator"   # "Bisleri Inventory Operator"
+INVENTORY_VIEWER = "blinkitinventoryviewer"       # "Blinkit Inventory Viewer"
 ASSIGNABLE_ROLES = ["securityguard", "itadmin", GATE_PASS_CREATOR,
-                    GATE_PASS_DISPATCHER, "copacker", SECURITY_ADMIN]
+                    GATE_PASS_DISPATCHER, "copacker", SECURITY_ADMIN,
+                    INVENTORY_OPERATOR, INVENTORY_VIEWER]
 
 
 def validate_role_combo(normalized: List[str]) -> Optional[str]:
@@ -69,6 +73,10 @@ def validate_role_combo(normalized: List[str]) -> Optional[str]:
     unknown = s - set(ASSIGNABLE_ROLES)
     if unknown:
         return f"Unknown role(s): {', '.join(sorted(unknown))}"
+    if INVENTORY_OPERATOR in s and len(s) > 1:
+        return "Bisleri Inventory Operator is an exclusive role — it cannot be combined with any other role."
+    if INVENTORY_VIEWER in s and len(s) > 1:
+        return "Blinkit Inventory Viewer is an exclusive role — it cannot be combined with any other role."
     if "copacker" in s and len(s) > 1:
         return "Co Packer is an exclusive role — it cannot be combined with any other role."
     if GATE_PASS_DISPATCHER in s and "securityguard" not in s:

@@ -935,6 +935,29 @@ export const gatePassAPI = {
 };
 
 // RPA process dashboards (IT Admin only)
+// ── Blinkit Inventory Portal (26 Nov 2026) ───────────────────────────────────
+export const inventoryAPI = {
+  lookups: async () => (await api.get('/inventory/lookups')).data,
+  searchSkus: async (q) => (await api.get('/inventory/skus', { params: { q } })).data,
+  dashboard: async () => (await api.get('/inventory/dashboard')).data,
+  submit: async (payload) => (await api.post('/inventory/batches', payload, { timeout: 120000 })).data,
+  uploadCheck: async (file) => {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return (await api.post('/inventory/upload/check', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }, timeout: 120000,
+    })).data;
+  },
+  template: async () => (await api.get('/inventory/template', { responseType: 'blob' })).data,
+  entries: async (params) => (await api.get('/inventory/entries', { params })).data,
+  exportXlsx: async (params) => (await api.get('/inventory/export', {
+    params, responseType: 'blob', timeout: 180000,
+  })).data,
+  // IT Admin: an operator's / viewer's portal mapping
+  getAccess: async (username) => (await api.get(`/inventory-access/${encodeURIComponent(username)}`)).data,
+  setAccess: async (username, body) => (await api.put(`/inventory-access/${encodeURIComponent(username)}`, body)).data,
+};
+
 export const rpaAPI = {
   // Vendor Payment Advice — status counts (respects active filters)
   getVpaSummary: async (params = {}) => {
