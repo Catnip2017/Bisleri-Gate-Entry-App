@@ -13,7 +13,9 @@ from app.schemas import UserCreate, UserResponse, PasswordReset, UserRoleUpdate,
 from app.auth import get_current_user, get_password_hash
 from app.utils.errors import internal_error
 from sqlalchemy import and_, case, distinct, func, or_
-from app.utils.roles import normalize_roles, normalize_role_list, validate_role_combo
+from app.utils.roles import (
+    normalize_roles, normalize_role_list, validate_role_combo, INVENTORY_OPERATOR, INVENTORY_VIEWER,
+)
 from app.utils.account_rules import password_error, normalise_mobile
 from app.services.inventory_access import (
     get_access as inventory_get_access, set_access as inventory_set_access,
@@ -141,11 +143,15 @@ def register_user(
         # this flush SQLAlchemy may insert the junction rows before the user.
         db.flush()
 
-        # Blinkit Inventory Portal mapping (validated; same transaction)
-        inventory_set_access(
-            db, new_user.username, new_user.role,
-            user.inventory_warehouses, user.inventory_viewers, user.customer_code,
-        )
+        # Blinkit Inventory Portal mapping (validated; same transaction).
+        # Only for portal roles — a brand-new user has no rows to clear, and
+        # this keeps Register working on a DB that hasn't had the inventory
+        # migration (c4e8a1f7d2b9) applied yet.
+        if {INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(new_user.role)):
+            inventory_set_access(
+                db, new_user.username, new_user.role,
+                user.inventory_warehouses, user.inventory_viewers, user.customer_code,
+            )
 
         # Gate Pass locations -> junction table; users_master.gate_pass_location
         # keeps the starred default (exactly one star, first if none given).

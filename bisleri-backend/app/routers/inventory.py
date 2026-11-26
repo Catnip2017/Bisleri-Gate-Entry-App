@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import func, or_
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -67,6 +68,14 @@ def _customer_options(db: Session, scope: dict) -> list:
 # ── Lookups ───────────────────────────────────────────────────────────────────
 @router.get("/lookups")
 def lookups(db: Session = Depends(get_db), current_user: UsersMaster = Depends(get_current_user)):
+    try:
+        db.query(InventoryEntry.id).limit(1).all()
+    except ProgrammingError:
+        # Tables not created yet (migration c4e8a1f7d2b9 not applied) —
+        # say so plainly instead of a generic server error.
+        db.rollback()
+        raise HTTPException(status_code=503, detail="The Inventory Portal is not set up on this database yet "
+                            "(run 'alembic upgrade head' on the backend).")
     scope = user_scope(db, current_user)
     names = _wh_names(db, scope["warehouses"])
     return {
