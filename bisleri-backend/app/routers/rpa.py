@@ -61,7 +61,12 @@ def _parse_date(value, field):
         raise HTTPException(status_code=400, detail=f"{field} must be YYYY-MM-DD")
 
 
-def _build_filters(status, payment_from, payment_to, email_from, email_to, search):
+def _csv(value):
+    """'A,B , C' -> ['A', 'B', 'C'] (empty list when nothing given)."""
+    return [v.strip() for v in (value or "").split(",") if v.strip()]
+
+
+def _build_filters(status, payment_from, payment_to, email_from, email_to, search, payment_types=None):
     """Shared WHERE-clause builder — identical semantics to the Streamlit app."""
     clause = " WHERE 1=1"
     params = []
@@ -91,16 +96,25 @@ def _build_filters(status, payment_from, payment_to, email_from, email_to, searc
         clause += " AND (status != 'completed' OR updated_at <= %s)"
         params.append(datetime.combine(e_to, datetime.max.time()))
 
+    # Payment Type filter (26 Nov 2026) — multi-select, values come from the data
+    types = _csv(payment_types)
+    if types:
+        clause += " AND payment_type = ANY(%s)"
+        params.append(types)
+
     if search and search.strip():
         s = f"%{search.strip()}%"
+        # Invoice number match (26 Nov 2026) is done per RECID, so the whole
+        # payment still shows with ALL its invoices, not just the one matched.
         clause += """
             AND (
                 vendor_name ILIKE %s
                 OR vendor_code ILIKE %s
                 OR CAST(recid AS TEXT) LIKE %s
+                OR recid IN (SELECT recid FROM payment_details WHERE invoice_number ILIKE %s)
             )
         """
-        params.extend([s, s, s])
+        params.extend([s, s, s, s])
 
     return clause, params
 
@@ -112,12 +126,13 @@ def vpa_summary(
     email_from: str = Query(None),
     email_to: str = Query(None),
     search: str = Query(None),
+    payment_types: str = Query(None, max_length=2000),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """Distinct-recid counts per status, respecting active filters."""
     _require_itadmin(current_user)
 
-    clause, params = _build_filters(None, payment_from, payment_to, email_from, email_to, search)
+    clause, params = _build_filters(None, payment_from, payment_to, email_from, email_to, search, payment_types)
     query = f"""
         SELECT status, COUNT(DISTINCT recid) AS count
         FROM payment_details
@@ -154,12 +169,13 @@ def vpa_records(
     email_from: str = Query(None),
     email_to: str = Query(None),
     search: str = Query(None),
+    payment_types: str = Query(None, max_length=2000),
     current_user: UsersMaster = Depends(get_current_user),
 ):
     """Payment records grouped by recid — 1:1 port of the Streamlit query."""
     _require_itadmin(current_user)
 
-    clause, params = _build_filters(status, payment_from, payment_to, email_from, email_to, search)
+    clause, params = _build_filters(status, payment_from, payment_to, email_from, email_to, search, payment_types)
     query = f"""
         SELECT
             recid,
@@ -172,6 +188,7 @@ def vpa_records(
             MAX(payment_amount)                        AS payment_amount,
             payment_type,
             COUNT(DISTINCT NULLIF(invoice_number, '')) AS invoice_count,
+            ARRAY_REMOVE(ARRAY_AGG(DISTINCT NULLIF(invoice_number, '')), NULL) AS invoice_numbers,
             CASE
                 WHEN MAX(status) = 'completed' THEN MAX(updated_at)
                 ELSE NULL
@@ -204,6 +221,7 @@ def vpa_records(
                 "payment_amount": float(row["payment_amount"]) if row["payment_amount"] is not None else None,
                 "payment_type": row["payment_type"],
                 "invoice_count": int(row["invoice_count"] or 0),
+                "invoice_numbers": list(row["invoice_numbers"] or []),
                 "email_sent_date": row["email_sent_date"].isoformat() if row["email_sent_date"] else None,
             })
 
@@ -216,3 +234,239 @@ def vpa_records(
     finally:
         if conn:
             conn.close()
+
+
+def _fetch(query, params=None, dict_rows=False):
+    """Run one read-only query on RPA_Automation and return all rows."""
+    conn = None
+    try:
+        conn = _conn()
+        factory = psycopg2.extras.RealDictCursor if dict_rows else None
+        with conn.cursor(cursor_factory=factory) as cur:
+            cur.execute(query, params or [])
+            return cur.fetchall()
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/vpa/payment-types")
+def vpa_payment_types(current_user: UsersMaster = Depends(get_current_user)):
+    """Payment Type filter options — read from the data, so a new type shows
+    up in the filter automatically (26 Nov 2026)."""
+    _require_itadmin(current_user)
+    try:
+        rows = _fetch("""
+            SELECT DISTINCT payment_type FROM payment_details
+            WHERE payment_type IS NOT NULL AND payment_type <> ''
+            ORDER BY payment_type
+        """)
+        return [r[0] for r in rows]
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("vpa_payment_types query failed")
+        raise HTTPException(status_code=500, detail="Failed to load payment types")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Monthly Sales Invoice (26 Nov 2026) — RPA_Automation.customer_invoice_journal
+# status: PENDING | COMPLETED | ISSUE. created_at is never returned (not shown).
+# Recommended indexes (created manually on the DB):
+#   (invoice_date), (status, invoice_date), (site, invoice_date)
+# ══════════════════════════════════════════════════════════════════════════════
+MSI_STATUSES = ("COMPLETED", "PENDING", "ISSUE")
+MSI_EXPORT_MAX = 100000
+
+
+def _msi_filters(status, date_from, date_to, sites, routes, challan, search):
+    clause = " WHERE 1=1"
+    params = []
+    if status and status.lower() != "all":
+        clause += " AND UPPER(status) = %s"
+        params.append(status.upper())
+    d_from = _parse_date(date_from, "date_from")
+    d_to = _parse_date(date_to, "date_to")
+    if d_from:
+        clause += " AND invoice_date >= %s"
+        params.append(d_from)
+    if d_to:
+        clause += " AND invoice_date <= %s"
+        params.append(d_to)
+    site_list = _csv(sites)
+    if site_list:
+        clause += " AND site = ANY(%s)"
+        params.append(site_list)
+    route_list = _csv(routes)
+    if route_list:
+        clause += " AND route_code = ANY(%s)"
+        params.append(route_list)
+    if challan in ("yes", "no"):
+        clause += " AND COALESCE(delivery_challan, false) = %s"
+        params.append(challan == "yes")
+    if search and search.strip():
+        s = f"%{search.strip()}%"
+        clause += """
+            AND (
+                invoice_number ILIKE %s
+                OR invoice_account ILIKE %s
+                OR customer_name ILIKE %s
+                OR irn_number ILIKE %s
+                OR voucher ILIKE %s
+            )
+        """
+        params.extend([s, s, s, s, s])
+    return clause, params
+
+
+MSI_COLUMNS = """
+    invoice_number, invoice_account, customer_name, invoice_date, voucher,
+    currency, delivery_challan, irn_number, site, UPPER(status) AS status, route_code
+"""
+
+
+def _msi_row(r):
+    return {
+        "invoice_number": r["invoice_number"],
+        "invoice_account": r["invoice_account"],
+        "customer_name": r["customer_name"],
+        "invoice_date": r["invoice_date"].isoformat() if r["invoice_date"] else None,
+        "voucher": r["voucher"],
+        "currency": r["currency"],
+        "delivery_challan": r["delivery_challan"],
+        "irn_number": r["irn_number"],
+        "site": r["site"],
+        "status": r["status"],
+        "route_code": r["route_code"],
+    }
+
+
+@router.get("/msi/filters")
+def msi_filter_options(current_user: UsersMaster = Depends(get_current_user)):
+    """Site and route options from the data itself — a new site or route
+    appears in the filters as soon as the bot writes its first invoice."""
+    _require_itadmin(current_user)
+    try:
+        sites = _fetch("""SELECT DISTINCT site FROM customer_invoice_journal
+                          WHERE site IS NOT NULL AND site <> '' ORDER BY site""")
+        routes = _fetch("""SELECT DISTINCT route_code FROM customer_invoice_journal
+                           WHERE route_code IS NOT NULL AND route_code <> '' ORDER BY route_code""")
+        return {"sites": [r[0] for r in sites], "routes": [r[0] for r in routes]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("msi_filter_options query failed")
+        raise HTTPException(status_code=500, detail="Failed to load Monthly Sales Invoice filters")
+
+
+@router.get("/msi/summary")
+def msi_summary(
+    date_from: str = Query(None), date_to: str = Query(None),
+    sites: str = Query(None, max_length=2000), routes: str = Query(None, max_length=4000),
+    challan: str = Query("all"), search: str = Query(None, max_length=200),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Counts per status for ALL invoices matching the filters (not one page)."""
+    _require_itadmin(current_user)
+    clause, params = _msi_filters(None, date_from, date_to, sites, routes, challan, search)
+    try:
+        rows = _fetch(f"SELECT UPPER(status), COUNT(*) FROM customer_invoice_journal {clause} GROUP BY UPPER(status)", params)
+        counts = {"total": 0, "completed": 0, "pending": 0, "issue": 0}
+        for st, n in rows:
+            counts["total"] += int(n)
+            key = (st or "").lower()
+            if key in counts:
+                counts[key] = int(n)
+        return counts
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("msi_summary query failed")
+        raise HTTPException(status_code=500, detail="Failed to load Monthly Sales Invoice summary")
+
+
+@router.get("/msi/records")
+def msi_records(
+    status: str = Query("all"),
+    date_from: str = Query(None), date_to: str = Query(None),
+    sites: str = Query(None, max_length=2000), routes: str = Query(None, max_length=4000),
+    challan: str = Query("all"), search: str = Query(None, max_length=200),
+    page: int = Query(1, ge=1), page_size: int = Query(25, ge=1, le=200),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """One page of invoices (server-side paging) + the total row count."""
+    _require_itadmin(current_user)
+    clause, params = _msi_filters(status, date_from, date_to, sites, routes, challan, search)
+    try:
+        total = _fetch(f"SELECT COUNT(*) FROM customer_invoice_journal {clause}", params)[0][0]
+        rows = _fetch(
+            f"""SELECT {MSI_COLUMNS} FROM customer_invoice_journal {clause}
+                ORDER BY invoice_date DESC NULLS LAST, invoice_number DESC
+                LIMIT %s OFFSET %s""",
+            params + [page_size, (page - 1) * page_size], dict_rows=True,
+        )
+        return {"total": int(total), "page": page, "page_size": page_size,
+                "results": [_msi_row(r) for r in rows]}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("msi_records query failed")
+        raise HTTPException(status_code=500, detail="Failed to load Monthly Sales Invoice records")
+
+
+@router.get("/msi/export")
+def msi_export(
+    status: str = Query("all"),
+    date_from: str = Query(None), date_to: str = Query(None),
+    sites: str = Query(None, max_length=2000), routes: str = Query(None, max_length=4000),
+    challan: str = Query("all"), search: str = Query(None, max_length=200),
+    current_user: UsersMaster = Depends(get_current_user),
+):
+    """Excel of ALL invoices matching the filters (same as the screen)."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    _require_itadmin(current_user)
+    clause, params = _msi_filters(status, date_from, date_to, sites, routes, challan, search)
+    try:
+        total = _fetch(f"SELECT COUNT(*) FROM customer_invoice_journal {clause}", params)[0][0]
+        if total > MSI_EXPORT_MAX:
+            raise HTTPException(status_code=400, detail=f"{total:,} invoices match — please narrow the filters "
+                                                        f"(max {MSI_EXPORT_MAX:,} per download).")
+        rows = _fetch(
+            f"""SELECT {MSI_COLUMNS} FROM customer_invoice_journal {clause}
+                ORDER BY invoice_date DESC NULLS LAST, invoice_number DESC""",
+            params, dict_rows=True,
+        )
+        heads = ["Invoice Number", "Invoice Date", "Customer Name", "Invoice Account", "Site", "Route Code",
+                 "Voucher", "Currency", "Delivery Challan", "IRN Number", "Status"]
+        wb = Workbook(); ws = wb.active; ws.title = "Monthly Sales Invoice"
+        ws.append(heads)
+        for c in ws[1]:
+            c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="0F6B46")
+        for r in rows:
+            ws.append([r["invoice_number"], r["invoice_date"], r["customer_name"], r["invoice_account"],
+                       r["site"], r["route_code"], r["voucher"], r["currency"],
+                       None if r["delivery_challan"] is None else ("Yes" if r["delivery_challan"] else "No"),
+                       r["irn_number"], r["status"]])
+        for row in ws.iter_rows(min_row=2, min_col=2, max_col=2):
+            for c in row:
+                c.number_format = "DD/MM/YYYY"
+        widths = [20, 13, 40, 18, 8, 12, 18, 9, 16, 70, 12]
+        for i, w in enumerate(widths, start=1):
+            ws.column_dimensions[chr(64 + i)].width = w
+        ws.freeze_panes = "A2"
+        ws.auto_filter.ref = ws.dimensions
+        buf = io.BytesIO(); wb.save(buf); buf.seek(0)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("msi_export failed")
+        raise HTTPException(status_code=500, detail="Failed to build the Monthly Sales Invoice report")
+    fname = f"Monthly_Sales_Invoice_{date_from or 'all'}_to_{date_to or 'all'}.xlsx"
+    return StreamingResponse(
+        buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

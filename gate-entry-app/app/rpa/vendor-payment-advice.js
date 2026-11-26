@@ -10,6 +10,9 @@
 //  - Paginated records table (25/page) via the shared DataTable with
 //    expandable rows instead of an 11-column horizontal scroll
 //  - CSV export of the filtered data (web) and refresh
+//  - 26 Nov 2026: Payment Type filter (options read from the data) and the
+//    invoice numbers of each payment (column + full list in the row panel;
+//    search also finds a payment by any of its invoice numbers)
 // Differences by design: uses the gate-entry app's JWT login (IT Admin
 // only) — the Streamlit app's own login/register/reset is not needed.
 import React, { useState, useEffect, useCallback } from 'react';
@@ -33,6 +36,7 @@ import KpiCard from '../../components/ui/KpiCard';
 import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
 import AppButton from '../../components/ui/AppButton';
+import { SearchMultiSelect } from '../../components/ui/SearchSelect';
 import { green, colors } from '../../utils/theme';
 
 const PAGE_SIZE = 25;
@@ -54,6 +58,13 @@ const formatAmount = (value) =>
     ? '—'
     : `Rs. ${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// "PI-101 +2 more" for the table; the row panel lists them all
+const invoiceSummary = (list) => {
+  const inv = list || [];
+  if (!inv.length) return '—';
+  return inv.length === 1 ? inv[0] : `${inv[0]} +${inv.length - 1} more`;
+};
+
 const formatDateTime = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -74,6 +85,9 @@ export default function VendorPaymentAdviceScreen() {
   const [emailTo, setEmailTo] = useState(new Date());
   const [searchDraft, setSearchDraft] = useState('');
   const [appliedSearch, setAppliedSearch] = useState('');
+  // Payment Type filter — [] = all types; options come from the data
+  const [paymentTypeOptions, setPaymentTypeOptions] = useState([]);
+  const [paymentTypes, setPaymentTypes] = useState([]);
 
   // Status quick-filter — tapping a KPI card toggles it
   const [statusFilter, setStatusFilter] = useState('all');
@@ -100,10 +114,11 @@ export default function VendorPaymentAdviceScreen() {
       setAllowed(true);
       setChecking(false);
       loadData('all', '');
+      rpaAPI.getVpaPaymentTypes().then((t) => setPaymentTypeOptions(t || [])).catch(() => {});
     })();
   }, []);
 
-  const buildParams = (status, search) => {
+  const buildParams = (status, search, types = paymentTypes) => {
     const params = {
       payment_from: fmtDate(paymentFrom),
       payment_to: fmtDate(paymentTo),
@@ -112,13 +127,14 @@ export default function VendorPaymentAdviceScreen() {
     };
     if (search && search.trim()) params.search = search.trim();
     if (status && status !== 'all') params.status = status;
+    if (types.length) params.payment_types = types.join(',');
     return params;
   };
 
-  const loadData = useCallback(async (status = statusFilter, search = appliedSearch) => {
+  const loadData = useCallback(async (status = statusFilter, search = appliedSearch, types = paymentTypes) => {
     setLoading(true);
     try {
-      const params = buildParams(status, search);
+      const params = buildParams(status, search, types);
       const { status: _s, ...summaryParams } = params;
       const [summary, data] = await Promise.all([
         rpaAPI.getVpaSummary(summaryParams),
@@ -134,7 +150,7 @@ export default function VendorPaymentAdviceScreen() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentFrom, paymentTo, emailFrom, emailTo, statusFilter, appliedSearch]);
+  }, [paymentFrom, paymentTo, emailFrom, emailTo, statusFilter, appliedSearch, paymentTypes]);
 
   const handleApply = () => {
     setAppliedSearch(searchDraft);
@@ -146,9 +162,13 @@ export default function VendorPaymentAdviceScreen() {
     setAppliedSearch('');
     setPaymentFrom(daysAgo(90));
     setPaymentTo(new Date());
-    setEmailFilterOn(false);
+    // (was setEmailFilterOn(false) — that state no longer exists, so
+    // "Clear all" threw an error; reset the email dates instead)
+    setEmailFrom(daysAgo(30));
+    setEmailTo(new Date());
+    setPaymentTypes([]);
     setStatusFilter('all');
-    loadData('all', '');
+    loadData('all', '', []);
   };
 
   const handleStatusTap = (status) => {
@@ -164,13 +184,13 @@ export default function VendorPaymentAdviceScreen() {
       return;
     }
     const header = ['RECID', 'Payment Date', 'Email Sent', 'Vendor Code', 'Vendor Name',
-      'Email (TO)', 'Site', 'Amount', 'Payment Type', 'Invoices', 'Status'];
+      'Email (TO)', 'Site', 'Amount', 'Payment Type', 'Invoices', 'Invoice Numbers', 'Status'];
     const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const lines = records.map((r) => [
       r.recid, r.payment_date || '', formatDateTime(r.email_sent_date),
       r.vendor_code || '', r.vendor_name || '', r.vendor_email || '',
       r.site || '', r.payment_amount ?? '', r.payment_type || '',
-      r.invoice_count, (r.status || '').toUpperCase(),
+      r.invoice_count, (r.invoice_numbers || []).join(', '), (r.status || '').toUpperCase(),
     ].map(escape).join(','));
     const csv = [header.map(escape).join(','), ...lines].join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -186,15 +206,17 @@ export default function VendorPaymentAdviceScreen() {
   const columns = [
     { key: 'recid', title: 'RECID', flex: 0.9, priority: 1 },
     { key: 'payment_date', title: 'Payment Date', flex: 1, priority: 1, render: (r) => r.payment_date || '—' },
-    { key: 'vendor_name', title: 'Vendor', flex: 1.6, priority: 1 },
+    { key: 'vendor_name', title: 'Vendor', flex: 1.5, priority: 1 },
     { key: 'vendor_code', title: 'Vendor Code', flex: 1, priority: 1 },
     { key: 'payment_type', title: 'Payment Type', flex: 1, priority: 1 },
     { key: 'payment_amount', title: 'Amount', flex: 1.1, priority: 1, render: (r) => formatAmount(r.payment_amount) },
+    { key: 'invoice_numbers', title: 'Invoices', flex: 1.2, priority: 1, render: (r) => invoiceSummary(r.invoice_numbers) },
     { key: 'status', title: 'Status', flex: 0.9, priority: 1, render: (r) => (r.status || '—').toUpperCase() },
     { key: 'email_sent_date', title: 'Email Sent', priority: 2, render: (r) => formatDateTime(r.email_sent_date) },
     { key: 'vendor_email', title: 'Email (TO)', priority: 2 },
     { key: 'site', title: 'Site', priority: 2 },
-    { key: 'invoice_count', title: 'Invoices', priority: 2 },
+    { key: 'invoice_count', title: 'No. of invoices', priority: 2 },
+    { key: 'invoice_list', title: 'Invoice numbers', priority: 2, render: (r) => (r.invoice_numbers || []).join(', ') || '—' },
   ];
 
   const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
@@ -223,7 +245,7 @@ export default function VendorPaymentAdviceScreen() {
               flex: 1, minWidth: 220, backgroundColor: '#fff', borderWidth: 1, borderColor: '#C5E0D6',
               borderRadius: 8, paddingHorizontal: 12, minHeight: 44, fontSize: 14,
             }}
-            placeholder="Search vendor name, vendor code or RECID"
+            placeholder="Search vendor name, vendor code, RECID or invoice number"
             value={searchDraft}
             onChangeText={setSearchDraft}
             onSubmitEditing={handleApply}
@@ -274,7 +296,7 @@ export default function VendorPaymentAdviceScreen() {
         {/* Date-range filters (search bar itself now lives at the top) */}
         <View style={{
           backgroundColor: green.tint2, borderRadius: 12, padding: 14, marginTop: 8, marginBottom: 14,
-          borderWidth: 1, borderColor: '#C5E0D6',
+          borderWidth: 1, borderColor: '#C5E0D6', zIndex: 10,
         }}>
           {/* Payment date range (left) + Email sent date range (right) —
               always on, one row, fixed widths so fields don't stretch on
@@ -291,6 +313,18 @@ export default function VendorPaymentAdviceScreen() {
             </View>
             <View style={{ width: 210 }}>
               <DateField label="Email sent to" value={emailTo} onChange={setEmailTo} />
+            </View>
+            {/* Payment Type (26 Nov 2026) — applies with the Apply button,
+                like the dates; also narrows the KPI counts */}
+            <View style={{ width: 230, zIndex: 20 }}>
+              <SearchMultiSelect
+                title="Payment type"
+                name="Payment type"
+                options={paymentTypeOptions}
+                selected={paymentTypes}
+                onChange={setPaymentTypes}
+                allLabel="All payment types"
+              />
             </View>
           </View>
         </View>

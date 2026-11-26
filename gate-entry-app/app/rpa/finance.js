@@ -51,15 +51,15 @@ const PROCESSES = [
     live: true,
     about: {
       purpose:
-        'Generates and distributes monthly sales invoice statements to customers at month close.',
-      trigger: 'Runs on a monthly schedule at period close.',
-      systems: 'ERP sales data → RPA bot → email distribution → tracking database.',
+        'Downloads the monthly sales invoice PDFs from Dynamics 365 for each site and tracks every invoice in the RPA journal.',
+      trigger: 'Runs monthly at period close, site by site (MUM, ROM; more sites to follow).',
+      systems: 'Dynamics 365 (customer invoice journal) → RPA bot → invoice PDFs → PostgreSQL (RPA_Automation) customer_invoice_journal.',
       statuses: [
-        ['Completed', 'Statement emailed successfully.'],
-        ['Failed', 'Delivery failed — see logs when available.'],
-        ['Pending', 'Queued for the next run.'],
+        ['Completed', 'Invoice processed by the bot.'],
+        ['Pending', 'Queued — the bot has not processed this invoice yet.'],
+        ['Issue', 'The bot could not complete this invoice — needs checking.'],
       ],
-      data: 'Log dashboard is being converted — detailed run data will appear on the process screen soon.',
+      data: 'One row per invoice (invoice number, customer, site, route, IRN). Filters for site and route pick up new values automatically.',
     },
   },
 ];

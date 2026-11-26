@@ -969,6 +969,16 @@ export const rpaAPI = {
     const response = await api.get('/rpa/vpa/records', { params });
     return response.data;
   },
+  // Vendor Payment Advice — Payment Type filter options (from the data)
+  getVpaPaymentTypes: async () => (await api.get('/rpa/vpa/payment-types')).data,
+
+  // Monthly Sales Invoice (26 Nov 2026) — customer_invoice_journal
+  getMsiFilters: async () => (await api.get('/rpa/msi/filters')).data,
+  getMsiSummary: async (params = {}) => (await api.get('/rpa/msi/summary', { params, timeout: 60000 })).data,
+  getMsiRecords: async (params = {}) => (await api.get('/rpa/msi/records', { params, timeout: 60000 })).data,
+  downloadMsiReport: async (params = {}) => (await api.get('/rpa/msi/export', {
+    params, responseType: 'blob', timeout: 180000,
+  })).data,
 };
 
 console.log('API Configuration:', {
