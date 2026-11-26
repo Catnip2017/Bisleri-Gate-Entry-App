@@ -12,6 +12,10 @@
 //  - server-side paging (25 per page), expandable rows for the details
 // Data: RPA_Automation.customer_invoice_journal via /rpa/msi/* (IT Admin only).
 // created_at is deliberately not shown anywhere.
+// 26 Nov 2026 (2): dates / Site / Route / Delivery challan / KPI cards apply
+// at once (the Search button is only for the search text); the status filter
+// is a chip above the table so nothing shifts; scrollbar space is reserved so
+// the page width doesn't jump when a long list opens.
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, ActivityIndicator, TouchableOpacity, Platform, useWindowDimensions,
@@ -27,6 +31,7 @@ import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
 import AppButton from '../../components/ui/AppButton';
 import { SearchMultiSelect, SearchSelect } from '../../components/ui/SearchSelect';
+import ResultBar from '../../components/ui/ResultBar';
 import { green, colors } from '../../utils/theme';
 
 const PAGE_SIZE = 25;
@@ -58,13 +63,14 @@ export default function MonthlySalesInvoiceScreen() {
   const narrow = width < 700;   // phones: fewer columns, rest in the row panel
   const [allowed, setAllowed] = useState(false);
 
-  // Filters (applied with Apply, like Vendor Payment Advice)
+  // Filters — apply on their own (search text: Search button / Enter)
   const [dateFrom, setDateFrom] = useState(monthStart());
   const [dateTo, setDateTo] = useState(new Date());
   const [sites, setSites] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [challan, setChallan] = useState('all');
   const [searchDraft, setSearchDraft] = useState('');
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [options, setOptions] = useState({ sites: [], routes: [], first_invoice_date: null, latest_invoice_date: null, total_in_journal: null });
   // The filters actually used for the data on screen (paging + download)
@@ -84,7 +90,7 @@ export default function MonthlySalesInvoiceScreen() {
       sites: sites.join(',') || undefined,
       routes: routes.join(',') || undefined,
       challan,
-      search: searchDraft.trim() || undefined,
+      search: appliedSearch.trim() || undefined,
       status: statusFilter,
       ...over,
     };
@@ -106,10 +112,7 @@ export default function MonthlySalesInvoiceScreen() {
   }, []);
 
   const loadAll = useCallback(async (params) => {
-    if (params.date_from && params.date_to && params.date_from > params.date_to) {
-      showAlert('Dates', "'Invoice date to' is before 'Invoice date from'.");
-      return;
-    }
+    if (params.date_from && params.date_to && params.date_from > params.date_to) return;   // shown inline
     setApplied(params);
     const { status: _s, ...summaryParams } = params;
     rpaAPI.getMsiSummary(summaryParams).then(setCounts).catch((e) => showAlert('Error', handleAPIError(e)));
@@ -129,12 +132,29 @@ export default function MonthlySalesInvoiceScreen() {
       setAllowed(true);
       rpaAPI.getMsiFilters().then((o) => setOptions({ ...o, sites: o.sites || [], routes: o.routes || [] }))
         .catch((e) => showAlert('Monthly Sales Invoice', handleAPIError(e)));
-      loadAll(currentParams());
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleApply = () => loadAll(currentParams());
+  // Filters apply shortly after the last change (also the first load)
+  useEffect(() => {
+    if (!allowed) return undefined;
+    const t = setTimeout(() => loadAll(currentParams()), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, dateFrom, dateTo, sites, routes, challan, statusFilter, appliedSearch]);
+
+  const handleApply = () => {
+    if (searchDraft === appliedSearch) loadAll(currentParams());
+    else setAppliedSearch(searchDraft);
+  };
+  // Emptying the search box brings everything back straight away
+  useEffect(() => {
+    if (searchDraft === '' && appliedSearch !== '') setAppliedSearch('');
+  }, [searchDraft]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dateError = dateFrom && dateTo && fmtDate(dateFrom) > fmtDate(dateTo)
+    ? "'Invoice date to' is before 'Invoice date from'" : '';
 
   const handleClear = () => {
     setDateFrom(monthStart());
@@ -143,14 +163,13 @@ export default function MonthlySalesInvoiceScreen() {
     setRoutes([]);
     setChallan('all');
     setSearchDraft('');
-    setStatusFilter('all');
-    loadAll({ date_from: fmtDate(monthStart()), date_to: fmtDate(new Date()), challan: 'all', status: 'all' });
+    setAppliedSearch('');
+    setStatusFilter('all');   // the filter effect reloads
   };
 
   const handleStatusTap = (key) => {
     const next = statusFilter === key ? 'all' : key;
-    setStatusFilter(next);
-    loadAll({ ...(applied || currentParams()), status: next });
+    setStatusFilter(next);   // the filter effect reloads
   };
 
   const handleDownload = async () => {
@@ -210,7 +229,11 @@ export default function MonthlySalesInvoiceScreen() {
 
   return (
     <AppShell title="Monthly Sales Invoice" backLabel="Finance">
-    <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      // keep the scrollbar's space reserved so the width never jumps (web)
+      style={[{ flex: 1, backgroundColor: green.tint1 }, Platform.OS === 'web' ? { scrollbarGutter: 'stable' } : null]}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       <View style={{ padding: 14 }}>
         {/* Search */}
         <View style={{
@@ -229,7 +252,7 @@ export default function MonthlySalesInvoiceScreen() {
             onSubmitEditing={handleApply}
             returnKeyType="search"
           />
-          <AppButton title="Apply" icon="search" onPress={handleApply} loading={loading} />
+          <AppButton title="Search" icon="search" onPress={handleApply} />
           <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
         </View>
 
@@ -253,12 +276,6 @@ export default function MonthlySalesInvoiceScreen() {
             />
           ))}
         </View>
-
-        {statusFilter !== 'all' && (
-          <Text style={{ fontSize: 12, color: green.deep, marginBottom: 8 }}>
-            Showing only: {statusFilter.toUpperCase()} — tap the card again to show all
-          </Text>
-        )}
 
         {/* Filters + Download Report */}
         <View style={{
@@ -289,6 +306,7 @@ export default function MonthlySalesInvoiceScreen() {
                 onPress={handleDownload} loading={downloading} disabled={total === 0} />
             </View>
           </View>
+          {dateError ? <Text style={{ color: '#C62828', fontSize: 12.5, marginTop: 8 }}>{dateError}</Text> : null}
         </View>
 
         {/* Table */}
@@ -299,11 +317,15 @@ export default function MonthlySalesInvoiceScreen() {
           </View>
         ) : (
           <>
-            <Text style={{ fontSize: 12, color: '#5C6B62', marginBottom: 8 }}>
-              {total.toLocaleString('en-IN')} invoice{total === 1 ? '' : 's'}
-              {total > PAGE_SIZE ? ` — page ${page} of ${totalPages}` : ''}
-              {loading ? ' · loading…' : ''}
-            </Text>
+            <ResultBar
+              text={`${total.toLocaleString('en-IN')} invoice${total === 1 ? '' : 's'}${total > PAGE_SIZE ? ` — page ${page} of ${totalPages}` : ''}`}
+              chips={statusFilter !== 'all' ? [{
+                label: `Status: ${statusFilter.toUpperCase()}`,
+                color: statusFilter === 'issue' ? '#B45309' : '#0F6B46',
+                onClear: () => setStatusFilter('all'),
+              }] : []}
+              loading={loading}
+            />
 
             <DataTable
               columns={columns}

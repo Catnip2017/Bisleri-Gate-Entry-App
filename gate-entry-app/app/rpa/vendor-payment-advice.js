@@ -13,6 +13,11 @@
 //  - 26 Nov 2026: Payment Type filter (options read from the data) and the
 //    invoice numbers of each payment (column + full list in the row panel;
 //    search also finds a payment by any of its invoice numbers)
+//  - 26 Nov 2026 (2): dates, Payment type and KPI cards apply at once (no
+//    Apply needed — the button is only for the search text); the status
+//    filter shows as a chip above the table (nothing shifts); invoices show
+//    as a count in the table and as wrapped chips in the opened row;
+//    the page keeps the scrollbar space so its width never jumps
 // Differences by design: uses the gate-entry app's JWT login (IT Admin
 // only) — the Streamlit app's own login/register/reset is not needed.
 import React, { useState, useEffect, useCallback } from 'react';
@@ -37,11 +42,13 @@ import DataTable from '../../components/ui/DataTable';
 import DateField from '../../components/ui/DateField';
 import AppButton from '../../components/ui/AppButton';
 import { SearchMultiSelect } from '../../components/ui/SearchSelect';
+import ResultBar from '../../components/ui/ResultBar';
 import { green, colors } from '../../utils/theme';
 
 const PAGE_SIZE = 25;
 
 const fmtDate = (d) => {
+  if (!d) return undefined;
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   return `${d.getFullYear()}-${month}-${day}`;
@@ -58,11 +65,24 @@ const formatAmount = (value) =>
     ? '—'
     : `Rs. ${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-// "PI-101 +2 more" for the table; the row panel lists them all
-const invoiceSummary = (list) => {
+// Table cell: the number itself for one invoice, a "6 invoices" pill for
+// several (long numbers used to wrap onto two lines); the opened row lists all.
+const InvoiceCell = ({ list }) => {
   const inv = list || [];
   if (!inv.length) return '—';
-  return inv.length === 1 ? inv[0] : `${inv[0]} +${inv.length - 1} more`;
+  if (inv.length === 1) return inv[0];
+  return (
+    <View style={{ alignSelf: 'flex-start', backgroundColor: '#E6F1EC', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 }}>
+      <Text style={{ fontSize: 12.5, fontWeight: '700', color: '#0B5236' }}>{inv.length} invoices</Text>
+    </View>
+  );
+};
+
+const copyText = (text) => {
+  try {
+    if (Platform.OS === 'web' && navigator?.clipboard) { navigator.clipboard.writeText(text); return true; }
+  } catch (e) { /* ignore */ }
+  return false;
 };
 
 const formatDateTime = (iso) => {
@@ -113,7 +133,6 @@ export default function VendorPaymentAdviceScreen() {
       }
       setAllowed(true);
       setChecking(false);
-      loadData('all', '');
       rpaAPI.getVpaPaymentTypes().then((t) => setPaymentTypeOptions(t || [])).catch(() => {});
     })();
   }, []);
@@ -132,6 +151,8 @@ export default function VendorPaymentAdviceScreen() {
   };
 
   const loadData = useCallback(async (status = statusFilter, search = appliedSearch, types = paymentTypes) => {
+    if (paymentFrom && paymentTo && paymentFrom > paymentTo) return;   // shown inline instead
+    if (emailFrom && emailTo && emailFrom > emailTo) return;
     setLoading(true);
     try {
       const params = buildParams(status, search, types);
@@ -152,10 +173,29 @@ export default function VendorPaymentAdviceScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentFrom, paymentTo, emailFrom, emailTo, statusFilter, appliedSearch, paymentTypes]);
 
+  // Filters (dates, Payment type, KPI cards) apply on their own, shortly
+  // after the last change — no Apply click needed. This also does the
+  // first load once access is confirmed.
+  useEffect(() => {
+    if (!allowed) return undefined;
+    const t = setTimeout(() => loadData(), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allowed, paymentFrom, paymentTo, emailFrom, emailTo, paymentTypes, statusFilter, appliedSearch]);
+
+  // Search text applies with the Search button / Enter; emptying the box
+  // brings back all records straight away.
   const handleApply = () => {
-    setAppliedSearch(searchDraft);
-    loadData(statusFilter, searchDraft);
+    if (searchDraft === appliedSearch) loadData();
+    else setAppliedSearch(searchDraft);
   };
+  useEffect(() => {
+    if (searchDraft === '' && appliedSearch !== '') setAppliedSearch('');
+  }, [searchDraft]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dateError = paymentFrom && paymentTo && paymentFrom > paymentTo
+    ? "'Payment to' is before 'Payment from'"
+    : emailFrom && emailTo && emailFrom > emailTo ? "'Email sent to' is before 'Email sent from'" : '';
 
   const handleClear = () => {
     setSearchDraft('');
@@ -167,14 +207,12 @@ export default function VendorPaymentAdviceScreen() {
     setEmailFrom(daysAgo(30));
     setEmailTo(new Date());
     setPaymentTypes([]);
-    setStatusFilter('all');
-    loadData('all', '', []);
+    setStatusFilter('all');   // the filter effect reloads
   };
 
   const handleStatusTap = (status) => {
     const next = statusFilter === status ? 'all' : status;
-    setStatusFilter(next);
-    loadData(next, appliedSearch);
+    setStatusFilter(next);   // the filter effect reloads
   };
 
   // CSV export (web)
@@ -210,14 +248,54 @@ export default function VendorPaymentAdviceScreen() {
     { key: 'vendor_code', title: 'Vendor Code', flex: 1, priority: 1 },
     { key: 'payment_type', title: 'Payment Type', flex: 1, priority: 1 },
     { key: 'payment_amount', title: 'Amount', flex: 1.1, priority: 1, render: (r) => formatAmount(r.payment_amount) },
-    { key: 'invoice_numbers', title: 'Invoices', flex: 1.2, priority: 1, render: (r) => invoiceSummary(r.invoice_numbers) },
+    { key: 'invoice_numbers', title: 'Invoices', flex: 1.2, priority: 1,
+      render: (r) => ((r.invoice_numbers || []).length > 1 ? <InvoiceCell list={r.invoice_numbers} /> : ((r.invoice_numbers || [])[0] || '—')) },
     { key: 'status', title: 'Status', flex: 0.9, priority: 1, render: (r) => (r.status || '—').toUpperCase() },
     { key: 'email_sent_date', title: 'Email Sent', priority: 2, render: (r) => formatDateTime(r.email_sent_date) },
     { key: 'vendor_email', title: 'Email (TO)', priority: 2 },
     { key: 'site', title: 'Site', priority: 2 },
     { key: 'invoice_count', title: 'No. of invoices', priority: 2 },
-    { key: 'invoice_list', title: 'Invoice numbers', priority: 2, render: (r) => (r.invoice_numbers || []).join(', ') || '—' },
   ];
+
+  // Opened row: the usual details on one line, then EVERY invoice number as
+  // a wrapped chip (a single comma line ran off the right edge), + Copy all.
+  const renderExpanded = (r) => {
+    const inv = r.invoice_numbers || [];
+    const item = (label, value) => (
+      <View style={{ minWidth: 150, marginRight: 24, marginBottom: 6 }}>
+        <Text style={{ fontSize: 12, fontWeight: '700', color: '#3E4F47' }}>{label}</Text>
+        <Text style={{ fontSize: 14, color: '#12202A' }}>{value || '—'}</Text>
+      </View>
+    );
+    return (
+      <View style={{ backgroundColor: '#E8F4F4', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#D7E6E1' }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {item('Email Sent', formatDateTime(r.email_sent_date))}
+          {item('Email (TO)', r.vendor_email)}
+          {item('Site', r.site)}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, marginBottom: 6 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: '#3E4F47' }}>Invoice numbers ({inv.length})</Text>
+          {inv.length > 1 && Platform.OS === 'web' && (
+            <TouchableOpacity onPress={() => copyText(inv.join(', '))} accessibilityRole="button" accessibilityLabel="Copy all invoice numbers"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+              <MaterialIcons name="content-copy" size={14} color="#0F6B46" />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: '#0F6B46' }}>Copy all</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        {inv.length === 0 ? <Text style={{ fontSize: 13.5, color: '#5C6B62' }}>—</Text> : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {inv.map((n) => (
+              <View key={n} style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: '#C5E0D6', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                <Text style={{ fontSize: 13, color: '#12202A' }} selectable>{n}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const totalPages = Math.max(1, Math.ceil(records.length / PAGE_SIZE));
   const pageRecords = records.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -232,7 +310,12 @@ export default function VendorPaymentAdviceScreen() {
 
   return (
     <AppShell title="Vendor Payment Advice" backLabel="Finance">
-    <ScrollView style={{ flex: 1, backgroundColor: green.tint1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView
+      // scrollbarGutter: keep the scrollbar's space reserved so the page
+      // width doesn't jump when a long dropdown makes the page scroll (web)
+      style={[{ flex: 1, backgroundColor: green.tint1 }, Platform.OS === 'web' ? { scrollbarGutter: 'stable' } : null]}
+      contentContainerStyle={{ paddingBottom: 32 }}
+    >
       <View style={{ padding: 14 }}>
         {/* Search — kept at the very top so it's the first thing you reach */}
         <View style={{
@@ -251,7 +334,7 @@ export default function VendorPaymentAdviceScreen() {
             onSubmitEditing={handleApply}
             returnKeyType="search"
           />
-          <AppButton title="Apply" icon="search" onPress={handleApply} loading={loading} />
+          <AppButton title="Search" icon="search" onPress={handleApply} />
           <AppButton title="Clear all" variant="secondary" icon="clear" onPress={handleClear} />
         </View>
 
@@ -287,12 +370,6 @@ export default function VendorPaymentAdviceScreen() {
           />
         </View>
 
-        {statusFilter !== 'all' && (
-          <Text style={{ fontSize: 12, color: green.deep, marginBottom: 8 }}>
-            Showing only: {statusFilter.toUpperCase()} — tap the card again to show all
-          </Text>
-        )}
-
         {/* Date-range filters (search bar itself now lives at the top) */}
         <View style={{
           backgroundColor: green.tint2, borderRadius: 12, padding: 14, marginTop: 8, marginBottom: 14,
@@ -302,21 +379,21 @@ export default function VendorPaymentAdviceScreen() {
               always on, one row, fixed widths so fields don't stretch on
               wide desktop screens */}
           <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-            <View style={{ width: 210 }}>
+            <View style={{ width: 192 }}>
               <DateField label="Payment from" value={paymentFrom} onChange={setPaymentFrom} />
             </View>
-            <View style={{ width: 210 }}>
+            <View style={{ width: 192 }}>
               <DateField label="Payment to" value={paymentTo} onChange={setPaymentTo} />
             </View>
-            <View style={{ width: 210 }}>
+            <View style={{ width: 192 }}>
               <DateField label="Email sent from" value={emailFrom} onChange={setEmailFrom} />
             </View>
-            <View style={{ width: 210 }}>
+            <View style={{ width: 192 }}>
               <DateField label="Email sent to" value={emailTo} onChange={setEmailTo} />
             </View>
             {/* Payment Type (26 Nov 2026) — applies with the Apply button,
                 like the dates; also narrows the KPI counts */}
-            <View style={{ width: 230, zIndex: 20 }}>
+            <View style={{ width: 210, zIndex: 20 }}>
               <SearchMultiSelect
                 title="Payment type"
                 name="Payment type"
@@ -327,21 +404,27 @@ export default function VendorPaymentAdviceScreen() {
               />
             </View>
           </View>
+          {dateError ? <Text style={{ color: '#C62828', fontSize: 12.5, marginTop: 8 }}>{dateError}</Text> : null}
         </View>
 
         {/* Table */}
-        {loading ? (
+        {loading && records.length === 0 ? (
           <View style={{ alignItems: 'center', padding: 32 }}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={{ marginTop: 8, color: green.deep }}>Loading records…</Text>
           </View>
         ) : (
           <>
-            <Text style={{ fontSize: 12, color: '#5C6B62', marginBottom: 8 }}>
-              {records.length.toLocaleString()} record{records.length === 1 ? '' : 's'}
-              {records.length > PAGE_SIZE ? ` — page ${page} of ${totalPages}` : ''}
-              {' '}(failed records show no Email Sent date — no email was attempted)
-            </Text>
+            <ResultBar
+              text={`${records.length.toLocaleString()} record${records.length === 1 ? '' : 's'}${records.length > PAGE_SIZE ? ` — page ${page} of ${totalPages}` : ''}`}
+              chips={statusFilter !== 'all' ? [{
+                label: `Status: ${statusFilter.toUpperCase()}`,
+                color: statusFilter === 'failed' ? '#B45309' : '#0F6B46',
+                onClear: () => setStatusFilter('all'),
+              }] : []}
+              loading={loading}
+              note="Failed records show no Email Sent date — no email was attempted"
+            />
 
             <DataTable
               columns={columns}
@@ -349,6 +432,7 @@ export default function VendorPaymentAdviceScreen() {
               keyExtractor={(r) => String(r.recid)}
               emptyText="No records match the current filters"
               detailLayout="row"
+              renderExpanded={renderExpanded}
             />
 
             {/* Pagination */}
