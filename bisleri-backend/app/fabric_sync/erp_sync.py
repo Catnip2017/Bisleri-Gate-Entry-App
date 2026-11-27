@@ -65,10 +65,29 @@ def _fetch_vendors(fabric_conn):
     with fabric_conn.cursor() as cur:
         cur.execute(query)
         rows = cur.fetchall()
+    # Skip vendors that cannot be loaded: gate_pass_vendors.vendor_name is NOT
+    # NULL (the picker needs a name), and one such row (e.g. a vendor with no
+    # party record in the ERP -> LEFT JOIN gives a NULL name) used to reject the
+    # WHOLE batch, so no vendor refreshed. Skip + log them, load the rest. Fixing
+    # the missing names is data maintenance on the ERP side (27 Nov 2026).
+    def _blank(v):
+        return v is None or str(v).strip() == ""
+    valid = [r for r in rows if not _blank(r[0]) and not _blank(r[1])]
+    skipped = [r[0] for r in rows if not _blank(r[0]) and _blank(r[1])]
+    no_code = sum(1 for r in rows if _blank(r[0]))
+    if skipped or no_code:
+        logger.warning(
+            "[%s] vendors: skipped %d source row(s) with no name (%s%s) and %d with no code "
+            "(ERP data issue, not synced)", _JOB_NAME, len(skipped),
+            ", ".join(str(c) for c in skipped[:20]), " ..." if len(skipped) > 20 else "", no_code)
     # contact and phone_no aren't sourced (kept null per spec); every row
     # present in this pull is active — rows that stop appearing here are
     # handled separately by deactivate_missing, not by this default.
-    return [tuple(row) + (None, None, True) for row in rows]
+    # 2nd value = every vendor code the source still lists (even a nameless
+    # one), so an already-loaded vendor is not deactivated just because its
+    # name is missing right now.
+    seen_codes = [r[0] for r in rows if not _blank(r[0])]
+    return [tuple(row) + (None, None, True) for row in valid], seen_codes
 
 
 def _fetch_assets(fabric_conn):
@@ -147,7 +166,7 @@ def run_erp_sync():
     # block or mask the status of the other, so each gets its own
     # try/except and its own commit/rollback.
     try:
-        vendor_rows = _fetch_vendors(fabric_conn)
+        vendor_rows, vendor_seen_codes = _fetch_vendors(fabric_conn)
         v_inserted, v_updated = upsert_rows(
             target_conn, "gate_pass_vendors",
             VENDOR_COLUMNS + ["contact", "phone_no", "is_active"],
@@ -155,7 +174,7 @@ def run_erp_sync():
         )
         v_deactivated = deactivate_missing(
             target_conn, "gate_pass_vendors", "vendor_code",
-            [r[0] for r in vendor_rows], _JOB_NAME,
+            vendor_seen_codes, _JOB_NAME,
         )
         target_conn.commit()
         logger.info(
