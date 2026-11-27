@@ -935,8 +935,8 @@ def get_gate_pass(
         cancel_remarks=gp.cancel_remarks,
         close_reason=gp.close_reason,
         released_by=gp.released_by,
-        dispatched_by=gp.dispatched_by,
-        cancelled_by=gp.cancelled_by,
+        # dispatched_by / cancelled_by already come from base (GatePassListItem);
+        # passing them again here raised "multiple values for keyword argument".
         cancelled_at=gp.cancelled_at,
         closed_by=gp.closed_by,
         closed_at=gp.closed_at,
