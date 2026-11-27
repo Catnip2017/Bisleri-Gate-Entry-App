@@ -207,16 +207,18 @@ function DashboardPage({ user, onGo, active, admin }) {
             <Stat label="Stores today" value={d.stores_today} icon="storefront" />
             <Stat label={admin ? 'Warehouses' : 'Mapped warehouses'} value={d.warehouses.length} icon="warehouse" />
           </View>
-          <View style={card}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 10 }}>{admin ? 'All warehouses' : 'Your warehouses'}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {d.warehouses.map((w) => (
-                <View key={w.code} style={{ backgroundColor: C.soft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
-                  <Text style={{ fontSize: 12.5, color: C.deep, fontWeight: '700' }}>{w.code}<Text style={{ fontWeight: '400' }}>{w.name ? `  ${w.name}` : ''}</Text></Text>
-                </View>
-              ))}
+          {!admin && (
+            <View style={card}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 10 }}>Your warehouses</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {d.warehouses.map((w) => (
+                  <View key={w.code} style={{ backgroundColor: C.soft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+                    <Text style={{ fontSize: 12.5, color: C.deep, fontWeight: '700' }}>{w.code}<Text style={{ fontWeight: '400' }}>{w.name ? `  ${w.name}` : ''}</Text></Text>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          )}
         </>
       )}
     </View>
