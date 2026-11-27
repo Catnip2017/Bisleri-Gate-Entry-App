@@ -45,6 +45,25 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     // Handle 401 (session expired) — but NOT for the login endpoint itself
+    // "View as user" preview ended or expired (27 Nov 2026): go back to the
+    // IT Admin's own session instead of the login page.
+    if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
+      try {
+        const adminToken = await storage.getItem(VIEW_AS_ADMIN_TOKEN);
+        if (adminToken) {
+          await storage.setItem('access_token', adminToken);
+          await storage.removeItem(VIEW_AS_ADMIN_TOKEN);
+          await storage.removeItem(VIEW_AS_INFO);
+          router.replace('/admin-hub/user-management');
+          return Promise.reject(error);
+        }
+      } catch (e) { /* fall through to the normal sign-out */ }
+    }
+    // Restricted token: the password must be changed first (27 Nov 2026)
+    if (error.response?.status === 403 && error.response?.data?.detail === 'PASSWORD_CHANGE_REQUIRED') {
+      try { router.replace('/change-password'); } catch (e) { /* ignore */ }
+      return Promise.reject(error);
+    }
     if (error.response?.status === 401 && !error.config?.url?.includes('/login')) {
       try {
         await storage.removeItem('access_token');
@@ -65,7 +84,16 @@ api.interceptors.response.use(
 );
 
 // Auth APIs
+// Keys used while an IT Admin is in "View as user" (27 Nov 2026)
+export const VIEW_AS_ADMIN_TOKEN = 'view_as_admin_token';
+export const VIEW_AS_INFO = 'view_as_info';
+
 export const authAPI = {
+  // What must happen before the user can carry on (27 Nov 2026):
+  // { has_mobile, password_change_required: null|'legacy'|'policy', view_as_by }
+  getAccountStatus: async () => (await api.get('/me/account-status')).data,
+  changePassword: async (current_password, new_password) =>
+    (await api.post('/me/change-password', { current_password, new_password })).data,
   // Compulsory mobile number (25 Nov 2026) — own account only
   getMobileStatus: async () => {
     const response = await api.get('/me/mobile-status');
@@ -621,6 +649,11 @@ export const handleAPIError = (error) => {
     const status = error.response.status;
     const detail = error.response.data?.detail || "";
 
+    // "View as user" preview: the server refuses every change (27 Nov 2026)
+    if (status === 403 && typeof detail === 'string' && detail.startsWith('VIEW_ONLY')) {
+      return 'This is a read-only preview ("View as user") — changes are not allowed.';
+    }
+
     switch (status) {
       // ── 400 Bad Request ────────────────────────────────────────────────────
       case 400:
@@ -980,7 +1013,18 @@ export const inventoryAPI = {
 
 // Security (26 Nov 2026, IT Admin): settings, dormant-account alerts,
 // audit trail and the Users access Excel.
+// Documents section (27 Nov 2026): kind = 'psd' (IT Admin only) | 'guides'
+export const libraryAPI = {
+  list: async (kind) => (await api.get(`/library/${kind}`)).data,
+  download: async (kind, file) => (await api.get(`/library/${kind}/download`, {
+    params: { file }, responseType: 'blob', timeout: 120000,
+  })).data,
+};
+
 export const securityAPI = {
+  // "View as user" — read-only preview (27 Nov 2026)
+  startViewAs: async (username) => (await api.post(`/security/view-as/${encodeURIComponent(username)}`)).data,
+  endViewAs: async () => (await api.post('/security/view-as/end')).data,
   getSettings: async () => (await api.get('/security/settings')).data,
   saveSettings: async (body) => (await api.put('/security/settings', body)).data,
   getAlerts: async (status = 'open') => (await api.get('/security/alerts', { params: { status } })).data,

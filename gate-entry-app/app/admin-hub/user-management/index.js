@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { getCurrentUser } from '../../../utils/jwtUtils';
+import { getCurrentUser, goToMyHome } from '../../../utils/jwtUtils';
 import { showAlert } from '../../../utils/customModal';
 import AppShell from '../../../components/ui/AppShell';
 
@@ -74,15 +74,15 @@ export default function UserManagementScreen() {
         const roles = userData.roles || [];
         if (!roles.includes('itadmin')) {
           showAlert('Access Denied', 'Only IT Admin can access User Management.');
-          router.replace('/admin-hub');
+          goToMyHome(router);   // own start page (27 Nov 2026)
           return;
         }
 
         setAllowed(true);
       } catch (e) {
         console.error('UserManagement auth check failed:', e);
-        // Don't leave the user stuck — send them back
-        router.replace('/admin-hub');
+        // Don't leave the user stuck — send them to their own start page
+        goToMyHome(router);
       } finally {
         setChecking(false);
       }

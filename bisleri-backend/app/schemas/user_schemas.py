@@ -26,13 +26,13 @@ class UserCreate(BaseModel):
     gate_pass_locations: Optional[List[GatePassLocationAssignment]] = None
     # Blinkit Inventory Portal mapping (26 Nov 2026)
     inventory_warehouses: Optional[List[str]] = None   # operator + viewer
-    inventory_viewers: Optional[List[str]] = None      # operator only (Blinkit usernames)
+    inventory_stores: Optional[List[str]] = None       # operator only (blinkit_stores.store_code)
     store_code: Optional[str] = None                   # viewer only (blinkit_stores.store_code)
 
 
 class InventoryAccessUpdate(BaseModel):
     warehouses: List[str] = []
-    viewers: List[str] = []
+    stores: List[str] = []
     store_code: Optional[str] = None
 
 class UserResponse(BaseModel):
@@ -91,6 +91,8 @@ class UserSearchResponse(BaseModel):
     gate_pass_location: Optional[str] = None
     is_active: Optional[bool] = True
     last_login: Optional[datetime] = None   # users_master.last_login (stored UTC)
+    # 27 Nov 2026: "ok" | "needs_update" | "not_checked"; None before migration a7c3e5d1f9b2
+    password_status: Optional[str] = None
 
     class Config:
         from_attributes = True

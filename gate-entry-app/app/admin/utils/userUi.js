@@ -67,7 +67,7 @@ export function accessPreview(roles, { warehouse, locations = [], department, co
   const invWh = inventory?.warehouses?.length ? inventory.warehouses.join(', ') : 'selected warehouses';
   if (has('Bisleri Inventory Operator')) {
     yes.push(`Blinkit Inventory Portal: Dashboard, Entry (manual + Excel upload) — ${invWh}`);
-    yes.push(`Inventory View / History + Excel export — ${inventory?.viewers?.length || 0} Blinkit user(s)' stores`);
+    yes.push(`Inventory View / History + Excel export — ${inventory?.stores?.length ? inventory.stores.join(', ') : 'selected stores'}`);
   }
   if (has('Blinkit Inventory Viewer')) {
     yes.push(`Blinkit Inventory Portal: View / History + Excel export (read-only) — store ${inventory?.store_code || '(not chosen)'}, ${invWh}`);

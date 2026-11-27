@@ -13,7 +13,8 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, Platform, useWindowDimensions } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getCurrentUser } from '../../utils/jwtUtils';
+import { getCurrentUser, getRoleBasedRoute } from '../../utils/jwtUtils';
+import { previousPath } from '../../utils/navHistory';
 import { storage } from '../../utils/storage';
 import AppHeader, { WIDE_BREAKPOINT } from './AppHeader';
 import NavSidebar from './NavSidebar';
@@ -24,17 +25,20 @@ import { useTheme, brand } from '../../contexts/ThemeContext';
 const AppShell = ({ children, title, backLabel, onBack, appNav }) => {
   const router = useRouter();
 
-  // Default back handler: router.back() silently does nothing when this
-  // screen was reached with no navigation history behind it (a direct URL,
-  // a refresh on web, or a deep link) — that's the "back button does
-  // nothing" bug. Fall back to the hub, a safe landing page for any
-  // screen that lives behind AppShell, when there's nowhere to pop back to.
-  const defaultOnBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/admin-hub');
-    }
+  // Hybrid "← Back" (27 Nov 2026):
+  //   came here from another page of the app -> back to that page
+  //   otherwise (refresh, typed link, first page after login) -> the
+  //   page's parent: the screen's own onBack, else the user's start page.
+  const parentBack = () => {
+    if (onBack) { onBack(); return; }
+    const roles = userData?.roles || [];
+    router.replace(roles.includes('itadmin') ? '/admin-hub' : getRoleBasedRoute(roles));
+  };
+  const handleBack = () => {
+    const prev = previousPath();
+    if (prev && router.canGoBack()) router.back();
+    else if (prev) router.push(prev);
+    else parentBack();
   };
   const [sidebarVisible, setSidebarVisible] = useState(false);
   // Avatar chip opens this small popup instead of the full hamburger menu
@@ -134,9 +138,9 @@ const AppShell = ({ children, title, backLabel, onBack, appNav }) => {
   const header = (
     <AppHeader
       rightSlot={avatarChip}
-      backLabel={backLabel}
+      backLabel={backLabel ? 'Back' : undefined}
       title={title}
-      onBack={onBack || defaultOnBack}
+      onBack={handleBack}
       onMenuPress={fixedNav ? undefined : () => setSidebarVisible(true)}
       hideBrand={fixedNav}
     />

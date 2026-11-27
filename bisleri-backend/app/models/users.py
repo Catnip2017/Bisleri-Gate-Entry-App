@@ -41,5 +41,10 @@ class UsersMaster(Base):
     # app/services/security.py: security_ready().
     created_at = deferred(Column(DateTime, nullable=True, server_default=func.now()))
     last_seen_at = deferred(Column(DateTime, nullable=True))
+    # Password policy status (27 Nov 2026, migration a7c3e5d1f9b2): NULL = not
+    # checked yet, True = meets the rule, False = needs update. Deferred for
+    # the same reason as above (app.services.security.password_ready()).
+    password_policy_ok = deferred(Column(Boolean, nullable=True))
+    password_changed_at = deferred(Column(DateTime, nullable=True))
 
     location = relationship("LocationMaster")

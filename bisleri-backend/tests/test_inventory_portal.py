@@ -36,7 +36,7 @@ def env():
     db.flush()
     set_access(db, "bk1", "blinkitinventoryviewer", ["WH1", "WH2"], [], "c100")
     set_access(db, "bk2", "blinkitinventoryviewer", ["WH3"], [], "C200")
-    set_access(db, "op1", "bisleriinventoryoperator", ["WH1", "WH2"], ["bk1"], None)
+    set_access(db, "op1", "bisleriinventoryoperator", ["WH1", "WH2"], ["c100"], None)
     db.commit()
 
     app = FastAPI()
@@ -72,9 +72,9 @@ def test_set_access_rules(env):
     as_, db = env
     from fastapi import HTTPException
     with pytest.raises(HTTPException):
-        set_access(db, "op1", "bisleriinventoryoperator", ["WH1"], [], None)          # no viewer
+        set_access(db, "op1", "bisleriinventoryoperator", ["WH1"], [], None)          # no store
     with pytest.raises(HTTPException):
-        set_access(db, "op1", "bisleriinventoryoperator", ["WH1"], ["sg"], None)      # not a viewer
+        set_access(db, "op1", "bisleriinventoryoperator", ["WH1"], ["NOPE"], None)    # unknown store
     with pytest.raises(HTTPException):
         set_access(db, "bk1", "blinkitinventoryviewer", ["WH1"], [], "")              # no store
     with pytest.raises(HTTPException):
@@ -94,6 +94,10 @@ def test_lookups_scope(env):
     assert [c["code"] for c in as_("adm").get("/inventory/lookups").json()["stores"]] == ["C100", "C200"]
     assert as_("sg").get("/inventory/lookups").status_code == 403
     assert as_("adm").get("/inventory/lookups").json()["kind"] == "admin"
+    # operator scope comes from its own stores, not from Blinkit users (27 Nov 2026)
+    from app.services.inventory_access import get_access
+    _, db = env
+    assert get_access(db, "op1")["stores"] == ["C100"]
 
 
 def test_submit_partial_and_rules(env):

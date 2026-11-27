@@ -142,6 +142,8 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
   const [status, setStatus] = useState('Active');
   const [activity, setActivity] = useState('any');
   const [exporting, setExporting] = useState(false);
+  // Password policy status (27 Nov 2026): 'any' | 'needs_update' | 'ok' | 'not_checked'
+  const [pwFilter, setPwFilter] = useState('any');
 
   const load = async () => {
     setLoading(true); setError(null);
@@ -167,6 +169,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
       active: active.length,
       never: active.filter((u) => !u.last_login).length,
       stale90: active.filter((u) => { const d = daysSinceLogin(u.last_login); return d !== null && d >= 90; }).length,
+      pwNeeds: active.filter((u) => u.password_status === 'needs_update').length,
     };
   }, [users]);
 
@@ -189,13 +192,16 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
       if (activity === '60+' && !(d === null || d >= 60)) return false;
       if (activity === '90+' && !(d === null || d >= 90)) return false;
       if (activity === 'never' && u.last_login) return false;
+      if (pwFilter !== 'any' && u.password_status !== pwFilter) return false;
       return true;
     });
-  }, [users, q, roleSel, warehouseSel, status, activity]);
+  }, [users, q, roleSel, warehouseSel, status, activity, pwFilter]);
+  // Column / filter only once the server reports a status (migration a7c3e5d1f9b2)
+  const hasPw = users.some((u) => u.password_status);
 
   // Users access Excel (26 Nov 2026, replaces access-review campaigns):
   // the list exactly as filtered on screen, with roles, scope and logins.
-  const filtersOn = q.trim() || roleSel.length || warehouseSel.length || status !== 'All' || activity !== 'any';
+  const filtersOn = q.trim() || roleSel.length || warehouseSel.length || status !== 'All' || activity !== 'any' || pwFilter !== 'any';
   const downloadExcel = async () => {
     if (!canDownload()) { showAlert('Download', 'Excel download is available on the web version.'); return; }
     setExporting(true);
@@ -233,6 +239,10 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
           options={warehouses} onChange={setWarehouseSel} width={185} />
         <FilterSelect label="Status" value={status} options={STATUS_FILTERS.map((s) => [s, s])} onChange={setStatus} width={150} />
         <FilterSelect label="Login" value={activity} options={ACTIVITY_FILTERS} onChange={setActivity} width={210} />
+        {hasPw && (
+          <FilterSelect label="Password" value={pwFilter} onChange={setPwFilter} width={200}
+            options={[['any', 'Any'], ['needs_update', 'Needs update'], ['ok', 'OK'], ['not_checked', 'Not checked yet']]} />
+        )}
         <TouchableOpacity style={S.primaryBtn} onPress={onRegister} accessibilityRole="button">
           <Text style={S.primaryBtnTxt}>＋ Register User</Text>
         </TouchableOpacity>
@@ -240,10 +250,11 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
 
       {/* Counts — tap to filter */}
       <View style={S.kpiRow}>
-        {kpi('Total users', counts.total, () => { setStatus('All'); setActivity('any'); setRoleSel([]); setWarehouseSel([]); })}
+        {kpi('Total users', counts.total, () => { setStatus('All'); setActivity('any'); setRoleSel([]); setWarehouseSel([]); setPwFilter('any'); })}
         {kpi('Active', counts.active, () => { setStatus('Active'); setActivity('any'); })}
         {kpi('Never logged in', counts.never, () => { setStatus('Active'); setActivity('never'); }, 'active accounts')}
         {kpi('No login 90+ days', counts.stale90, () => { setStatus('Active'); setActivity('90+'); }, 'active accounts')}
+        {hasPw && kpi('Password needs update', counts.pwNeeds, () => { setStatus('Active'); setPwFilter('needs_update'); }, 'checked at their last login')}
       </View>
 
       {/* Table */}
@@ -253,6 +264,7 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
           <Text style={[S.thTxt, { flex: 2 }]}>ROLES</Text>
           <Text style={[S.thTxt, { flex: 1.4 }]}>WAREHOUSE / SCOPE</Text>
           <Text style={[S.thTxt, { flex: 1.2 }]}>LAST LOGIN</Text>
+          {hasPw && <Text style={[S.thTxt, { flex: 1 }]}>PASSWORD</Text>}
           <Text style={[S.thTxt, { flex: 1 }]}>STATUS</Text>
           <Text style={[S.thTxt, { width: 60 }]} />
         </View>
@@ -300,6 +312,17 @@ export default function UsersListScreen({ onOpenUser, onRegister }) {
                   <Text style={[S.cell, { flex: 1.2, color: stale ? '#A35F00' : '#5B6B75' }]} numberOfLines={1}>
                     {shortLastLogin(u.last_login)}
                   </Text>
+                  {hasPw && (
+                    <View style={{ flex: 1 }}>
+                      {u.password_status === 'needs_update' ? (
+                        <View style={[S.chip, { backgroundColor: '#FFF3CD' }]}><Text style={[S.chipTxt, { color: '#856404' }]}>Needs update</Text></View>
+                      ) : u.password_status === 'ok' ? (
+                        <Text style={[S.cell, { color: '#5B6B75' }]}>OK</Text>
+                      ) : (
+                        <Text style={[S.cell, { color: '#8B99A3', fontSize: 12.5 }]}>Not checked</Text>
+                      )}
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <View style={[S.chip, !active && { backgroundColor: '#FCEBEB' }]}>
                       <Text style={[S.chipTxt, !active && { color: '#A32D2D' }]}>{active ? '● Active' : '○ Deactivated'}</Text>

@@ -222,7 +222,7 @@ export default function RegisterScreen() {
         ...(form.phone_number?.trim() && { phone_number: form.phone_number.trim() }),
         ...(needsInv && {
           inventory_warehouses: invScope.warehouses,
-          inventory_viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
+          inventory_stores: roles.includes(INV_OPERATOR) ? invScope.stores : [],
           store_code: roles.includes(INV_VIEWER) ? invScope.store_code : null,
         }),
       };
@@ -285,7 +285,7 @@ export default function RegisterScreen() {
     ...(needsCP ? [['Co Packer location', form.copackerLocation || '—']] : []),
     ...(roles.includes(INV_VIEWER) ? [['Blinkit store', invScope.store_code || '—']] : []),
     ...(needsInv ? [['Inventory warehouses', invScope.warehouses.join(', ') || '—']] : []),
-    ...(roles.includes(INV_OPERATOR) ? [['Blinkit users', invScope.viewers.join(', ') || '—']] : []),
+    ...(roles.includes(INV_OPERATOR) ? [['Blinkit stores', invScope.stores.join(', ') || '—']] : []),
   ];
 
   return (

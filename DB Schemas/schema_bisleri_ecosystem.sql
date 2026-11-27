@@ -11,7 +11,7 @@
 --  Server-side column defaults (see the 'Column defaults' block near the end)
 --  mirror the live database / model defaults.
 --
---  Tables (38): alembic_version, audit_log, blinkit_stores, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, inventory_batches, inventory_entries, inventory_operator_viewers, inventory_user_warehouses, inventory_viewer_store, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, security_alerts, security_settings, user_gate_pass_locations, users_master
+--  Tables (38): alembic_version, audit_log, blinkit_stores, copacker_assets, copacker_capture_edit_log, copacker_captures, copacker_entries, copacker_locations, copacker_quantity_edit_log, copacker_sessions, document_data, gate_pass_assets, gate_pass_cancel_reasons, gate_pass_customers, gate_pass_departments, gate_pass_events, gate_pass_headers, gate_pass_items, gate_pass_lines, gate_pass_locations, gate_pass_sequences, gate_pass_vendors, insights_data, inventory_batches, inventory_entries, inventory_operator_stores, inventory_user_warehouses, inventory_viewer_store, item_master, location_master, mfabric_deliverychallan_data, mfabric_invoice_data, mfabric_transferorder_rgp_data, raw_materials_data, security_alerts, security_settings, user_gate_pass_locations, users_master
 --
 --  Plain DDL only -- no psql meta-commands -- so it also runs through
 --  psycopg2. It stamps alembic_version so `alembic upgrade head` is a
@@ -1946,6 +1946,13 @@ CREATE INDEX ix_security_alerts_status ON public.security_alerts (status);
 CREATE INDEX ix_security_alerts_user_kind ON public.security_alerts (username, kind);
 
 --
+-- Password policy status (Alembic a7c3e5d1f9b2, 27 Nov 2026)
+--
+
+ALTER TABLE public.users_master ADD COLUMN password_policy_ok boolean;
+ALTER TABLE public.users_master ADD COLUMN password_changed_at timestamp without time zone;
+
+--
 -- Blinkit Inventory Portal (Alembic c4e8a1f7d2b9, 26 Nov 2026 — store master version)
 --
 
@@ -2000,10 +2007,10 @@ CREATE TABLE public.inventory_user_warehouses (
     PRIMARY KEY (username, warehouse_code)
 );
 
-CREATE TABLE public.inventory_operator_viewers (
+CREATE TABLE public.inventory_operator_stores (
     operator_username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
-    viewer_username character varying(50) NOT NULL REFERENCES public.users_master(username) ON DELETE CASCADE,
-    PRIMARY KEY (operator_username, viewer_username)
+    store_code character varying(50) NOT NULL REFERENCES public.blinkit_stores(store_code),
+    PRIMARY KEY (operator_username, store_code)
 );
 
 CREATE TABLE public.inventory_viewer_store (

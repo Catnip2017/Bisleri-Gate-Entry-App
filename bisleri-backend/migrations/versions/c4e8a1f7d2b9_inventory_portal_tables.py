@@ -1,7 +1,7 @@
 """Blinkit Inventory Portal tables
 
 Revision ID: c4e8a1f7d2b9
-Revises: b9e4d2a7c1f5
+Revises: a7c3e5d1f9b2
 Create Date: 2026-11-26 00:00:00.000000
 
 Schema agreed on 26 Nov 2026 (store master version):
@@ -17,7 +17,7 @@ Schema agreed on 26 Nov 2026 (store master version):
                               warehouse_code -> location_master (+ warehouse_name
                               copied on save), sku_code -> item_master
   inventory_user_warehouses   operator / viewer -> warehouses
-  inventory_operator_viewers  operator -> Blinkit viewers
+  inventory_operator_stores   operator -> Blinkit stores (27 Nov 2026: was operator -> Blinkit users)
   inventory_viewer_store      Blinkit viewer -> ONE store
 
 Load the masters after upgrading:
@@ -29,7 +29,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = 'c4e8a1f7d2b9'
-down_revision: Union[str, None] = 'b9e4d2a7c1f5'
+down_revision: Union[str, None] = 'a7c3e5d1f9b2'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -91,9 +91,9 @@ def upgrade() -> None:
         sa.Column('warehouse_code', sa.String(50), sa.ForeignKey('location_master.warehouse_code'), primary_key=True),
     )
     op.create_table(
-        'inventory_operator_viewers',
+        'inventory_operator_stores',
         sa.Column('operator_username', sa.String(50), sa.ForeignKey('users_master.username', ondelete='CASCADE'), primary_key=True),
-        sa.Column('viewer_username', sa.String(50), sa.ForeignKey('users_master.username', ondelete='CASCADE'), primary_key=True),
+        sa.Column('store_code', sa.String(50), sa.ForeignKey('blinkit_stores.store_code'), primary_key=True),
     )
     op.create_table(
         'inventory_viewer_store',
@@ -106,7 +106,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index('ix_inventory_viewer_store_store_code', table_name='inventory_viewer_store')
     op.drop_table('inventory_viewer_store')
-    op.drop_table('inventory_operator_viewers')
+    # IF EXISTS on both: a database upgraded with the 26 Nov version of this
+    # revision has inventory_operator_viewers instead of _stores.
+    op.execute("DROP TABLE IF EXISTS inventory_operator_stores")
+    op.execute("DROP TABLE IF EXISTS inventory_operator_viewers")
     op.drop_table('inventory_user_warehouses')
     op.drop_index('ix_inventory_entries_store_date', table_name='inventory_entries')
     op.drop_index('ix_inventory_entries_date_wh', table_name='inventory_entries')

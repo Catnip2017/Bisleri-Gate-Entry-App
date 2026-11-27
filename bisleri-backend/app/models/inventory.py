@@ -5,7 +5,7 @@
 #   inventory_batches          one row per "Submit All" (manual list or Excel upload)
 #   inventory_entries          one row per stock line — never edited or deleted
 #   inventory_user_warehouses  warehouses an operator / viewer is mapped to (many)
-#   inventory_operator_viewers Blinkit viewers an operator enters stock for (many)
+#   inventory_operator_stores  Blinkit stores an operator enters stock for (many)
 #   inventory_viewer_store     the ONE Blinkit store of a Blinkit viewer
 #
 # SKUs come from item_master (SKU = item_number) and warehouses from
@@ -72,11 +72,14 @@ class InventoryUserWarehouse(Base):
     warehouse_code = Column(String(50), ForeignKey("location_master.warehouse_code"), primary_key=True)
 
 
-class InventoryOperatorViewer(Base):
-    __tablename__ = "inventory_operator_viewers"
+class InventoryOperatorStore(Base):
+    """Blinkit stores an operator enters stock for (27 Nov 2026 — replaced the
+    operator -> Blinkit user mapping, so operators can be set up before any
+    Blinkit user exists)."""
+    __tablename__ = "inventory_operator_stores"
 
     operator_username = Column(String(50), ForeignKey("users_master.username", ondelete="CASCADE"), primary_key=True)
-    viewer_username = Column(String(50), ForeignKey("users_master.username", ondelete="CASCADE"), primary_key=True)
+    store_code = Column(String(50), ForeignKey("blinkit_stores.store_code"), primary_key=True)
 
 
 class InventoryViewerStore(Base):

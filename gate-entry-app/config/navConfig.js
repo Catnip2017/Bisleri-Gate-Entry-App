@@ -85,16 +85,17 @@ export const NAV_LINKS = [
   },
 ];
 
-// "Documents" accordion (30 Oct 2026) — reference PDFs, visible to every
-// signed-in user regardless of role (not filtered through getNavLinksForRoles).
-// Content comes later; the screens behind these routes render an empty state
-// until files are attached.
+// "Documents" section — reference PDFs read from folders on the server
+// (27 Nov 2026, see bisleri-backend/app/routers/library.py). A link with
+// `roles` is shown only to those roles (Process Solution Documents = IT Admin
+// only); a link without `roles` is shown to every signed-in user.
 export const DOCUMENT_LINKS = [
   {
     key: 'process-solution-documents',
     label: 'Process Solution Documents',
     icon: 'description',
     route: '/documents/process-solution-documents',
+    roles: ['itadmin'],
   },
   {
     key: 'user-guides',
@@ -129,6 +130,9 @@ export const getUserDetails = (user) => {
     ['Co-Packer Location',        user.copackerLocation || '—'],
   ];
 };
+
+export const getDocumentLinksForRoles = (roles = []) =>
+  DOCUMENT_LINKS.filter((link) => !link.roles || link.roles.some((r) => roles.includes(r)));
 
 export const getNavLinksForRoles = (roles = []) =>
   NAV_LINKS.filter((link) => link.roles.some((r) => roles.includes(r)));

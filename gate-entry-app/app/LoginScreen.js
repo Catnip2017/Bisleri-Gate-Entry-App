@@ -96,6 +96,13 @@ export default function LoginScreen() {
         return;
       }
 
+      // Old-format password, or a weak one with the policy switched on:
+      // "Set a new password" first (27 Nov 2026).
+      if (response.password_change_required) {
+        router.replace('/change-password');
+        return;
+      }
+
       const route = getRoleBasedRoute(userData.roles);
       router.replace(route);
 

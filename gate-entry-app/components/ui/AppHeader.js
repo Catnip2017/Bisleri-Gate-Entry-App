@@ -79,7 +79,7 @@ const AppHeader = ({ rightSlot, backLabel, title, onBack, onMenuPress, hideBrand
               style={styles.backChip}
               onPress={onBack}
               accessibilityRole="button"
-              accessibilityLabel={`Back to ${backLabel}`}
+              accessibilityLabel={backLabel === 'Back' ? 'Back' : `Back to ${backLabel}`}
             >
               <MaterialIcons name="arrow-back" size={16} color={brand.navyDark} />
               <Text style={styles.backChipText} numberOfLines={1}>{backLabel}</Text>

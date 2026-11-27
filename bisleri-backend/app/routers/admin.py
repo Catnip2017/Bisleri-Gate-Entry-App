@@ -45,7 +45,7 @@ def _snap(db: Session, user: UsersMaster) -> dict:
     # Inventory tables are only touched for portal roles (they may not exist yet).
     if {INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(user.role)):
         acc = inventory_get_access(db, user.username)
-        out.update({"inventory_warehouses": acc["warehouses"], "inventory_viewers": acc["viewers"],
+        out.update({"inventory_warehouses": acc["warehouses"], "inventory_stores": acc["stores"],
                     "inventory_store": acc["store_code"]})
     return out
 
@@ -181,7 +181,7 @@ def register_user(
         if {INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(new_user.role)):
             inventory_set_access(
                 db, new_user.username, new_user.role,
-                user.inventory_warehouses, user.inventory_viewers, user.store_code,
+                user.inventory_warehouses, user.inventory_stores, user.store_code,
             )
 
         # Gate Pass locations -> junction table; users_master.gate_pass_location
@@ -627,7 +627,7 @@ def put_inventory_access(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     before = inventory_get_access(db, username)
-    inventory_set_access(db, username, user.role, payload.warehouses, payload.viewers, payload.store_code)
+    inventory_set_access(db, username, user.role, payload.warehouses, payload.stores, payload.store_code)
     db.flush()
     changes = diff(before, inventory_get_access(db, username))
     if changes:
@@ -648,12 +648,24 @@ def users_overview(
     roles = normalize_roles(current_user.role)
     if "itadmin" not in roles:
         raise HTTPException(status_code=403, detail="Only IT Admins can list users")
-    return (
+    users = (
         db.query(UsersMaster)
         .order_by(UsersMaster.first_name, UsersMaster.last_name, UsersMaster.username)
         .limit(5000)
         .all()
     )
+    # Password policy status (27 Nov 2026) — only once migration a7c3e5d1f9b2 is in.
+    from app.services.security import password_ready
+    status_of = {}
+    if password_ready(db):
+        status_of = {u: ("not_checked" if ok is None else "ok" if ok else "needs_update")
+                     for (u, ok) in db.query(UsersMaster.username, UsersMaster.password_policy_ok).all()}
+    out = []
+    for u in users:
+        row = UserSearchResponse.model_validate(u)
+        row.password_status = status_of.get(u.username)
+        out.append(row)
+    return out
 
 
 # ✅ Update User Details — IT Admin only

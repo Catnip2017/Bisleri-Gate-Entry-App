@@ -23,7 +23,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { rpaAPI, handleAPIError } from '../../services/api';
-import { getCurrentUser } from '../../utils/jwtUtils';
+import { getCurrentUser, goToMyHome } from '../../utils/jwtUtils';
 import { showAlert } from '../../utils/customModal';
 import AppShell from '../../components/ui/AppShell';
 import KpiCard from '../../components/ui/KpiCard';
@@ -126,7 +126,7 @@ export default function MonthlySalesInvoiceScreen() {
       if (!user) { router.replace('/LoginScreen'); return; }
       if (!(user.roles || []).includes('itadmin')) {
         showAlert('Access Denied', 'Only IT Admin can view RPA dashboards.');
-        router.replace('/admin-hub');
+        goToMyHome(router);   // own start page (27 Nov 2026)
         return;
       }
       setAllowed(true);

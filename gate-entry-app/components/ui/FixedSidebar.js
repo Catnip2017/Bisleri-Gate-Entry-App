@@ -11,9 +11,12 @@
 //   3. Optional "this app" section — the screen passes `appNav`
 //      ({ title, items: [{ key, label, icon, active, badge, onPress }] }),
 //      e.g. Gate Entry & Insights lists Gate Entry / Insights / Gate Pass.
-//   4. "Ops Hub" section — the same role-filtered links as NavSidebar
-//      (config/navConfig.js): Admin Hub, applications, User Management,
-//      Documents.
+//   4. Menu (27 Nov 2026 layout):
+//        IT Admin : OPS HUB → Admin Hub (icon page), APPLICATIONS heading
+//                   with the apps, User Management; DOCUMENTS heading.
+//        Others   : APPLICATIONS heading with their apps; DOCUMENTS heading.
+//      Headings are labels only (not clickable). Same role-filtered links as
+//      NavSidebar (config/navConfig.js).
 //   5. Account Details row + Logout (same confirmation as NavSidebar) +
 //      version footer.
 import React, { useState } from 'react';
@@ -28,7 +31,7 @@ import { useCopackerEnabled } from '../../hooks/useCopackerEnabled';
 import {
   APP_VERSION,
   ROLE_LABELS,
-  DOCUMENT_LINKS,
+  getDocumentLinksForRoles,
   getNavLinksForRoles,
 } from '../../config/navConfig';
 
@@ -39,11 +42,13 @@ const WHITE_70 = 'rgba(255,255,255,0.78)';
 const WHITE_50 = 'rgba(255,255,255,0.55)';
 const DIVIDER = 'rgba(255,255,255,0.22)';
 
-const SectionLabel = ({ children }) => (
+// Heading only — not clickable. `sub` = a heading inside OPS HUB (IT Admin's
+// "Applications"), drawn slightly smaller and indented.
+const SectionLabel = ({ children, sub }) => (
   <Text style={{
-    color: WHITE_50, fontSize: 11, fontWeight: '700', letterSpacing: 1.2,
-    textTransform: 'uppercase', paddingHorizontal: 22, marginTop: 18, marginBottom: 6,
-  }} numberOfLines={1}>
+    color: WHITE_50, fontSize: sub ? 10.5 : 11, fontWeight: '700', letterSpacing: 1.2,
+    textTransform: 'uppercase', paddingHorizontal: sub ? 26 : 22, marginTop: sub ? 12 : 18, marginBottom: 6,
+  }} numberOfLines={1} accessibilityRole="header">
     {children}
   </Text>
 );
@@ -102,7 +107,8 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
     pathname === route || (route !== '/' && pathname?.startsWith(route + '/'));
   // Only the most specific match is "current" — e.g. on
   // /admin-hub/user-management, User Management lights up, not Admin Hub too.
-  const bestRoute = [...links, ...DOCUMENT_LINKS]
+  const docLinks = getDocumentLinksForRoles(roles);
+  const bestRoute = [...links, ...docLinks]
     .map((l) => l.route)
     .filter(matches)
     .sort((a, b) => b.length - a.length)[0];
@@ -115,6 +121,28 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
   const go = (route) => {
     if (pathname !== route) router.push(route);
   };
+
+  // One link, or — for the page that is open — the link plus its own pages
+  // (appNav) as an indented sub-list.
+  const renderLink = (link) => {
+    const current = isCurrent(link.route);
+    if (hasAppNav && current) {
+      return (
+        <View key={link.key}>
+          <NavItem label={link.label} icon={link.icon} tint chevron parentOpen={appOpen}
+            onPress={() => setAppOpen((o) => !o)} />
+          {appOpen && appNav.items.map((item) => (
+            <NavItem key={item.key} label={item.label} icon={item.icon} active={item.active}
+              badge={item.badge} onPress={item.onPress} indent small />
+          ))}
+        </View>
+      );
+    }
+    return <NavItem key={link.key} label={link.label} icon={link.icon} active={current} onPress={() => go(link.route)} />;
+  };
+  const homeLinks = links.filter((l) => !l.group);
+  const appLinks = links.filter((l) => l.group === 'app');
+  const managementLinks = links.filter((l) => l.group === 'management');
 
   const handleLogout = () => {
     confirmAction({
@@ -182,48 +210,19 @@ const FixedSidebar = ({ userData, appNav, onOpenAccountDetails }) => {
 
       {/* 3 + 4. Menus */}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 12 }}>
-        <SectionLabel>Ops Hub</SectionLabel>
-        {links.map((link) => {
-          const current = isCurrent(link.route);
-          if (hasAppNav && current) {
-            return (
-              <View key={link.key}>
-                <NavItem
-                  label={link.label}
-                  icon={link.icon}
-                  tint
-                  chevron
-                  parentOpen={appOpen}
-                  onPress={() => setAppOpen((o) => !o)}
-                />
-                {appOpen && appNav.items.map((item) => (
-                  <NavItem
-                    key={item.key}
-                    label={item.label}
-                    icon={item.icon}
-                    active={item.active}
-                    badge={item.badge}
-                    onPress={item.onPress}
-                    indent
-                    small
-                  />
-                ))}
-              </View>
-            );
-          }
-          return (
-            <NavItem
-              key={link.key}
-              label={link.label}
-              icon={link.icon}
-              active={current}
-              onPress={() => go(link.route)}
-            />
-          );
-        })}
+        {homeLinks.length > 0 && (
+          <>
+            <SectionLabel>Ops Hub</SectionLabel>
+            {homeLinks.map(renderLink)}
+          </>
+        )}
+        {appLinks.length > 0 && <SectionLabel sub={homeLinks.length > 0}>Applications</SectionLabel>}
+        {appLinks.map(renderLink)}
+        {managementLinks.length > 0 && <View style={{ height: 10 }} />}
+        {managementLinks.map(renderLink)}
 
-        <SectionLabel>Documents</SectionLabel>
-        {DOCUMENT_LINKS.map((link) => (
+        {docLinks.length > 0 && <SectionLabel>Documents</SectionLabel>}
+        {docLinks.map((link) => (
           <NavItem
             key={link.key}
             label={link.label}

@@ -6,7 +6,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getCurrentUser } from '../../utils/jwtUtils';
+import { getCurrentUser, goToMyHome } from '../../utils/jwtUtils';
 import { copackerAPI, authAPI, handleAPIError } from '../../services/api';
 import { showAlert } from '../../utils/customModal';
 import { storage } from '../../utils/storage';
@@ -195,7 +195,7 @@ const CoPackerDashboard = () => {
       const adminAccess = roles.includes('itadmin') || roles.includes('copacker');
       if (!adminAccess) {
         showAlert('Access Denied', 'You do not have access to this page.');
-        router.replace('/LoginScreen');
+        goToMyHome(router);   // own start page (27 Nov 2026)
         return;
       }
       setIsITAdmin(roles.includes('itadmin'));

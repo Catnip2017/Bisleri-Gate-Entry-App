@@ -144,6 +144,15 @@ export const getCurrentUser = async () => {
     const currentTime = Math.floor(Date.now() / 1000);
     if (payload.exp && payload.exp < currentTime) {
       await storage.removeItem('access_token');
+      // A "View as user" preview ran out (27 Nov 2026): back to the IT
+      // Admin's own session rather than the login page.
+      const adminToken = await storage.getItem('view_as_admin_token');
+      if (payload.va && adminToken) {
+        await storage.setItem('access_token', adminToken);
+        await storage.removeItem('view_as_admin_token');
+        await storage.removeItem('view_as_info');
+        return getCurrentUser();
+      }
       return null;
     }
     
@@ -177,7 +186,9 @@ export const getCurrentUser = async () => {
       gatePassLocation: payload.gate_pass_location || null,
       department: payload.department || null,
       fullName: `${payload.first_name || ""} ${payload.last_name || ""}`.trim(),
-      exp: payload.exp
+      exp: payload.exp,
+      viewAsBy: payload.va || null,            // set during an IT Admin "View as user" preview
+      passwordChange: payload.pwc || null,     // 'legacy' | 'policy' -> must set a new password
     };
   } catch (error) {
     console.error('Error getting current user:', error);
@@ -271,4 +282,16 @@ export const getRoleBasedRoute = (roles = []) => {
  */
 export const isGateEntryRestricted = (roles = []) => {
   return roles.includes('itadmin') || roles.includes('securityadmin');
+};
+
+/**
+ * Send the signed-in user to their own start page — the same page login
+ * sends them to (27 Nov 2026). Used after "Access Denied" instead of always
+ * the Admin Hub, which most roles cannot open either.
+ */
+export const goToMyHome = async (router) => {
+  const user = await getCurrentUser();
+  if (!user) { router.replace('/LoginScreen'); return; }
+  if (user.passwordChange) { router.replace('/change-password'); return; }
+  router.replace(getRoleBasedRoute(user.roles || []));
 };

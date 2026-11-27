@@ -1,22 +1,19 @@
 // app/admin/utils/InventoryScope.js - Scope fields for the two Blinkit
 // Inventory Portal roles (26 Nov 2026), shared by Register and Assign Access.
 //
-//   Bisleri Inventory Operator : Warehouses (many) + Blinkit users (many)
+//   Bisleri Inventory Operator : Warehouses (many) + Blinkit stores (many) — 27 Nov 2026
 //   Blinkit Inventory Viewer   : Blinkit store (one, from blinkit_stores) + Warehouses (many)
 //
-// value = { warehouses: [], viewers: [], store_code: '' }
+// value = { warehouses: [], stores: [], store_code: '' }
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { SearchMultiSelect, SearchSelect } from '../../../components/ui/SearchSelect';
-import { adminAPI, inventoryAPI } from '../../../services/api';
+import { inventoryAPI } from '../../../services/api';
 
 export const INV_OPERATOR = 'Bisleri Inventory Operator';
 export const INV_VIEWER = 'Blinkit Inventory Viewer';
-export const EMPTY_INV_SCOPE = { warehouses: [], viewers: [], store_code: '' };
+export const EMPTY_INV_SCOPE = { warehouses: [], stores: [], store_code: '' };
 
-const norm = (r) => (r || '').toLowerCase().replace(/\s+/g, '');
-const isViewerRole = (roleString) =>
-  (roleString || '').split(',').map(norm).includes('blinkitinventoryviewer');
 
 export const needsInventoryScope = (roles) => roles.includes(INV_OPERATOR) || roles.includes(INV_VIEWER);
 
@@ -24,23 +21,22 @@ export const needsInventoryScope = (roles) => roles.includes(INV_OPERATOR) || ro
 export function inventoryScopeError(roles, v) {
   if (!needsInventoryScope(roles)) return null;
   if (!v.warehouses.length) return 'Select at least one warehouse for the Inventory Portal';
-  if (roles.includes(INV_OPERATOR) && !v.viewers.length) return 'Select at least one Blinkit user for this operator';
+  if (roles.includes(INV_OPERATOR) && !(v.stores || []).length) return 'Select at least one Blinkit store for this operator';
   if (roles.includes(INV_VIEWER) && !(v.store_code || '').trim()) return 'Select the Blinkit store for this Blinkit Inventory Viewer';
   return null;
 }
 
 export const inventoryScopeKey = (v) =>
-  `${[...v.warehouses].sort().join(',')}|${[...v.viewers].sort().join(',')}|${(v.store_code || '').trim().toUpperCase()}`;
+  `${[...v.warehouses].sort().join(',')}|${[...(v.stores || [])].sort().join(',')}|${(v.store_code || '').trim().toUpperCase()}`;
 
 export default function InventoryScope({ roles, value, onChange, warehouses = [], selfUsername }) {
   const operator = roles.includes(INV_OPERATOR);
   const viewer = roles.includes(INV_VIEWER);
-  const [viewerUsers, setViewerUsers] = useState([]);
   const [stores, setStores] = useState(null);       // null = loading
   const [storeErr, setStoreErr] = useState('');
 
   useEffect(() => {
-    if (!viewer) return;
+    if (!viewer && !operator) return;
     inventoryAPI.getStores()
       .then((list) => { setStores(list || []); setStoreErr(''); })
       .catch((e) => {
@@ -49,14 +45,7 @@ export default function InventoryScope({ roles, value, onChange, warehouses = []
           ? 'The Inventory Portal tables are not set up on this database yet.'
           : 'Could not load the Blinkit store list.');
       });
-  }, [viewer]);
-
-  useEffect(() => {
-    if (!operator) return;
-    adminAPI.getUsersOverview()
-      .then((list) => setViewerUsers((list || []).filter((u) => isViewerRole(u.role) && u.username !== selfUsername)))
-      .catch(() => setViewerUsers([]));
-  }, [operator, selfUsername]);
+  }, [viewer, operator]);
 
   if (!operator && !viewer) return null;
   const whOptions = warehouses.map((w) => ({
@@ -95,17 +84,15 @@ export default function InventoryScope({ roles, value, onChange, warehouses = []
       </View>
       {operator && (
         <View style={{ zIndex: 10 }}>
-          <Text style={label}>Blinkit users *</Text>
+          <Text style={label}>Blinkit stores *</Text>
           <SearchMultiSelect
-            options={viewerUsers.map((u) => ({
-              value: u.username,
-              label: `${`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username} (${u.username})`,
-            }))}
-            name="Blinkit users" selected={value.viewers} onChange={(v) => set('viewers', v)}
-            allLabel={null} placeholder={viewerUsers.length ? 'Select Blinkit users' : 'No Blinkit users yet — register them first'}
+            options={(stores || []).map((st) => ({ value: st.code, label: st.label }))}
+            name="Blinkit stores" selected={value.stores || []} onChange={(v) => set('stores', v)}
+            allLabel={null}
+            placeholder={stores === null ? 'Loading stores…' : stores.length ? 'Select Blinkit stores' : 'No stores in the store master yet'}
           />
-          <Text style={{ fontSize: 11.5, color: '#8B99A3', marginTop: 4 }}>
-            The operator enters stock for these users' Blinkit stores.
+          <Text style={{ fontSize: 11.5, color: storeErr ? '#C62828' : '#8B99A3', marginTop: 4 }}>
+            {storeErr || 'The operator enters stock for these stores (from the Blinkit stores master).'}
           </Text>
         </View>
       )}

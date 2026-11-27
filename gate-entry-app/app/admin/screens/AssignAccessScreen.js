@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { adminAPI, gatePassAPI, inventoryAPI, securityAPI, handleAPIError } from '../../../services/api';
 import UserHistory from '../utils/UserHistory';
+import { startViewAs } from '../../../components/ui/SessionLayer';
+import { useRouter } from 'expo-router';
 import { saveBlob, blobErrorMessage, canDownload, today } from '../../../utils/download';
 import { showAlert, confirmAction } from '../../../utils/customModal';
 import styles from '../styles/AssignAccessScreenStyle';
@@ -190,6 +192,7 @@ const EXCLUSIVE_ROLES = ['Co Packer', INV_OPERATOR, INV_VIEWER];
 const GUARD_ROLES = ['Security Guard', 'Security Admin'];
 
 const AssignAccessScreen = ({ initialUser = null }) => {
+  const router = useRouter();
   // Role cards: 4 / 3 / 2 / 1 per row depending on the space available
   const [rolesWidth, setRolesWidth] = useState(0);
   const roleCols = rolesWidth >= 900 ? 4 : rolesWidth >= 600 ? 3 : rolesWidth >= 380 ? 2 : 1;
@@ -237,13 +240,31 @@ const AssignAccessScreen = ({ initialUser = null }) => {
   // Values as loaded for the selected user — drives the "unsaved changes"
   // bar (25 Nov 2026). Active/inactive is excluded: it saves immediately.
   const [snapshot, setSnapshot] = useState(null);
-  // Blinkit Inventory Portal mapping (warehouses / Blinkit users / customer code)
+  // Blinkit Inventory Portal mapping (warehouses / stores / viewer's store)
   const [invScope, setInvScope] = useState(EMPTY_INV_SCOPE);
   // Audit trail (26 Nov 2026): optional reason saved with the change, and a
   // counter that reloads the History card after a save.
   const [reason, setReason] = useState('');
   const [historyKey, setHistoryKey] = useState(0);
   const [exportingUser, setExportingUser] = useState(false);
+  // "View as user" (27 Nov 2026): read-only preview of this user's pages
+  const [viewing, setViewing] = useState(false);
+  const viewTargetRoles = (selectedUser?.role || '').split(',').map((r) => r.trim()).filter(Boolean);
+  const canViewAs = !!selectedUser && savedActive && viewTargetRoles.length > 0 && !viewTargetRoles.includes('IT Admin');
+  const handleViewAs = () => {
+    if (!selectedUser) return;
+    confirmAction({
+      title: `View as ${selectedUser.username}`,
+      message: `Open ${selectedUser.username}'s pages exactly as they see them, read-only, for up to 30 minutes. Nothing can be saved or changed during the preview. The preview is recorded in the audit trail.`,
+      confirmText: 'Start preview',
+      onConfirm: async () => {
+        setViewing(true);
+        try { await startViewAs(router, selectedUser.username); }
+        catch (e) { showAlert('View as user', handleAPIError(e)); }
+        finally { setViewing(false); }
+      },
+    });
+  };
   const downloadUserExcel = async () => {
     if (!selectedUser) return;
     if (!canDownload()) { showAlert('Download', 'Excel download is available on the web version.'); return; }
@@ -368,7 +389,7 @@ const AssignAccessScreen = ({ initialUser = null }) => {
     if (needsInventoryScope(userRoles)) {
       try {
         const a = await inventoryAPI.getAccess(user.username);
-        inv = { warehouses: a.warehouses || [], viewers: a.viewers || [], store_code: a.store_code || '' };
+        inv = { warehouses: a.warehouses || [], stores: a.stores || [], store_code: a.store_code || '' };
       } catch (e) {
         console.error('Failed to load inventory access:', e);
       }
@@ -632,9 +653,9 @@ const AssignAccessScreen = ({ initialUser = null }) => {
       if (needsInv || hadInv) {
         await inventoryAPI.setAccess(selectedUser.username, needsInv ? {
           warehouses: invScope.warehouses,
-          viewers: roles.includes(INV_OPERATOR) ? invScope.viewers : [],
+          stores: roles.includes(INV_OPERATOR) ? invScope.stores : [],
           store_code: roles.includes(INV_VIEWER) ? invScope.store_code : null,
-        } : { warehouses: [], viewers: [], store_code: null }, reason);
+        } : { warehouses: [], stores: [], store_code: null }, reason);
       }
 
       // Update personal details
@@ -769,8 +790,18 @@ const AssignAccessScreen = ({ initialUser = null }) => {
               {/* Account Status — top-right corner of the page, always visible.
                   Deactivate/Reactivate saves immediately with its own
                   confirmation; Delete unlocks once deactivated. */}
-              <View style={{ flexShrink: 0, alignItems: 'flex-end', maxWidth: 260, position: 'relative', zIndex: 30 }}>
+              <View style={{ flexShrink: 0, alignItems: 'flex-end', maxWidth: 360, position: 'relative', zIndex: 30 }}>
                 <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  {canViewAs && (
+                    <TouchableOpacity
+                      onPress={handleViewAs}
+                      disabled={viewing}
+                      accessibilityRole="button" accessibilityLabel={`View as ${selectedUser.username} (read only)`}
+                      style={{ borderWidth: 1, borderColor: '#7A4B00', borderRadius: 6, paddingVertical: 5, paddingHorizontal: 10, backgroundColor: '#FFF8E6', minWidth: 74, alignItems: 'center' }}>
+                      {viewing ? <ActivityIndicator size="small" color="#7A4B00" />
+                        : <Text style={{ color: '#7A4B00', fontWeight: '600', fontSize: 12 }}>👁 View as</Text>}
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     onPress={downloadUserExcel}
                     disabled={exportingUser}

@@ -113,6 +113,17 @@ class Settings(BaseSettings):
     # registration with the Graph "Mail.Send" application permission.
     # Leave blank to keep alerts in the app only. The secret lives ONLY here
     # in .env — never in the database, the app screens or chat.
+    # Password policy (27 Nov 2026). false = only RECORD who needs a new
+    # password (Users list / Excel); true = users whose password breaks the
+    # rule must set a new one before using the app. Old-format (Bisleri_01)
+    # passwords always get the "Set a new password" page, whatever this says.
+    ENFORCE_PASSWORD_POLICY: bool = Field(default=False, env="ENFORCE_PASSWORD_POLICY")
+
+    # Documents (27 Nov 2026): folders holding the PDFs listed in the app.
+    # Process Solution Documents = IT Admin only; User Guides = every user.
+    PSD_FOLDER: str = Field(default="", env="PSD_FOLDER")
+    GUIDES_FOLDER: str = Field(default="", env="GUIDES_FOLDER")
+
     GRAPH_TENANT_ID: str = Field(default="", env="GRAPH_TENANT_ID")
     GRAPH_CLIENT_ID: str = Field(default="", env="GRAPH_CLIENT_ID")
     GRAPH_CLIENT_SECRET: str = Field(default="", env="GRAPH_CLIENT_SECRET")

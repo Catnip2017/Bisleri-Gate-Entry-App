@@ -11,6 +11,7 @@
 // there is exactly one dark-mode signal in the app.
 import Head from 'expo-router/head';
 import MobileGate from '../components/ui/MobileGate';
+import { NavRecorder, TabSessionWatch, ViewAsBanner } from '../components/ui/SessionLayer';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
@@ -18,7 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { CustomAlertProvider } from '../utils/customModal';
 import { ThemeProvider as AppThemeProvider, useTheme } from '../contexts/ThemeContext';
-import { LogBox } from 'react-native';
+import { LogBox, View } from 'react-native';
 
 // Suppress all LogBox popups — errors are handled via custom Alert popups only
 LogBox.ignoreAllLogs();
@@ -33,12 +34,21 @@ function AppNavigator() {
     <ThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       {/* Browser-tab title (web) — 25 Nov 2026 UI overhaul */}
       <Head><title>Bisleri Ops Hub</title></Head>
+      {/* Session helpers (27 Nov 2026): page history for "← Back", login
+          changed in another tab, "View as user" banner */}
+      <NavRecorder />
+      <TabSessionWatch />
+      <View style={{ flex: 1 }}>
+      <ViewAsBanner />
+      <View style={{ flex: 1 }}>
       {/* Compulsory mobile number check for every signed-in user (25 Nov 2026) */}
       <MobileGate>
       <Stack screenOptions={{ headerShown: false }}>
         {/* Authentication Flow */}
         <Stack.Screen name="index" />
         <Stack.Screen name="LoginScreen" />
+        {/* "Set a new password" (27 Nov 2026) */}
+        <Stack.Screen name="change-password" />
 
         {/* Landing Screen */}
         <Stack.Screen name="landing/index" />
@@ -76,6 +86,8 @@ function AppNavigator() {
         <Stack.Screen name="+not-found" />
       </Stack>
       </MobileGate>
+      </View>
+      </View>
       {/* "light" = light-coloured icons for a dark background, "dark" =
           dark-coloured icons for a light background — explicit, tied to
           the app's own toggle, not "auto" (which read the OS setting). */}

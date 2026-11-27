@@ -397,7 +397,7 @@ EXPO_PUBLIC_API_URL=https://<host>:19000/api
 
 ## Database Setup & Migrations
 
-The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `c4e8a1f7d2b9`; chain `ed3dc61a3e0f` → `b9e4d2a7c1f5` security → `c4e8a1f7d2b9` inventory).
+The main database is **`bisleri_ecosystem`** (set `DB_NAME` in `.env`). Schema changes are driven by the SQLAlchemy ORM models and tracked with Alembic (current head: `c4e8a1f7d2b9`; chain `ed3dc61a3e0f` → `b9e4d2a7c1f5` security → `a7c3e5d1f9b2` password policy status → `c4e8a1f7d2b9` inventory).
 
 > **Notes:** the hand-written `*_migration.sql` files that were previously applied by hand are archived in `legacy_sql/` (**do not re-run them**). The old `Bisleri_01` database (main branch, 9 tables) is described by `DB Schemas/schema_bisleri_01.sql`, which is **superseded** and kept for reference only.
 
@@ -440,6 +440,8 @@ alembic upgrade b9e4d2a7c1f5   # audit trail, users_master.created_at/last_seen_
 alembic upgrade head           # Blinkit Inventory Portal (item_master columns, blinkit_stores, inventory_*)
 python scripts/load_inventory_masters.py --items FG_Item_Master.xlsx --stores Blinkit_Stores.xlsx
 ```
+
+27 Nov 2026: `a7c3e5d1f9b2` (users_master.password_policy_ok / password_changed_at) now sits between the two, and the inventory revision was changed in place (operators are mapped to Blinkit stores: `inventory_operator_stores`). A database that already had the 26 Nov inventory revision: `alembic downgrade b9e4d2a7c1f5`, pull, `alembic upgrade head`, then reload the store master.
 
 The app runs before either is applied: Security pages say the update is pending and the Inventory Portal answers "not set up yet". `alembic downgrade ed3dc61a3e0f` removes both.
 

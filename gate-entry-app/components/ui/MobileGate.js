@@ -19,7 +19,7 @@ import { authAPI, handleAPIError } from '../../services/api';
 import { storage } from '../../utils/storage';
 import { brand } from '../../contexts/ThemeContext';
 
-const OPEN_ROUTES = ['/', '/LoginScreen', '/index'];
+const OPEN_ROUTES = ['/', '/LoginScreen', '/index', '/change-password'];
 const confirmed = new Set();   // usernames already known to have a mobile (this session)
 
 export default function MobileGate({ children }) {
@@ -37,6 +37,10 @@ export default function MobileGate({ children }) {
       if (OPEN_ROUTES.includes(pathname)) { setState('ok'); return; }
       const u = await getCurrentUser();
       if (!u) { setState('ok'); return; }           // AppShell handles signed-out
+      // Must set a new password first (27 Nov 2026) — that page comes before this one
+      if (u.passwordChange) { router.replace('/change-password'); return; }
+      // An IT Admin's read-only "View as user" preview never asks for the number
+      if (u.viewAsBy) { setState('ok'); return; }
       if (confirmed.has(u.username)) { setState('ok'); return; }
       setUser(u);
       setState((s) => (s === 'needed' ? s : 'checking'));

@@ -62,14 +62,16 @@ def env():
 
 def test_old_password_format_is_clean(env):
     _, db, c = env
+    # 27 Nov 2026: the right old password now opens "Set a new password"
+    # (restricted token) instead of an error — see test_password_viewas_docs.py
     r = c.post("/login", json={"username": "old1", "password": "oldpass"})
-    assert r.status_code == 401 and "old format" in r.json()["detail"]
+    assert r.status_code == 200 and r.json()["password_change_required"] == "legacy"
     r = c.post("/login", json={"username": "old1", "password": "wrong"})
     assert r.status_code == 401 and r.json()["detail"] == "Invalid username or password."
     r = c.post("/login", json={"username": "nobody", "password": "x"})
     assert r.status_code == 401
     acts = [(a.action, a.target_user) for a in db.query(AuditLog).order_by(AuditLog.id).all()]
-    assert acts == [("login_failed", "old1"), ("login_failed", "old1"), ("login_failed", None)]
+    assert acts == [("password_change_required", "old1"), ("login_failed", "old1"), ("login_failed", None)]
     assert c.post("/login", json={"username": "g1", "password": "Secret@1"}).status_code == 200
 
 

@@ -1,19 +1,10 @@
-// app/documents/process-solution-documents.js
-// One of the two "Documents" sub-tabs opened from the global hamburger menu
-// (30 Oct 2026). Pure download list — no preview, no folders, just file +
-// updated date + a download button — per the 30 Oct 2026 decision. `rows`
-// is empty until a storage/upload backend is wired up.
+// app/documents/process-solution-documents.js - Process Solution Documents
+// (IT Admin only, 27 Nov 2026). PDFs are read from PSD_FOLDER on the server
+// (D:\Bisleri Ops Hub\1_Documents\Process Solution Documents); name them
+// <Process_Name>_PSD_v<N>.pdf. Old versions go into the "Archive" sub-folder.
 import React from 'react';
-import { View } from 'react-native';
-import AppShell from '../../components/ui/AppShell';
-import DocumentList from '../../components/ui/DocumentList';
+import DocumentLibrary from '../../components/ui/DocumentLibrary';
 
 export default function ProcessSolutionDocumentsScreen() {
-  return (
-    <AppShell title="Process Solution Documents" backLabel="Back">
-      <View style={{ flex: 1, padding: 16, maxWidth: 560, width: '100%', alignSelf: 'center' }}>
-        <DocumentList rows={[]} />
-      </View>
-    </AppShell>
-  );
+  return <DocumentLibrary kind="psd" title="Process Solution Documents" itAdminOnly />;
 }

@@ -46,8 +46,28 @@ def security_ready(db: Session) -> bool:
     return _ready["value"]
 
 
+_pw_ready = {"value": False, "checked": 0.0}
+
+
+def password_ready(db: Session) -> bool:
+    """users_master.password_policy_ok exists (migration a7c3e5d1f9b2)."""
+    if _pw_ready["value"]:
+        return True
+    now = time.monotonic()
+    if now - _pw_ready["checked"] < 60:
+        return False
+    _pw_ready["checked"] = now
+    try:
+        cols = {c["name"] for c in inspect(db.get_bind()).get_columns("users_master")}
+        _pw_ready["value"] = "password_policy_ok" in cols
+    except Exception:  # noqa: BLE001
+        _pw_ready["value"] = False
+    return _pw_ready["value"]
+
+
 def _reset_ready_cache():   # tests
     _ready.update(value=False, checked=0.0)
+    _pw_ready.update(value=False, checked=0.0)
 
 
 # ── Audit trail ──────────────────────────────────────────────────────────────

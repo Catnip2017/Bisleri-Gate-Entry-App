@@ -26,7 +26,7 @@ import { useCopackerEnabled } from '../../hooks/useCopackerEnabled';
 import {
   APP_VERSION,
   ROLE_LABELS,
-  DOCUMENT_LINKS,
+  getDocumentLinksForRoles,
   getNavLinksForRoles,
 } from '../../config/navConfig';
 
@@ -304,7 +304,7 @@ const NavSidebar = ({ isVisible, onClose, onOpenAccountDetails, userData }) => {
               colors={colors}
               isOpen={openSection === 'documents'}
               onToggle={() => setOpenSection(openSection === 'documents' ? null : 'documents')}
-              rows={DOCUMENT_LINKS.map((link) => renderLink(link, true))}
+              rows={getDocumentLinksForRoles(roles).map((link) => renderLink(link, true))}
             />
           </View>
 

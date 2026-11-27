@@ -30,15 +30,23 @@ Ports and the Python environment are set at the top of each `.bat` file
 the `bisleri-backend\venv` that `setup.bat` creates, or set it to your conda
 environment name (for example `watsonx`).
 
-## Database changes in this release (26 Nov 2026)
+## Database changes (26–27 Nov 2026)
 
 Two Alembic migrations, run from `bisleri-backend`:
 
 ```
 alembic upgrade b9e4d2a7c1f5   # audit trail, last-seen, Security Settings, alerts
-alembic upgrade head           # Blinkit Inventory Portal (after the item/store data arrives)
+alembic upgrade head           # + password policy status (a7c3e5d1f9b2) + Blinkit Inventory Portal
 python scripts/load_inventory_masters.py --items FG_Item_Master.xlsx --stores Blinkit_Stores.xlsx
 ```
 
 Each migration has a `downgrade`. Fresh databases get everything from
 `DB Schemas/schema_bisleri_ecosystem.sql` via `scripts/init_db.py`.
+
+## Backend .env lines added on 27 Nov 2026
+
+```
+ENFORCE_PASSWORD_POLICY=false
+PSD_FOLDER=D:\Bisleri Ops Hub\1_Documents\Process Solution Documents
+GUIDES_FOLDER=D:\Bisleri Ops Hub\1_Documents\User Guides
+```

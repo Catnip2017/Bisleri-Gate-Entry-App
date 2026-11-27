@@ -41,6 +41,11 @@ ACTION_LABELS = {
     "settings_changed": "Security settings changed",
     "alert_dismissed": "Alert dismissed",
     "dormant_check": "Nightly alert check",
+    "password_change_required": "Asked to set a new password",
+    "password_changed": "Password changed (by user)",
+    "password_change_failed": "Password change failed",
+    "view_as_started": "View as user started",
+    "view_as_ended": "View as user ended",
 }
 
 
@@ -215,6 +220,12 @@ def _describe(a: AuditLog) -> str:
     if a.action == "user_deleted":
         bf = d.get("before") or {}
         return f"{bf.get('name') or ''} ({bf.get('role')})".strip()
+    if a.action in ("password_change_required", "password_change_failed"):
+        return d.get("why", "")
+    if a.action == "password_changed":
+        return "new password set by the user" + (" (was old format)" if d.get("from_old_format") else "")
+    if a.action in ("view_as_started", "view_as_ended"):
+        return f"IT Admin {a.actor} previewing {a.target_user}'s pages (read-only)"
     if a.action == "login_failed":
         return d.get("why", "") + (f" ('{d['username_tried']}')" if d.get("username_tried") else "")
     if a.action == "dormant_check":
@@ -294,11 +305,11 @@ class UsersExportIn(BaseModel):
 def _inventory_maps(db: Session):
     """Inventory portal mapping per user, if those tables exist."""
     try:
-        from app.models.inventory import InventoryUserWarehouse, InventoryOperatorViewer, InventoryViewerStore
+        from app.models.inventory import InventoryUserWarehouse, InventoryOperatorStore, InventoryViewerStore
         wh, vw, st = {}, {}, {}
         for u, w in db.query(InventoryUserWarehouse.username, InventoryUserWarehouse.warehouse_code).all():
             wh.setdefault(u, []).append(w)
-        for o, v in db.query(InventoryOperatorViewer.operator_username, InventoryOperatorViewer.viewer_username).all():
+        for o, v in db.query(InventoryOperatorStore.operator_username, InventoryOperatorStore.store_code).all():
             vw.setdefault(o, []).append(v)
         for u, s in db.query(InventoryViewerStore.username, InventoryViewerStore.store_code).all():
             st[u] = s
@@ -325,6 +336,10 @@ def export_users_access(payload: UsersExportIn, db: Session = Depends(get_db),
     inv_wh, inv_vw, inv_st = ({}, {}, {})
     if any({INVENTORY_OPERATOR, INVENTORY_VIEWER} & set(normalize_roles(u.role)) for u in users):
         inv_wh, inv_vw, inv_st = _inventory_maps(db)
+    pw = {}
+    if sec.password_ready(db):
+        pw = {u: ("Not checked yet" if ok is None else "OK" if ok else "Needs update")
+              for (u, ok) in db.query(UsersMaster.username, UsersMaster.password_policy_ok).all()}
     seen = {}
     if sec.security_ready(db):
         for u, c, s in db.query(UsersMaster.username, UsersMaster.created_at, UsersMaster.last_seen_at).all():
@@ -332,8 +347,8 @@ def export_users_access(payload: UsersExportIn, db: Session = Depends(get_db),
 
     wb = Workbook(); ws = wb.active; ws.title = "Users and access"
     heads = ["Username", "First name", "Last name", "Role(s)", "Status", "Warehouse", "Site", "Department",
-             "Gate Pass locations", "Co Packer location", "Inventory warehouses", "Inventory Blinkit users",
-             "Inventory store", "Email", "Mobile", "Last login", "Last seen", "Created"]
+             "Gate Pass locations", "Co Packer location", "Inventory warehouses", "Inventory stores (operator)",
+             "Inventory store (viewer)", "Email", "Mobile", "Last login", "Last seen", "Created", "Password"]
     ws.append(heads)
     for c in ws[1]:
         c.font = Font(bold=True, color="FFFFFF"); c.fill = PatternFill("solid", fgColor="0F6B46")
@@ -350,9 +365,9 @@ def export_users_access(payload: UsersExportIn, db: Session = Depends(get_db),
             ", ".join(sorted(gp.get(u.username, []))) or (u.gate_pass_location or None), u.copacker_location,
             ", ".join(sorted(inv_wh.get(u.username, []))) or None,
             ", ".join(sorted(inv_vw.get(u.username, []))) or None, inv_st.get(u.username),
-            u.email, u.phone_number, fmt(u.last_login), fmt(s), fmt(c),
+            u.email, u.phone_number, fmt(u.last_login), fmt(s), fmt(c), pw.get(u.username),
         ])
-    widths = [16, 14, 14, 30, 10, 28, 8, 14, 28, 18, 22, 22, 14, 26, 12, 16, 16, 16]
+    widths = [16, 14, 14, 30, 10, 28, 8, 14, 28, 18, 22, 22, 14, 26, 12, 16, 16, 16, 16]
     for i, w in enumerate(widths, start=1):
         from openpyxl.utils import get_column_letter
         ws.column_dimensions[get_column_letter(i)].width = w
@@ -364,3 +379,44 @@ def export_users_access(payload: UsersExportIn, db: Session = Depends(get_db),
     tag = users[0].username if payload.usernames is not None and len(users) == 1 else "Users"
     name = f"{tag}_Access_{date.today().isoformat()}.xlsx"
     return StreamingResponse(buf, media_type=XLSX, headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+# ── View as user (27 Nov 2026) ────────────────────────────────────────────────
+# An IT Admin opens another user's pages exactly as that user sees them. The
+# preview token carries "va" = the admin; app.auth.get_current_user refuses
+# every change made with it (server-side, not just hidden buttons). It lasts
+# 30 minutes. Start and end are written to the audit trail.
+@router.post("/view-as/end")
+def end_view_as(request: Request, db: Session = Depends(get_db),
+                current_user: UsersMaster = Depends(get_current_user)):
+    by = getattr(current_user, "view_as_by", None)
+    if by:
+        sec.audit_now(db, by, "view_as_ended", current_user.username, None, None, sec.client_ip(request))
+    return {"ok": True}
+
+
+@router.post("/view-as/{username}")
+def start_view_as(username: str, request: Request, db: Session = Depends(get_db),
+                  current_user: UsersMaster = Depends(get_current_user)):
+    from datetime import timedelta as _td
+    from app.auth import make_token, VIEW_AS_MINUTES
+    if getattr(current_user, "view_as_by", None):
+        raise HTTPException(status_code=400, detail="End the current preview first")
+    _admin(current_user)
+    target = db.query(UsersMaster).filter(UsersMaster.username == username).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.username == current_user.username:
+        raise HTTPException(status_code=400, detail="That is your own account")
+    if "itadmin" in normalize_roles(target.role):
+        raise HTTPException(status_code=403, detail="IT Admin accounts cannot be previewed")
+    if target.is_active is False:
+        raise HTTPException(status_code=400, detail="This account is disabled — enable it first to preview it")
+    if not normalize_roles(target.role):
+        raise HTTPException(status_code=400, detail="This user has no role, so there is nothing to preview")
+    sec.audit(db, current_user.username, "view_as_started", target.username, None, None, sec.client_ip(request))
+    db.commit()
+    token = make_token(target, expires_delta=_td(minutes=VIEW_AS_MINUTES), va=current_user.username)
+    return {"access_token": token, "token_type": "bearer", "minutes": VIEW_AS_MINUTES,
+            "username": target.username,
+            "name": f"{target.first_name or ''} {target.last_name or ''}".strip() or target.username}
