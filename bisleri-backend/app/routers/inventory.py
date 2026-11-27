@@ -314,7 +314,7 @@ def download_template(db: Session = Depends(get_db), current_user: UsersMaster =
     from openpyxl.worksheet.datavalidation import DataValidation
 
     scope = user_scope(db, current_user)
-    if scope["kind"] != "operator":
+    if scope["kind"] not in ("operator", "admin"):      # IT Admin: try the page / check a file (nothing is saved)
         raise HTTPException(status_code=403, detail="Only Bisleri Inventory Operators can upload inventory")
     wh = _wh_names(db, scope["warehouses"])
     stores = _store_names(db, scope["stores"])
@@ -369,7 +369,7 @@ async def upload_check(file: UploadFile = File(...), db: Session = Depends(get_d
     from openpyxl import load_workbook
 
     scope = user_scope(db, current_user)
-    if scope["kind"] != "operator":
+    if scope["kind"] not in ("operator", "admin"):      # IT Admin: try the page / check a file (nothing is saved)
         raise HTTPException(status_code=403, detail="Only Bisleri Inventory Operators can upload inventory")
     if not (file.filename or "").lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="Please upload the .xlsx template")
@@ -453,6 +453,12 @@ def _filtered(db, scope, date_from: date, date_to: date, warehouses: Optional[st
     return q
 
 
+def _as_viewer(scope: dict, as_viewer: bool) -> bool:
+    """A Blinkit viewer always gets the viewer layout. The IT Admin can ask for it
+    (as_viewer=true) to preview that layout; the data scope is not changed."""
+    return scope["kind"] == "viewer" or (scope["kind"] == "admin" and bool(as_viewer))
+
+
 def _row(e: InventoryEntry, wh_names: dict, store_names: dict, viewer: bool) -> dict:
     base = {
         "id": e.id,
@@ -481,6 +487,7 @@ def list_entries(
     date_to: date = Query(...),
     warehouses: Optional[str] = Query(None, max_length=2000),
     stores: Optional[str] = Query(None, max_length=2000),
+    as_viewer: bool = Query(False),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -494,7 +501,7 @@ def list_entries(
         .offset((page - 1) * page_size).limit(page_size).all()
     names = _wh_names(db, {r.warehouse_code for r in rows if not r.warehouse_name})
     snames = _store_names(db, {r.store_code for r in rows})
-    viewer = scope["kind"] == "viewer"
+    viewer = _as_viewer(scope, as_viewer)
     return {
         "total": int(total or 0), "total_cases": int(cases or 0),
         "page": page, "page_size": page_size,
@@ -508,6 +515,7 @@ def export_entries(
     date_to: date = Query(...),
     warehouses: Optional[str] = Query(None, max_length=2000),
     stores: Optional[str] = Query(None, max_length=2000),
+    as_viewer: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: UsersMaster = Depends(get_current_user),
 ):
@@ -516,7 +524,7 @@ def export_entries(
 
     scope = user_scope(db, current_user)
     q = _filtered(db, scope, date_from, date_to, warehouses, stores, MAX_EXPORT_DAYS)
-    viewer = scope["kind"] == "viewer"
+    viewer = _as_viewer(scope, as_viewer)
     names = _wh_names(db)
     snames = _store_names(db)
     if viewer:

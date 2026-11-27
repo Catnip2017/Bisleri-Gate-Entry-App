@@ -182,3 +182,26 @@ def test_template_and_upload(env):
     assert b["valid"][0]["warehouse_name"] == "Mumbai DC"
     bad = c.post("/inventory/upload/check", files={"file": ("x.csv", b"a,b", "text/csv")})
     assert bad.status_code == 400
+
+
+def test_admin_can_try_entry_and_preview_viewer_layout(env):
+    # 27 Nov 2026: IT Admin opens every tab; Entry can be tried but nothing is saved,
+    # and the viewer layout can be previewed (data scope unchanged).
+    as_, _ = env
+    as_("op1").post("/inventory/batches", json={"lines": [line(batch_no="B9")]})
+    adm = as_("adm")
+    assert adm.get("/inventory/dashboard").status_code == 200
+    assert adm.get("/inventory/template").status_code == 200
+    up = adm.post("/inventory/upload/check", files={"file": ("x.txt", b"x")})
+    assert up.status_code == 400                         # reaches the file check (not 403)
+    assert adm.post("/inventory/batches", json={"lines": [line()]}).status_code == 403   # still cannot save
+    t = inv._today().isoformat()
+    full = adm.get(f"/inventory/entries?date_from={t}&date_to={t}").json()
+    assert "batch_no" in full["results"][0] and "created_by" in full["results"][0]
+    pv = adm.get(f"/inventory/entries?date_from={t}&date_to={t}&as_viewer=true&stores=C100").json()
+    assert pv["total"] == 1 and "batch_no" not in pv["results"][0] and "created_by" not in pv["results"][0]
+    assert adm.get(f"/inventory/entries?date_from={t}&date_to={t}&as_viewer=true&stores=C200").json()["total"] == 0
+    assert adm.get(f"/inventory/export?date_from={t}&date_to={t}&as_viewer=true").status_code == 200
+    # a normal operator cannot use the preview flag to change anything
+    op = as_("op1").get(f"/inventory/entries?date_from={t}&date_to={t}&as_viewer=true").json()
+    assert "batch_no" in op["results"][0]

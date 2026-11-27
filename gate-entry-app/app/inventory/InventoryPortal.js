@@ -5,7 +5,9 @@
 //
 //   Bisleri Inventory Operator : Dashboard · Inventory Entry · Inventory View · Inventory History
 //   Blinkit Inventory Viewer   : Inventory View · Inventory History
-//   IT Admin (Admin Hub tile)  : Inventory View · Inventory History (everything)
+//   IT Admin (Admin Hub tile)  : a switch at the top - 'Bisleri Operator' layout (all four pages) or
+//                                'Blinkit Viewer' layout (View + History, with a 'Preview store' picker).
+//                                All data is shown; Entry can be tried but nothing is saved.
 //
 // All scope rules live on the server (/inventory/*): the screen only shows
 // what the API returns. Rules mirrored here for instant feedback: date today
@@ -173,7 +175,7 @@ function SkuPicker({ value, onChange, error }) {
 }
 
 // ── Dashboard (operator) ─────────────────────────────────────────────────────
-function DashboardPage({ user, onGo, active }) {
+function DashboardPage({ user, onGo, active, admin }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState('');
   const load = useCallback(async () => {
@@ -190,7 +192,7 @@ function DashboardPage({ user, onGo, active }) {
         <View style={{ flex: 1, minWidth: 220 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: C.deep }}>Welcome{user?.firstName ? `, ${user.firstName}` : ''}</Text>
           <Text style={{ fontSize: 13.5, color: C.sub, marginTop: 3 }}>
-            Record today's stock for your Blinkit stores. Lines can't be edited after Submit All.
+            {admin ? "All warehouses and stores. Entry can be tried here, but IT Admin can't submit inventory." : "Record today's stock for your Blinkit stores. Lines can't be edited after Submit All."}
           </Text>
         </View>
         <Btn label="Inventory Entry" icon="add-box" onPress={() => onGo('entry')} />
@@ -203,10 +205,10 @@ function DashboardPage({ user, onGo, active }) {
             <Stat label="Lines today" value={d.lines_today} icon="list-alt" />
             <Stat label="Cases today" value={d.cases_today.toLocaleString('en-IN')} icon="inventory-2" />
             <Stat label="Stores today" value={d.stores_today} icon="storefront" />
-            <Stat label="Mapped warehouses" value={d.warehouses.length} icon="warehouse" />
+            <Stat label={admin ? 'Warehouses' : 'Mapped warehouses'} value={d.warehouses.length} icon="warehouse" />
           </View>
           <View style={card}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 10 }}>Your warehouses</Text>
+            <Text style={{ fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 10 }}>{admin ? 'All warehouses' : 'Your warehouses'}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {d.warehouses.map((w) => (
                 <View key={w.code} style={{ backgroundColor: C.soft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
@@ -224,7 +226,7 @@ function DashboardPage({ user, onGo, active }) {
 // ── Inventory Entry (operator) ───────────────────────────────────────────────
 let lineSeq = 1;
 
-function EntryPage({ lookups, lines, setLines }) {
+function EntryPage({ lookups, lines, setLines, readOnly }) {
   const today = lookups.today;
   const whOptions = lookups.warehouses.map((w) => ({ value: w.code, label: w.name ? `${w.code} — ${w.name}` : w.code }));
   const storeOptions = lookups.stores.map((c) => ({ value: c.code, label: c.label }));
@@ -294,7 +296,7 @@ function EntryPage({ lookups, lines, setLines }) {
 
   const totalCases = lines.reduce((s, l) => s + (l.quantity || 0), 0);
   const submitAll = () => {
-    if (!lines.length) return;
+    if (!lines.length || readOnly) return;
     confirmAction({
       title: 'Submit All',
       message: `Save ${lines.length} line(s), ${totalCases.toLocaleString('en-IN')} case(s)? Lines can't be edited or deleted after saving.`,
@@ -332,6 +334,14 @@ function EntryPage({ lookups, lines, setLines }) {
 
   return (
     <View style={{ gap: 16 }}>
+      {readOnly && (
+        <View style={[card, { backgroundColor: '#FFF8E6', borderColor: '#F3D58A', flexDirection: 'row', alignItems: 'center', gap: 10 }]} testID="inv-admin-note">
+          <MaterialIcons name="info-outline" size={20} color="#7A5A00" />
+          <Text style={{ color: '#7A5A00', fontSize: 13.5, flex: 1 }}>
+            Preview only: IT Admin can't submit inventory — use a Bisleri Inventory Operator account. You can try the form and check an Excel file here; nothing is saved.
+          </Text>
+        </View>
+      )}
       {/* Bulk upload */}
       <View style={card}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -424,7 +434,7 @@ function EntryPage({ lookups, lines, setLines }) {
             Lines to submit <Text style={{ color: C.sub, fontWeight: '400', fontSize: 13.5 }}>· {lines.length} line(s) · {totalCases.toLocaleString('en-IN')} case(s)</Text>
           </Text>
           <Btn label="Clear" icon="delete-sweep" kind="danger" onPress={clearAll} disabled={!lines.length || submitting} small />
-          <Btn label="Submit All" icon="cloud-upload" onPress={submitAll} disabled={!lines.length} busy={submitting} small testID="inv-submit" />
+          <Btn label="Submit All" icon="cloud-upload" onPress={submitAll} disabled={!lines.length || readOnly} busy={submitting} small testID="inv-submit" />
         </View>
         {lines.length === 0 ? (
           <Text style={{ color: C.muted, fontSize: 13, paddingVertical: 16, textAlign: 'center' }}>
@@ -482,7 +492,7 @@ function Row({ cells, widths, head, tint }) {
 // ── Inventory View (one date) / History (range) ──────────────────────────────
 const PAGE = 25;
 
-function EntriesPage({ mode, lookups, active }) {
+function EntriesPage({ mode, lookups, active, asViewer, previewStore }) {
   const today = lookups.today;
   const viewer = lookups.kind === 'viewer';
   const max = lookups.max_search_days || 92;
@@ -503,8 +513,10 @@ function EntriesPage({ mode, lookups, active }) {
       : daysBetween(range[0], range[1]) > max ? `Please choose at most ${max} days` : '';
   const params = useMemo(() => ({
     date_from: range[0], date_to: range[1],
-    warehouses: whSel.join(',') || undefined, stores: custSel.join(',') || undefined,
-  }), [range[0], range[1], whSel, custSel]);  // eslint-disable-line react-hooks/exhaustive-deps
+    warehouses: whSel.join(',') || undefined,
+    stores: asViewer ? (previewStore || undefined) : (custSel.join(',') || undefined),
+    as_viewer: asViewer ? true : undefined,
+  }), [range[0], range[1], whSel, custSel, asViewer, previewStore]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { setPage(1); }, [params]);
   useEffect(() => {
@@ -626,24 +638,43 @@ export default function InventoryPortal() {
   const [tab, setTab] = useState(null);
   const [visited, setVisited] = useState({});
   const [lines, setLines] = useState([]);   // unsaved entry lines survive tab switches
+  const [layout, setLayoutState] = useState('operator');   // IT Admin only: 'operator' | 'viewer'
+  const [previewStore, setPreviewStore] = useState('');    // IT Admin, viewer layout: '' = all stores
 
   useEffect(() => {
     getCurrentUser().then(setUser);
     inventoryAPI.lookups()
-      .then((l) => { setLookups(l); const first = l.kind === 'operator' ? 'dashboard' : 'view'; setTab(first); setVisited({ [first]: true }); })
+      .then((l) => {
+        let lay = 'operator';
+        if (l.kind === 'admin') {
+          try { if (typeof window !== 'undefined' && window.localStorage.getItem('inv_admin_layout') === 'viewer') lay = 'viewer'; } catch (e) { /* storage may be blocked */ }
+          setLayoutState(lay);
+        }
+        const first = (l.kind === 'operator' || (l.kind === 'admin' && lay === 'operator')) ? 'dashboard' : 'view';
+        setLookups(l); setTab(first); setVisited({ [first]: true });
+      })
       .catch((e) => setError(handleAPIError(e)));
   }, []);
 
   // Warn before closing / reloading the browser tab with unsaved lines.
   useEffect(() => {
-    if (Platform.OS !== 'web' || !lines.length) return undefined;
+    if (Platform.OS !== 'web' || !lines.length || lookups?.kind === 'admin') return undefined;
     const h = (e) => { e.preventDefault(); e.returnValue = ''; return ''; };
     window.addEventListener('beforeunload', h);
     return () => window.removeEventListener('beforeunload', h);
-  }, [lines.length]);
+  }, [lines.length, lookups]);
 
-  const tabs = !lookups ? [] : lookups.kind === 'operator' ? ['dashboard', 'entry', 'view', 'history'] : ['view', 'history'];
+  const isAdminKind = lookups?.kind === 'admin';
+  // What the pages are told they are looking at (IT Admin: the chosen layout).
+  const eff = !lookups ? null : isAdminKind ? { ...lookups, kind: layout === 'viewer' ? 'viewer' : 'operator' } : lookups;
+  const tabs = !eff ? [] : eff.kind === 'operator' ? ['dashboard', 'entry', 'view', 'history'] : ['view', 'history'];
   const go = (t) => { setTab(t); setVisited((v) => ({ ...v, [t]: true })); };
+  const setLayout = (lay) => {
+    setLayoutState(lay);
+    try { if (typeof window !== 'undefined') window.localStorage.setItem('inv_admin_layout', lay); } catch (e) { /* ignore */ }
+    if (lay === 'viewer' && (tab === 'dashboard' || tab === 'entry')) go('view');
+    if (lay === 'operator' && tab !== 'dashboard' && tab !== 'entry' && tab !== 'view' && tab !== 'history') go('dashboard');
+  };
   const isItAdmin = (user?.roles || []).includes('itadmin');
   const appNav = !lookups ? null : {
     title: 'Blinkit Inventory Portal',
@@ -687,6 +718,31 @@ export default function InventoryPortal() {
                 ))}
               </ScrollView>
             )}
+            {isAdminKind && (
+              <View style={[card, { marginBottom: 14, padding: 14, zIndex: 50, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 }]} testID="inv-layout-switch">
+                <Text style={{ fontSize: 13.5, fontWeight: '700', color: C.text }}>Page layout</Text>
+                <View style={{ flexDirection: 'row', borderWidth: 1, borderColor: C.border, borderRadius: 10, overflow: 'hidden' }}>
+                  {[['operator', 'Bisleri Operator'], ['viewer', 'Blinkit Viewer']].map(([k, label]) => (
+                    <TouchableOpacity key={k} onPress={() => setLayout(k)} accessibilityRole="button" accessibilityState={{ selected: layout === k }}
+                      testID={`inv-layout-${k}`}
+                      style={{ paddingHorizontal: 16, minHeight: 38, justifyContent: 'center', backgroundColor: layout === k ? C.green : '#fff' }}>
+                      <Text style={{ fontWeight: '700', fontSize: 13, color: layout === k ? '#fff' : C.text }}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {layout === 'viewer' && (
+                  <View style={{ minWidth: 240, flex: 1, maxWidth: 380, zIndex: 50 }}>
+                    <SearchSelect name="Preview store" options={[{ value: '__all', label: 'All stores' }, ...lookups.stores.map((c) => ({ value: c.code, label: c.label }))]}
+                      value={previewStore || '__all'} onChange={(v) => setPreviewStore(!v || v === '__all' ? '' : v)} placeholder="Preview store" />
+                  </View>
+                )}
+                <Text style={{ fontSize: 12.5, color: C.sub, flexBasis: '100%' }}>
+                  {layout === 'viewer'
+                    ? 'Shows the pages as a Blinkit Inventory Viewer sees them. Pick a store to see that viewer\'s data.'
+                    : 'Shows the pages as a Bisleri Inventory Operator sees them, for all warehouses and stores. Submit is switched off for IT Admin.'}
+                </Text>
+              </View>
+            )}
             {lookups.kind === 'operator' && (lookups.warehouses.length === 0 || lookups.stores.length === 0) && (
               <View style={[card, { backgroundColor: '#FFF8E6', borderColor: '#F3D58A', marginBottom: 14 }]}>
                 <Text style={{ color: '#7A5A00', fontSize: 13.5 }}>
@@ -694,10 +750,10 @@ export default function InventoryPortal() {
                 </Text>
               </View>
             )}
-            {visited.dashboard && <View style={{ display: tab === 'dashboard' ? 'flex' : 'none' }}><DashboardPage user={user} onGo={go} active={tab === 'dashboard'} /></View>}
-            {visited.entry && <View style={{ display: tab === 'entry' ? 'flex' : 'none' }}><EntryPage lookups={lookups} lines={lines} setLines={setLines} /></View>}
-            {visited.view && <View style={{ display: tab === 'view' ? 'flex' : 'none' }}><EntriesPage mode="view" lookups={lookups} active={tab === 'view'} /></View>}
-            {visited.history && <View style={{ display: tab === 'history' ? 'flex' : 'none' }}><EntriesPage mode="history" lookups={lookups} active={tab === 'history'} /></View>}
+            {visited.dashboard && <View style={{ display: tab === 'dashboard' ? 'flex' : 'none' }}><DashboardPage user={user} onGo={go} active={tab === 'dashboard'} admin={isAdminKind} /></View>}
+            {visited.entry && <View style={{ display: tab === 'entry' ? 'flex' : 'none' }}><EntryPage lookups={lookups} lines={lines} setLines={setLines} readOnly={isAdminKind} /></View>}
+            {visited.view && <View style={{ display: tab === 'view' ? 'flex' : 'none' }}><EntriesPage mode="view" lookups={eff} active={tab === 'view'} asViewer={isAdminKind && layout === 'viewer'} previewStore={previewStore} /></View>}
+            {visited.history && <View style={{ display: tab === 'history' ? 'flex' : 'none' }}><EntriesPage mode="history" lookups={eff} active={tab === 'history'} asViewer={isAdminKind && layout === 'viewer'} previewStore={previewStore} /></View>}
           </>
         )}
       </ScrollView>
